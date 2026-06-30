@@ -12,6 +12,10 @@ struct ContentView: View {
     }
 
     private var actionTitle: String {
+        if controller.isAuthenticatingUnlock {
+            return "Authenticating..."
+        }
+
         if controller.isChangingState {
             return controller.isUnlocked ? "Locking..." : "Unlocking..."
         }
@@ -130,6 +134,7 @@ struct ContentView: View {
             }
 
             metric(title: "Pairing", value: controller.pairingState, icon: "key.horizontal.fill")
+            unlockAuthenticationToggle
 
             if controller.canPair {
                 Label("Tap Pair This iPhone, then approve its code over USB-C.", systemImage: "key.fill")
@@ -208,7 +213,7 @@ struct ContentView: View {
                             axis: (x: 0, y: 1, z: 0),
                             perspective: 0.55
                         )
-                        .scaleEffect(controller.isChangingState && motionPhase ? 0.9 : 1.0)
+                        .scaleEffect(controller.isBusy && motionPhase ? 0.9 : 1.0)
                 }
                 .frame(width: 118, height: 118)
 
@@ -231,10 +236,10 @@ struct ContentView: View {
                     .stroke(Color.white.opacity(0.22))
             }
             .shadow(color: accent.opacity(0.28), radius: 24, y: 14)
-            .opacity(controller.isReady && !controller.isChangingState ? 1.0 : 0.55)
+            .opacity(controller.isReady && !controller.isBusy ? 1.0 : 0.55)
         }
         .buttonStyle(.plain)
-        .disabled(!controller.isReady || controller.isChangingState)
+        .disabled(!controller.isReady || controller.isBusy)
         .accessibilityLabel(actionTitle)
     }
 
@@ -288,6 +293,25 @@ struct ContentView: View {
             .buttonStyle(.bordered)
             .controlSize(.large)
         }
+    }
+
+    private var unlockAuthenticationToggle: some View {
+        Toggle(isOn: $controller.requiresUnlockAuthentication) {
+            HStack(spacing: 8) {
+                Image(systemName: "faceid")
+                    .foregroundStyle(accent)
+                Text("Face ID / Passcode")
+                    .font(.caption.weight(.bold))
+                Spacer(minLength: 8)
+                Text(controller.requiresUnlockAuthentication ? "On" : "Off")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .toggleStyle(.switch)
+        .tint(accent)
+        .padding(12)
+        .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     private var pairingApprovalPanel: some View {

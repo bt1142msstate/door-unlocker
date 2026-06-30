@@ -87,6 +87,7 @@ The app provides:
 - One main state toggle for Lock/Unlock.
 - BLE connection management.
 - USB-gated pairing that sends only the phone public key to the XIAO and requires typing the app's approval code over USB-C.
+- Optional Face ID/passcode confirmation before sending unlock commands.
 - Siri/App Intents for voice and shortcut automation.
 - A home screen widget.
 - A Control Widget so the project can appear in iOS Controls and be assigned to the Action Button on supported iPhones.

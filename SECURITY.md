@@ -10,6 +10,8 @@ The iPhone app generates a P-256 signing key locally. It prefers Secure Enclave 
 
 The XIAO stores trusted phone public keys in internal flash and accepts only `v2` commands with valid ECDSA signatures and increasing per-phone counters.
 
+The iPhone app also has an optional setting to require Face ID or the device passcode before it signs an unlock command. This setting is off by default for convenience, and locking does not require extra authentication.
+
 ## Pairing
 
 BLE pairing is locked by default. To add a phone, connect the XIAO over USB-C, open the serial monitor, and send `pair on`. Then connect with the iPhone app and tap **Pair This iPhone** while pairing mode is enabled. The app shows a short approval code, and the XIAO prints the matching pending phone fingerprint over USB serial. Type `pair approve CODE` only when the app and USB serial output match. Pairing mode turns itself off after approval.

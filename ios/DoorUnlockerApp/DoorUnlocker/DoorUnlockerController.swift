@@ -1,5 +1,6 @@
 import CoreBluetooth
 import Foundation
+import LocalAuthentication
 import WidgetKit
 
 @MainActor
@@ -15,8 +16,15 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     @Published private(set) var servoState = "unknown"
     @Published private(set) var pairingState = "Unknown"
     @Published private(set) var pairingApprovalCode: String?
+    @Published private(set) var isAuthenticatingUnlock = false
+    @Published var requiresUnlockAuthentication = UserDefaults.standard.bool(forKey: DoorUnlockerController.unlockAuthenticationKey) {
+        didSet {
+            UserDefaults.standard.set(requiresUnlockAuthentication, forKey: Self.unlockAuthenticationKey)
+        }
+    }
     @Published var lastError: String?
 
+    private static let unlockAuthenticationKey = "RequireUnlockAuthentication"
     private let serviceUUID = CBUUID(string: "7A5A1000-2B8D-4C3E-94E7-0B3C0DDAAF10")
     private let commandUUID = CBUUID(string: "7A5A1001-2B8D-4C3E-94E7-0B3C0DDAAF10")
     private let stateUUID = CBUUID(string: "7A5A1002-2B8D-4C3E-94E7-0B3C0DDAAF10")
@@ -60,6 +68,10 @@ final class DoorUnlockerController: NSObject, ObservableObject {
 
     var isChangingState: Bool {
         servoState == "locking" || servoState == "unlocking"
+    }
+
+    var isBusy: Bool {
+        isChangingState || isAuthenticatingUnlock
     }
 
     private var hasKnownLockState: Bool {
@@ -134,6 +146,17 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     }
 
     func send(_ command: Command) {
+        if command == .unlock && requiresUnlockAuthentication {
+            Task {
+                await authenticateAndSendUnlock()
+            }
+            return
+        }
+
+        sendAuthenticated(command)
+    }
+
+    private func sendAuthenticated(_ command: Command) {
         guard let peripheral, let commandCharacteristic else {
             lastError = "Not connected"
             return
@@ -161,6 +184,33 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         peripheral.writeValue(data, for: commandCharacteristic, type: writeType)
         servoState = command == .unlock ? "unlocking" : "locking"
         publishWidgetState(servoState)
+    }
+
+    private func authenticateAndSendUnlock() async {
+        guard !isAuthenticatingUnlock else { return }
+
+        isAuthenticatingUnlock = true
+        defer { isAuthenticatingUnlock = false }
+
+        let context = LAContext()
+        context.localizedCancelTitle = "Cancel"
+
+        var error: NSError?
+        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
+            lastError = "Set up Face ID or a device passcode to protect unlock"
+            return
+        }
+
+        do {
+            let allowed = try await context.evaluatePolicy(
+                .deviceOwnerAuthentication,
+                localizedReason: "Authenticate to unlock Door Unlocker."
+            )
+            guard allowed else { return }
+            sendAuthenticated(.unlock)
+        } catch {
+            lastError = "Unlock authentication canceled"
+        }
     }
 
     func pairThisPhone() {
