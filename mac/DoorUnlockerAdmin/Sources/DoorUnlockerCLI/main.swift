@@ -128,7 +128,8 @@ enum DoorUnlockerCLI {
             try runStatusCommand("app remove \(command[1])", connection: connection)
         case "rename":
             guard command.count >= 3 else { throw CLIError.missingRenameArguments }
-            let name = command.dropFirst(2).joined(separator: " ")
+            let name = DoorDeviceNameNormalizer.normalized(command.dropFirst(2).joined(separator: " "), fallback: "")
+            guard !name.isEmpty else { throw CLIError.missingRenameArguments }
             try runStatusCommand("app rename \(command[1]) \(name)", connection: connection)
         case "clear":
             try runStatusCommand("app clear pairs", connection: connection)

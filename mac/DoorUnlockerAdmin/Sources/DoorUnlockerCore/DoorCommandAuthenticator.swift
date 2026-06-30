@@ -72,15 +72,7 @@ public enum DoorCommandAuthenticator {
     }
 
     private static func sanitizedDeviceNameData(_ name: String) -> Data {
-        let trimmed = name
-            .replacingOccurrences(of: "\n", with: " ")
-            .replacingOccurrences(of: "\r", with: " ")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let fallback = trimmed.isEmpty ? "Mac" : trimmed
-        let ascii = fallback.unicodeScalars.map { scalar -> UInt8 in
-            scalar.isASCII && scalar.value >= 32 && scalar.value <= 126 ? UInt8(scalar.value) : UInt8(ascii: "?")
-        }
-        return Data(ascii.prefix(maximumPairingDeviceNameLength))
+        Data(DoorDeviceNameNormalizer.normalized(name, fallback: "Mac", maximumLength: maximumPairingDeviceNameLength).utf8)
     }
 
     private static func identity() throws -> SigningIdentity {

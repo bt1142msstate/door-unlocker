@@ -92,13 +92,27 @@ enum DoorCommandAuthenticator {
     }
 
     private static func sanitizedDeviceNameData(_ name: String) -> Data {
-        let trimmed = name
+        let normalized = name
+            .replacingOccurrences(of: "\u{2018}", with: "'")
+            .replacingOccurrences(of: "\u{2019}", with: "'")
+            .replacingOccurrences(of: "\u{201B}", with: "'")
+            .replacingOccurrences(of: "\u{2032}", with: "'")
+            .replacingOccurrences(of: "\u{201C}", with: "\"")
+            .replacingOccurrences(of: "\u{201D}", with: "\"")
+            .replacingOccurrences(of: "\u{201E}", with: "\"")
+            .replacingOccurrences(of: "\u{2033}", with: "\"")
+            .replacingOccurrences(of: "\u{2010}", with: "-")
+            .replacingOccurrences(of: "\u{2011}", with: "-")
+            .replacingOccurrences(of: "\u{2012}", with: "-")
+            .replacingOccurrences(of: "\u{2013}", with: "-")
+            .replacingOccurrences(of: "\u{2014}", with: "-")
+            .replacingOccurrences(of: "\u{2026}", with: "...")
             .replacingOccurrences(of: "\n", with: " ")
             .replacingOccurrences(of: "\r", with: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        let fallback = trimmed.isEmpty ? "iPhone" : trimmed
-        let ascii = fallback.unicodeScalars.map { scalar -> UInt8 in
-            scalar.isASCII && scalar.value >= 32 && scalar.value <= 126 ? UInt8(scalar.value) : UInt8(ascii: "?")
+        let fallback = normalized.isEmpty ? "iPhone" : normalized
+        let ascii = fallback.unicodeScalars.compactMap { scalar -> UInt8? in
+            scalar.isASCII && scalar.value >= 32 && scalar.value <= 126 ? UInt8(scalar.value) : nil
         }
         return Data(ascii.prefix(maximumPairingDeviceNameLength))
     }

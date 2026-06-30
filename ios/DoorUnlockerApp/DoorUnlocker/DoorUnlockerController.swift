@@ -181,15 +181,33 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     }
 
     private static func sanitizedDeviceDisplayName(_ name: String) -> String {
-        let normalized = name
+        let normalized = normalizedDeviceNameSource(name)
+        let fallback = normalized.isEmpty ? "iPhone" : normalized
+        let ascii = fallback.unicodeScalars.compactMap { scalar -> String? in
+            scalar.isASCII && scalar.value >= 32 && scalar.value <= 126 ? String(scalar) : nil
+        }
+        return String(ascii.joined().prefix(maximumDeviceDisplayNameLength)).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func normalizedDeviceNameSource(_ name: String) -> String {
+        name
+            .replacingOccurrences(of: "\u{2018}", with: "'")
+            .replacingOccurrences(of: "\u{2019}", with: "'")
+            .replacingOccurrences(of: "\u{201B}", with: "'")
+            .replacingOccurrences(of: "\u{2032}", with: "'")
+            .replacingOccurrences(of: "\u{201C}", with: "\"")
+            .replacingOccurrences(of: "\u{201D}", with: "\"")
+            .replacingOccurrences(of: "\u{201E}", with: "\"")
+            .replacingOccurrences(of: "\u{2033}", with: "\"")
+            .replacingOccurrences(of: "\u{2010}", with: "-")
+            .replacingOccurrences(of: "\u{2011}", with: "-")
+            .replacingOccurrences(of: "\u{2012}", with: "-")
+            .replacingOccurrences(of: "\u{2013}", with: "-")
+            .replacingOccurrences(of: "\u{2014}", with: "-")
+            .replacingOccurrences(of: "\u{2026}", with: "...")
             .replacingOccurrences(of: "\n", with: " ")
             .replacingOccurrences(of: "\r", with: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        let fallback = normalized.isEmpty ? "iPhone" : normalized
-        let ascii = fallback.unicodeScalars.map { scalar -> String in
-            scalar.isASCII && scalar.value >= 32 && scalar.value <= 126 ? String(scalar) : "?"
-        }
-        return String(ascii.joined().prefix(maximumDeviceDisplayNameLength)).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private static func clampedAutoLockSeconds(_ seconds: Int) -> Int {

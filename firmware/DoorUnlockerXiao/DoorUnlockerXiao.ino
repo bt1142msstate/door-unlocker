@@ -267,6 +267,86 @@ bool pairingCodeMatches(const char* expected, const char* provided) {
   return *expected == 0 && *provided == 0;
 }
 
+void appendSanitizedDeviceNameChar(char character, char* output, size_t outputLen, size_t& writeIndex, bool& previousWasSpace) {
+  if (writeIndex >= outputLen - 1) {
+    return;
+  }
+
+  if (character == '\t' || character == '\r' || character == '\n') {
+    character = ' ';
+  }
+
+  bool isPrintable = character >= 32 && character <= 126;
+  if (!isPrintable) {
+    return;
+  }
+
+  if (character == ' ') {
+    if (writeIndex == 0 || previousWasSpace) {
+      return;
+    }
+    previousWasSpace = true;
+  } else {
+    previousWasSpace = false;
+  }
+
+  output[writeIndex++] = character;
+}
+
+void appendSanitizedDeviceNameText(const char* text, char* output, size_t outputLen, size_t& writeIndex, bool& previousWasSpace) {
+  if (text == nullptr) {
+    return;
+  }
+
+  for (size_t index = 0; text[index] != 0 && writeIndex < outputLen - 1; index++) {
+    appendSanitizedDeviceNameChar(text[index], output, outputLen, writeIndex, previousWasSpace);
+  }
+}
+
+bool normalizedDeviceNameUtf8Replacement(const uint8_t* rawName, size_t rawLen, size_t readIndex, const char** replacement, size_t* consumed) {
+  if (replacement == nullptr || consumed == nullptr) {
+    return false;
+  }
+
+  *replacement = nullptr;
+  *consumed = 0;
+
+  if (rawName == nullptr || readIndex + 2 >= rawLen || rawName[readIndex] != 0xE2 || rawName[readIndex + 1] != 0x80) {
+    return false;
+  }
+
+  switch (rawName[readIndex + 2]) {
+    case 0x90: // U+2010 hyphen
+    case 0x91: // U+2011 non-breaking hyphen
+    case 0x92: // U+2012 figure dash
+    case 0x93: // U+2013 en dash
+    case 0x94: // U+2014 em dash
+      *replacement = "-";
+      *consumed = 3;
+      return true;
+    case 0x98: // U+2018 left single quotation mark
+    case 0x99: // U+2019 right single quotation mark
+    case 0x9B: // U+201B single high-reversed-9 quotation mark
+    case 0xB2: // U+2032 prime
+      *replacement = "'";
+      *consumed = 3;
+      return true;
+    case 0x9C: // U+201C left double quotation mark
+    case 0x9D: // U+201D right double quotation mark
+    case 0x9E: // U+201E double low-9 quotation mark
+    case 0xB3: // U+2033 double prime
+      *replacement = "\"";
+      *consumed = 3;
+      return true;
+    case 0xA6: // U+2026 ellipsis
+      *replacement = "...";
+      *consumed = 3;
+      return true;
+    default:
+      return false;
+  }
+}
+
 void sanitizeDeviceName(const uint8_t* rawName, size_t rawLen, char* output, size_t outputLen) {
   if (output == nullptr || outputLen == 0) {
     return;
@@ -285,26 +365,15 @@ void sanitizeDeviceName(const uint8_t* rawName, size_t rawLen, char* output, siz
       break;
     }
 
-    bool isPrintable = value >= 32 && value <= 126;
-    if (!isPrintable) {
+    const char* replacement = nullptr;
+    size_t consumed = 0;
+    if (normalizedDeviceNameUtf8Replacement(rawName, rawLen, readIndex, &replacement, &consumed)) {
+      appendSanitizedDeviceNameText(replacement, output, outputLen, writeIndex, previousWasSpace);
+      readIndex += consumed - 1;
       continue;
     }
 
-    char character = (char) value;
-    if (character == '\t' || character == '\r' || character == '\n') {
-      character = ' ';
-    }
-
-    if (character == ' ') {
-      if (writeIndex == 0 || previousWasSpace) {
-        continue;
-      }
-      previousWasSpace = true;
-    } else {
-      previousWasSpace = false;
-    }
-
-    output[writeIndex++] = character;
+    appendSanitizedDeviceNameChar((char) value, output, outputLen, writeIndex, previousWasSpace);
   }
 
   while (writeIndex > 0 && output[writeIndex - 1] == ' ') {

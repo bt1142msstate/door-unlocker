@@ -223,10 +223,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
             return
         }
 
-        let deviceName = name
-            .replacingOccurrences(of: "\n", with: " ")
-            .replacingOccurrences(of: "\r", with: " ")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let deviceName = DoorDeviceNameNormalizer.normalized(name, fallback: "")
         guard !deviceName.isEmpty else {
             lastError = "Enter a device name."
             return
