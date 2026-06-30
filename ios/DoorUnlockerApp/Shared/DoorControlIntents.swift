@@ -8,7 +8,7 @@ struct LockDoorIntent: AppIntent {
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         DoorCommandStore.request(.lock)
-        return .result(dialog: "Door Unlocker is locking.")
+        return .result(dialog: "Door locked.")
     }
 }
 
@@ -20,7 +20,7 @@ struct UnlockDoorIntent: AppIntent {
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         DoorCommandStore.request(.unlock)
-        return .result(dialog: "Door Unlocker is unlocking.")
+        return .result(dialog: "Door unlocked.")
     }
 }
 
@@ -35,15 +35,15 @@ struct ToggleDoorIntent: AppIntent {
 
         if snapshot.isUnlocked {
             DoorCommandStore.request(.lock)
-            return .result(dialog: "Door Unlocker is locking.")
+            return .result(dialog: "Door locked.")
         }
 
         if snapshot.state == "locked" || snapshot.state == "locking" {
             DoorCommandStore.request(.unlock)
-            return .result(dialog: "Door Unlocker is unlocking.")
+            return .result(dialog: "Door unlocked.")
         }
 
         DoorCommandStore.request(.toggle)
-        return .result(dialog: "Door Unlocker is toggling.")
+        return .result(dialog: "Door toggled.")
     }
 }
