@@ -196,7 +196,7 @@ private struct CompactCountdownIcon: View {
     var body: some View {
         ZStack {
             ProgressView(timerInterval: timerRange(until: deadline), countsDown: true)
-                .progressViewStyle(CompactCountdownProgressStyle(color: color))
+                .progressViewStyle(.circular)
                 .tint(color)
                 .labelsHidden()
 
@@ -205,22 +205,6 @@ private struct CompactCountdownIcon: View {
                 .foregroundStyle(color)
         }
         .frame(width: 18, height: 18)
-    }
-}
-
-private struct CompactCountdownProgressStyle: ProgressViewStyle {
-    let color: Color
-
-    func makeBody(configuration: Configuration) -> some View {
-        ZStack {
-            Circle()
-                .stroke(color.opacity(0.24), lineWidth: 2)
-
-            Circle()
-                .trim(from: 0, to: CGFloat(configuration.fractionCompleted ?? 0))
-                .stroke(color, style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-        }
     }
 }
 
