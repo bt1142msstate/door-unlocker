@@ -25,6 +25,7 @@ struct ControllerStatus: Equatable {
     var isUnlocked = false
     var autoLockSeconds = 30
     var autoLockRemainingSeconds: Int?
+    var autoLockDeadline: Date?
 
     static let disconnected = ControllerStatus()
 
@@ -70,12 +71,19 @@ struct ControllerStatePayload {
         let trimmedState = rawState.trimmingCharacters(in: .whitespacesAndNewlines)
         let parts = trimmedState.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
         guard parts.count == 2,
-              parts[0] == "unlocked",
               let remainingSeconds = Int(parts[1]) else {
             return ControllerStatePayload(state: trimmedState, remainingSeconds: nil)
         }
 
-        return ControllerStatePayload(state: "unlocked", remainingSeconds: max(0, remainingSeconds))
+        if parts[0] == "unlocked" {
+            return ControllerStatePayload(state: "unlocked", remainingSeconds: max(0, remainingSeconds))
+        }
+
+        if parts[0] == "timeout_set" {
+            return ControllerStatePayload(state: "timeout_set", remainingSeconds: max(0, remainingSeconds))
+        }
+
+        return ControllerStatePayload(state: trimmedState, remainingSeconds: nil)
     }
 }
 

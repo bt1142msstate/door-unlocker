@@ -18,12 +18,26 @@ enum DoorAdminError: LocalizedError {
     }
 }
 
+private actor SerialTransactionGate {
+    func transact(
+        connection: SerialPortConnection,
+        command: String,
+        until markers: Set<String>,
+        timeout: TimeInterval
+    ) throws -> [String] {
+        try connection.transact(command, until: markers, timeout: timeout)
+    }
+}
+
 @MainActor
 final class DoorAdminStore: NSObject, ObservableObject {
     enum Command: String {
         case unlock = "UNLOCK"
         case lock = "LOCK"
     }
+
+    static let minimumAutoLockSeconds = 5
+    static let maximumAutoLockSeconds = 120
 
     @Published var ports: [SerialPortCandidate] = []
     @Published var selectedPortID: String?
@@ -37,6 +51,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
     @Published var selectedDeviceID: PairedDevice.ID?
     @Published var approvalCode = ""
     @Published private(set) var message = "Disconnected"
+    @Published private(set) var autoLockStatus = "Ready"
     @Published private(set) var logLines: [String] = []
     @Published var lastError: String?
 
@@ -50,6 +65,12 @@ final class DoorAdminStore: NSObject, ObservableObject {
     private var commandCharacteristic: CBCharacteristic?
     private var stateCharacteristic: CBCharacteristic?
     private var pairingCharacteristic: CBCharacteristic?
+    private let serialGate = SerialTransactionGate()
+    private var syncTask: Task<Void, Never>?
+    private var autoLockApplyTask: Task<Void, Never>?
+    private var pendingAutoLockSeconds: Int?
+    private var isSilentStatusSyncInFlight = false
+    private var hasConfirmedExpiredAutoLockDeadline = false
 
     var selectedPort: SerialPortCandidate? {
         ports.first { $0.id == selectedPortID }
@@ -57,6 +78,10 @@ final class DoorAdminStore: NSObject, ObservableObject {
 
     var selectedDevice: PairedDevice? {
         pairedDevices.first { $0.id == selectedDeviceID }
+    }
+
+    var autoLockRange: ClosedRange<Int> {
+        Self.minimumAutoLockSeconds ... Self.maximumAutoLockSeconds
     }
 
     var isWirelessConnected: Bool {
@@ -71,7 +96,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
     }
 
     var isWirelessReady: Bool {
-        peripheral?.state == .connected && commandCharacteristic != nil
+        peripheral?.state == .connected && commandCharacteristic != nil && stateCharacteristic != nil
     }
 
     var isWirelessPairingReady: Bool {
@@ -100,6 +125,12 @@ final class DoorAdminStore: NSObject, ObservableObject {
         super.init()
         refreshPorts()
         central = CBCentralManager(delegate: self, queue: .main)
+        startStateSyncLoop()
+    }
+
+    deinit {
+        syncTask?.cancel()
+        autoLockApplyTask?.cancel()
     }
 
     func refreshPorts() {
@@ -121,6 +152,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         status = .disconnected
         pairedDevices = []
         selectedDeviceID = nil
+        hasConfirmedExpiredAutoLockDeadline = false
         message = "Controller disconnected"
         appendLog(["Disconnected"])
     }
@@ -136,6 +168,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         stateCharacteristic = nil
         pairingCharacteristic = nil
         wirelessPairingState = "Unknown"
+        hasConfirmedExpiredAutoLockDeadline = false
         wirelessConnectionState = "Scanning"
         central?.stopScan()
         central?.scanForPeripherals(withServices: [serviceUUID], options: [
@@ -153,6 +186,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         stateCharacteristic = nil
         pairingCharacteristic = nil
         wirelessPairingState = "Unknown"
+        hasConfirmedExpiredAutoLockDeadline = false
         wirelessConnectionState = "Disconnected"
         message = isConnected ? "Using USB-C setup" : "Wireless disconnected"
     }
@@ -203,6 +237,29 @@ final class DoorAdminStore: NSObject, ObservableObject {
         sendStatusCommand("app clear pairs", label: "Clear Devices", timeout: 4)
     }
 
+    func updateAutoLockSeconds(_ seconds: Int) {
+        let clampedSeconds = min(max(seconds, Self.minimumAutoLockSeconds), Self.maximumAutoLockSeconds)
+        guard clampedSeconds != status.autoLockSeconds || pendingAutoLockSeconds != nil else { return }
+
+        pendingAutoLockSeconds = clampedSeconds
+        autoLockStatus = canSendDoorCommand ? "Setting..." : "Waiting for controller"
+
+        var nextStatus = status
+        nextStatus.autoLockSeconds = clampedSeconds
+        if nextStatus.isUnlocked {
+            nextStatus.autoLockRemainingSeconds = clampedSeconds
+            nextStatus.autoLockDeadline = Date().addingTimeInterval(TimeInterval(clampedSeconds))
+            hasConfirmedExpiredAutoLockDeadline = false
+        }
+        status = nextStatus
+
+        autoLockApplyTask?.cancel()
+        autoLockApplyTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            await self?.applyPendingAutoLockSeconds()
+        }
+    }
+
     func lock() {
         sendDoorCommand(.lock)
     }
@@ -240,7 +297,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
 
     private func sendDoorCommand(_ command: Command) {
         if isWirelessReady {
-            sendWireless(command)
+            sendWirelessCommandText(command.rawValue, predictedDoorCommand: command)
             return
         }
 
@@ -252,14 +309,14 @@ final class DoorAdminStore: NSObject, ObservableObject {
         }
     }
 
-    private func sendWireless(_ command: Command) {
+    private func sendWirelessCommandText(_ commandText: String, predictedDoorCommand: Command? = nil) {
         guard let peripheral, let commandCharacteristic else {
             lastError = "Not connected wirelessly."
             return
         }
 
         do {
-            let payload = try DoorCommandAuthenticator.payload(for: command.rawValue)
+            let payload = try DoorCommandAuthenticator.payload(for: commandText)
             let writeType: CBCharacteristicWriteType = commandCharacteristic.properties.contains(.write) ? .withResponse : .withoutResponse
             guard payload.count <= peripheral.maximumWriteValueLength(for: writeType) else {
                 lastError = "Secure command is too large for this Bluetooth connection."
@@ -267,11 +324,17 @@ final class DoorAdminStore: NSObject, ObservableObject {
             }
 
             lastError = nil
-            let predictedState = command == .unlock ? "unlocking" : "locking"
-            status.bleState = predictedState
-            status.isUnlocked = command == .unlock
-            status.autoLockRemainingSeconds = command == .unlock ? status.autoLockSeconds : nil
-            message = command == .unlock ? "Unlocking door" : "Locking door"
+            if let predictedDoorCommand {
+                let predictedState = predictedDoorCommand == .unlock ? "unlocking" : "locking"
+                var nextStatus = status
+                nextStatus.bleState = predictedState
+                nextStatus.isUnlocked = predictedDoorCommand == .unlock
+                nextStatus.autoLockRemainingSeconds = nil
+                nextStatus.autoLockDeadline = nil
+                status = nextStatus
+                hasConfirmedExpiredAutoLockDeadline = false
+                message = predictedDoorCommand == .unlock ? "Unlocking door" : "Locking door"
+            }
             peripheral.writeValue(payload, for: commandCharacteristic, type: writeType)
         } catch {
             lastError = error.localizedDescription
@@ -289,6 +352,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
 
             try await Task.sleep(nanoseconds: 1_200_000_000)
             try await loadControllerState()
+            await applyPendingAutoLockSeconds()
         }
     }
 
@@ -303,7 +367,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
             await run(label) {
                 let lines = try await transact(command, until: ["APP_STATUS_END"], timeout: timeout)
                 appendLog(lines)
-                status = DoorSerialParser.parseStatus(from: lines)
+                applyControllerStatus(DoorSerialParser.parseStatus(from: lines))
                 message = successMessage(for: label, status: status)
                 try await loadPairedDevices()
                 afterSuccess?()
@@ -329,7 +393,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
     private func loadControllerState() async throws {
         let statusLines = try await transact("app status", until: ["APP_STATUS_END"], timeout: 4)
         appendLog(statusLines)
-        status = DoorSerialParser.parseStatus(from: statusLines)
+        applyControllerStatus(DoorSerialParser.parseStatus(from: statusLines))
         message = statusMessage(for: status)
         try await loadPairedDevices()
     }
@@ -344,6 +408,128 @@ final class DoorAdminStore: NSObject, ObservableObject {
         }
 
         selectedDeviceID = pairedDevices.first?.id
+    }
+
+    private func applyPendingAutoLockSeconds() async {
+        guard let seconds = pendingAutoLockSeconds else { return }
+
+        if isBusy {
+            schedulePendingAutoLockRetry()
+            return
+        }
+
+        if isWirelessReady {
+            pendingAutoLockSeconds = nil
+            autoLockStatus = "Setting..."
+            sendWirelessCommandText("SET_TIMEOUT:\(seconds)")
+            return
+        }
+
+        if isConnected {
+            pendingAutoLockSeconds = nil
+            autoLockStatus = "Setting..."
+            sendStatusCommand("app timeout \(seconds)", label: "Auto-lock", timeout: 4)
+            return
+        }
+
+        autoLockStatus = "Waiting for controller"
+    }
+
+    private func schedulePendingAutoLockRetry() {
+        autoLockApplyTask?.cancel()
+        autoLockApplyTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 750_000_000)
+            await self?.applyPendingAutoLockSeconds()
+        }
+    }
+
+    private func applyControllerStatus(_ nextStatus: ControllerStatus) {
+        if !nextStatus.isUnlocked || autoLockDeadlineChanged(from: status.autoLockDeadline, to: nextStatus.autoLockDeadline) {
+            hasConfirmedExpiredAutoLockDeadline = false
+        }
+        if nextStatus.autoLockSeconds == pendingAutoLockSeconds {
+            pendingAutoLockSeconds = nil
+        }
+        autoLockStatus = "Controller set to \(nextStatus.autoLockSeconds)s"
+        status = nextStatus
+    }
+
+    private func autoLockDeadlineChanged(from oldDeadline: Date?, to newDeadline: Date?) -> Bool {
+        switch (oldDeadline, newDeadline) {
+        case (.none, .none):
+            return false
+        case let (.some(oldDeadline), .some(newDeadline)):
+            return abs(oldDeadline.timeIntervalSince(newDeadline)) > 1
+        default:
+            return true
+        }
+    }
+
+    private func startStateSyncLoop() {
+        syncTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                await self?.syncControllerStateIfNeeded()
+            }
+        }
+    }
+
+    private func syncControllerStateIfNeeded() async {
+        let shouldConfirmExpiredAutoLock = updateLocalAutoLockCountdown()
+        guard shouldConfirmExpiredAutoLock else { return }
+
+        hasConfirmedExpiredAutoLockDeadline = true
+        if isWirelessReady {
+            readStateIfPossible()
+            return
+        }
+
+        if isConnected, !isBusy {
+            await silentlySyncUSBStatus()
+        }
+    }
+
+    private func updateLocalAutoLockCountdown() -> Bool {
+        guard status.isUnlocked, let deadline = status.autoLockDeadline else {
+            return false
+        }
+
+        let remainingSeconds = Int(ceil(deadline.timeIntervalSinceNow))
+        if remainingSeconds > 0 {
+            if status.autoLockRemainingSeconds != remainingSeconds {
+                var nextStatus = status
+                nextStatus.autoLockRemainingSeconds = remainingSeconds
+                status = nextStatus
+            }
+            return false
+        }
+
+        var nextStatus = status
+        nextStatus.bleState = "locked"
+        nextStatus.isUnlocked = false
+        nextStatus.autoLockRemainingSeconds = nil
+        nextStatus.autoLockDeadline = nil
+        status = nextStatus
+        message = "Door locked"
+        return !hasConfirmedExpiredAutoLockDeadline
+    }
+
+    private func silentlySyncUSBStatus() async {
+        guard !isSilentStatusSyncInFlight else { return }
+        isSilentStatusSyncInFlight = true
+        defer { isSilentStatusSyncInFlight = false }
+
+        do {
+            let statusLines = try await transact("app status", until: ["APP_STATUS_END"], timeout: 2)
+            let nextStatus = DoorSerialParser.parseStatus(from: statusLines)
+            if nextStatus != status {
+                applyControllerStatus(nextStatus)
+                message = statusMessage(for: nextStatus)
+            }
+        } catch {
+            guard isConnected else { return }
+            lastError = error.localizedDescription
+        }
     }
 
     private func successMessage(for label: String, status: ControllerStatus) -> String {
@@ -364,6 +550,8 @@ final class DoorAdminStore: NSObject, ObservableObject {
             return "Device removed"
         case "Clear Devices":
             return "Trusted devices cleared"
+        case "Auto-lock":
+            return "Auto-lock updated"
         default:
             return statusMessage(for: status)
         }
@@ -392,9 +580,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
 
     private func transact(_ command: String, until markers: Set<String>, timeout: TimeInterval) async throws -> [String] {
         guard let connection else { throw DoorAdminError.notConnected }
-        return try await Task.detached(priority: .userInitiated) {
-            try connection.transact(command, until: markers, timeout: timeout)
-        }.value
+        return try await serialGate.transact(connection: connection, command: command, until: markers, timeout: timeout)
     }
 
     private func appendLog(_ lines: [String]) {
@@ -438,9 +624,43 @@ final class DoorAdminStore: NSObject, ObservableObject {
 
     private func applyWirelessState(_ newState: String) {
         let payload = ControllerStatePayload.parse(newState)
-        status.bleState = payload.state
-        status.isUnlocked = payload.state == "unlocked" || payload.state == "unlocking"
-        status.autoLockRemainingSeconds = status.isUnlocked ? payload.remainingSeconds : nil
+        if payload.state == "timeout_set" {
+            if let seconds = payload.remainingSeconds {
+                var nextStatus = status
+                nextStatus.autoLockSeconds = seconds
+                if nextStatus.isUnlocked {
+                    nextStatus.autoLockRemainingSeconds = seconds
+                    nextStatus.autoLockDeadline = Date().addingTimeInterval(TimeInterval(seconds))
+                    hasConfirmedExpiredAutoLockDeadline = false
+                }
+                status = nextStatus
+                pendingAutoLockSeconds = nil
+            }
+            autoLockStatus = "Controller set to \(status.autoLockSeconds)s"
+            updateWirelessPairingState(from: payload.state)
+            return
+        }
+
+        if payload.state == "paired" {
+            updateWirelessPairingState(from: payload.state)
+            if isConnected, !isBusy {
+                Task { [weak self] in
+                    try? await self?.loadPairedDevices()
+                }
+            }
+            return
+        }
+
+        let deadline = payload.remainingSeconds.map {
+            Date().addingTimeInterval(TimeInterval(max(0, $0)))
+        }
+        var nextStatus = status
+        nextStatus.bleState = payload.state
+        nextStatus.isUnlocked = payload.state == "unlocked" || payload.state == "unlocking"
+        nextStatus.autoLockRemainingSeconds = nextStatus.isUnlocked ? payload.remainingSeconds : nil
+        nextStatus.autoLockDeadline = nextStatus.isUnlocked ? deadline : nil
+        status = nextStatus
+        hasConfirmedExpiredAutoLockDeadline = false
         message = statusMessage(for: status)
         updateWirelessPairingState(from: payload.state)
     }
@@ -566,9 +786,10 @@ extension DoorAdminStore: CBPeripheralDelegate {
                 }
             }
 
-            if commandCharacteristic != nil && pairingCharacteristic != nil {
+            if commandCharacteristic != nil && stateCharacteristic != nil && pairingCharacteristic != nil {
                 wirelessConnectionState = "Ready"
                 message = "Wireless ready"
+                await applyPendingAutoLockSeconds()
             } else {
                 wirelessConnectionState = "Incomplete"
                 lastError = "Required Bluetooth characteristics were not found."

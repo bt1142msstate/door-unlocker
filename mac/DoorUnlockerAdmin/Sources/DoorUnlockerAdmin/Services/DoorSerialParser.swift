@@ -37,6 +37,9 @@ enum DoorSerialParser {
 
         if !status.isUnlocked {
             status.autoLockRemainingSeconds = nil
+            status.autoLockDeadline = nil
+        } else if let remainingSeconds = status.autoLockRemainingSeconds {
+            status.autoLockDeadline = Date().addingTimeInterval(TimeInterval(max(0, remainingSeconds)))
         }
 
         return status

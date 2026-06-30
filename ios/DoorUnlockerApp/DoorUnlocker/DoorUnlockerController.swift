@@ -863,12 +863,19 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         let trimmedState = rawState.trimmingCharacters(in: .whitespacesAndNewlines)
         let parts = trimmedState.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
         guard parts.count == 2,
-              parts[0] == "unlocked",
               let remainingSeconds = Int(parts[1]) else {
             return (trimmedState, nil)
         }
 
-        return ("unlocked", max(0, remainingSeconds))
+        if parts[0] == "unlocked" {
+            return ("unlocked", max(0, remainingSeconds))
+        }
+
+        if parts[0] == "timeout_set" {
+            return ("timeout_set", max(0, remainingSeconds))
+        }
+
+        return (trimmedState, nil)
     }
 }
 
@@ -1032,6 +1039,22 @@ extension DoorUnlockerController: CBPeripheralDelegate {
             guard characteristic.uuid == stateUUID, let data = characteristic.value else { return }
             let rawState = String(data: data, encoding: .utf8) ?? "unknown"
             let parsedState = parseControllerState(rawState)
+            if parsedState.state == "timeout_set" {
+                if let seconds = parsedState.remainingSeconds {
+                    autoLockSeconds = Self.clampedAutoLockSeconds(seconds)
+                    UserDefaults.standard.set(autoLockSeconds, forKey: Self.autoLockSecondsKey)
+                    autoLockStatus = "Controller set to \(autoLockSeconds)s"
+                }
+                updatePairingState(from: parsedState.state)
+                return
+            }
+
+            if parsedState.state == "paired" {
+                updatePairingState(from: parsedState.state)
+                syncDeviceDisplayNameIfReady()
+                return
+            }
+
             servoState = parsedState.state
             updatePairingState(from: parsedState.state)
             publishWidgetState(parsedState.state, controllerRemainingSeconds: parsedState.remainingSeconds)

@@ -876,6 +876,17 @@ void publishState(const char* state) {
   Serial.println(payload);
 }
 
+void publishTimeoutSetState() {
+  char payload[32] = {0};
+  snprintf(payload, sizeof(payload), "timeout_set:%u", unlockHoldTimeoutSeconds);
+  stateCharacteristic.write(payload);
+  if (Bluefruit.connected()) {
+    stateCharacteristic.notify(payload);
+  }
+  Serial.print("State: ");
+  Serial.println(payload);
+}
+
 void writeCurrentStateCharacteristic() {
   char payload[32] = {0};
   const char* state = currentStateText();
@@ -891,7 +902,7 @@ void writeCurrentStateCharacteristic() {
   stateCharacteristic.write(payload);
 }
 
-void publishUnlockCountdownIfChanged() {
+void refreshUnlockCountdownValueIfChanged() {
   if (!unlocked || !unlockAutoLockActive) {
     lastPublishedUnlockRemainingSeconds = 0xFFFF;
     return;
@@ -906,9 +917,6 @@ void publishUnlockCountdownIfChanged() {
   snprintf(payload, sizeof(payload), "unlocked:%u", remainingSeconds);
   lastPublishedUnlockRemainingSeconds = remainingSeconds;
   stateCharacteristic.write(payload);
-  if (Bluefruit.connected()) {
-    stateCharacteristic.notify(payload);
-  }
 }
 
 void rejectCommand(const char* reason) {
@@ -1094,6 +1102,8 @@ void handleCommand(char* payload) {
     Serial.print(pairingIndex + 1);
     Serial.print(" name set to ");
     Serial.println(pairedDeviceNames[pairingIndex]);
+    publishState("paired");
+    delay(250);
     publishState(currentStateText());
   } else {
     uint16_t requestedSeconds = 0;
@@ -1107,7 +1117,7 @@ void handleCommand(char* payload) {
       return;
     }
 
-    publishState("timeout_set");
+    publishTimeoutSetState();
     delay(250);
     publishState(currentStateText());
     updateStatusLed();
@@ -1483,6 +1493,10 @@ bool handleAppCommand(char* command) {
     if (*secondsText == 0 || !parseUnsigned64Text(secondsText, &parsedSeconds) || !isValidUnlockHoldTimeout(parsedSeconds)) {
       printAppError("reason=bad_timeout");
     } else if (setUnlockHoldTimeoutSeconds((uint16_t) parsedSeconds)) {
+      publishTimeoutSetState();
+      delay(250);
+      publishState(currentStateText());
+      updateStatusLed();
       printAppOk("timeout_set=yes");
     } else {
       printAppError("reason=timeout_save_failed");
@@ -1731,7 +1745,7 @@ void setup() {
 void loop() {
   processSerialCommands();
   handleUnlockTimeout();
-  publishUnlockCountdownIfChanged();
+  refreshUnlockCountdownValueIfChanged();
   updateStatusLed();
   delay(250);
 }

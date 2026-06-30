@@ -83,6 +83,7 @@ private struct DetailView: View {
             VStack(alignment: .leading, spacing: 18) {
                 HeroControl(store: store)
                 ConnectionPanel(store: store)
+                AutoLockPanel(store: store)
                 PairingPanel(store: store)
                 DevicesPanel(store: store)
             }
@@ -366,6 +367,56 @@ private struct ConnectionTile: View {
                     Button(secondaryTitle, action: secondaryAction)
                         .buttonStyle(.bordered)
                         .disabled(isSecondaryDisabled)
+                }
+            }
+        }
+    }
+}
+
+private struct AutoLockPanel: View {
+    @ObservedObject var store: DoorAdminStore
+
+    private var accent: Color {
+        store.status.isUnlocked ? Color(red: 0.35, green: 0.86, blue: 0.58) : Color(red: 0.35, green: 0.72, blue: 1.0)
+    }
+
+    var body: some View {
+        PanelSurface {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .firstTextBaseline) {
+                    Label("Auto-lock", systemImage: "timer")
+                        .font(.headline)
+                    Spacer()
+                    StatusPill(text: "\(store.status.autoLockSeconds)s", symbol: "clock", tint: accent)
+                }
+
+                Stepper(
+                    value: Binding(
+                        get: { store.status.autoLockSeconds },
+                        set: { store.updateAutoLockSeconds($0) }
+                    ),
+                    in: store.autoLockRange,
+                    step: 5
+                ) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Lock after \(store.status.autoLockSeconds) seconds")
+                            .font(.title3.weight(.semibold))
+                            .contentTransition(.numericText())
+                        Text(store.autoLockStatus)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(store.isBusy)
+
+                if let countdownText = store.status.autoLockCountdownText {
+                    Label(countdownText, systemImage: "hourglass")
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(accent)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .contentTransition(.numericText())
                 }
             }
         }
