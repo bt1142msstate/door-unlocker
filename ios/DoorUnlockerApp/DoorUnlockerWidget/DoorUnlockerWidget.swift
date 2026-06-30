@@ -26,7 +26,8 @@ struct DoorUnlockerWidgetProvider: TimelineProvider {
             entries.append(DoorUnlockerEntry(date: deadline, status: lockedStatus))
         }
 
-        completion(Timeline(entries: entries, policy: .after(Date().addingTimeInterval(15 * 60))))
+        let nextRefresh = now.addingTimeInterval(status.isUnlocked ? 30 : 60)
+        completion(Timeline(entries: entries, policy: .after(nextRefresh)))
     }
 }
 

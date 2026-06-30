@@ -62,6 +62,8 @@ enum DoorStatusStore {
             sharedDefaults.removeObject(forKey: autoLockStartedAtKey)
             sharedDefaults.removeObject(forKey: autoLockDeadlineKey)
         }
+
+        sharedDefaults.synchronize()
     }
 
     static func load() -> Snapshot {

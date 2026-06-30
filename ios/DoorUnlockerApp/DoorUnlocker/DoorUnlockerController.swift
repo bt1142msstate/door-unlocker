@@ -676,10 +676,21 @@ final class DoorUnlockerController: NSObject, ObservableObject {
             deadline: deadline
         )
         DoorStatusStore.save(state: state, updatedAt: updatedAt, autoLockStartedAt: startedAt, autoLockDeadline: deadline)
-        WidgetCenter.shared.reloadTimelines(ofKind: "DoorUnlockerWidget")
+        reloadDoorWidgets()
         notifyIfNeeded(for: state, previousSnapshot: previousSnapshot, deadline: deadline)
         scheduleAutoLockPrediction(deadline: deadline)
         syncLiveActivity(state: state, startedAt: startedAt, deadline: deadline)
+    }
+
+    private func reloadDoorWidgets() {
+        WidgetCenter.shared.reloadTimelines(ofKind: "DoorUnlockerWidget")
+        WidgetCenter.shared.reloadAllTimelines()
+
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            WidgetCenter.shared.reloadTimelines(ofKind: "DoorUnlockerWidget")
+            WidgetCenter.shared.reloadAllTimelines()
+        }
     }
 
     private func requestUnlockNotificationAuthorization() {
