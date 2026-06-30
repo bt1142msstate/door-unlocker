@@ -111,7 +111,7 @@ The app provides:
 
 The Mac admin app is in `mac/DoorUnlockerAdmin`. It talks to the XIAO over USB-C serial at 115200 baud for admin actions, and it can also connect over Bluetooth for normal lock/unlock control after the Mac has been paired as a trusted device.
 
-- Show controller state, pairing mode, auto-lock timeout, and trusted-device count.
+- Show controller state, pairing mode, auto-lock timeout, live auto-lock countdown, and trusted-device count.
 - List trusted devices by friendly name when known, plus slot and public-key fingerprint.
 - Enable or disable pairing mode.
 - Approve or reject a pending iPhone or Mac pairing request by typing the 4-digit code shown on the device being paired.

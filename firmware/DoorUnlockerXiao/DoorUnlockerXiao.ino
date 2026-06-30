@@ -64,6 +64,7 @@ bool pendingPairingExists = false;
 bool unlockAutoLockActive = false;
 uint32_t unlockAutoLockStartedMs = 0;
 uint16_t unlockHoldTimeoutSeconds = DEFAULT_UNLOCK_HOLD_TIMEOUT_SECONDS;
+uint16_t lastPublishedUnlockRemainingSeconds = 0xFFFF;
 uint8_t pendingPairingPublicKey[P256_PUBLIC_KEY_LEN] = {0};
 char pendingPairingDeviceName[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
 uint8_t pairedPublicKeyCount = 0;
@@ -341,6 +342,21 @@ uint64_t decodeUnsigned64(const uint8_t* bytes) {
 
 uint32_t unlockHoldTimeoutMs() {
   return (uint32_t) unlockHoldTimeoutSeconds * 1000UL;
+}
+
+uint16_t unlockHoldRemainingSeconds() {
+  if (!unlocked || !unlockAutoLockActive) {
+    return 0;
+  }
+
+  uint32_t elapsedMs = millis() - unlockAutoLockStartedMs;
+  uint32_t timeoutMs = unlockHoldTimeoutMs();
+  if (elapsedMs >= timeoutMs) {
+    return 0;
+  }
+
+  uint32_t remainingMs = timeoutMs - elapsedMs;
+  return (uint16_t) ((remainingMs + 999UL) / 1000UL);
 }
 
 bool isValidUnlockHoldTimeout(uint64_t seconds) {
@@ -830,12 +846,57 @@ void setupStatusLed() {
 }
 
 void publishState(const char* state) {
-  stateCharacteristic.write(state);
+  char payload[32] = {0};
+  if (strcmp(state, "unlocked") == 0) {
+    uint16_t remainingSeconds = unlockHoldRemainingSeconds();
+    snprintf(payload, sizeof(payload), "unlocked:%u", remainingSeconds);
+    lastPublishedUnlockRemainingSeconds = remainingSeconds;
+  } else {
+    snprintf(payload, sizeof(payload), "%s", state);
+    lastPublishedUnlockRemainingSeconds = 0xFFFF;
+  }
+
+  stateCharacteristic.write(payload);
   if (Bluefruit.connected()) {
-    stateCharacteristic.notify(state);
+    stateCharacteristic.notify(payload);
   }
   Serial.print("State: ");
-  Serial.println(state);
+  Serial.println(payload);
+}
+
+void writeCurrentStateCharacteristic() {
+  char payload[32] = {0};
+  const char* state = currentStateText();
+  if (strcmp(state, "unlocked") == 0) {
+    uint16_t remainingSeconds = unlockHoldRemainingSeconds();
+    snprintf(payload, sizeof(payload), "unlocked:%u", remainingSeconds);
+    lastPublishedUnlockRemainingSeconds = remainingSeconds;
+  } else {
+    snprintf(payload, sizeof(payload), "%s", state);
+    lastPublishedUnlockRemainingSeconds = 0xFFFF;
+  }
+
+  stateCharacteristic.write(payload);
+}
+
+void publishUnlockCountdownIfChanged() {
+  if (!unlocked || !unlockAutoLockActive) {
+    lastPublishedUnlockRemainingSeconds = 0xFFFF;
+    return;
+  }
+
+  uint16_t remainingSeconds = unlockHoldRemainingSeconds();
+  if (remainingSeconds == lastPublishedUnlockRemainingSeconds) {
+    return;
+  }
+
+  char payload[32] = {0};
+  snprintf(payload, sizeof(payload), "unlocked:%u", remainingSeconds);
+  lastPublishedUnlockRemainingSeconds = remainingSeconds;
+  stateCharacteristic.write(payload);
+  if (Bluefruit.connected()) {
+    stateCharacteristic.notify(payload);
+  }
 }
 
 void rejectCommand(const char* reason) {
@@ -1275,6 +1336,8 @@ void printAppStatus() {
   Serial.println(unlocked ? "yes" : "no");
   Serial.print("auto_lock_seconds=");
   Serial.println(unlockHoldTimeoutSeconds);
+  Serial.print("auto_lock_remaining_seconds=");
+  Serial.println(unlockHoldRemainingSeconds());
   Serial.println("APP_STATUS_END");
 }
 
@@ -1574,9 +1637,9 @@ void setupDoorService() {
 
   stateCharacteristic.setProperties(CHR_PROPS_READ | CHR_PROPS_NOTIFY);
   stateCharacteristic.setPermission(SECMODE_OPEN, SECMODE_NO_ACCESS);
-  stateCharacteristic.setMaxLen(24);
+  stateCharacteristic.setMaxLen(32);
   stateCharacteristic.begin();
-  stateCharacteristic.write(currentStateText());
+  writeCurrentStateCharacteristic();
 }
 
 void startAdvertising() {
@@ -1635,6 +1698,7 @@ void setup() {
 void loop() {
   processSerialCommands();
   handleUnlockTimeout();
+  publishUnlockCountdownIfChanged();
   updateStatusLed();
   delay(250);
 }

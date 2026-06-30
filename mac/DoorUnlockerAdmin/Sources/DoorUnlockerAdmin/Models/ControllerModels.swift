@@ -24,6 +24,7 @@ struct ControllerStatus: Equatable {
     var bleState = "unknown"
     var isUnlocked = false
     var autoLockSeconds = 30
+    var autoLockRemainingSeconds: Int?
 
     static let disconnected = ControllerStatus()
 
@@ -52,6 +53,29 @@ struct ControllerStatus: Equatable {
 
     var pairingTitle: String {
         pairingMode == "enabled" ? "Enabled" : "Locked"
+    }
+
+    var autoLockCountdownText: String? {
+        guard isUnlocked, let autoLockRemainingSeconds else { return nil }
+        guard autoLockRemainingSeconds > 0 else { return "Auto-locking now" }
+        return "Auto-locks in \(autoLockRemainingSeconds)s"
+    }
+}
+
+struct ControllerStatePayload {
+    let state: String
+    let remainingSeconds: Int?
+
+    static func parse(_ rawState: String) -> ControllerStatePayload {
+        let trimmedState = rawState.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts = trimmedState.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+        guard parts.count == 2,
+              parts[0] == "unlocked",
+              let remainingSeconds = Int(parts[1]) else {
+            return ControllerStatePayload(state: trimmedState, remainingSeconds: nil)
+        }
+
+        return ControllerStatePayload(state: "unlocked", remainingSeconds: max(0, remainingSeconds))
     }
 }
 

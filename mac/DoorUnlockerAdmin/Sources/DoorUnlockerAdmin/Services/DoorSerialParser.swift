@@ -21,14 +21,22 @@ enum DoorSerialParser {
             case "pending_name":
                 status.pendingName = value.isEmpty ? nil : value
             case "ble_state":
-                status.bleState = value
+                let payload = ControllerStatePayload.parse(value)
+                status.bleState = payload.state
+                status.autoLockRemainingSeconds = payload.remainingSeconds
             case "unlocked":
                 status.isUnlocked = value == "yes"
             case "auto_lock_seconds":
                 status.autoLockSeconds = Int(value) ?? status.autoLockSeconds
+            case "auto_lock_remaining_seconds":
+                status.autoLockRemainingSeconds = Int(value)
             default:
                 continue
             }
+        }
+
+        if !status.isUnlocked {
+            status.autoLockRemainingSeconds = nil
         }
 
         return status

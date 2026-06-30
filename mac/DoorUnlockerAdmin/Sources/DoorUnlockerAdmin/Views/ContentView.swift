@@ -143,6 +143,13 @@ private struct HeroControl: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
 
+                if let countdownText = store.status.autoLockCountdownText {
+                    Label(countdownText, systemImage: "timer")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.green)
+                        .contentTransition(.numericText())
+                }
+
                 if store.isBusy {
                     ProgressView()
                         .controlSize(.small)

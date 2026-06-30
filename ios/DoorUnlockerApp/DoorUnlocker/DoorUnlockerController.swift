@@ -483,17 +483,36 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         startScan()
     }
 
-    private func publishWidgetState(_ state: String, updatedAt: Date = .now, resetAutoLockDeadline: Bool = false) {
-        let deadline = predictedAutoLockDeadline(for: state, updatedAt: updatedAt, resetAutoLockDeadline: resetAutoLockDeadline)
+    private func publishWidgetState(
+        _ state: String,
+        updatedAt: Date = .now,
+        resetAutoLockDeadline: Bool = false,
+        controllerRemainingSeconds: Int? = nil
+    ) {
+        let deadline = predictedAutoLockDeadline(
+            for: state,
+            updatedAt: updatedAt,
+            resetAutoLockDeadline: resetAutoLockDeadline,
+            controllerRemainingSeconds: controllerRemainingSeconds
+        )
         DoorStatusStore.save(state: state, updatedAt: updatedAt, autoLockDeadline: deadline)
         WidgetCenter.shared.reloadTimelines(ofKind: "DoorUnlockerWidget")
         scheduleAutoLockPrediction(deadline: deadline)
         syncLiveActivity(state: state, deadline: deadline)
     }
 
-    private func predictedAutoLockDeadline(for state: String, updatedAt: Date, resetAutoLockDeadline: Bool) -> Date? {
+    private func predictedAutoLockDeadline(
+        for state: String,
+        updatedAt: Date,
+        resetAutoLockDeadline: Bool,
+        controllerRemainingSeconds: Int?
+    ) -> Date? {
         switch state {
         case "unlocking", "unlocked":
+            if let controllerRemainingSeconds {
+                return updatedAt.addingTimeInterval(TimeInterval(max(0, controllerRemainingSeconds)))
+            }
+
             let snapshot = DoorStatusStore.load()
             if !resetAutoLockDeadline,
                snapshot.isUnlocked,
@@ -703,6 +722,18 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         peripheral.readValue(for: stateCharacteristic)
         return true
     }
+
+    private func parseControllerState(_ rawState: String) -> (state: String, remainingSeconds: Int?) {
+        let trimmedState = rawState.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts = trimmedState.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+        guard parts.count == 2,
+              parts[0] == "unlocked",
+              let remainingSeconds = Int(parts[1]) else {
+            return (trimmedState, nil)
+        }
+
+        return ("unlocked", max(0, remainingSeconds))
+    }
 }
 
 extension DoorUnlockerController: CBCentralManagerDelegate {
@@ -863,10 +894,11 @@ extension DoorUnlockerController: CBPeripheralDelegate {
             }
 
             guard characteristic.uuid == stateUUID, let data = characteristic.value else { return }
-            let newState = String(data: data, encoding: .utf8) ?? "unknown"
-            servoState = newState
-            updatePairingState(from: newState)
-            publishWidgetState(newState)
+            let rawState = String(data: data, encoding: .utf8) ?? "unknown"
+            let parsedState = parseControllerState(rawState)
+            servoState = parsedState.state
+            updatePairingState(from: parsedState.state)
+            publishWidgetState(parsedState.state, controllerRemainingSeconds: parsedState.remainingSeconds)
             sendPendingSystemCommandIfReady()
         }
     }

@@ -269,6 +269,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
             let predictedState = command == .unlock ? "unlocking" : "locking"
             status.bleState = predictedState
             status.isUnlocked = command == .unlock
+            status.autoLockRemainingSeconds = command == .unlock ? status.autoLockSeconds : nil
             message = "Sent over Bluetooth"
             peripheral.writeValue(payload, for: commandCharacteristic, type: writeType)
         } catch {
@@ -391,10 +392,12 @@ final class DoorAdminStore: NSObject, ObservableObject {
     }
 
     private func applyWirelessState(_ newState: String) {
-        status.bleState = newState
-        status.isUnlocked = newState == "unlocked" || newState == "unlocking"
+        let payload = ControllerStatePayload.parse(newState)
+        status.bleState = payload.state
+        status.isUnlocked = payload.state == "unlocked" || payload.state == "unlocking"
+        status.autoLockRemainingSeconds = status.isUnlocked ? payload.remainingSeconds : nil
         message = "Wireless \(status.stateTitle)"
-        updateWirelessPairingState(from: newState)
+        updateWirelessPairingState(from: payload.state)
     }
 
     private func updateWirelessPairingState(from state: String) {
