@@ -81,6 +81,13 @@ struct ContentView: View {
             if phase == .active {
                 controller.refreshStateFromController()
                 controller.performPendingSystemCommand()
+            } else {
+                closeSettings()
+            }
+        }
+        .onChange(of: controller.areSettingsUnlocked) { _, isUnlocked in
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                settingsExpanded = isUnlocked
             }
         }
     }
@@ -316,7 +323,16 @@ struct ContentView: View {
     }
 
     private var controllerSettings: some View {
-        DisclosureGroup(isExpanded: $settingsExpanded) {
+        DisclosureGroup(isExpanded: Binding(
+            get: { settingsExpanded },
+            set: { wantsExpanded in
+                if wantsExpanded {
+                    openSettings()
+                } else {
+                    closeSettings()
+                }
+            }
+        )) {
             VStack(spacing: 10) {
                 unlockAuthenticationToggle
                 deviceDisplayNameControl
@@ -330,7 +346,7 @@ struct ContentView: View {
                 Text("Settings")
                     .font(.caption.weight(.bold))
                 Spacer(minLength: 8)
-                Text(settingsExpanded ? "Hide" : "Show")
+                Text(settingsDisclosureActionText)
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(.secondary)
             }
@@ -457,6 +473,41 @@ struct ContentView: View {
         }
 
         controller.updateDeviceDisplayName(trimmedName)
+    }
+
+    private var settingsDisclosureActionText: String {
+        if controller.isAuthenticatingSettings {
+            return "Opening"
+        }
+
+        return settingsExpanded ? "Hide" : "Show"
+    }
+
+    private func openSettings() {
+        if controller.areSettingsUnlocked {
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                settingsExpanded = true
+            }
+        } else {
+            controller.unlockSettings()
+        }
+    }
+
+    private func closeSettings() {
+        if isDeviceDisplayNameFocused {
+            isDeviceDisplayNameFocused = false
+        }
+
+        if controller.areSettingsUnlocked {
+            commitDeviceDisplayName()
+        } else {
+            deviceDisplayNameDraft = controller.deviceDisplayName
+        }
+
+        controller.lockSettings()
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+            settingsExpanded = false
+        }
     }
 }
 

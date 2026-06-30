@@ -27,6 +27,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     @Published private(set) var pairingApprovalCode: String?
     @Published private(set) var isAuthenticatingUnlock = false
     @Published private(set) var isAuthenticatingSettings = false
+    @Published private(set) var areSettingsUnlocked = false
     @Published private(set) var autoLockSeconds = DoorUnlockerController.storedAutoLockSeconds()
     @Published private(set) var autoLockStatus = "Ready to set"
     @Published private(set) var autoLockRemainingSeconds: Int?
@@ -179,42 +180,52 @@ final class DoorUnlockerController: NSObject, ObservableObject {
 
     func setRequiresUnlockAuthentication(_ isRequired: Bool) {
         guard isRequired != requiresUnlockAuthentication else { return }
-
-        Task { [weak self] in
-            await self?.authenticateAndChangeSetting(localizedReason: "Authenticate to change Door Unlocker settings.") {
-                self?.requiresUnlockAuthentication = isRequired
-                UserDefaults.standard.set(isRequired, forKey: Self.unlockAuthenticationKey)
-            }
+        guard areSettingsUnlocked else {
+            lastError = "Open Settings with Face ID or passcode first"
+            return
         }
+
+        requiresUnlockAuthentication = isRequired
+        UserDefaults.standard.set(isRequired, forKey: Self.unlockAuthenticationKey)
     }
 
     func updateAutoLockSeconds(_ seconds: Int) {
         let clampedSeconds = Self.clampedAutoLockSeconds(seconds)
         guard clampedSeconds != autoLockSeconds else { return }
-
-        Task { [weak self] in
-            await self?.authenticateAndChangeSetting(localizedReason: "Authenticate to change the auto-lock timeout.") {
-                guard let self else { return }
-                self.autoLockSeconds = clampedSeconds
-                UserDefaults.standard.set(self.autoLockSeconds, forKey: Self.autoLockSecondsKey)
-                self.scheduleAutoLockTimeoutApply()
-            }
+        guard areSettingsUnlocked else {
+            lastError = "Open Settings with Face ID or passcode first"
+            return
         }
+
+        autoLockSeconds = clampedSeconds
+        UserDefaults.standard.set(autoLockSeconds, forKey: Self.autoLockSecondsKey)
+        scheduleAutoLockTimeoutApply()
     }
 
     func updateDeviceDisplayName(_ name: String) {
         let sanitizedName = Self.sanitizedDeviceDisplayName(name)
         guard !sanitizedName.isEmpty, sanitizedName != deviceDisplayName else { return }
+        guard areSettingsUnlocked else {
+            lastError = "Open Settings with Face ID or passcode first"
+            return
+        }
+
+        deviceDisplayName = sanitizedName
+        UserDefaults.standard.set(sanitizedName, forKey: Self.deviceDisplayNameKey)
+        lastSyncedDeviceDisplayName = nil
+        syncDeviceDisplayNameIfReady()
+    }
+
+    func unlockSettings() {
+        guard !areSettingsUnlocked, !isAuthenticatingSettings else { return }
 
         Task { [weak self] in
-            await self?.authenticateAndChangeSetting(localizedReason: "Authenticate to change this iPhone's Door Unlocker display name.") {
-                guard let self else { return }
-                self.deviceDisplayName = sanitizedName
-                UserDefaults.standard.set(sanitizedName, forKey: Self.deviceDisplayNameKey)
-                self.lastSyncedDeviceDisplayName = nil
-                self.syncDeviceDisplayNameIfReady()
-            }
+            await self?.authenticateSettingsAccess()
         }
+    }
+
+    func lockSettings() {
+        areSettingsUnlocked = false
     }
 
     private func scheduleAutoLockTimeoutApply() {
@@ -373,7 +384,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         }
     }
 
-    private func authenticateAndChangeSetting(localizedReason: String, apply change: @escaping () -> Void) async {
+    private func authenticateSettingsAccess() async {
         guard !isAuthenticatingSettings else { return }
 
         lastError = nil
@@ -392,10 +403,10 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         do {
             let allowed = try await context.evaluatePolicy(
                 .deviceOwnerAuthentication,
-                localizedReason: localizedReason
+                localizedReason: "Authenticate to open Door Unlocker settings."
             )
             guard allowed else { return }
-            change()
+            areSettingsUnlocked = true
         } catch {
             if isAuthenticationCancellation(error) {
                 lastError = nil
