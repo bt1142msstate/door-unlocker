@@ -4,6 +4,7 @@
 tmp/
 build/
 DerivedData/
+dist/
 
 # Xcode local state
 *.xcuserstate

@@ -96,9 +96,20 @@ bool parseUnsigned64Text(const char* text, uint64_t* value) {
 }
 
 void printUnsigned64(uint64_t value) {
-  char buffer[24] = {0};
-  snprintf(buffer, sizeof(buffer), "%llu", (unsigned long long) value);
-  Serial.print(buffer);
+  char buffer[21] = {0};
+  uint8_t position = sizeof(buffer) - 1;
+
+  if (value == 0) {
+    Serial.print("0");
+    return;
+  }
+
+  while (value > 0 && position > 0) {
+    buffer[--position] = '0' + (value % 10);
+    value /= 10;
+  }
+
+  Serial.print(buffer + position);
 }
 
 bool ensureInternalFS() {
@@ -315,6 +326,38 @@ bool pairedPublicKeyExists(const uint8_t* rawKey) {
   return false;
 }
 
+int8_t pairedPublicKeyIndexForFingerprint(const char* fingerprint) {
+  if (fingerprint == nullptr || *fingerprint == 0) {
+    return -1;
+  }
+
+  for (uint8_t index = 0; index < pairedPublicKeyCount; index++) {
+    char pairedFingerprint[PAIRING_FINGERPRINT_LEN + 1] = {0};
+    if (keyFingerprint(pairedPublicKeys[index], pairedFingerprint, sizeof(pairedFingerprint))
+        && pairingCodeMatches(pairedFingerprint, fingerprint)) {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
+int8_t pairedPublicKeyIndexForToken(const char* token) {
+  if (token == nullptr || *token == 0) {
+    return -1;
+  }
+
+  uint64_t requestedIndex = 0;
+  if (parseUnsigned64Text(token, &requestedIndex)) {
+    if (requestedIndex >= 1 && requestedIndex <= pairedPublicKeyCount) {
+      return (int8_t)(requestedIndex - 1);
+    }
+    return -1;
+  }
+
+  return pairedPublicKeyIndexForFingerprint(token);
+}
+
 bool savePairings() {
   if (!ensureInternalFS()) {
     return false;
@@ -437,6 +480,41 @@ bool appendPairedPublicKey(const uint8_t* rawKey) {
   pairedCounters[pairedPublicKeyCount] = 0;
   pairedPublicKeyCount++;
   return savePairings();
+}
+
+bool removePairedPublicKeyAt(uint8_t removeIndex) {
+  if (removeIndex >= pairedPublicKeyCount) {
+    return false;
+  }
+
+  uint8_t originalCount = pairedPublicKeyCount;
+  uint8_t originalKeys[MAX_PAIRED_PHONES][P256_PUBLIC_KEY_LEN] = {{0}};
+  uint64_t originalCounters[MAX_PAIRED_PHONES] = {0};
+  memcpy(originalKeys, pairedPublicKeys, sizeof(pairedPublicKeys));
+  memcpy(originalCounters, pairedCounters, sizeof(pairedCounters));
+
+  for (uint8_t index = removeIndex; index + 1 < pairedPublicKeyCount; index++) {
+    memcpy(pairedPublicKeys[index], pairedPublicKeys[index + 1], P256_PUBLIC_KEY_LEN);
+    pairedCounters[index] = pairedCounters[index + 1];
+  }
+
+  pairedPublicKeyCount--;
+  memset(pairedPublicKeys[pairedPublicKeyCount], 0, P256_PUBLIC_KEY_LEN);
+  pairedCounters[pairedPublicKeyCount] = 0;
+
+  if (!savePairings()) {
+    pairedPublicKeyCount = originalCount;
+    memcpy(pairedPublicKeys, originalKeys, sizeof(pairedPublicKeys));
+    memcpy(pairedCounters, originalCounters, sizeof(pairedCounters));
+    return false;
+  }
+
+  if (pairedPublicKeyCount == 0) {
+    pairingModeEnabled = false;
+    clearPendingPairing();
+  }
+
+  return true;
 }
 
 void clearPairings() {
@@ -875,17 +953,17 @@ void pairingWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint8_t
   updateStatusLed();
 }
 
-void approvePendingPairing(const char* approvalCode) {
+bool approvePendingPairing(const char* approvalCode) {
   if (!pendingPairingExists) {
     Serial.println("No pending phone pairing request to approve.");
     printPairingStatus();
-    return;
+    return false;
   }
 
   char fingerprint[PAIRING_FINGERPRINT_LEN + 1] = {0};
   if (!keyFingerprint(pendingPairingPublicKey, fingerprint, sizeof(fingerprint))) {
     Serial.println("Could not calculate pending pairing fingerprint.");
-    return;
+    return false;
   }
 
   if (!pairingCodeMatches(fingerprint, approvalCode)) {
@@ -895,7 +973,7 @@ void approvePendingPairing(const char* approvalCode) {
     Serial.println("Type the exact code shown in the iPhone app, for example: pair approve XXXX-XXXX-XXXX-XXXX");
     publishState(currentStateText());
     updateStatusLed();
-    return;
+    return false;
   }
 
   if (pairedPublicKeyExists(pendingPairingPublicKey)) {
@@ -906,7 +984,7 @@ void approvePendingPairing(const char* approvalCode) {
     delay(250);
     publishState(currentStateText());
     updateStatusLed();
-    return;
+    return true;
   }
 
   if (pairedPublicKeyCount >= MAX_PAIRED_PHONES) {
@@ -914,13 +992,13 @@ void approvePendingPairing(const char* approvalCode) {
     clearPendingPairing();
     rejectCommand("paired phone table full");
     updateStatusLed();
-    return;
+    return false;
   }
 
   if (!appendPairedPublicKey(pendingPairingPublicKey)) {
     rejectCommand("pairing save failed");
     updateStatusLed();
-    return;
+    return false;
   }
 
   pairingModeEnabled = false;
@@ -931,6 +1009,7 @@ void approvePendingPairing(const char* approvalCode) {
   delay(250);
   publishState(currentStateText());
   updateStatusLed();
+  return true;
 }
 
 void rejectPendingPairing() {
@@ -989,6 +1068,173 @@ char* trimSerialCommand(char* line) {
   return line;
 }
 
+void printAppOk(const char* detail) {
+  Serial.print("APP_OK");
+  if (detail != nullptr && *detail != 0) {
+    Serial.print(" ");
+    Serial.print(detail);
+  }
+  Serial.println();
+}
+
+void printAppError(const char* detail) {
+  Serial.print("APP_ERROR");
+  if (detail != nullptr && *detail != 0) {
+    Serial.print(" ");
+    Serial.print(detail);
+  }
+  Serial.println();
+}
+
+void printAppStatus() {
+  Serial.println("APP_STATUS_BEGIN");
+  Serial.println("protocol=1");
+  Serial.print("pairing_mode=");
+  Serial.println(pairingModeEnabled ? "enabled" : "locked");
+  Serial.print("paired_count=");
+  Serial.println(pairedPublicKeyCount);
+  Serial.print("max_pairs=");
+  Serial.println(MAX_PAIRED_PHONES);
+  Serial.print("pending=");
+  Serial.println(pendingPairingExists ? "yes" : "no");
+  if (pendingPairingExists) {
+    char fingerprint[PAIRING_FINGERPRINT_LEN + 1] = {0};
+    Serial.print("pending_fingerprint=");
+    if (keyFingerprint(pendingPairingPublicKey, fingerprint, sizeof(fingerprint))) {
+      Serial.println(fingerprint);
+    } else {
+      Serial.println("unknown");
+    }
+  }
+  Serial.print("ble_state=");
+  Serial.println(currentStateText());
+  Serial.print("unlocked=");
+  Serial.println(unlocked ? "yes" : "no");
+  Serial.print("auto_lock_seconds=");
+  Serial.println(unlockHoldTimeoutSeconds);
+  Serial.println("APP_STATUS_END");
+}
+
+void printAppPairs() {
+  Serial.println("APP_PAIRS_BEGIN");
+  Serial.print("count=");
+  Serial.println(pairedPublicKeyCount);
+  Serial.print("max=");
+  Serial.println(MAX_PAIRED_PHONES);
+  for (uint8_t index = 0; index < pairedPublicKeyCount; index++) {
+    char fingerprint[PAIRING_FINGERPRINT_LEN + 1] = {0};
+    Serial.print("pair index=");
+    Serial.print(index + 1);
+    Serial.print(" fingerprint=");
+    if (keyFingerprint(pairedPublicKeys[index], fingerprint, sizeof(fingerprint))) {
+      Serial.print(fingerprint);
+    } else {
+      Serial.print("unknown");
+    }
+    Serial.print(" counter=");
+    printUnsigned64(pairedCounters[index]);
+    Serial.println();
+  }
+  Serial.println("APP_PAIRS_END");
+}
+
+bool handleAppCommand(char* command) {
+  if (!serialCommandStartsWith(command, "app")) {
+    return false;
+  }
+
+  char* subcommand = trimSerialCommand(command + strlen("app"));
+  if (*subcommand == 0 || serialCommandEquals(subcommand, "status")) {
+    printAppStatus();
+  } else if (serialCommandEquals(subcommand, "pairs")) {
+    printAppPairs();
+  } else if (serialCommandEquals(subcommand, "pair on") || serialCommandEquals(subcommand, "pairing on")) {
+    if (pairedPublicKeyCount >= MAX_PAIRED_PHONES) {
+      printAppError("reason=paired_table_full");
+    } else {
+      pairingModeEnabled = true;
+      clearPendingPairing();
+      publishState(currentStateText());
+      updateStatusLed();
+      printAppOk("pairing_mode=enabled");
+    }
+    printAppStatus();
+  } else if (serialCommandEquals(subcommand, "pair off") || serialCommandEquals(subcommand, "pairing off")) {
+    pairingModeEnabled = false;
+    clearPendingPairing();
+    publishState(currentStateText());
+    updateStatusLed();
+    printAppOk("pairing_mode=locked");
+    printAppStatus();
+  } else if (serialCommandStartsWith(subcommand, "approve") || serialCommandStartsWith(subcommand, "pair approve")) {
+    char* approvalCode = subcommand + (serialCommandStartsWith(subcommand, "pair approve") ? strlen("pair approve") : strlen("approve"));
+    approvalCode = trimSerialCommand(approvalCode);
+    if (*approvalCode == 0) {
+      printAppError("reason=missing_approval_code");
+    } else if (approvePendingPairing(approvalCode)) {
+      printAppOk("approved=yes");
+    } else {
+      printAppError("reason=approval_failed");
+    }
+    printAppStatus();
+  } else if (serialCommandEquals(subcommand, "reject") || serialCommandEquals(subcommand, "pair reject")) {
+    bool hadPendingRequest = pendingPairingExists;
+    rejectPendingPairing();
+    printAppOk(hadPendingRequest ? "rejected=yes" : "rejected=no");
+    printAppStatus();
+  } else if (serialCommandStartsWith(subcommand, "remove")) {
+    char* token = trimSerialCommand(subcommand + strlen("remove"));
+    int8_t removeIndex = pairedPublicKeyIndexForToken(token);
+    if (*token == 0) {
+      printAppError("reason=missing_remove_target");
+    } else if (removeIndex < 0) {
+      printAppError("reason=remove_target_not_found");
+    } else {
+      char removedFingerprint[PAIRING_FINGERPRINT_LEN + 1] = {0};
+      keyFingerprint(pairedPublicKeys[removeIndex], removedFingerprint, sizeof(removedFingerprint));
+      if (removePairedPublicKeyAt((uint8_t) removeIndex)) {
+        Serial.print("APP_OK removed=");
+        Serial.println(removedFingerprint);
+        publishState(currentStateText());
+        updateStatusLed();
+      } else {
+        printAppError("reason=remove_failed");
+      }
+    }
+    printAppStatus();
+  } else if (serialCommandEquals(subcommand, "clear pairs") || serialCommandEquals(subcommand, "pairs clear")) {
+    clearPairings();
+    publishState(currentStateText());
+    updateStatusLed();
+    printAppOk("cleared=yes");
+    printAppStatus();
+  } else if (serialCommandEquals(subcommand, "lock")) {
+    lockRest();
+    printAppOk("command=lock");
+    printAppStatus();
+  } else if (serialCommandEquals(subcommand, "unlock")) {
+    unlockHold();
+    printAppOk("command=unlock");
+    printAppStatus();
+  } else if (serialCommandStartsWith(subcommand, "timeout")) {
+    char* secondsText = trimSerialCommand(subcommand + strlen("timeout"));
+    uint64_t parsedSeconds = 0;
+    if (*secondsText == 0 || !parseUnsigned64Text(secondsText, &parsedSeconds) || !isValidUnlockHoldTimeout(parsedSeconds)) {
+      printAppError("reason=bad_timeout");
+    } else if (setUnlockHoldTimeoutSeconds((uint16_t) parsedSeconds)) {
+      printAppOk("timeout_set=yes");
+    } else {
+      printAppError("reason=timeout_save_failed");
+    }
+    printAppStatus();
+  } else {
+    printAppError("reason=unknown_command");
+    printAppStatus();
+  }
+
+  return true;
+}
+
 void printPairingHelp() {
   Serial.println("USB commands:");
   Serial.println("  pair on        Enable BLE pairing requests");
@@ -997,7 +1243,10 @@ void printPairingHelp() {
   Serial.println("  pair reject    Reject the pending phone shown in USB serial");
   Serial.println("  pair off       Disable BLE pairing mode and clear pending request");
   Serial.println("  pair status    Print pairing mode, pending request, and paired phone count");
+  Serial.println("  pairs list     Print paired phone slots and fingerprints");
+  Serial.println("  pairs remove N Remove paired phone by slot number");
   Serial.println("  pairs clear    Remove all paired phones");
+  Serial.println("  app status     Print machine-readable controller status for the Mac app");
 }
 
 void printPairingStatus() {
@@ -1019,6 +1268,10 @@ void printPairingStatus() {
 void handleSerialCommand(char* rawLine) {
   char* command = trimSerialCommand(rawLine);
   if (*command == 0) {
+    return;
+  }
+
+  if (handleAppCommand(command)) {
     return;
   }
 
@@ -1058,6 +1311,31 @@ void handleSerialCommand(char* rawLine) {
     Serial.println("All paired phones cleared. Run 'pair on' before pairing a phone.");
     publishState(currentStateText());
     updateStatusLed();
+  } else if (serialCommandEquals(command, "pairs list") || serialCommandEquals(command, "list pairs")) {
+    printAppPairs();
+  } else if (serialCommandStartsWith(command, "pairs remove") || serialCommandStartsWith(command, "remove pair")) {
+    char* token = command + (serialCommandStartsWith(command, "pairs remove") ? strlen("pairs remove") : strlen("remove pair"));
+    token = trimSerialCommand(token);
+    int8_t removeIndex = pairedPublicKeyIndexForToken(token);
+    if (*token == 0) {
+      Serial.println("Missing pair slot or fingerprint. Use: pairs remove 1");
+      return;
+    }
+    if (removeIndex < 0) {
+      Serial.println("No paired phone matched that slot or fingerprint.");
+      return;
+    }
+
+    char removedFingerprint[PAIRING_FINGERPRINT_LEN + 1] = {0};
+    keyFingerprint(pairedPublicKeys[removeIndex], removedFingerprint, sizeof(removedFingerprint));
+    if (removePairedPublicKeyAt((uint8_t) removeIndex)) {
+      Serial.print("Removed paired phone: ");
+      Serial.println(removedFingerprint);
+      publishState(currentStateText());
+      updateStatusLed();
+    } else {
+      Serial.println("Could not remove paired phone.");
+    }
   } else if (serialCommandEquals(command, "help") || serialCommandEquals(command, "?")) {
     printPairingHelp();
   } else {
@@ -1068,7 +1346,7 @@ void handleSerialCommand(char* rawLine) {
 }
 
 void processSerialCommands() {
-  static char buffer[80] = {0};
+  static char buffer[120] = {0};
   static uint8_t length = 0;
 
   while (Serial.available() > 0) {

@@ -12,6 +12,7 @@ This is a bench prototype and wiring reference, not a certified door lock, acces
 
 - XIAO nRF52840 Sense firmware for BLE control, authenticated commands, servo movement, and onboard LED state.
 - SwiftUI iPhone app for connecting over BLE and toggling between locked and unlocked states.
+- SwiftUI Mac admin app for USB-C controller management, pairing approval, trusted-device removal, and direct lock/unlock.
 - Siri/App Shortcuts, WidgetKit home widget, and Control Widget support for iPhone Action Button controls.
 - Interactive no-solder desk-test wiring diagram with hardware list, costs, and part details.
 - Hardware notes for a battery-powered 2S setup using XT30 pigtails, WAGO lever nuts, a buck converter, and a breadboard.
@@ -37,6 +38,7 @@ The servo power should come directly from the battery-side power split. The XIAO
 assets/                         Rendered hardware images used by the wiring page
 firmware/DoorUnlockerXiao/       Arduino firmware for the XIAO nRF52840
 ios/DoorUnlockerApp/             SwiftUI iPhone app, widget, and control extension
+mac/DoorUnlockerAdmin/           SwiftUI Mac admin app for USB-C controller management
 screenshots/                     Project screenshots and visual references
 phase-1-desk-test-wiring.html    Interactive desk-test wiring diagram
 index.html                       GitHub Pages entry point
@@ -51,8 +53,8 @@ index.html                       GitHub Pages entry point
 5. Build and run the iPhone app on your device.
 6. Open the XIAO serial monitor over USB-C and send `pair on`.
 7. Connect to the XIAO from the iPhone app and tap **Pair This iPhone** while the app shows `Pairing Enabled`.
-8. Compare the code shown in the app with the USB serial output, then type `pair approve CODE`.
-9. Use the main toggle, Siri/App Shortcuts, widgets, or iOS Controls after pairing completes.
+8. Compare the code shown in the app with the USB serial output, then type `pair approve CODE`, or open the Mac admin app and approve the code there.
+9. Use the main toggle, Siri/App Shortcuts, widgets, iOS Controls, or the Mac admin app after pairing completes.
 
 The app generates its own P-256 signing key locally. It prefers Secure Enclave when available and falls back to a Keychain-stored software key when needed. The XIAO stores only the phone's public key, so the repository does not contain a command secret.
 
@@ -69,7 +71,15 @@ USB serial commands:
 - `pair reject`: reject the pending phone request.
 - `pair off`: disable BLE pairing mode and clear any pending request.
 - `pair status`: print pairing mode, pending request, and paired phone count.
+- `pairs list`: print paired phone slots and fingerprints.
+- `pairs remove N`: remove one paired phone by slot number.
 - `pairs clear`: remove all paired phones.
+- `app status`: print machine-readable status for the Mac admin app.
+- `app pairs`: print machine-readable paired-device slots and fingerprints.
+- `app pair on` / `app pair off`: enable or disable USB-gated pairing from the Mac admin app.
+- `app approve CODE` / `app reject`: approve or reject a pending phone request from the Mac admin app.
+- `app remove N`: remove one paired phone by slot number from the Mac admin app.
+- `app lock` / `app unlock`: move the actuator from the Mac admin app over trusted USB.
 
 LED states:
 
@@ -96,11 +106,27 @@ The app provides:
 - A Control Widget so the project can appear in iOS Controls and be assigned to the Action Button on supported iPhones.
 - Alternate app icons for locked and unlocked states.
 
+## Mac Admin App Notes
+
+The Mac admin app is in `mac/DoorUnlockerAdmin` and talks to the XIAO over USB-C serial at 115200 baud. It can:
+
+- Show controller state, pairing mode, auto-lock timeout, and trusted-device count.
+- List trusted phones by slot and public-key fingerprint.
+- Enable or disable pairing mode.
+- Approve or reject a pending phone pairing request by typing the code shown in the iPhone app.
+- Remove one trusted phone, clear all trusted phones, or send lock/unlock over USB.
+
+Run it locally with:
+
+```sh
+./script/build_and_run.sh
+```
+
 ## Security And Safety
 
 This project intentionally avoids publishing a command secret. The phone signs each command with a locally generated private key, and the XIAO verifies the signature with the paired public key.
 
-BLE pairing is locked unless USB-C serial pairing mode is enabled. A phone can submit a pairing request only after `pair on`, and it is not trusted until the USB-side operator types `pair approve CODE` with the code shown in the iPhone app. Pairing mode turns itself off after approval. If the app is deleted, the phone is replaced, or the signing key is lost, connect over USB-C, send `pair on`, and pair the replacement phone. Use `pairs clear` over USB-C if you need to remove all trusted phones.
+BLE pairing is locked unless USB-C serial pairing mode is enabled. A phone can submit a pairing request only after `pair on`, and it is not trusted until the USB-side operator types `pair approve CODE` with the code shown in the iPhone app or approves the same code in the Mac admin app. Pairing mode turns itself off after approval. If the app is deleted, the phone is replaced, or the signing key is lost, connect over USB-C, send `pair on`, and pair the replacement phone. Use `pairs remove N`, `app remove N`, or `pairs clear` over USB-C if you need to remove trusted phones.
 
 For anything beyond desk testing, review the mechanical mount, fail-safe behavior, battery handling, apartment rules, fire-safety requirements, and lock/egress requirements before use.
 

@@ -1,0 +1,95 @@
+import Foundation
+
+enum DoorSerialParser {
+    static func parseStatus(from lines: [String]) -> ControllerStatus {
+        var status = ControllerStatus()
+
+        for line in blockLines(lines, begin: "APP_STATUS_BEGIN", end: "APP_STATUS_END") {
+            guard let (key, value) = keyValue(line) else { continue }
+
+            switch key {
+            case "protocol":
+                status.protocolVersion = value
+            case "pairing_mode":
+                status.pairingMode = value
+            case "paired_count":
+                status.pairedCount = Int(value) ?? status.pairedCount
+            case "max_pairs":
+                status.maxPairs = Int(value) ?? status.maxPairs
+            case "pending":
+                status.hasPendingRequest = value == "yes"
+            case "pending_fingerprint":
+                status.pendingFingerprint = value.isEmpty || value == "unknown" ? nil : value
+            case "ble_state":
+                status.bleState = value
+            case "unlocked":
+                status.isUnlocked = value == "yes"
+            case "auto_lock_seconds":
+                status.autoLockSeconds = Int(value) ?? status.autoLockSeconds
+            default:
+                continue
+            }
+        }
+
+        return status
+    }
+
+    static func parsePairs(from lines: [String]) -> [PairedDevice] {
+        blockLines(lines, begin: "APP_PAIRS_BEGIN", end: "APP_PAIRS_END").compactMap { line in
+            guard line.hasPrefix("pair ") else { return nil }
+            let values = keyValueFields(line)
+            guard let indexText = values["index"], let slot = Int(indexText) else { return nil }
+
+            return PairedDevice(
+                slot: slot,
+                fingerprint: values["fingerprint"] ?? "unknown",
+                counter: values["counter"] ?? "0"
+            )
+        }
+    }
+
+    static func responseSummary(from lines: [String]) -> String? {
+        lines.last { line in
+            line.hasPrefix("APP_OK") || line.hasPrefix("APP_ERROR")
+        }
+    }
+
+    private static func blockLines(_ lines: [String], begin: String, end: String) -> [String] {
+        var isInsideBlock = false
+        var result: [String] = []
+
+        for line in lines {
+            if line == begin {
+                isInsideBlock = true
+                continue
+            }
+
+            if line == end {
+                break
+            }
+
+            if isInsideBlock {
+                result.append(line)
+            }
+        }
+
+        return result
+    }
+
+    private static func keyValue(_ line: String) -> (String, String)? {
+        guard let separator = line.firstIndex(of: "=") else { return nil }
+        let key = String(line[..<separator])
+        let value = String(line[line.index(after: separator)...])
+        return (key, value)
+    }
+
+    private static func keyValueFields(_ line: String) -> [String: String] {
+        line.split(separator: " ").reduce(into: [:]) { fields, part in
+            let text = String(part)
+            guard let separator = text.firstIndex(of: "=") else { return }
+            let key = String(text[..<separator])
+            let value = String(text[text.index(after: separator)...])
+            fields[key] = value
+        }
+    }
+}
