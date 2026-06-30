@@ -45,6 +45,8 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     private var reconnectTimer: Timer?
     private var pendingSystemCommand: DoorSystemCommand?
     private var pendingAutoLockTimeoutSeconds: Int?
+    private var queuedAutoLockTimeoutSeconds: Int?
+    private var autoLockApplyTask: Task<Void, Never>?
 
     var isConnectedToController: Bool {
         pairingCharacteristic != nil && peripheral?.state == .connected
@@ -137,10 +139,31 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     func updateAutoLockSeconds(_ seconds: Int) {
         autoLockSeconds = Self.clampedAutoLockSeconds(seconds)
         UserDefaults.standard.set(autoLockSeconds, forKey: Self.autoLockSecondsKey)
-        autoLockStatus = "Ready to set"
+        scheduleAutoLockTimeoutApply()
     }
 
-    func applyAutoLockTimeout() {
+    private func scheduleAutoLockTimeoutApply() {
+        autoLockApplyTask?.cancel()
+        autoLockStatus = isReady ? "Setting..." : "Waiting for controller"
+
+        autoLockApplyTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled else { return }
+
+            await MainActor.run {
+                self?.applyAutoLockTimeout()
+            }
+        }
+    }
+
+    private func applyAutoLockTimeout() {
+        guard isReady else {
+            queuedAutoLockTimeoutSeconds = autoLockSeconds
+            autoLockStatus = "Waiting for controller"
+            scan()
+            return
+        }
+
         let commandText = "SET_TIMEOUT:\(autoLockSeconds)"
         pendingAutoLockTimeoutSeconds = autoLockSeconds
         autoLockStatus = "Setting..."
@@ -535,7 +558,16 @@ extension DoorUnlockerController: CBPeripheralDelegate {
     }
 
     private func sendPendingSystemCommandIfReady() {
-        guard isReady, let command = pendingSystemCommand else { return }
+        guard isReady else { return }
+
+        if let seconds = queuedAutoLockTimeoutSeconds {
+            queuedAutoLockTimeoutSeconds = nil
+            autoLockSeconds = seconds
+            applyAutoLockTimeout()
+            return
+        }
+
+        guard let command = pendingSystemCommand else { return }
         if command == .toggle, !hasKnownLockState {
             if !readStateIfPermitted() {
                 pendingSystemCommand = nil

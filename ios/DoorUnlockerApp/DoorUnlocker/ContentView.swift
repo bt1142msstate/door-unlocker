@@ -351,25 +351,11 @@ struct ContentView: View {
                 }
             }
 
-            HStack(spacing: 10) {
-                Text(controller.autoLockStatus)
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-
-                Spacer(minLength: 8)
-
-                Button {
-                    controller.applyAutoLockTimeout()
-                } label: {
-                    Label("Set", systemImage: "arrow.down.to.line.compact")
-                        .font(.caption.weight(.bold))
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .disabled(!controller.isReady)
-            }
+            Text(controller.autoLockStatus)
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
         }
         .padding(12)
         .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
