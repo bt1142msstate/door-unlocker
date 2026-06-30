@@ -191,44 +191,110 @@ private struct LockStateIcon: View {
 
     var body: some View {
         if state.isUnlocked {
-            Image(systemName: "lock.open.fill")
-                .font(.system(size: size, weight: .bold))
-                .foregroundStyle(color)
-                .frame(width: size * 1.35, height: size * 1.35)
+            LockGlyph(progress: 0, size: size, color: color)
         } else {
-            lockPhaseIcon
-                .font(.system(size: size, weight: .bold))
-                .foregroundStyle(color)
-                .frame(width: size * 1.35, height: size * 1.35)
-                .contentTransition(.symbolEffect(.replace))
-                .animation(.easeInOut(duration: 0.28), value: state.lockIconPhase)
+            if let startedAt = state.lockAnimationStartedAt {
+                TimelineView(.animation) { timeline in
+                    LockGlyph(
+                        progress: lockProgress(startedAt: startedAt, now: timeline.date),
+                        size: size,
+                        color: color
+                    )
+                }
+            } else {
+                LockGlyph(progress: fallbackProgress, size: size, color: color)
+            }
         }
     }
 
-    @ViewBuilder
-    private var lockPhaseIcon: some View {
+    private var fallbackProgress: CGFloat {
         switch state.lockIconPhase {
         case 0:
-            Image(systemName: "lock.open.fill")
-                .rotationEffect(.degrees(-8))
-                .scaleEffect(1.02)
+            return 0
         case 1:
-            ZStack {
-                Image(systemName: "lock.open.fill")
-                    .opacity(0.28)
-                    .rotation3DEffect(.degrees(74), axis: (x: 0, y: 1, z: 0), perspective: 0.65)
-                    .scaleEffect(0.92)
-                Image(systemName: "lock.fill")
-                    .opacity(0.72)
-                    .rotation3DEffect(.degrees(-54), axis: (x: 0, y: 1, z: 0), perspective: 0.65)
-                    .scaleEffect(0.96)
-            }
+            return 0.58
         default:
-            Image(systemName: "lock.fill")
-                .scaleEffect(1.02)
+            return 1
         }
     }
+
+    private func lockProgress(startedAt: Date, now: Date) -> CGFloat {
+        let elapsed = now.timeIntervalSince(startedAt)
+        return CGFloat(max(0, min(1, elapsed / lockClosureAnimationDuration)))
+    }
 }
+
+private struct LockGlyph: View {
+    let progress: CGFloat
+    let size: CGFloat
+    let color: Color
+
+    var body: some View {
+        let easedProgress = smoothStep(progress)
+        let openAmount = 1 - easedProgress
+        let settleProgress = max(0, min(1, (progress - 0.82) / 0.18))
+        let settle = sin(settleProgress * .pi)
+        let shackleAngle = (-36 * openAmount) + (3 * settle)
+        let shackleX = size * 0.16 * openAmount
+        let shackleY = -size * 0.08 * openAmount
+        let bodyScale = 0.96 + (0.04 * easedProgress) + (0.035 * settle)
+        let pulseOpacity = max(0, min(1, (progress - 0.76) / 0.24)) * 0.24 * (1 - settleProgress)
+
+        ZStack {
+            Circle()
+                .stroke(color.opacity(pulseOpacity), lineWidth: max(1, size * 0.08))
+                .scaleEffect(0.92 + (0.18 * settleProgress))
+
+            LockShackleShape()
+                .stroke(
+                    color,
+                    style: StrokeStyle(
+                        lineWidth: max(1.7, size * 0.13),
+                        lineCap: .round,
+                        lineJoin: .round
+                    )
+                )
+                .frame(width: size * 0.78, height: size * 0.7)
+                .rotationEffect(.degrees(Double(shackleAngle)), anchor: .bottomLeading)
+                .offset(x: shackleX, y: shackleY - size * 0.06)
+
+            RoundedRectangle(cornerRadius: max(2, size * 0.14), style: .continuous)
+                .fill(color)
+                .frame(width: size * 0.88, height: size * 0.58)
+                .offset(y: size * 0.18)
+                .scaleEffect(bodyScale)
+        }
+        .frame(width: size * 1.45, height: size * 1.45)
+    }
+
+    private func smoothStep(_ value: CGFloat) -> CGFloat {
+        let clamped = max(0, min(1, value))
+        return clamped * clamped * (3 - (2 * clamped))
+    }
+}
+
+private struct LockShackleShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let leftX = rect.minX + (rect.width * 0.2)
+        let rightX = rect.maxX - (rect.width * 0.2)
+        let shoulderY = rect.minY + (rect.height * 0.36)
+        let bottomY = rect.maxY
+        let topY = rect.minY + (rect.height * 0.03)
+
+        var path = Path()
+        path.move(to: CGPoint(x: leftX, y: bottomY))
+        path.addLine(to: CGPoint(x: leftX, y: shoulderY))
+        path.addCurve(
+            to: CGPoint(x: rightX, y: shoulderY),
+            control1: CGPoint(x: leftX, y: topY),
+            control2: CGPoint(x: rightX, y: topY)
+        )
+        path.addLine(to: CGPoint(x: rightX, y: bottomY))
+        return path
+    }
+}
+
+private let lockClosureAnimationDuration: TimeInterval = 1.25
 
 private struct CompactCountdownIcon: View {
     let timerRange: ClosedRange<Date>

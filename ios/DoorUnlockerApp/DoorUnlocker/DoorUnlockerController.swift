@@ -16,7 +16,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     static let minimumAutoLockSeconds = 5
     static let maximumAutoLockSeconds = 120
     private static let liveActivityLockConfirmationSeconds: TimeInterval = 2.0
-    private static let liveActivityLockAnimationStepSeconds: TimeInterval = 0.45
+    private static let liveActivityLockAnimationStepSeconds: TimeInterval = 0.65
     private static let liveActivityMinimumLockedHoldSeconds: TimeInterval = 0.75
     private static let liveActivityStaleGraceSeconds: TimeInterval = 8.0
 
