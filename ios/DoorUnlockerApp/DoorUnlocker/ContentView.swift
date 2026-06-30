@@ -6,6 +6,7 @@ struct ContentView: View {
     @State private var motionPhase = false
     @State private var displayedIconIsUnlocked = false
     @State private var iconFlipDegrees = 0.0
+    @State private var settingsExpanded = false
 
     private var accent: Color {
         controller.isUnlocked ? Color(red: 0.35, green: 0.86, blue: 0.58) : Color(red: 0.35, green: 0.72, blue: 1.0)
@@ -134,8 +135,7 @@ struct ContentView: View {
             }
 
             metric(title: "Pairing", value: controller.pairingState, icon: "key.horizontal.fill")
-            unlockAuthenticationToggle
-            autoLockTimeoutControl
+            controllerSettings
 
             if controller.canPair {
                 Label("Tap Pair This iPhone, then approve its code over USB-C.", systemImage: "key.fill")
@@ -272,28 +272,42 @@ struct ContentView: View {
         }
     }
 
+    @ViewBuilder
     private var footerControls: some View {
-        VStack(spacing: 10) {
-            if controller.canPair {
-                Button {
-                    controller.pairThisPhone()
-                } label: {
-                    Label("Pair This iPhone", systemImage: "key.fill")
-                        .frame(maxWidth: .infinity, minHeight: 50)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-            }
-
+        if controller.canPair {
             Button {
-                controller.scan()
+                controller.pairThisPhone()
             } label: {
-                Label(controller.isReady ? "Refresh Connection" : "Reconnect", systemImage: "antenna.radiowaves.left.and.right")
+                Label("Pair This iPhone", systemImage: "key.fill")
                     .frame(maxWidth: .infinity, minHeight: 50)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.borderedProminent)
             .controlSize(.large)
         }
+    }
+
+    private var controllerSettings: some View {
+        DisclosureGroup(isExpanded: $settingsExpanded) {
+            VStack(spacing: 10) {
+                unlockAuthenticationToggle
+                autoLockTimeoutControl
+            }
+            .padding(.top, 10)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "slider.horizontal.3")
+                    .foregroundStyle(accent)
+                Text("Settings")
+                    .font(.caption.weight(.bold))
+                Spacer(minLength: 8)
+                Text(settingsExpanded ? "Hide" : "Show")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .tint(accent)
+        .padding(12)
+        .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     private var unlockAuthenticationToggle: some View {
