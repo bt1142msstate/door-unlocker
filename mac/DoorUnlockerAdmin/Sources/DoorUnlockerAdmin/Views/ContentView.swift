@@ -35,14 +35,9 @@ private struct SidebarView: View {
                 .padding(.vertical, 4)
             }
 
-            Section("Connections") {
-                SidebarMetric(title: "Primary", value: store.primaryConnectionTitle, symbol: "point.3.connected.trianglepath.dotted")
-                SidebarMetric(title: "Bluetooth", value: store.wirelessConnectionState, symbol: "wave.3.right")
-                SidebarMetric(title: "USB", value: store.isConnected ? "Connected" : "Disconnected", symbol: "cable.connector")
-            }
-
-            Section("Controller") {
+            Section("Door") {
                 SidebarMetric(title: "State", value: store.status.stateTitle, symbol: store.status.isUnlocked ? "lock.open.fill" : "lock.fill")
+                SidebarMetric(title: "Connection", value: store.primaryConnectionTitle, symbol: store.isWirelessReady ? "wave.3.right" : "cable.connector")
                 SidebarMetric(title: "Pairing", value: store.status.pairingTitle, symbol: "person.badge.key.fill")
                 SidebarMetric(title: "Trusted", value: "\(store.status.pairedCount)/\(max(store.status.maxPairs, 4))", symbol: "iphone.gen3")
             }
@@ -90,7 +85,6 @@ private struct DetailView: View {
                 ConnectionPanel(store: store)
                 PairingPanel(store: store)
                 DevicesPanel(store: store)
-                LogPanel(lines: store.logLines)
             }
             .padding(26)
         }
@@ -100,6 +94,18 @@ private struct DetailView: View {
 
 private struct HeroControl: View {
     @ObservedObject var store: DoorAdminStore
+
+    private var subtitle: String {
+        if store.isBusy {
+            return store.message
+        }
+
+        if store.message == "Door locked" || store.message == "Door unlocked" {
+            return store.canSendDoorCommand ? "Controller connected" : "Connect to the controller"
+        }
+
+        return store.message
+    }
 
     var body: some View {
         HStack(spacing: 22) {
@@ -138,7 +144,7 @@ private struct HeroControl: View {
                     .font(.system(size: 44, weight: .semibold))
                     .contentTransition(.numericText())
 
-                Text(store.message)
+                Text(subtitle)
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
@@ -180,15 +186,20 @@ private struct StatusPill: View {
 
 private struct ConnectionPanel: View {
     @ObservedObject var store: DoorAdminStore
+    @State private var isUSBSetupExpanded = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Connections")
-                .font(.headline)
+            HStack {
+                Text("Connection")
+                    .font(.headline)
+                Spacer()
+                StatusPill(text: store.primaryConnectionTitle, symbol: store.isWirelessReady ? "wave.3.right" : "cable.connector", tint: .secondary)
+            }
 
             HStack(alignment: .top, spacing: 12) {
                 ConnectionTile(
-                    title: "Wireless",
+                    title: "Wireless Control",
                     subtitle: store.wirelessConnectionState,
                     symbol: "wave.3.right",
                     primaryTitle: store.wirelessPrimaryActionTitle,
@@ -204,32 +215,45 @@ private struct ConnectionPanel: View {
 
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
-                        Label("USB Admin", systemImage: "cable.connector")
+                        Label("USB-C Setup", systemImage: "cable.connector")
                             .font(.headline)
                         Spacer()
                         Text(store.isConnected ? "Connected" : "Disconnected")
                             .foregroundStyle(.secondary)
                     }
 
-                    Picker("USB Port", selection: $store.selectedPortID) {
-                        ForEach(store.ports) { port in
-                            Text(port.displayName).tag(Optional(port.id))
+                    Text("Used to approve new devices and manage trusted devices. Normal lock control can stay wireless.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    DisclosureGroup("Setup connection", isExpanded: $isUSBSetupExpanded) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Picker("Controller", selection: $store.selectedPortID) {
+                                ForEach(store.ports) { port in
+                                    Text(port.displayName).tag(Optional(port.id))
+                                }
+                            }
+                            .disabled(store.isConnected || store.ports.isEmpty)
+
+                            HStack {
+                                Button(store.isConnected ? "Disconnect" : "Connect") {
+                                    store.isConnected ? store.disconnect() : store.connect()
+                                }
+                                .disabled(store.isBusy || store.selectedPortID == nil)
+
+                                Button {
+                                    store.refreshPorts()
+                                } label: {
+                                    Label("Refresh", systemImage: "arrow.clockwise")
+                                }
+                                .labelStyle(.iconOnly)
+                                .help("Look for the controller again")
+                            }
+                            .buttonStyle(.bordered)
                         }
                     }
-                    .labelsHidden()
-                    .disabled(store.isConnected || store.ports.isEmpty)
-
-                    HStack {
-                        Button(store.isConnected ? "Disconnect" : "Connect") {
-                            store.isConnected ? store.disconnect() : store.connect()
-                        }
-                        .disabled(store.isBusy || store.selectedPortID == nil)
-
-                        Button("Refresh Ports") {
-                            store.refreshPorts()
-                        }
-                    }
-                    .buttonStyle(.bordered)
+                    .tint(.secondary)
                 }
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -279,10 +303,10 @@ private struct PairingPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Pairing")
+                Text("Add a Device")
                     .font(.headline)
                 Spacer()
-                Button(store.status.pairingMode == "enabled" ? "Disable Pairing" : "Enable Pairing") {
+                Button(store.status.pairingMode == "enabled" ? "Stop Pairing" : "Allow New Device") {
                     store.status.pairingMode == "enabled" ? store.disablePairingMode() : store.enablePairingMode()
                 }
                 .disabled(!store.isConnected || store.isBusy)
@@ -296,23 +320,32 @@ private struct PairingPanel: View {
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
-            }
 
-            HStack(spacing: 10) {
-                TextField("4-digit code", text: $store.approvalCode)
-                    .font(.system(.body, design: .monospaced))
-                    .textFieldStyle(.roundedBorder)
+                HStack(spacing: 10) {
+                    TextField("4-digit code", text: $store.approvalCode)
+                        .font(.system(.body, design: .monospaced))
+                        .textFieldStyle(.roundedBorder)
 
-                Button("Approve") {
-                    store.approvePairing()
+                    Button("Approve") {
+                        store.approvePairing()
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button("Reject") {
+                        store.rejectPairing()
+                    }
                 }
-                .buttonStyle(.borderedProminent)
-
-                Button("Reject") {
-                    store.rejectPairing()
-                }
+                .disabled(!store.isConnected || store.isBusy)
+            } else {
+                Label(
+                    store.isConnected
+                        ? "Enable pairing, then request pairing from the device you want to trust."
+                        : "Connect the controller over USB-C to approve a new device.",
+                    systemImage: store.isConnected ? "person.badge.plus" : "cable.connector"
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
             }
-            .disabled(!store.isConnected || store.isBusy)
         }
         .padding(16)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -350,16 +383,12 @@ private struct DevicesPanel: View {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(device.displayName)
                                 .font(.body.weight(.medium))
-                            Text(device.fingerprint)
-                                .font(.system(.caption, design: .monospaced))
+                            Text(device.kindTitle)
+                                .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
 
                         Spacer()
-
-                        Text("#\(device.slot)")
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundStyle(.tertiary)
                     }
                     .tag(device.id)
                 }
@@ -378,29 +407,5 @@ private struct DevicesPanel: View {
         }
         .padding(16)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-    }
-}
-
-private struct LogPanel: View {
-    let lines: [String]
-
-    var body: some View {
-        DisclosureGroup("USB Log") {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 3) {
-                    ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                        Text(line)
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-                .padding(.vertical, 6)
-            }
-            .frame(minHeight: 100, maxHeight: 160)
-        }
-        .padding(16)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }

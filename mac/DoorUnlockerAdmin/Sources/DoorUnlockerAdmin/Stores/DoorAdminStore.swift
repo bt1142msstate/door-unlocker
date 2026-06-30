@@ -121,7 +121,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         status = .disconnected
         pairedDevices = []
         selectedDeviceID = nil
-        message = "Disconnected"
+        message = "Controller disconnected"
         appendLog(["Disconnected"])
     }
 
@@ -154,6 +154,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         pairingCharacteristic = nil
         wirelessPairingState = "Unknown"
         wirelessConnectionState = "Disconnected"
+        message = isConnected ? "Using USB-C setup" : "Wireless disconnected"
     }
 
     func toggleWirelessConnection() {
@@ -162,15 +163,15 @@ final class DoorAdminStore: NSObject, ObservableObject {
 
     func refreshAll() {
         guard !isBusy else { return }
-        Task { await run("Refresh") { try await loadControllerState() } }
+        Task { await run("Refreshing") { try await loadControllerState() } }
     }
 
     func enablePairingMode() {
-        sendStatusCommand("app pair on", label: "Enable Pairing", timeout: 4)
+        sendStatusCommand("app pair on", label: "Allow New Device", timeout: 4)
     }
 
     func disablePairingMode() {
-        sendStatusCommand("app pair off", label: "Disable Pairing", timeout: 4)
+        sendStatusCommand("app pair off", label: "Stop Pairing", timeout: 4)
     }
 
     func approvePairing() {
@@ -180,13 +181,13 @@ final class DoorAdminStore: NSObject, ObservableObject {
             return
         }
 
-        sendStatusCommand("app approve \(code)", label: "Approve Pairing", timeout: 5) { [weak self] in
+        sendStatusCommand("app approve \(code)", label: "Approve Device", timeout: 5) { [weak self] in
             self?.approvalCode = ""
         }
     }
 
     func rejectPairing() {
-        sendStatusCommand("app reject", label: "Reject Pairing", timeout: 4)
+        sendStatusCommand("app reject", label: "Reject Device", timeout: 4)
     }
 
     func removeSelectedDevice() {
@@ -270,7 +271,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
             status.bleState = predictedState
             status.isUnlocked = command == .unlock
             status.autoLockRemainingSeconds = command == .unlock ? status.autoLockSeconds : nil
-            message = "Sent over Bluetooth"
+            message = command == .unlock ? "Unlocking door" : "Locking door"
             peripheral.writeValue(payload, for: commandCharacteristic, type: writeType)
         } catch {
             lastError = error.localizedDescription
@@ -284,7 +285,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
             connection?.close()
             connection = try SerialPortConnection(path: selectedPort.path)
             isConnected = true
-            message = "Waiting for controller"
+            message = "Connecting to controller"
 
             try await Task.sleep(nanoseconds: 1_200_000_000)
             try await loadControllerState()
@@ -303,7 +304,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
                 let lines = try await transact(command, until: ["APP_STATUS_END"], timeout: timeout)
                 appendLog(lines)
                 status = DoorSerialParser.parseStatus(from: lines)
-                message = DoorSerialParser.responseSummary(from: lines) ?? label
+                message = successMessage(for: label, status: status)
                 try await loadPairedDevices()
                 afterSuccess?()
             }
@@ -320,7 +321,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
             try await operation()
         } catch {
             lastError = error.localizedDescription
-            message = "Error"
+            message = "Something went wrong"
             appendLog(["ERROR \(error.localizedDescription)"])
         }
     }
@@ -329,7 +330,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         let statusLines = try await transact("app status", until: ["APP_STATUS_END"], timeout: 4)
         appendLog(statusLines)
         status = DoorSerialParser.parseStatus(from: statusLines)
-        message = DoorSerialParser.responseSummary(from: statusLines) ?? "Connected"
+        message = statusMessage(for: status)
         try await loadPairedDevices()
     }
 
@@ -343,6 +344,50 @@ final class DoorAdminStore: NSObject, ObservableObject {
         }
 
         selectedDeviceID = pairedDevices.first?.id
+    }
+
+    private func successMessage(for label: String, status: ControllerStatus) -> String {
+        switch label {
+        case "Lock":
+            return "Door locked"
+        case "Unlock":
+            return "Door unlocked"
+        case "Allow New Device":
+            return "Ready to add a device"
+        case "Stop Pairing":
+            return "Pairing closed"
+        case "Approve Device":
+            return "Device trusted"
+        case "Reject Device":
+            return "Pairing request rejected"
+        case "Remove Device":
+            return "Device removed"
+        case "Clear Devices":
+            return "Trusted devices cleared"
+        default:
+            return statusMessage(for: status)
+        }
+    }
+
+    private func statusMessage(for status: ControllerStatus) -> String {
+        if status.hasPendingRequest {
+            return "Device waiting for approval"
+        }
+
+        switch status.bleState {
+        case "unlocked", "unlocking":
+            return "Door unlocked"
+        case "locked", "locking":
+            return "Door locked"
+        case "pairing_enabled":
+            return "Ready to add a device"
+        case "pairing_pending":
+            return "Device waiting for approval"
+        case "pairing_locked":
+            return "Pairing closed"
+        default:
+            return isConnected ? "Controller ready" : "Disconnected"
+        }
     }
 
     private func transact(_ command: String, until markers: Set<String>, timeout: TimeInterval) async throws -> [String] {
@@ -396,7 +441,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         status.bleState = payload.state
         status.isUnlocked = payload.state == "unlocked" || payload.state == "unlocking"
         status.autoLockRemainingSeconds = status.isUnlocked ? payload.remainingSeconds : nil
-        message = "Wireless \(status.stateTitle)"
+        message = statusMessage(for: status)
         updateWirelessPairingState(from: payload.state)
     }
 
@@ -411,7 +456,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         case "paired", "locked", "unlocked", "locking", "unlocking", "timeout_set":
             wirelessPairingState = "Ready"
         case "rejected":
-            lastError = "Wireless command was rejected. Pair this Mac over USB if it is not trusted yet."
+            lastError = "Command rejected. Pair this Mac over USB-C if it is not trusted yet."
         default:
             break
         }

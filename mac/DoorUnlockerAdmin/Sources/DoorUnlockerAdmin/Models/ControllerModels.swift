@@ -91,8 +91,22 @@ struct PairedDevice: Identifiable, Hashable {
 
     var displayName: String {
         guard let name, !name.isEmpty else {
-            return "Device \(slot)"
+            return "Trusted device"
         }
         return name
+    }
+
+    var kindTitle: String {
+        guard let savedName = name, !savedName.isEmpty else {
+            return "No display name saved"
+        }
+
+        if savedName.localizedCaseInsensitiveContains("mac") {
+            return "Trusted Mac"
+        }
+        if savedName.localizedCaseInsensitiveContains("iphone") {
+            return "Trusted iPhone"
+        }
+        return "Trusted device"
     }
 }
