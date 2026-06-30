@@ -20,7 +20,11 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     private static let liveActivityLockAnimationHalfSeconds: TimeInterval = 0.42
     private static let liveActivityLockAnimationSwapSeconds: TimeInterval = 0.10
     private static let liveActivityMinimumLockedHoldSeconds: TimeInterval = 0.75
+    private static let liveActivityLockedVisibleSeconds: TimeInterval = 1.35
     private static let liveActivityStaleGraceSeconds: TimeInterval = 8.0
+    private static var liveActivityLockTransitionLeadSeconds: TimeInterval {
+        liveActivityLockAnimationSettleSeconds + liveActivityLockAnimationHalfSeconds + liveActivityLockAnimationSwapSeconds
+    }
 
     @Published private(set) var bluetoothState = "Starting"
     @Published private(set) var connectionState = "Disconnected"
@@ -65,6 +69,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     private var lastSyncedDeviceDisplayName: String?
     private var liveActivity: Activity<DoorUnlockerActivityAttributes>?
     private var liveActivityCompletionTask: Task<Void, Never>?
+    private var isCompletingLiveActivity = false
     private var liveActivityBackgroundTask: UIBackgroundTaskIdentifier = .invalid
 
     var isConnectedToController: Bool {
@@ -771,11 +776,13 @@ final class DoorUnlockerController: NSObject, ObservableObject {
 
     private func syncLiveActivity(state: String, startedAt: Date?, deadline: Date?) {
         if (state == "unlocked" || state == "unlocking"), let deadline, deadline > .now {
+            isCompletingLiveActivity = false
             liveActivityCompletionTask?.cancel()
             beginLiveActivityBackgroundTask()
             Task { await startOrUpdateLiveActivity(state: state, startedAt: startedAt ?? .now, deadline: deadline) }
             scheduleLiveActivityCompletion(deadline: deadline)
         } else {
+            guard !isCompletingLiveActivity else { return }
             liveActivityCompletionTask?.cancel()
             beginLiveActivityBackgroundTask()
             liveActivityCompletionTask = Task { await completeAndDismissLiveActivity() }
@@ -785,13 +792,14 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     private func scheduleLiveActivityCompletion(deadline: Date) {
         liveActivityCompletionTask?.cancel()
         liveActivityCompletionTask = Task { [weak self] in
-            let sleepSeconds = max(0, deadline.timeIntervalSinceNow)
+            let transitionStart = deadline.addingTimeInterval(-Self.liveActivityLockTransitionLeadSeconds)
+            let sleepSeconds = max(0, transitionStart.timeIntervalSinceNow)
             if sleepSeconds > 0 {
                 try? await Task.sleep(nanoseconds: UInt64(sleepSeconds * 1_000_000_000))
             }
 
             guard !Task.isCancelled else { return }
-            await self?.completeAndDismissLiveActivity()
+            await self?.completeAndDismissLiveActivity(deadline: deadline)
         }
     }
 
@@ -822,13 +830,20 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         }
     }
 
-    private func completeAndDismissLiveActivity(confirmationDuration: TimeInterval? = nil) async {
-        defer { endLiveActivityBackgroundTask() }
+    private func completeAndDismissLiveActivity(deadline: Date? = nil, confirmationDuration: TimeInterval? = nil) async {
+        guard !isCompletingLiveActivity else { return }
+
+        isCompletingLiveActivity = true
+        defer {
+            isCompletingLiveActivity = false
+            endLiveActivityBackgroundTask()
+        }
 
         let activities = Activity<DoorUnlockerActivityAttributes>.activities
         guard liveActivity != nil || !activities.isEmpty else { return }
         let confirmationDuration = confirmationDuration ?? Self.liveActivityLockConfirmationSeconds
         let animationStartedAt = Date()
+        let lockDeadline = deadline ?? animationStartedAt
 
         func liveActivityContent(
             state: String,
@@ -840,7 +855,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
                 state: DoorUnlockerActivityAttributes.ContentState(
                     state: state,
                     autoLockStartedAt: animationStartedAt,
-                    autoLockDeadline: animationStartedAt,
+                    autoLockDeadline: lockDeadline,
                     lockAnimationStartedAt: animationStartedAt,
                     lockAnimationPhase: phase
                 ),
@@ -849,20 +864,37 @@ final class DoorUnlockerController: NSObject, ObservableObject {
             )
         }
 
-        let staleDate = animationStartedAt.addingTimeInterval(confirmationDuration + Self.liveActivityStaleGraceSeconds)
+        let staleDate = max(lockDeadline, animationStartedAt)
+            .addingTimeInterval(Self.liveActivityLockedVisibleSeconds + Self.liveActivityStaleGraceSeconds)
+
+        func shouldContinueLockTransition() -> Bool {
+            guard !Task.isCancelled else { return false }
+
+            let snapshot = DoorStatusStore.load()
+            if !snapshot.isUnlocked {
+                return true
+            }
+
+            guard let deadline,
+                  let snapshotDeadline = snapshot.autoLockDeadline else {
+                return false
+            }
+
+            return abs(snapshotDeadline.timeIntervalSince(deadline)) < 1.5
+        }
 
         func updatePhase(_ phase: Int, state: String = "locking", relevanceScore: Double = 0.7) async -> Bool {
             let content = liveActivityContent(state: state, phase: phase, staleDate: staleDate, relevanceScore: relevanceScore)
             for activity in Activity<DoorUnlockerActivityAttributes>.activities {
                 await activity.update(content)
             }
-            return !DoorStatusStore.load().isUnlocked
+            return shouldContinueLockTransition()
         }
 
         func pause(_ seconds: TimeInterval) async -> Bool {
-            guard seconds > 0 else { return !DoorStatusStore.load().isUnlocked }
+            guard seconds > 0 else { return shouldContinueLockTransition() }
             try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-            return !DoorStatusStore.load().isUnlocked
+            return shouldContinueLockTransition()
         }
 
         if confirmationDuration > 0 {
@@ -871,7 +903,9 @@ final class DoorUnlockerController: NSObject, ObservableObject {
             guard await updatePhase(1) else { return }
             guard await pause(Self.liveActivityLockAnimationHalfSeconds) else { return }
             guard await updatePhase(2) else { return }
-            guard await pause(Self.liveActivityLockAnimationSwapSeconds) else { return }
+            let lockRevealDelay = deadline.map { max(Self.liveActivityLockAnimationSwapSeconds, $0.timeIntervalSinceNow) }
+                ?? Self.liveActivityLockAnimationSwapSeconds
+            guard await pause(lockRevealDelay) else { return }
             guard await updatePhase(3, state: "locked", relevanceScore: 0.8) else { return }
             guard await pause(Self.liveActivityLockAnimationHalfSeconds) else { return }
         }
@@ -882,14 +916,18 @@ final class DoorUnlockerController: NSObject, ObservableObject {
             await activity.update(lockedContent)
         }
 
-        guard !DoorStatusStore.load().isUnlocked else { return }
+        guard shouldContinueLockTransition() else { return }
 
         if confirmationDuration > 0 {
             let elapsed = Date().timeIntervalSince(animationStartedAt)
             let remainingConfirmation = max(0, confirmationDuration - elapsed)
-            let lockedHoldSeconds = max(Self.liveActivityMinimumLockedHoldSeconds, remainingConfirmation)
+            let lockedHoldSeconds = max(
+                Self.liveActivityMinimumLockedHoldSeconds,
+                Self.liveActivityLockedVisibleSeconds,
+                remainingConfirmation
+            )
             try? await Task.sleep(nanoseconds: UInt64(lockedHoldSeconds * 1_000_000_000))
-            guard !DoorStatusStore.load().isUnlocked else { return }
+            guard shouldContinueLockTransition() else { return }
         }
 
         for activity in Activity<DoorUnlockerActivityAttributes>.activities {
