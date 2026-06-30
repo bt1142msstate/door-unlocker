@@ -42,7 +42,11 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     }
 
     var canPair: Bool {
-        isConnectedToController && !isPaired && pairingState != "Pairing"
+        isConnectedToController && pairingState == "Pairing enabled"
+    }
+
+    var needsUsbPairingMode: Bool {
+        isConnectedToController && pairingState == "Pairing locked"
     }
 
     var isUnlocked: Bool {
@@ -70,7 +74,11 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         case "rejected":
             return "Rejected"
         case "unpaired":
-            return "Pair Needed"
+            return "Pairing Locked"
+        case "pairing_locked":
+            return "Pairing Locked"
+        case "pairing_enabled":
+            return "Pairing Enabled"
         case "paired":
             return "Paired"
         default:
@@ -431,13 +439,12 @@ extension DoorUnlockerController: CBPeripheralDelegate {
             if let error {
                 lastError = error.localizedDescription
                 if characteristic.uuid == pairingUUID {
-                    pairingState = "Not paired"
+                    pairingState = "Pairing locked"
                 }
                 return
             }
 
             if characteristic.uuid == pairingUUID {
-                pairingState = "Paired"
                 readStateIfPermitted()
             }
         }
@@ -450,8 +457,10 @@ extension DoorUnlockerController: CBPeripheralDelegate {
 
     private func updatePairingState(from state: String) {
         switch state {
-        case "unpaired":
-            pairingState = "Not paired"
+        case "pairing_enabled":
+            pairingState = "Pairing enabled"
+        case "pairing_locked", "unpaired":
+            pairingState = "Pairing locked"
         case "paired", "locked", "unlocked", "locking", "unlocking":
             pairingState = "Paired"
         default:

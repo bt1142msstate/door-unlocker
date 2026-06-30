@@ -135,6 +135,10 @@ struct ContentView: View {
                 Label("Pair this iPhone before sending lock commands.", systemImage: "key.fill")
                     .font(.footnote.weight(.medium))
                     .foregroundStyle(accent)
+            } else if controller.needsUsbPairingMode {
+                Label("Enable pairing over USB-C first, then tap Pair This iPhone.", systemImage: "cable.connector")
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(.secondary)
             }
 
             if let error = controller.lastError {

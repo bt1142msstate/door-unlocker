@@ -27,12 +27,15 @@ static const char DOOR_SERVICE_UUID[] = "7A5A1000-2B8D-4C3E-94E7-0B3C0DDAAF10";
 static const char COMMAND_CHAR_UUID[] = "7A5A1001-2B8D-4C3E-94E7-0B3C0DDAAF10";
 static const char STATE_CHAR_UUID[]   = "7A5A1002-2B8D-4C3E-94E7-0B3C0DDAAF10";
 static const char PAIRING_CHAR_UUID[] = "7A5A1003-2B8D-4C3E-94E7-0B3C0DDAAF10";
-static const char COUNTER_FILENAME[] = "/door-counter.txt";
-static const char PUBLIC_KEY_FILENAME[] = "/door-public-key.bin";
+static const char LEGACY_COUNTER_FILENAME[] = "/door-counter.txt";
+static const char LEGACY_PUBLIC_KEY_FILENAME[] = "/door-public-key.bin";
+static const char PAIRINGS_FILENAME[] = "/door-pairings.bin";
 static const uint16_t SECURE_COMMAND_MAX_LEN = 220;
 static const uint16_t PAIRING_MAX_LEN = 80;
 static const size_t P256_PUBLIC_KEY_LEN = 65;   // X9.63 uncompressed: 0x04 || X || Y
 static const size_t P256_SIGNATURE_LEN = 64;    // Raw ECDSA: R || S
+static const uint8_t MAX_PAIRED_PHONES = 4;
+static const size_t PAIRING_RECORD_LEN = P256_PUBLIC_KEY_LEN + sizeof(uint64_t);
 
 BLEService doorService = BLEService(DOOR_SERVICE_UUID);
 BLECharacteristic commandCharacteristic = BLECharacteristic(COMMAND_CHAR_UUID);
@@ -44,10 +47,11 @@ Servo handleServo;
 int currentAngle = LOCK_ANGLE;
 bool unlocked = false;
 bool servoMoving = false;
-uint64_t lastAcceptedCounter = 0;
 bool internalFsReady = false;
-bool hasPairedPublicKey = false;
-uint8_t pairedPublicKey[P256_PUBLIC_KEY_LEN] = {0};
+bool pairingModeEnabled = false;
+uint8_t pairedPublicKeyCount = 0;
+uint8_t pairedPublicKeys[MAX_PAIRED_PHONES][P256_PUBLIC_KEY_LEN] = {{0}};
+uint64_t pairedCounters[MAX_PAIRED_PHONES] = {0};
 
 bool parseUnsigned64Range(const char* start, const char* end, uint64_t* value) {
   if (start == nullptr || end == nullptr || start >= end) {
@@ -125,97 +129,182 @@ bool isValidPublicKey(const uint8_t* rawKey) {
   return buildPublicKeyFromRaw(rawKey, &publicKey);
 }
 
-void loadPairedPublicKey() {
-  if (!ensureInternalFS()) {
-    return;
-  }
-
-  File file(InternalFS);
-  if (!file.open(PUBLIC_KEY_FILENAME, FILE_O_READ)) {
-    Serial.println("No paired phone public key yet");
-    return;
-  }
-
-  uint32_t readLen = file.read(pairedPublicKey, sizeof(pairedPublicKey));
-  file.close();
-
-  if (readLen == sizeof(pairedPublicKey) && isValidPublicKey(pairedPublicKey)) {
-    hasPairedPublicKey = true;
-    Serial.println("Loaded paired phone public key");
-  } else {
-    memset(pairedPublicKey, 0, sizeof(pairedPublicKey));
-    hasPairedPublicKey = false;
-    InternalFS.remove(PUBLIC_KEY_FILENAME);
-    Serial.println("Removed invalid paired phone public key");
+void encodeUnsigned64(uint64_t value, uint8_t* bytes) {
+  for (int index = 7; index >= 0; index--) {
+    bytes[index] = value & 0xff;
+    value >>= 8;
   }
 }
 
-bool savePairedPublicKey(const uint8_t* rawKey) {
-  if (!ensureInternalFS() || !isValidPublicKey(rawKey)) {
-    return false;
+uint64_t decodeUnsigned64(const uint8_t* bytes) {
+  uint64_t value = 0;
+  for (uint8_t index = 0; index < 8; index++) {
+    value = (value << 8) | bytes[index];
   }
-
-  if (InternalFS.exists(PUBLIC_KEY_FILENAME)) {
-    InternalFS.remove(PUBLIC_KEY_FILENAME);
-  }
-
-  File file(InternalFS);
-  if (!file.open(PUBLIC_KEY_FILENAME, FILE_O_WRITE)) {
-    return false;
-  }
-
-  file.write(rawKey, P256_PUBLIC_KEY_LEN);
-  file.close();
-  memcpy(pairedPublicKey, rawKey, P256_PUBLIC_KEY_LEN);
-  hasPairedPublicKey = true;
-  return true;
+  return value;
 }
 
-void loadLastAcceptedCounter() {
+bool readLegacyCounter(uint64_t* counter) {
   if (!ensureInternalFS()) {
-    return;
+    return false;
   }
 
   File file(InternalFS);
-  if (!file.open(COUNTER_FILENAME, FILE_O_READ)) {
-    Serial.println("No saved command counter yet");
-    return;
+  if (!file.open(LEGACY_COUNTER_FILENAME, FILE_O_READ)) {
+    return false;
   }
 
   char buffer[32] = {0};
   uint32_t readLen = file.read(buffer, sizeof(buffer) - 1);
   file.close();
   buffer[min<uint32_t>(readLen, sizeof(buffer) - 1)] = 0;
-
-  uint64_t storedCounter = 0;
-  if (parseUnsigned64Text(buffer, &storedCounter)) {
-    lastAcceptedCounter = storedCounter;
-  }
-
-  Serial.print("Last secure command counter: ");
-  printUnsigned64(lastAcceptedCounter);
-  Serial.println();
+  return parseUnsigned64Text(buffer, counter);
 }
 
-bool saveLastAcceptedCounter(uint64_t counter) {
+bool pairedPublicKeyExists(const uint8_t* rawKey) {
+  for (uint8_t index = 0; index < pairedPublicKeyCount; index++) {
+    if (memcmp(pairedPublicKeys[index], rawKey, P256_PUBLIC_KEY_LEN) == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool savePairings() {
   if (!ensureInternalFS()) {
     return false;
   }
 
-  if (InternalFS.exists(COUNTER_FILENAME)) {
-    InternalFS.remove(COUNTER_FILENAME);
+  if (InternalFS.exists(PAIRINGS_FILENAME)) {
+    InternalFS.remove(PAIRINGS_FILENAME);
+  }
+
+  if (pairedPublicKeyCount == 0) {
+    return true;
   }
 
   File file(InternalFS);
-  if (!file.open(COUNTER_FILENAME, FILE_O_WRITE)) {
+  if (!file.open(PAIRINGS_FILENAME, FILE_O_WRITE)) {
     return false;
   }
 
-  char buffer[24] = {0};
-  snprintf(buffer, sizeof(buffer), "%llu", (unsigned long long) counter);
-  file.write(buffer, strlen(buffer));
+  for (uint8_t index = 0; index < pairedPublicKeyCount; index++) {
+    uint8_t counterBytes[8] = {0};
+    encodeUnsigned64(pairedCounters[index], counterBytes);
+    file.write(pairedPublicKeys[index], P256_PUBLIC_KEY_LEN);
+    file.write(counterBytes, sizeof(counterBytes));
+  }
+
   file.close();
   return true;
+}
+
+void loadPairings() {
+  if (!ensureInternalFS()) {
+    return;
+  }
+
+  pairedPublicKeyCount = 0;
+  memset(pairedPublicKeys, 0, sizeof(pairedPublicKeys));
+  memset(pairedCounters, 0, sizeof(pairedCounters));
+
+  File file(InternalFS);
+  if (file.open(PAIRINGS_FILENAME, FILE_O_READ)) {
+    bool needsRepair = false;
+    while (pairedPublicKeyCount < MAX_PAIRED_PHONES) {
+      uint8_t rawKey[P256_PUBLIC_KEY_LEN] = {0};
+      uint8_t counterBytes[8] = {0};
+      uint32_t keyReadLen = file.read(rawKey, sizeof(rawKey));
+      if (keyReadLen == 0) {
+        break;
+      }
+      if (keyReadLen != sizeof(rawKey)) {
+        needsRepair = true;
+        break;
+      }
+
+      uint32_t counterReadLen = file.read(counterBytes, sizeof(counterBytes));
+      if (counterReadLen != sizeof(counterBytes)) {
+        needsRepair = true;
+        break;
+      }
+
+      if (isValidPublicKey(rawKey) && !pairedPublicKeyExists(rawKey)) {
+        memcpy(pairedPublicKeys[pairedPublicKeyCount], rawKey, P256_PUBLIC_KEY_LEN);
+        pairedCounters[pairedPublicKeyCount] = decodeUnsigned64(counterBytes);
+        pairedPublicKeyCount++;
+      } else {
+        needsRepair = true;
+      }
+    }
+    file.close();
+
+    if (needsRepair) {
+      savePairings();
+      Serial.println("Repaired paired phone table");
+    }
+
+    Serial.print("Loaded paired phones: ");
+    Serial.print(pairedPublicKeyCount);
+    Serial.print("/");
+    Serial.println(MAX_PAIRED_PHONES);
+    return;
+  }
+
+  File legacyFile(InternalFS);
+  if (!legacyFile.open(LEGACY_PUBLIC_KEY_FILENAME, FILE_O_READ)) {
+    Serial.println("No paired phone keys yet");
+    return;
+  }
+
+  uint8_t legacyKey[P256_PUBLIC_KEY_LEN] = {0};
+  uint32_t readLen = legacyFile.read(legacyKey, sizeof(legacyKey));
+  legacyFile.close();
+
+  if (readLen == sizeof(legacyKey) && isValidPublicKey(legacyKey)) {
+    memcpy(pairedPublicKeys[0], legacyKey, P256_PUBLIC_KEY_LEN);
+    pairedPublicKeyCount = 1;
+    readLegacyCounter(&pairedCounters[0]);
+    savePairings();
+    InternalFS.remove(LEGACY_PUBLIC_KEY_FILENAME);
+    InternalFS.remove(LEGACY_COUNTER_FILENAME);
+    Serial.println("Migrated legacy paired phone key");
+  } else {
+    InternalFS.remove(LEGACY_PUBLIC_KEY_FILENAME);
+    Serial.println("Removed invalid legacy paired phone key");
+  }
+}
+
+bool appendPairedPublicKey(const uint8_t* rawKey) {
+  if (!ensureInternalFS() || !isValidPublicKey(rawKey)) {
+    return false;
+  }
+
+  if (pairedPublicKeyExists(rawKey)) {
+    return true;
+  }
+
+  if (pairedPublicKeyCount >= MAX_PAIRED_PHONES) {
+    return false;
+  }
+
+  memcpy(pairedPublicKeys[pairedPublicKeyCount], rawKey, P256_PUBLIC_KEY_LEN);
+  pairedCounters[pairedPublicKeyCount] = 0;
+  pairedPublicKeyCount++;
+  return savePairings();
+}
+
+void clearPairings() {
+  pairingModeEnabled = false;
+  pairedPublicKeyCount = 0;
+  memset(pairedPublicKeys, 0, sizeof(pairedPublicKeys));
+  memset(pairedCounters, 0, sizeof(pairedCounters));
+
+  if (ensureInternalFS()) {
+    InternalFS.remove(PAIRINGS_FILENAME);
+    InternalFS.remove(LEGACY_PUBLIC_KEY_FILENAME);
+    InternalFS.remove(LEGACY_COUNTER_FILENAME);
+  }
 }
 
 int8_t hexNibble(char value) {
@@ -248,31 +337,37 @@ bool hexToBytes(const char* hex, uint8_t* bytes, size_t byteLen) {
   return true;
 }
 
-bool verifySignedPayload(const char* payload, const uint8_t* signature) {
-  if (!hasPairedPublicKey) {
-    return false;
+int8_t verifySignedPayload(const char* payload, const uint8_t* signature) {
+  if (pairedPublicKeyCount == 0) {
+    return -1;
   }
 
-  CRYS_ECPKI_UserPublKey_t publicKey;
-  memset(&publicKey, 0, sizeof(publicKey));
-  if (!buildPublicKeyFromRaw(pairedPublicKey, &publicKey)) {
-    return false;
+  for (uint8_t index = 0; index < pairedPublicKeyCount; index++) {
+    CRYS_ECPKI_UserPublKey_t publicKey;
+    memset(&publicKey, 0, sizeof(publicKey));
+    if (!buildPublicKeyFromRaw(pairedPublicKeys[index], &publicKey)) {
+      continue;
+    }
+
+    static CRYS_ECDSA_VerifyUserContext_t verifyContext;
+    memset(&verifyContext, 0, sizeof(verifyContext));
+
+    uint32_t err = CRYS_ECDSA_Verify(
+      &verifyContext,
+      &publicKey,
+      CRYS_ECPKI_HASH_SHA256_mode,
+      (uint8_t*) signature,
+      P256_SIGNATURE_LEN,
+      (uint8_t*) payload,
+      strlen(payload)
+    );
+
+    if (err == CRYS_OK) {
+      return index;
+    }
   }
 
-  static CRYS_ECDSA_VerifyUserContext_t verifyContext;
-  memset(&verifyContext, 0, sizeof(verifyContext));
-
-  uint32_t err = CRYS_ECDSA_Verify(
-    &verifyContext,
-    &publicKey,
-    CRYS_ECPKI_HASH_SHA256_mode,
-    (uint8_t*) signature,
-    P256_SIGNATURE_LEN,
-    (uint8_t*) payload,
-    strlen(payload)
-  );
-
-  return err == CRYS_OK;
+  return -1;
 }
 
 bool isKnownCommand(const char* command) {
@@ -280,8 +375,12 @@ bool isKnownCommand(const char* command) {
 }
 
 const char* currentStateText() {
-  if (!hasPairedPublicKey) {
-    return "unpaired";
+  if (pairingModeEnabled) {
+    return "pairing_enabled";
+  }
+
+  if (pairedPublicKeyCount == 0) {
+    return "pairing_locked";
   }
 
   return unlocked ? "unlocked" : "locked";
@@ -297,8 +396,10 @@ void setRgbLed(bool red, bool green, bool blue) {
 void updateStatusLed() {
   if (servoMoving) {
     setRgbLed(true, true, false);   // Yellow while the servo is moving.
-  } else if (!hasPairedPublicKey) {
-    setRgbLed(true, false, false);  // Red means no phone is paired yet.
+  } else if (pairingModeEnabled) {
+    setRgbLed(true, false, true);   // Purple means USB-enabled pairing mode.
+  } else if (pairedPublicKeyCount == 0) {
+    setRgbLed(true, false, false);  // Red means no phone can command it yet.
   } else if (unlocked) {
     setRgbLed(false, true, false);  // Green means unlocked.
   } else {
@@ -377,8 +478,8 @@ void unlockHold() {
   updateStatusLed();
 }
 
-bool authenticateCommand(char* payload, uint64_t* acceptedCounter, const char** acceptedCommand) {
-  if (!hasPairedPublicKey) {
+bool authenticateCommand(char* payload, uint64_t* acceptedCounter, const char** acceptedCommand, uint8_t* acceptedPairingIndex) {
+  if (pairedPublicKeyCount == 0) {
     rejectCommand("phone not paired");
     return false;
   }
@@ -416,41 +517,48 @@ bool authenticateCommand(char* payload, uint64_t* acceptedCounter, const char** 
     return false;
   }
 
-  if (counter <= lastAcceptedCounter) {
-    rejectCommand("replayed counter");
-    return false;
-  }
-
   uint8_t signature[P256_SIGNATURE_LEN] = {0};
   if (!hexToBytes(signatureText, signature, sizeof(signature))) {
     rejectCommand("bad signature encoding");
     return false;
   }
 
-  if (!verifySignedPayload(payload, signature)) {
+  int8_t matchedIndex = verifySignedPayload(payload, signature);
+  if (matchedIndex < 0) {
     rejectCommand("signature mismatch");
+    return false;
+  }
+
+  if (counter <= pairedCounters[matchedIndex]) {
+    rejectCommand("replayed counter");
     return false;
   }
 
   *acceptedCounter = counter;
   *acceptedCommand = command;
+  *acceptedPairingIndex = matchedIndex;
   return true;
 }
 
 void handleCommand(char* payload) {
   uint64_t commandCounter = 0;
   const char* command = nullptr;
-  if (!authenticateCommand(payload, &commandCounter, &command)) {
+  uint8_t pairingIndex = 0;
+  if (!authenticateCommand(payload, &commandCounter, &command, &pairingIndex)) {
     return;
   }
 
-  if (!saveLastAcceptedCounter(commandCounter)) {
+  uint64_t previousCounter = pairedCounters[pairingIndex];
+  pairedCounters[pairingIndex] = commandCounter;
+  if (!savePairings()) {
+    pairedCounters[pairingIndex] = previousCounter;
     rejectCommand("counter save failed");
     return;
   }
 
-  lastAcceptedCounter = commandCounter;
-  Serial.print("Accepted secure command #");
+  Serial.print("Accepted secure command from phone ");
+  Serial.print(pairingIndex + 1);
+  Serial.print(" #");
   printUnsigned64(commandCounter);
   Serial.print(": ");
   Serial.println(command);
@@ -481,8 +589,8 @@ void pairingWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint8_t
   (void) connHandle;
   (void) chr;
 
-  if (hasPairedPublicKey) {
-    rejectCommand("already paired");
+  if (!pairingModeEnabled) {
+    rejectCommand("pairing mode locked");
     return;
   }
 
@@ -496,19 +604,148 @@ void pairingWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint8_t
     return;
   }
 
-  if (!savePairedPublicKey(data)) {
-    rejectCommand("pairing save failed");
+  if (pairedPublicKeyExists(data)) {
+    pairingModeEnabled = false;
+    Serial.println("Phone key was already paired; pairing mode disabled");
+    publishState("paired");
+    delay(250);
+    publishState(currentStateText());
+    updateStatusLed();
     return;
   }
 
-  lastAcceptedCounter = 0;
-  saveLastAcceptedCounter(lastAcceptedCounter);
+  if (pairedPublicKeyCount >= MAX_PAIRED_PHONES) {
+    pairingModeEnabled = false;
+    rejectCommand("paired phone table full");
+    updateStatusLed();
+    return;
+  }
 
+  if (!appendPairedPublicKey(data)) {
+    pairingModeEnabled = false;
+    rejectCommand("pairing save failed");
+    updateStatusLed();
+    return;
+  }
+
+  pairingModeEnabled = false;
   Serial.println("Paired phone public key");
   publishState("paired");
   delay(250);
   publishState(currentStateText());
   updateStatusLed();
+}
+
+char lowercaseChar(char value) {
+  if (value >= 'A' && value <= 'Z') {
+    return value + 32;
+  }
+  return value;
+}
+
+bool serialCommandEquals(const char* command, const char* expected) {
+  while (*command != 0 && *expected != 0) {
+    if (lowercaseChar(*command) != lowercaseChar(*expected)) {
+      return false;
+    }
+    command++;
+    expected++;
+  }
+  return *command == 0 && *expected == 0;
+}
+
+char* trimSerialCommand(char* line) {
+  while (*line == ' ' || *line == '\t') {
+    line++;
+  }
+
+  size_t len = strlen(line);
+  while (len > 0 && (line[len - 1] == ' ' || line[len - 1] == '\t')) {
+    line[len - 1] = 0;
+    len--;
+  }
+
+  return line;
+}
+
+void printPairingHelp() {
+  Serial.println("USB commands:");
+  Serial.println("  pair on       Enable one-shot BLE pairing for the next phone");
+  Serial.println("  pair off      Disable BLE pairing mode");
+  Serial.println("  pair status   Print pairing mode and paired phone count");
+  Serial.println("  pairs clear   Remove all paired phones");
+}
+
+void printPairingStatus() {
+  Serial.print("Pairing mode: ");
+  Serial.println(pairingModeEnabled ? "enabled" : "locked");
+  Serial.print("Paired phones: ");
+  Serial.print(pairedPublicKeyCount);
+  Serial.print("/");
+  Serial.println(MAX_PAIRED_PHONES);
+  Serial.print("BLE state: ");
+  Serial.println(currentStateText());
+}
+
+void handleSerialCommand(char* rawLine) {
+  char* command = trimSerialCommand(rawLine);
+  if (*command == 0) {
+    return;
+  }
+
+  if (serialCommandEquals(command, "pair on") || serialCommandEquals(command, "pairing on")) {
+    if (pairedPublicKeyCount >= MAX_PAIRED_PHONES) {
+      Serial.println("Pairing mode not enabled: paired phone table is full.");
+      printPairingStatus();
+      return;
+    }
+
+    pairingModeEnabled = true;
+    Serial.println("Pairing mode enabled for the next phone. Open the app and tap Pair This iPhone.");
+    publishState(currentStateText());
+    updateStatusLed();
+  } else if (serialCommandEquals(command, "pair off") || serialCommandEquals(command, "pairing off")) {
+    pairingModeEnabled = false;
+    Serial.println("Pairing mode disabled.");
+    publishState(currentStateText());
+    updateStatusLed();
+  } else if (serialCommandEquals(command, "pair status") || serialCommandEquals(command, "status")) {
+    printPairingStatus();
+  } else if (serialCommandEquals(command, "pairs clear") || serialCommandEquals(command, "clear pairs")) {
+    clearPairings();
+    Serial.println("All paired phones cleared. Run 'pair on' before pairing a phone.");
+    publishState(currentStateText());
+    updateStatusLed();
+  } else if (serialCommandEquals(command, "help") || serialCommandEquals(command, "?")) {
+    printPairingHelp();
+  } else {
+    Serial.print("Unknown USB command: ");
+    Serial.println(command);
+    printPairingHelp();
+  }
+}
+
+void processSerialCommands() {
+  static char buffer[80] = {0};
+  static uint8_t length = 0;
+
+  while (Serial.available() > 0) {
+    char value = Serial.read();
+    if (value == '\r') {
+      continue;
+    }
+    if (value == '\n') {
+      buffer[length] = 0;
+      handleSerialCommand(buffer);
+      length = 0;
+      buffer[0] = 0;
+      continue;
+    }
+
+    if (length < sizeof(buffer) - 1) {
+      buffer[length++] = value;
+    }
+  }
 }
 
 void connectCallback(uint16_t connHandle) {
@@ -575,8 +812,7 @@ void setup() {
 
   setupStatusLed();
   nRFCrypto.begin();
-  loadPairedPublicKey();
-  loadLastAcceptedCounter();
+  loadPairings();
   updateStatusLed();
 
   attachServoIfNeeded();
@@ -604,9 +840,11 @@ void setup() {
   Serial.println("DoorUnlocker-XIAO-v2 ready");
   Serial.print("Service UUID: ");
   Serial.println(DOOR_SERVICE_UUID);
+  printPairingHelp();
 }
 
 void loop() {
+  processSerialCommands();
   updateStatusLed();
   delay(250);
 }
