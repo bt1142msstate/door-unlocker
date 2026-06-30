@@ -3,6 +3,7 @@ set -euo pipefail
 
 MODE="${1:-run}"
 APP_NAME="DoorUnlockerAdmin"
+CLI_NAME="door-unlocker"
 BUNDLE_ID="io.github.bt1142msstate.DoorUnlockerAdmin"
 MIN_SYSTEM_VERSION="14.0"
 
@@ -14,6 +15,7 @@ APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
 APP_RESOURCES="$APP_CONTENTS/Resources"
 APP_BINARY="$APP_MACOS/$APP_NAME"
+CLI_BINARY="$DIST_DIR/$CLI_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 ICON_SOURCE="$ROOT_DIR/mac/DoorUnlockerAdmin/Resources/AppIcon.icns"
 ICON_FILE_NAME="AppIcon.icns"
@@ -21,12 +23,17 @@ ICON_FILE_NAME="AppIcon.icns"
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
 swift build --package-path "$PACKAGE_DIR"
-BUILD_BINARY="$(swift build --package-path "$PACKAGE_DIR" --show-bin-path)/$APP_NAME"
+BUILD_DIR="$(swift build --package-path "$PACKAGE_DIR" --show-bin-path)"
+BUILD_BINARY="$BUILD_DIR/$APP_NAME"
 
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS" "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_BINARY"
 chmod +x "$APP_BINARY"
+if [[ -f "$BUILD_DIR/$CLI_NAME" ]]; then
+  cp "$BUILD_DIR/$CLI_NAME" "$CLI_BINARY"
+  chmod +x "$CLI_BINARY"
+fi
 
 if [[ -f "$ICON_SOURCE" ]]; then
   cp "$ICON_SOURCE" "$APP_RESOURCES/$ICON_FILE_NAME"

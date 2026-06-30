@@ -1,8 +1,8 @@
 import Darwin
 import Foundation
 
-enum SerialPortDiscovery {
-    static func discover() -> [SerialPortCandidate] {
+public enum SerialPortDiscovery {
+    public static func discover() -> [SerialPortCandidate] {
         guard let names = try? FileManager.default.contentsOfDirectory(atPath: "/dev") else {
             return []
         }
@@ -24,14 +24,14 @@ enum SerialPortDiscovery {
     }
 }
 
-enum SerialPortError: LocalizedError {
+public enum SerialPortError: LocalizedError {
     case openFailed(String)
     case configurationFailed(String)
     case writeFailed
     case readFailed
     case timeout(String)
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .openFailed(let path):
             return "Could not open \(path)."
@@ -47,11 +47,11 @@ enum SerialPortError: LocalizedError {
     }
 }
 
-final class SerialPortConnection: @unchecked Sendable {
-    let path: String
+public final class SerialPortConnection: @unchecked Sendable {
+    public let path: String
     private var fileDescriptor: Int32 = -1
 
-    init(path: String) throws {
+    public init(path: String) throws {
         self.path = path
 
         let descriptor = open(path, O_RDWR | O_NOCTTY | O_NONBLOCK)
@@ -74,14 +74,14 @@ final class SerialPortConnection: @unchecked Sendable {
         close()
     }
 
-    func close() {
+    public func close() {
         if fileDescriptor >= 0 {
             Darwin.close(fileDescriptor)
             fileDescriptor = -1
         }
     }
 
-    func transact(_ command: String, until endMarkers: Set<String>, timeout: TimeInterval = 3.0) throws -> [String] {
+    public func transact(_ command: String, until endMarkers: Set<String>, timeout: TimeInterval = 3.0) throws -> [String] {
         try writeLine(command)
 
         let deadline = Date().addingTimeInterval(timeout)

@@ -1360,6 +1360,64 @@ bool pairDeviceFromUSBPayload(const char* payloadHex) {
   return true;
 }
 
+bool renamePairedDeviceFromUSB(const char* tokenAndName) {
+  if (tokenAndName == nullptr) {
+    printAppError("reason=missing_rename_target");
+    return false;
+  }
+
+  char buffer[SERIAL_COMMAND_MAX_LEN + 1] = {0};
+  strncpy(buffer, tokenAndName, sizeof(buffer) - 1);
+  char* token = trimSerialCommand(buffer);
+  char* name = token;
+  while (*name != 0 && *name != ' ' && *name != '\t') {
+    name++;
+  }
+
+  if (*name != 0) {
+    *name = 0;
+    name++;
+  }
+  name = trimSerialCommand(name);
+
+  if (*token == 0) {
+    printAppError("reason=missing_rename_target");
+    return false;
+  }
+
+  int8_t renameIndex = pairedPublicKeyIndexForToken(token);
+  if (renameIndex < 0) {
+    printAppError("reason=rename_target_not_found");
+    return false;
+  }
+
+  char deviceName[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
+  char previousName[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
+  sanitizeDeviceName((const uint8_t*) name, strlen(name), deviceName, sizeof(deviceName));
+  if (deviceName[0] == 0) {
+    printAppError("reason=bad_device_name");
+    return false;
+  }
+
+  copyDeviceName(pairedDeviceNames[renameIndex], previousName, sizeof(previousName));
+  copyDeviceName(deviceName, pairedDeviceNames[renameIndex], PAIRED_DEVICE_NAME_STORAGE_LEN);
+  if (!savePairings()) {
+    copyDeviceName(previousName, pairedDeviceNames[renameIndex], PAIRED_DEVICE_NAME_STORAGE_LEN);
+    printAppError("reason=device_name_save_failed");
+    return false;
+  }
+
+  Serial.print("APP_OK renamed=");
+  Serial.print(renameIndex + 1);
+  Serial.print(" name=");
+  Serial.println(pairedDeviceNames[renameIndex]);
+  publishState("paired");
+  delay(250);
+  publishState(currentStateText());
+  updateStatusLed();
+  return true;
+}
+
 void rejectPendingPairing() {
   if (!pendingPairingExists) {
     Serial.println("No pending device pairing request to reject.");
@@ -1565,6 +1623,10 @@ bool handleAppCommand(char* command) {
       }
     }
     printAppStatus();
+  } else if (serialCommandStartsWith(subcommand, "rename")) {
+    char* tokenAndName = trimSerialCommand(subcommand + strlen("rename"));
+    renamePairedDeviceFromUSB(tokenAndName);
+    printAppStatus();
   } else if (serialCommandEquals(subcommand, "clear pairs") || serialCommandEquals(subcommand, "pairs clear")) {
     clearPairings();
     publishState(currentStateText());
@@ -1612,6 +1674,8 @@ void printPairingHelp() {
   Serial.println("  pair status    Print pairing mode, pending request, and paired device count");
   Serial.println("  pairs list     Print paired device slots and fingerprints");
   Serial.println("  pairs remove N Remove paired device by slot number");
+  Serial.println("  app rename N NAME");
+  Serial.println("                 Rename a trusted device by slot or fingerprint");
   Serial.println("  pairs clear    Remove all paired devices");
   Serial.println("  app status     Print machine-readable controller status for the Mac app");
   Serial.println("  app pair usb HEX");

@@ -119,6 +119,7 @@ The Mac admin app is in `mac/DoorUnlockerAdmin`. It automatically connects to th
 - Automatically trust the Mac over USB-C for wireless control.
 - Remove one trusted device, clear all trusted devices, or send lock/unlock over USB.
 - Auto-connect over Bluetooth when available and use the same single Lock/Unlock toggle as the iPhone app.
+- Provide a local CLI for scripts and automation.
 
 The Mac admin app does not display pending approval codes or pending public-key fingerprints. Device names are stored by the firmware for new pairings. Existing pairings made before this feature may show as `Device 1`, `Device 2`, and so on until that device is paired again.
 
@@ -129,6 +130,20 @@ Run it locally with:
 ```sh
 ./script/build_and_run.sh
 ```
+
+That build also creates `dist/door-unlocker`, a USB-C command-line tool:
+
+```sh
+./dist/door-unlocker status
+./dist/door-unlocker unlock
+./dist/door-unlocker lock
+./dist/door-unlocker toggle
+./dist/door-unlocker timeout 30
+./dist/door-unlocker pairs
+./dist/door-unlocker rename 1 "Brandon's iPhone"
+```
+
+Use `./dist/door-unlocker --help` for the full command list. The CLI auto-detects the XIAO serial port by default and also accepts `--port /dev/cu.usbmodemXXXX`.
 
 ## Security And Safety
 

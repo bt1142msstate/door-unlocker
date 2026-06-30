@@ -1,4 +1,5 @@
 import CoreBluetooth
+import DoorUnlockerCore
 import Foundation
 
 enum DoorAdminError: LocalizedError {
@@ -199,6 +200,24 @@ final class DoorAdminStore: NSObject, ObservableObject {
 
     func clearAllDevices() {
         sendStatusCommand("app clear pairs", label: "Clear Devices", timeout: 4)
+    }
+
+    func renameSelectedDevice(to name: String) {
+        guard let selectedDevice else {
+            lastError = DoorAdminError.noDeviceSelected.localizedDescription
+            return
+        }
+
+        let deviceName = name
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !deviceName.isEmpty else {
+            lastError = "Enter a device name."
+            return
+        }
+
+        sendStatusCommand("app rename \(selectedDevice.slot) \(deviceName)", label: "Rename Device", timeout: 4)
     }
 
     func updateAutoLockSeconds(_ seconds: Int) {
@@ -548,6 +567,8 @@ final class DoorAdminStore: NSObject, ObservableObject {
             return "Device removed"
         case "Clear Devices":
             return "Trusted devices cleared"
+        case "Rename Device":
+            return "Device renamed"
         case "Auto-lock":
             return "Auto-lock updated"
         default:

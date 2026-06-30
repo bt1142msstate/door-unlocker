@@ -1,7 +1,7 @@
 import Foundation
 
-enum DoorSerialParser {
-    static func parseStatus(from lines: [String]) -> ControllerStatus {
+public enum DoorSerialParser {
+    public static func parseStatus(from lines: [String]) -> ControllerStatus {
         var status = ControllerStatus()
 
         for line in blockLines(lines, begin: "APP_STATUS_BEGIN", end: "APP_STATUS_END") {
@@ -45,7 +45,7 @@ enum DoorSerialParser {
         return status
     }
 
-    static func parsePairs(from lines: [String]) -> [PairedDevice] {
+    public static func parsePairs(from lines: [String]) -> [PairedDevice] {
         blockLines(lines, begin: "APP_PAIRS_BEGIN", end: "APP_PAIRS_END").compactMap { line in
             guard line.hasPrefix("pair ") else { return nil }
             let values = keyValueFields(line)
@@ -60,7 +60,7 @@ enum DoorSerialParser {
         }
     }
 
-    static func responseSummary(from lines: [String]) -> String? {
+    public static func responseSummary(from lines: [String]) -> String? {
         lines.last { line in
             line.hasPrefix("APP_OK") || line.hasPrefix("APP_ERROR")
         }

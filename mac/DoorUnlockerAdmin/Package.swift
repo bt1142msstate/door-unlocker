@@ -8,9 +8,13 @@ let package = Package(
         .macOS(.v14)
     ],
     products: [
-        .executable(name: "DoorUnlockerAdmin", targets: ["DoorUnlockerAdmin"])
+        .library(name: "DoorUnlockerCore", targets: ["DoorUnlockerCore"]),
+        .executable(name: "DoorUnlockerAdmin", targets: ["DoorUnlockerAdmin"]),
+        .executable(name: "door-unlocker", targets: ["DoorUnlockerCLI"])
     ],
     targets: [
-        .executableTarget(name: "DoorUnlockerAdmin")
+        .target(name: "DoorUnlockerCore"),
+        .executableTarget(name: "DoorUnlockerAdmin", dependencies: ["DoorUnlockerCore"]),
+        .executableTarget(name: "DoorUnlockerCLI", dependencies: ["DoorUnlockerCore"])
     ]
 )

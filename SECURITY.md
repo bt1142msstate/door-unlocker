@@ -18,7 +18,7 @@ BLE pairing is locked by default. To add an iPhone, connect the XIAO over USB-C,
 
 To trust the Mac itself, connect the XIAO over USB-C and open the Mac admin app. The app automatically sends its public signing key over the physically trusted USB-C admin channel and stores it directly, without a BLE approval code.
 
-The firmware can store multiple trusted public keys. Use USB-C serial command `pair status` to see the trusted device count and pending request, `pairs list` to list trusted fingerprints and names when known, `pairs remove N` to remove one trusted device, `pair reject` to reject a pending device, `pair off` to lock pairing mode, or `pairs clear` to remove all trusted devices. The Mac admin app wraps the same USB-C management path and can also use its own paired key for wireless lock/unlock commands.
+The firmware can store multiple trusted public keys. Use USB-C serial command `pair status` to see the trusted device count and pending request, `pairs list` to list trusted fingerprints and names when known, `app rename N NAME` to rename a trusted device, `pairs remove N` to remove one trusted device, `pair reject` to reject a pending device, `pair off` to lock pairing mode, or `pairs clear` to remove all trusted devices. The Mac admin app and CLI wrap the same USB-C management path and can also use the Mac's paired key for wireless lock/unlock commands.
 
 If a phone or Mac is replaced, the app is deleted, or the signing key is lost, enable USB-C pairing mode and pair the replacement device. If a device should no longer be trusted, remove it over USB-C or clear the pairing table and re-pair the devices you still trust.
 

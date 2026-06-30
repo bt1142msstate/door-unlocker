@@ -2,13 +2,13 @@ import CryptoKit
 import Foundation
 import Security
 
-enum DoorCommandAuthenticator {
-    enum AuthError: LocalizedError {
+public enum DoorCommandAuthenticator {
+    public enum AuthError: LocalizedError {
         case keychainReadFailed(OSStatus)
         case keychainSaveFailed(OSStatus)
         case secureEnclaveAccessControlFailed
 
-        var errorDescription: String? {
+        public var errorDescription: String? {
             switch self {
             case .keychainReadFailed(let status):
                 return "Could not read signing key from Keychain (\(status))."
@@ -50,20 +50,20 @@ enum DoorCommandAuthenticator {
     private static let pairingPayloadWithNameVersion: UInt8 = 0x01
     private static let maximumPairingDeviceNameLength = 24
 
-    static func pairingPayload(deviceName: String) throws -> Data {
+    public static func pairingPayload(deviceName: String) throws -> Data {
         var payload = Data([pairingPayloadWithNameVersion])
         payload.append(try identity().publicKeyX963Representation)
         payload.append(sanitizedDeviceNameData(deviceName))
         return payload
     }
 
-    static func pairingPayloadHex(deviceName: String) throws -> String {
+    public static func pairingPayloadHex(deviceName: String) throws -> String {
         try pairingPayload(deviceName: deviceName)
             .map { String(format: "%02x", $0) }
             .joined()
     }
 
-    static func payload(for commandText: String) throws -> Data {
+    public static func payload(for commandText: String) throws -> Data {
         let counter = nextCounter()
         let message = "v2|\(counter)|\(commandText)"
         let signature = try identity().signature(for: Data(message.utf8))

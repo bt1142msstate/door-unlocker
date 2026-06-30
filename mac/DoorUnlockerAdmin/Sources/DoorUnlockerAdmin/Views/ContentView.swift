@@ -1,3 +1,4 @@
+import DoorUnlockerCore
 import SwiftUI
 
 struct ContentView: View {
@@ -114,7 +115,7 @@ private struct HeroControl: View {
             return "Connect first"
         }
 
-        return store.status.isUnlocked ? "Tap to lock" : "Tap to unlock"
+        return store.status.isUnlocked ? "Click to lock" : "Click to unlock"
     }
 
     private var stateTitle: String {
@@ -292,28 +293,15 @@ private struct ConnectionPanel: View {
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
 
-                        HStack(spacing: 10) {
-                            Label(
-                                store.isConnected
-                                    ? "This Mac is trusted automatically over USB-C."
-                                    : "Plug in the controller and the app will connect automatically.",
-                                systemImage: store.isConnected ? "checkmark.circle.fill" : "cable.connector.slash"
-                            )
-                            .font(.callout)
-                            .foregroundStyle(store.isConnected ? .green : .secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                            Spacer()
-
-                            Button {
-                                store.refreshPorts()
-                            } label: {
-                                Label("Look Again", systemImage: "arrow.clockwise")
-                            }
-                            .labelStyle(.iconOnly)
-                            .buttonStyle(.bordered)
-                            .help("Look for the controller again")
-                        }
+                        Label(
+                            store.isConnected
+                                ? "This Mac is trusted automatically over USB-C."
+                                : "Plug in the controller and the app will connect automatically.",
+                            systemImage: store.isConnected ? "checkmark.circle.fill" : "cable.connector.slash"
+                        )
+                        .font(.callout)
+                        .foregroundStyle(store.isConnected ? .green : .secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
@@ -335,15 +323,29 @@ private struct WirelessStatusTile: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Label(
-                    store.isWirelessReady ? "Wireless commands are available." : "The app connects wirelessly in the background when the controller is nearby.",
-                    systemImage: store.isWirelessReady ? "checkmark.circle.fill" : "antenna.radiowaves.left.and.right"
-                )
+                Label(statusText, systemImage: statusSymbol)
                 .font(.callout)
                 .foregroundStyle(store.isWirelessReady ? .green : .secondary)
                 .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    private var statusText: String {
+        if store.isConnected && store.isWirelessReady {
+            return "USB-C is active. Wireless is also available as a fallback."
+        }
+        if store.isConnected {
+            return "Using USB-C. Wireless stays in the background for when the cable is not connected."
+        }
+        if store.isWirelessReady {
+            return "Wireless commands are available."
+        }
+        return "The app connects wirelessly in the background when the controller is nearby."
+    }
+
+    private var statusSymbol: String {
+        store.isWirelessReady ? "checkmark.circle.fill" : "antenna.radiowaves.left.and.right"
     }
 }
 
@@ -454,6 +456,7 @@ private struct PairingPanel: View {
 
 private struct DevicesPanel: View {
     @ObservedObject var store: DoorAdminStore
+    @State private var renameText = ""
 
     var body: some View {
         PanelSurface {
@@ -504,8 +507,28 @@ private struct DevicesPanel: View {
                         Label("Remove Selected", systemImage: "minus.circle")
                     }
                     .disabled(!store.isConnected || store.isBusy || store.selectedDeviceID == nil)
+                    TextField("Device name", text: $renameText)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 220)
+                        .disabled(!store.isConnected || store.isBusy || store.selectedDeviceID == nil)
+                    Button("Rename") {
+                        store.renameSelectedDevice(to: renameText)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!store.isConnected || store.isBusy || store.selectedDeviceID == nil || renameText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     Spacer()
                 }
+            }
+        }
+        .onAppear {
+            renameText = store.selectedDevice?.displayName ?? ""
+        }
+        .onChange(of: store.selectedDeviceID) {
+            renameText = store.selectedDevice?.displayName ?? ""
+        }
+        .onChange(of: store.pairedDevices) {
+            if let selectedDevice = store.selectedDevice {
+                renameText = selectedDevice.displayName
             }
         }
     }
