@@ -406,6 +406,12 @@ struct ContentView: View {
                         commitDeviceDisplayName()
                     }
                 }
+
+            Text(controller.deviceDisplayNameStatus)
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
         }
         .disabled(controller.isAuthenticatingSettings)
         .padding(12)

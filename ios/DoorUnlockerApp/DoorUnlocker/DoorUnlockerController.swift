@@ -35,6 +35,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     @Published private(set) var autoLockStatus = "Ready to set"
     @Published private(set) var autoLockRemainingSeconds: Int?
     @Published private(set) var deviceDisplayName = DoorUnlockerController.storedDeviceDisplayName()
+    @Published private(set) var deviceDisplayNameStatus = "Ready to sync"
     @Published private(set) var requiresUnlockAuthentication = UserDefaults.standard.bool(forKey: DoorUnlockerController.unlockAuthenticationKey)
     @Published var lastError: String?
 
@@ -58,6 +59,9 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     private var queuedAutoLockTimeoutSeconds: Int?
     private var autoLockApplyTask: Task<Void, Never>?
     private var autoLockPredictionTask: Task<Void, Never>?
+    private var deviceDisplayNameSyncTask: Task<Void, Never>?
+    private var pendingDeviceDisplayName: String?
+    private var sentDeviceDisplayName: String?
     private var lastSyncedDeviceDisplayName: String?
     private var liveActivity: Activity<DoorUnlockerActivityAttributes>?
     private var liveActivityCompletionTask: Task<Void, Never>?
@@ -207,15 +211,20 @@ final class DoorUnlockerController: NSObject, ObservableObject {
 
     func updateDeviceDisplayName(_ name: String) {
         let sanitizedName = Self.sanitizedDeviceDisplayName(name)
-        guard !sanitizedName.isEmpty, sanitizedName != deviceDisplayName else { return }
+        guard !sanitizedName.isEmpty else { return }
         guard areSettingsUnlocked else {
             lastError = "Open Settings with Face ID or passcode first"
             return
         }
 
-        deviceDisplayName = sanitizedName
-        UserDefaults.standard.set(sanitizedName, forKey: Self.deviceDisplayNameKey)
-        lastSyncedDeviceDisplayName = nil
+        if sanitizedName != deviceDisplayName {
+            deviceDisplayName = sanitizedName
+            UserDefaults.standard.set(sanitizedName, forKey: Self.deviceDisplayNameKey)
+            lastSyncedDeviceDisplayName = nil
+        }
+
+        pendingDeviceDisplayName = sanitizedName
+        deviceDisplayNameStatus = isReady ? "Setting..." : "Waiting for controller"
         syncDeviceDisplayNameIfReady()
     }
 
@@ -458,11 +467,73 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     }
 
     private func syncDeviceDisplayNameIfReady() {
-        guard isReady, lastSyncedDeviceDisplayName != deviceDisplayName else { return }
-
-        if writeAuthenticatedCommand("SET_NAME:\(deviceDisplayName)") {
-            lastSyncedDeviceDisplayName = deviceDisplayName
+        let nameToSync = pendingDeviceDisplayName ?? deviceDisplayName
+        guard lastSyncedDeviceDisplayName != nameToSync else {
+            if sentDeviceDisplayName == nil {
+                pendingDeviceDisplayName = nil
+                deviceDisplayNameStatus = "Controller name set"
+            }
+            return
         }
+
+        if let sentName = sentDeviceDisplayName {
+            if sentName != nameToSync {
+                pendingDeviceDisplayName = nameToSync
+                deviceDisplayNameStatus = "Setting..."
+            }
+            return
+        }
+
+        guard isReady else {
+            pendingDeviceDisplayName = nameToSync
+            deviceDisplayNameStatus = "Waiting for controller"
+            scan()
+            return
+        }
+
+        if writeAuthenticatedCommand("SET_NAME:\(nameToSync)") {
+            pendingDeviceDisplayName = nil
+            sentDeviceDisplayName = nameToSync
+            deviceDisplayNameStatus = "Setting..."
+            scheduleDeviceDisplayNameRetry()
+        } else {
+            pendingDeviceDisplayName = nameToSync
+            deviceDisplayNameStatus = "Not set"
+        }
+    }
+
+    private func confirmDeviceDisplayNameSyncIfNeeded() {
+        guard let confirmedName = sentDeviceDisplayName else { return }
+
+        deviceDisplayNameSyncTask?.cancel()
+        sentDeviceDisplayName = nil
+        lastSyncedDeviceDisplayName = confirmedName
+
+        let nextName = pendingDeviceDisplayName
+        if nextName == nil || nextName == confirmedName {
+            pendingDeviceDisplayName = nil
+            deviceDisplayNameStatus = "Controller name set"
+        } else {
+            deviceDisplayNameStatus = "Setting..."
+            syncDeviceDisplayNameIfReady()
+        }
+    }
+
+    private func scheduleDeviceDisplayNameRetry() {
+        deviceDisplayNameSyncTask?.cancel()
+        deviceDisplayNameSyncTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            await self?.retryUnconfirmedDeviceDisplayName()
+        }
+    }
+
+    private func retryUnconfirmedDeviceDisplayName() {
+        guard let name = sentDeviceDisplayName else { return }
+
+        sentDeviceDisplayName = nil
+        pendingDeviceDisplayName = name
+        deviceDisplayNameStatus = isReady ? "Retrying..." : "Waiting for controller"
+        syncDeviceDisplayNameIfReady()
     }
 
     private func runSystemCommand(_ systemCommand: DoorSystemCommand) {
@@ -1054,11 +1125,13 @@ extension DoorUnlockerController: CBPeripheralDelegate {
                     autoLockStatus = "Controller set to \(autoLockSeconds)s"
                 }
                 updatePairingState(from: parsedState.state)
+                syncDeviceDisplayNameIfReady()
                 return
             }
 
             if parsedState.state == "paired" {
                 updatePairingState(from: parsedState.state)
+                confirmDeviceDisplayNameSyncIfNeeded()
                 syncDeviceDisplayNameIfReady()
                 return
             }
@@ -1078,6 +1151,12 @@ extension DoorUnlockerController: CBPeripheralDelegate {
                     pendingAutoLockTimeoutSeconds = nil
                     autoLockStatus = "Not set"
                 }
+                if characteristic.uuid == commandUUID, let name = sentDeviceDisplayName {
+                    deviceDisplayNameSyncTask?.cancel()
+                    sentDeviceDisplayName = nil
+                    pendingDeviceDisplayName = name
+                    deviceDisplayNameStatus = "Not set"
+                }
                 lastError = error.localizedDescription
                 if characteristic.uuid == pairingUUID {
                     pairingState = "Pairing locked"
@@ -1091,6 +1170,11 @@ extension DoorUnlockerController: CBPeripheralDelegate {
                 if isUnlocked {
                     publishWidgetState(servoState, resetAutoLockDeadline: true)
                 }
+                readStateIfPermitted()
+            }
+
+            if characteristic.uuid == commandUUID, sentDeviceDisplayName != nil {
+                deviceDisplayNameStatus = "Waiting for controller"
                 readStateIfPermitted()
             }
 
