@@ -60,6 +60,8 @@ The app generates its own P-256 signing key locally. It prefers Secure Enclave w
 
 The firmware advertises a BLE peripheral for the iPhone app, stores up to four paired phone public keys in internal flash, verifies signed `v2` commands, drives the servo to locked or unlocked positions, and changes the XIAO LED color based on state.
 
+Unlock commands hold the servo at the unlock angle for up to 30 seconds. After that timeout, the controller automatically returns to the locked/rest position to reduce battery drain and servo stress.
+
 USB serial commands:
 
 - `pair on`: enable BLE pairing requests.

@@ -21,6 +21,7 @@ static const int LOCK_ANGLE = 20;        // Rest/release position
 static const int UNLOCK_ANGLE = 95;      // Handle-push position
 static const int SERVO_STEP_DELAY_MS = 8;
 static const int SERVO_DETACH_DELAY_MS = 250;
+static const uint32_t UNLOCK_HOLD_TIMEOUT_MS = 30UL * 1000UL;
 
 // Door Unlocker BLE v2 UUIDs. The v2 service avoids stale iOS GATT caches
 // from earlier firmware that did not include the pairing characteristic.
@@ -52,6 +53,8 @@ bool servoMoving = false;
 bool internalFsReady = false;
 bool pairingModeEnabled = false;
 bool pendingPairingExists = false;
+bool unlockAutoLockActive = false;
+uint32_t unlockAutoLockStartedMs = 0;
 uint8_t pendingPairingPublicKey[P256_PUBLIC_KEY_LEN] = {0};
 uint8_t pairedPublicKeyCount = 0;
 uint8_t pairedPublicKeys[MAX_PAIRED_PHONES][P256_PUBLIC_KEY_LEN] = {{0}};
@@ -547,6 +550,7 @@ void releaseServoPower() {
 }
 
 void lockRest() {
+  unlockAutoLockActive = false;
   servoMoving = true;
   updateStatusLed();
   publishState("locking");
@@ -563,10 +567,28 @@ void unlockHold() {
   updateStatusLed();
   publishState("unlocking");
   moveServoTo(UNLOCK_ANGLE);
+  unlockAutoLockStartedMs = millis();
+  unlockAutoLockActive = true;
   unlocked = true;
   servoMoving = false;
   publishState("unlocked");
   updateStatusLed();
+  Serial.print("Auto-lock scheduled in ");
+  Serial.print(UNLOCK_HOLD_TIMEOUT_MS / 1000UL);
+  Serial.println(" seconds.");
+}
+
+void handleUnlockTimeout() {
+  if (!unlocked || !unlockAutoLockActive) {
+    return;
+  }
+
+  if ((uint32_t)(millis() - unlockAutoLockStartedMs) < UNLOCK_HOLD_TIMEOUT_MS) {
+    return;
+  }
+
+  Serial.println("Unlock timeout reached; locking.");
+  lockRest();
 }
 
 bool authenticateCommand(char* payload, uint64_t* acceptedCounter, const char** acceptedCommand, uint8_t* acceptedPairingIndex) {
@@ -1047,6 +1069,7 @@ void setup() {
 
 void loop() {
   processSerialCommands();
+  handleUnlockTimeout();
   updateStatusLed();
   delay(250);
 }
