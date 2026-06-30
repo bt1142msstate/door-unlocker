@@ -228,12 +228,6 @@ private struct ConnectionPanel: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
-
-            if let code = store.wirelessPairingApprovalCode {
-                Label("Mac pairing code: \(code)", systemImage: "key.horizontal.fill")
-                    .font(.callout.monospacedDigit())
-                    .foregroundStyle(.secondary)
-            }
         }
     }
 }
@@ -287,18 +281,19 @@ private struct PairingPanel: View {
                 .disabled(!store.isConnected || store.isBusy)
             }
 
-            if let pendingFingerprint = store.status.pendingFingerprint {
+            if store.status.hasPendingRequest {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(store.status.pendingName ?? "Pending device")
                         .font(.title3.weight(.semibold))
-                    Text(pendingFingerprint)
-                        .font(.system(.callout, design: .monospaced))
+                    Text("Enter the 4-digit code shown on that device.")
+                        .font(.callout)
                         .foregroundStyle(.secondary)
                 }
             }
 
             HStack(spacing: 10) {
-                TextField("Approval code from iPhone or Mac", text: $store.approvalCode)
+                TextField("4-digit code", text: $store.approvalCode)
+                    .font(.system(.body, design: .monospaced))
                     .textFieldStyle(.roundedBorder)
 
                 Button("Approve") {

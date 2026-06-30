@@ -389,19 +389,19 @@ struct ContentView: View {
 
     private var pairingApprovalPanel: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Approve this iPhone from the computer.", systemImage: "keyboard.fill")
+            Label("Enter this code in the Mac app.", systemImage: "keyboard.fill")
                 .font(.footnote.weight(.medium))
                 .foregroundStyle(accent)
 
             if let code = controller.pairingApprovalCode {
-                Text("pair approve \(code)")
-                    .font(.system(.footnote, design: .monospaced).weight(.semibold))
+                Text(code)
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.72)
+                    .tracking(6)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .center)
                     .background(Color.black.opacity(0.34), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
         }

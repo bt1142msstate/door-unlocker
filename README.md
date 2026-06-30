@@ -53,9 +53,9 @@ index.html                       GitHub Pages entry point
 5. Build and run the iPhone app on your device.
 6. Open the XIAO serial monitor over USB-C and send `pair on`.
 7. Connect to the XIAO from the iPhone app and tap **Pair This iPhone** while the app shows `Pairing Enabled`.
-8. Compare the code shown in the app with the USB serial output, then type `pair approve CODE`, or open the Mac admin app and approve the code there.
+8. Read the 4-digit code shown on the iPhone, then type that code into the Mac admin app or send `pair approve CODE` over USB serial.
 9. Use the main toggle, Siri/App Shortcuts, widgets, iOS Controls, or the Mac admin app after pairing completes.
-10. To pair the Mac for wireless control, connect over USB-C in the Mac admin app, enable pairing, connect wirelessly, tap **Pair This Mac**, then approve the shown code from the Mac admin app.
+10. To pair the Mac for wireless control, request Mac pairing from the Mac app, then approve it from a separate USB serial/admin flow. The Mac app intentionally does not display its own approval code.
 
 The iPhone and Mac apps each generate their own P-256 signing key locally. They prefer Secure Enclave when available and fall back to a Keychain-stored software key when needed. The XIAO stores only trusted device public keys, so the repository does not contain a command secret.
 
@@ -68,10 +68,10 @@ Unlock commands hold the servo at the unlock angle for up to 30 seconds by defau
 USB serial commands:
 
 - `pair on`: enable BLE pairing requests.
-- `pair approve CODE`: approve the pending phone if the code matches the iPhone app.
-- `pair reject`: reject the pending phone request.
+- `pair approve CODE`: approve the pending device if the code matches the device being paired.
+- `pair reject`: reject the pending device request.
 - `pair off`: disable BLE pairing mode and clear any pending request.
-- `pair status`: print pairing mode, pending request, and paired phone count.
+- `pair status`: print pairing mode, pending request, and paired device count.
 - `pairs list`: print paired device slots, fingerprints, and names when known.
 - `pairs remove N`: remove one paired device by slot number.
 - `pairs clear`: remove all paired devices.
@@ -84,9 +84,9 @@ USB serial commands:
 
 LED states:
 
-- Red: no phone can command the controller and USB pairing mode is locked.
-- Purple: USB pairing mode is enabled and waiting for a phone request.
-- Cyan: a phone pairing request is pending USB approval.
+- Red: no trusted device can command the controller and USB pairing mode is locked.
+- Purple: USB pairing mode is enabled and waiting for a device request.
+- Cyan: a device pairing request is pending USB approval.
 - Blue: locked.
 - Green: unlocked.
 - Yellow: servo is moving.
@@ -99,7 +99,7 @@ The app provides:
 
 - One main state toggle for Lock/Unlock.
 - BLE connection management.
-- USB-gated pairing that sends only the phone public key to the XIAO and requires typing the app's approval code over USB-C.
+- USB-gated pairing that sends only the phone public key to the XIAO and requires typing the 4-digit code shown on the phone over USB-C or in the Mac admin app.
 - Optional Face ID/passcode confirmation before sending unlock commands.
 - Auto-lock timeout setting that is stored and enforced by the controller.
 - Siri/App Intents for voice and shortcut automation.
@@ -114,12 +114,12 @@ The Mac admin app is in `mac/DoorUnlockerAdmin`. It talks to the XIAO over USB-C
 - Show controller state, pairing mode, auto-lock timeout, and trusted-device count.
 - List trusted devices by friendly name when known, plus slot and public-key fingerprint.
 - Enable or disable pairing mode.
-- Approve or reject a pending iPhone or Mac pairing request by typing the code shown in the app.
+- Approve or reject a pending iPhone or Mac pairing request by typing the 4-digit code shown on the device being paired.
 - Pair the Mac itself for wireless control.
 - Remove one trusted device, clear all trusted devices, or send lock/unlock over USB.
 - Connect over Bluetooth and use the same single Lock/Unlock toggle as the iPhone app.
 
-Device names are stored by the firmware for new pairings. Existing pairings made before this feature may show as `Device 1`, `Device 2`, and so on until that device is paired again.
+The Mac admin app does not display pending approval codes or pending public-key fingerprints. Device names are stored by the firmware for new pairings. Existing pairings made before this feature may show as `Device 1`, `Device 2`, and so on until that device is paired again.
 
 Run it locally with:
 

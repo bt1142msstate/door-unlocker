@@ -14,7 +14,7 @@ The iPhone app also has an optional setting to require Face ID or the device pas
 
 ## Pairing
 
-BLE pairing is locked by default. To add an iPhone or Mac, connect the XIAO over USB-C, open the serial monitor or Mac admin app, and enable pairing mode. Then connect with the app and tap **Pair This iPhone** or **Pair This Mac** while pairing mode is enabled. The app shows a short approval code, and the XIAO prints the matching pending device fingerprint over USB serial. Type `pair approve CODE` or approve the code in the Mac admin app only when the app and USB-side output match. Pairing mode turns itself off after approval.
+BLE pairing is locked by default. To add an iPhone or Mac, connect the XIAO over USB-C, open the serial monitor or Mac admin app, and enable pairing mode. Then connect with the app and tap **Pair This iPhone** or **Pair This Mac** while pairing mode is enabled. The device being paired shows a 4-digit approval code. Type that code with `pair approve CODE`, or type it into the Mac admin app. The Mac admin app intentionally does not display pending approval codes or pending public-key fingerprints. Pairing mode turns itself off after approval.
 
 The firmware can store multiple trusted public keys. Use USB-C serial command `pair status` to see the trusted device count and pending request, `pairs list` to list trusted fingerprints and names when known, `pairs remove N` to remove one trusted device, `pair reject` to reject a pending device, `pair off` to lock pairing mode, or `pairs clear` to remove all trusted devices. The Mac admin app wraps the same USB-C management path and can also use its own paired key for wireless lock/unlock commands.
 

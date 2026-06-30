@@ -45,6 +45,7 @@ static const size_t PAIRED_DEVICE_NAME_LEN = 24;
 static const size_t PAIRED_DEVICE_NAME_STORAGE_LEN = PAIRED_DEVICE_NAME_LEN + 1;
 static const size_t LEGACY_PAIRING_RECORD_LEN = P256_PUBLIC_KEY_LEN + sizeof(uint64_t);
 static const size_t PAIRING_RECORD_LEN = LEGACY_PAIRING_RECORD_LEN + PAIRED_DEVICE_NAME_STORAGE_LEN;
+static const size_t PAIRING_APPROVAL_CODE_LEN = 4;
 static const size_t PAIRING_FINGERPRINT_LEN = 19; // 8-byte SHA-256 prefix as XXXX-XXXX-XXXX-XXXX
 
 BLEService doorService = BLEService(DOOR_SERVICE_UUID);
@@ -187,13 +188,38 @@ bool keyFingerprint(const uint8_t* rawKey, char* output, size_t outputLen) {
   return true;
 }
 
+bool keyApprovalCode(const uint8_t* rawKey, char* output, size_t outputLen) {
+  if (rawKey == nullptr || output == nullptr || outputLen < PAIRING_APPROVAL_CODE_LEN + 1) {
+    return false;
+  }
+
+  nRFCrypto_Hash hash;
+  uint32_t digest[16] = {0};
+  if (!hash.begin(CRYS_HASH_SHA256_mode)) {
+    return false;
+  }
+  if (!hash.update((uint8_t*) rawKey, P256_PUBLIC_KEY_LEN)) {
+    return false;
+  }
+
+  uint8_t digestLen = hash.end(digest);
+  if (digestLen < 2) {
+    return false;
+  }
+
+  const uint8_t* bytes = (const uint8_t*) digest;
+  uint16_t code = ((((uint16_t) bytes[0]) << 8) | bytes[1]) % 10000;
+  snprintf(output, outputLen, "%04u", code);
+  return true;
+}
+
 bool pairingCodeMatches(const char* expected, const char* provided) {
   if (expected == nullptr || provided == nullptr) {
     return false;
   }
 
   while (*expected != 0 && *provided != 0) {
-    if (*provided == ' ' || *provided == '\t') {
+    if (*provided == ' ' || *provided == '\t' || *provided == '-') {
       provided++;
       continue;
     }
@@ -208,7 +234,7 @@ bool pairingCodeMatches(const char* expected, const char* provided) {
     provided++;
   }
 
-  while (*provided == ' ' || *provided == '\t') {
+  while (*provided == ' ' || *provided == '\t' || *provided == '-') {
     provided++;
   }
 
@@ -272,12 +298,19 @@ void clearPendingPairing() {
 
 void printPendingPairingRequest() {
   if (!pendingPairingExists) {
-    Serial.println("No pending phone pairing request.");
+    Serial.println("No pending device pairing request.");
     return;
   }
 
+  char approvalCode[PAIRING_APPROVAL_CODE_LEN + 1] = {0};
   char fingerprint[PAIRING_FINGERPRINT_LEN + 1] = {0};
-  Serial.println("Pending phone pairing request.");
+  Serial.println("Pending device pairing request.");
+  if (keyApprovalCode(pendingPairingPublicKey, approvalCode, sizeof(approvalCode))) {
+    Serial.print("Code: ");
+    Serial.println(approvalCode);
+  } else {
+    Serial.println("Code unavailable.");
+  }
   if (keyFingerprint(pendingPairingPublicKey, fingerprint, sizeof(fingerprint))) {
     Serial.print("Fingerprint: ");
     Serial.println(fingerprint);
@@ -288,7 +321,7 @@ void printPendingPairingRequest() {
     Serial.print("Device name: ");
     Serial.println(pendingPairingDeviceName);
   }
-  Serial.println("Compare it with the iPhone app, then type 'pair approve CODE' or 'pair reject'.");
+  Serial.println("Compare the 4-digit code with the app, then type 'pair approve CODE' or 'pair reject'.");
 }
 
 void encodeUnsigned64(uint64_t value, uint8_t* bytes) {
@@ -524,10 +557,10 @@ void loadPairings() {
 
     if (needsRepair || usesLegacyRecords) {
       savePairings();
-      Serial.println(usesLegacyRecords ? "Migrated paired phone table names" : "Repaired paired phone table");
+      Serial.println(usesLegacyRecords ? "Migrated paired device table names" : "Repaired paired device table");
     }
 
-    Serial.print("Loaded paired phones: ");
+    Serial.print("Loaded paired devices: ");
     Serial.print(pairedPublicKeyCount);
     Serial.print("/");
     Serial.println(MAX_PAIRED_PHONES);
@@ -536,7 +569,7 @@ void loadPairings() {
 
   File legacyFile(InternalFS);
   if (!legacyFile.open(LEGACY_PUBLIC_KEY_FILENAME, FILE_O_READ)) {
-    Serial.println("No paired phone keys yet");
+    Serial.println("No paired device keys yet");
     return;
   }
 
@@ -552,10 +585,10 @@ void loadPairings() {
     savePairings();
     InternalFS.remove(LEGACY_PUBLIC_KEY_FILENAME);
     InternalFS.remove(LEGACY_COUNTER_FILENAME);
-    Serial.println("Migrated legacy paired phone key");
+    Serial.println("Migrated legacy paired device key");
   } else {
     InternalFS.remove(LEGACY_PUBLIC_KEY_FILENAME);
-    Serial.println("Removed invalid legacy paired phone key");
+    Serial.println("Removed invalid legacy paired device key");
   }
 }
 
@@ -777,11 +810,11 @@ void updateStatusLed() {
   if (servoMoving) {
     setRgbLed(true, true, false);   // Yellow while the servo is moving.
   } else if (pendingPairingExists) {
-    setRgbLed(false, true, true);    // Cyan means a phone is waiting for USB approval.
+    setRgbLed(false, true, true);    // Cyan means a device is waiting for USB approval.
   } else if (pairingModeEnabled) {
     setRgbLed(true, false, true);   // Purple means USB-enabled pairing mode.
   } else if (pairedPublicKeyCount == 0) {
-    setRgbLed(true, false, false);  // Red means no phone can command it yet.
+    setRgbLed(true, false, false);  // Red means no device can command it yet.
   } else if (unlocked) {
     setRgbLed(false, true, false);  // Green means unlocked.
   } else {
@@ -881,7 +914,7 @@ void handleUnlockTimeout() {
 
 bool authenticateCommand(char* payload, uint64_t* acceptedCounter, const char** acceptedCommand, uint8_t* acceptedPairingIndex) {
   if (pairedPublicKeyCount == 0) {
-    rejectCommand("phone not paired");
+    rejectCommand("device not paired");
     return false;
   }
 
@@ -957,7 +990,7 @@ void handleCommand(char* payload) {
     return;
   }
 
-  Serial.print("Accepted secure command from phone ");
+  Serial.print("Accepted secure command from device ");
   Serial.print(pairingIndex + 1);
   Serial.print(" #");
   printUnsigned64(commandCounter);
@@ -1039,7 +1072,7 @@ void pairingWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint8_t
     }
     pairingModeEnabled = false;
     clearPendingPairing();
-    Serial.println("Phone key was already paired; pairing mode disabled");
+    Serial.println("Device key was already paired; pairing mode disabled");
     publishState("paired");
     delay(250);
     publishState(currentStateText());
@@ -1050,7 +1083,7 @@ void pairingWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint8_t
   if (pairedPublicKeyCount >= MAX_PAIRED_PHONES) {
     pairingModeEnabled = false;
     clearPendingPairing();
-    rejectCommand("paired phone table full");
+    rejectCommand("paired device table full");
     updateStatusLed();
     return;
   }
@@ -1071,7 +1104,7 @@ void pairingWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint8_t
   memcpy(pendingPairingPublicKey, rawKey, P256_PUBLIC_KEY_LEN);
   copyDeviceName(deviceName, pendingPairingDeviceName, sizeof(pendingPairingDeviceName));
   pendingPairingExists = true;
-  Serial.println("Phone pairing request received over BLE.");
+  Serial.println("Device pairing request received over BLE.");
   printPendingPairingRequest();
   publishState(currentStateText());
   updateStatusLed();
@@ -1079,22 +1112,26 @@ void pairingWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint8_t
 
 bool approvePendingPairing(const char* approvalCode) {
   if (!pendingPairingExists) {
-    Serial.println("No pending phone pairing request to approve.");
+    Serial.println("No pending device pairing request to approve.");
     printPairingStatus();
     return false;
   }
 
+  char approvalCodeExpected[PAIRING_APPROVAL_CODE_LEN + 1] = {0};
   char fingerprint[PAIRING_FINGERPRINT_LEN + 1] = {0};
+  if (!keyApprovalCode(pendingPairingPublicKey, approvalCodeExpected, sizeof(approvalCodeExpected))) {
+    Serial.println("Could not calculate pending pairing approval code.");
+    return false;
+  }
+
   if (!keyFingerprint(pendingPairingPublicKey, fingerprint, sizeof(fingerprint))) {
     Serial.println("Could not calculate pending pairing fingerprint.");
     return false;
   }
 
-  if (!pairingCodeMatches(fingerprint, approvalCode)) {
-    Serial.println("Approval code did not match the pending phone fingerprint.");
-    Serial.print("Expected: ");
-    Serial.println(fingerprint);
-    Serial.println("Type the exact code shown in the iPhone app, for example: pair approve XXXX-XXXX-XXXX-XXXX");
+  if (!pairingCodeMatches(approvalCodeExpected, approvalCode) && !pairingCodeMatches(fingerprint, approvalCode)) {
+    Serial.println("Approval code did not match the pending device.");
+    Serial.println("Type the 4-digit code shown in the app, for example: pair approve 1234");
     publishState(currentStateText());
     updateStatusLed();
     return false;
@@ -1103,7 +1140,7 @@ bool approvePendingPairing(const char* approvalCode) {
   if (pairedPublicKeyExists(pendingPairingPublicKey)) {
     pairingModeEnabled = false;
     clearPendingPairing();
-    Serial.println("Phone key was already paired; pairing mode disabled.");
+    Serial.println("Device key was already paired; pairing mode disabled.");
     publishState("paired");
     delay(250);
     publishState(currentStateText());
@@ -1114,7 +1151,7 @@ bool approvePendingPairing(const char* approvalCode) {
   if (pairedPublicKeyCount >= MAX_PAIRED_PHONES) {
     pairingModeEnabled = false;
     clearPendingPairing();
-    rejectCommand("paired phone table full");
+    rejectCommand("paired device table full");
     updateStatusLed();
     return false;
   }
@@ -1127,7 +1164,7 @@ bool approvePendingPairing(const char* approvalCode) {
 
   pairingModeEnabled = false;
   clearPendingPairing();
-  Serial.print("Approved and stored phone public key: ");
+  Serial.print("Approved and stored device public key: ");
   Serial.println(fingerprint);
   publishState("paired");
   delay(250);
@@ -1138,13 +1175,13 @@ bool approvePendingPairing(const char* approvalCode) {
 
 void rejectPendingPairing() {
   if (!pendingPairingExists) {
-    Serial.println("No pending phone pairing request to reject.");
+    Serial.println("No pending device pairing request to reject.");
     printPairingStatus();
     return;
   }
 
   clearPendingPairing();
-  Serial.println("Rejected pending phone pairing request. Pairing mode is still enabled.");
+  Serial.println("Rejected pending device pairing request. Pairing mode is still enabled.");
   publishState(currentStateText());
   updateStatusLed();
 }
@@ -1367,20 +1404,20 @@ void printPairingHelp() {
   Serial.println("USB commands:");
   Serial.println("  pair on        Enable BLE pairing requests");
   Serial.println("  pair approve CODE");
-  Serial.println("                 Approve the pending phone if CODE matches the iPhone app");
-  Serial.println("  pair reject    Reject the pending phone shown in USB serial");
+  Serial.println("                 Approve the pending device if CODE matches the app");
+  Serial.println("  pair reject    Reject the pending device shown in USB serial");
   Serial.println("  pair off       Disable BLE pairing mode and clear pending request");
-  Serial.println("  pair status    Print pairing mode, pending request, and paired phone count");
-  Serial.println("  pairs list     Print paired phone slots and fingerprints");
-  Serial.println("  pairs remove N Remove paired phone by slot number");
-  Serial.println("  pairs clear    Remove all paired phones");
+  Serial.println("  pair status    Print pairing mode, pending request, and paired device count");
+  Serial.println("  pairs list     Print paired device slots and fingerprints");
+  Serial.println("  pairs remove N Remove paired device by slot number");
+  Serial.println("  pairs clear    Remove all paired devices");
   Serial.println("  app status     Print machine-readable controller status for the Mac app");
 }
 
 void printPairingStatus() {
   Serial.print("Pairing mode: ");
   Serial.println(pairingModeEnabled ? "enabled" : "locked");
-  Serial.print("Paired phones: ");
+  Serial.print("Paired devices: ");
   Serial.print(pairedPublicKeyCount);
   Serial.print("/");
   Serial.println(MAX_PAIRED_PHONES);
@@ -1405,21 +1442,21 @@ void handleSerialCommand(char* rawLine) {
 
   if (serialCommandEquals(command, "pair on") || serialCommandEquals(command, "pairing on")) {
     if (pairedPublicKeyCount >= MAX_PAIRED_PHONES) {
-      Serial.println("Pairing mode not enabled: paired phone table is full.");
+      Serial.println("Pairing mode not enabled: paired device table is full.");
       printPairingStatus();
       return;
     }
 
     pairingModeEnabled = true;
     clearPendingPairing();
-    Serial.println("Pairing mode enabled. Open the app and tap Pair This iPhone, then approve the fingerprint here.");
+  Serial.println("Pairing mode enabled. Open the app and tap Pair This iPhone, then approve the 4-digit code here.");
     publishState(currentStateText());
     updateStatusLed();
   } else if (serialCommandStartsWith(command, "pair approve")) {
     char* approvalCode = command + strlen("pair approve");
     approvalCode = trimSerialCommand(approvalCode);
     if (*approvalCode == 0) {
-      Serial.println("Missing approval code. Use: pair approve XXXX-XXXX-XXXX-XXXX");
+      Serial.println("Missing approval code. Use: pair approve 1234");
       printPendingPairingRequest();
       return;
     }
@@ -1436,7 +1473,7 @@ void handleSerialCommand(char* rawLine) {
     printPairingStatus();
   } else if (serialCommandEquals(command, "pairs clear") || serialCommandEquals(command, "clear pairs")) {
     clearPairings();
-    Serial.println("All paired phones cleared. Run 'pair on' before pairing a phone.");
+    Serial.println("All paired devices cleared. Run 'pair on' before pairing a device.");
     publishState(currentStateText());
     updateStatusLed();
   } else if (serialCommandEquals(command, "pairs list") || serialCommandEquals(command, "list pairs")) {
@@ -1450,19 +1487,19 @@ void handleSerialCommand(char* rawLine) {
       return;
     }
     if (removeIndex < 0) {
-      Serial.println("No paired phone matched that slot or fingerprint.");
+      Serial.println("No paired device matched that slot or fingerprint.");
       return;
     }
 
     char removedFingerprint[PAIRING_FINGERPRINT_LEN + 1] = {0};
     keyFingerprint(pairedPublicKeys[removeIndex], removedFingerprint, sizeof(removedFingerprint));
     if (removePairedPublicKeyAt((uint8_t) removeIndex)) {
-      Serial.print("Removed paired phone: ");
+      Serial.print("Removed paired device: ");
       Serial.println(removedFingerprint);
       publishState(currentStateText());
       updateStatusLed();
     } else {
-      Serial.println("Could not remove paired phone.");
+      Serial.println("Could not remove paired device.");
     }
   } else if (serialCommandEquals(command, "help") || serialCommandEquals(command, "?")) {
     printPairingHelp();

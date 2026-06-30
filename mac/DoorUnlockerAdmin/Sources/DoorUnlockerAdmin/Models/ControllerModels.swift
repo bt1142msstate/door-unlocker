@@ -20,7 +20,6 @@ struct ControllerStatus: Equatable {
     var pairedCount = 0
     var maxPairs = 0
     var hasPendingRequest = false
-    var pendingFingerprint: String?
     var pendingName: String?
     var bleState = "unknown"
     var isUnlocked = false

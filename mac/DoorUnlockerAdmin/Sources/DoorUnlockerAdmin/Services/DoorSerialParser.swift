@@ -18,8 +18,6 @@ enum DoorSerialParser {
                 status.maxPairs = Int(value) ?? status.maxPairs
             case "pending":
                 status.hasPendingRequest = value == "yes"
-            case "pending_fingerprint":
-                status.pendingFingerprint = value.isEmpty || value == "unknown" ? nil : value
             case "pending_name":
                 status.pendingName = value.isEmpty ? nil : value
             case "ble_state":

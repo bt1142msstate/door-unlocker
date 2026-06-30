@@ -57,28 +57,12 @@ enum DoorCommandAuthenticator {
         return payload
     }
 
-    static func pairingFingerprint() throws -> String {
-        try fingerprint(for: identity().publicKeyX963Representation)
-    }
-
     static func payload(for commandText: String) throws -> Data {
         let counter = nextCounter()
         let message = "v2|\(counter)|\(commandText)"
         let signature = try identity().signature(for: Data(message.utf8))
         let signatureHex = signature.map { String(format: "%02x", $0) }.joined()
         return Data("\(message)|\(signatureHex)".utf8)
-    }
-
-    private static func fingerprint(for publicKey: Data) -> String {
-        let digest = SHA256.hash(data: publicKey)
-        let prefix = digest.prefix(8).map { String(format: "%02X", $0) }.joined()
-        return stride(from: 0, to: prefix.count, by: 4)
-            .map { index in
-                let start = prefix.index(prefix.startIndex, offsetBy: index)
-                let end = prefix.index(start, offsetBy: 4)
-                return String(prefix[start..<end])
-            }
-            .joined(separator: "-")
     }
 
     private static func sanitizedDeviceNameData(_ name: String) -> Data {

@@ -31,7 +31,6 @@ final class DoorAdminStore: NSObject, ObservableObject {
     @Published private(set) var bluetoothState = "Starting"
     @Published private(set) var wirelessConnectionState = "Disconnected"
     @Published private(set) var wirelessPairingState = "Unknown"
-    @Published private(set) var wirelessPairingApprovalCode: String?
     @Published private(set) var isBusy = false
     @Published private(set) var status = ControllerStatus.disconnected
     @Published private(set) var pairedDevices: [PairedDevice] = []
@@ -137,7 +136,6 @@ final class DoorAdminStore: NSObject, ObservableObject {
         stateCharacteristic = nil
         pairingCharacteristic = nil
         wirelessPairingState = "Unknown"
-        wirelessPairingApprovalCode = nil
         wirelessConnectionState = "Scanning"
         central?.stopScan()
         central?.scanForPeripherals(withServices: [serviceUUID], options: [
@@ -155,7 +153,6 @@ final class DoorAdminStore: NSObject, ObservableObject {
         stateCharacteristic = nil
         pairingCharacteristic = nil
         wirelessPairingState = "Unknown"
-        wirelessPairingApprovalCode = nil
         wirelessConnectionState = "Disconnected"
     }
 
@@ -177,9 +174,9 @@ final class DoorAdminStore: NSObject, ObservableObject {
     }
 
     func approvePairing() {
-        let code = approvalCode.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !code.isEmpty else {
-            lastError = "Enter the approval code shown on the iPhone."
+        let code = approvalCode.filter(\.isNumber)
+        guard code.count == 4 else {
+            lastError = "Enter the 4-digit code shown on the device."
             return
         }
 
@@ -226,15 +223,14 @@ final class DoorAdminStore: NSObject, ObservableObject {
         do {
             let deviceName = Host.current().localizedName ?? "Mac"
             let payload = try DoorCommandAuthenticator.pairingPayload(deviceName: deviceName)
-            let approvalCode = try DoorCommandAuthenticator.pairingFingerprint()
             guard payload.count <= peripheral.maximumWriteValueLength(for: .withResponse) else {
                 lastError = "Pairing key is too large for this Bluetooth connection."
                 return
             }
 
             lastError = nil
-            wirelessPairingApprovalCode = approvalCode
             wirelessPairingState = "Pairing"
+            message = "Pairing request sent"
             peripheral.writeValue(payload, for: pairingCharacteristic, type: .withResponse)
         } catch {
             lastError = error.localizedDescription
@@ -356,10 +352,25 @@ final class DoorAdminStore: NSObject, ObservableObject {
     }
 
     private func appendLog(_ lines: [String]) {
-        logLines.append(contentsOf: lines)
+        logLines.append(contentsOf: lines.map(redactedLogLine))
         if logLines.count > 120 {
             logLines.removeFirst(logLines.count - 120)
         }
+    }
+
+    private func redactedLogLine(_ line: String) -> String {
+        let sensitivePrefixes = [
+            "Code:",
+            "Fingerprint:",
+            "Expected code:",
+            "Expected fingerprint:",
+            "pending_fingerprint="
+        ]
+
+        if sensitivePrefixes.contains(where: { line.hasPrefix($0) }) {
+            return "[pairing confirmation hidden]"
+        }
+        return line
     }
 
     private func connect(to peripheral: CBPeripheral) {
@@ -390,20 +401,12 @@ final class DoorAdminStore: NSObject, ObservableObject {
         switch state {
         case "pairing_enabled":
             wirelessPairingState = "Pairing enabled"
-            wirelessPairingApprovalCode = nil
         case "pairing_pending":
             wirelessPairingState = "Pairing pending"
-            if wirelessPairingApprovalCode == nil {
-                wirelessPairingApprovalCode = try? DoorCommandAuthenticator.pairingFingerprint()
-            }
         case "pairing_locked", "unpaired":
             wirelessPairingState = "Pairing locked"
-            wirelessPairingApprovalCode = nil
         case "paired", "locked", "unlocked", "locking", "unlocking", "timeout_set":
             wirelessPairingState = "Ready"
-            if state == "paired" {
-                wirelessPairingApprovalCode = nil
-            }
         case "rejected":
             lastError = "Wireless command was rejected. Pair this Mac over USB if it is not trusted yet."
         default:
@@ -466,7 +469,6 @@ extension DoorAdminStore: CBCentralManagerDelegate {
             stateCharacteristic = nil
             pairingCharacteristic = nil
             wirelessPairingState = "Unknown"
-            wirelessPairingApprovalCode = nil
             if let error {
                 lastError = error.localizedDescription
             }
