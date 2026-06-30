@@ -11,20 +11,12 @@ struct ContentView: View {
         controller.isUnlocked ? Color(red: 0.35, green: 0.86, blue: 0.58) : Color(red: 0.35, green: 0.72, blue: 1.0)
     }
 
-    private var modeTitle: String {
-        if controller.isChangingState {
-            return controller.stateTitle
-        }
-
-        return controller.isUnlocked ? "Unlocked" : "Locked"
-    }
-
     private var actionTitle: String {
         if controller.isChangingState {
-            return controller.isUnlocked ? "Opening" : "Securing"
+            return controller.isUnlocked ? "Locking..." : "Unlocking..."
         }
 
-        return controller.isUnlocked ? "Lock" : "Unlock"
+        return controller.isUnlocked ? "Tap to lock" : "Tap to unlock"
     }
 
     private var modeIcon: String {
@@ -206,15 +198,9 @@ struct ContentView: View {
                 }
                 .frame(width: 118, height: 118)
 
-                VStack(spacing: 4) {
-                    Text(modeTitle)
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-
-                    Text(actionTitle)
-                        .font(.headline.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.72))
-                }
+                Text(actionTitle)
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.86))
             }
             .frame(maxWidth: .infinity)
             .frame(height: 260)
