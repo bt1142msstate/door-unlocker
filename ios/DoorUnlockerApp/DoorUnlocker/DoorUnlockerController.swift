@@ -97,9 +97,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
             if commandCharacteristic == nil {
                 peripheral.discoverServices([serviceUUID])
             }
-            if let stateCharacteristic {
-                peripheral.readValue(for: stateCharacteristic)
-            }
+            readStateIfPermitted()
             return
         }
 
@@ -185,9 +183,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         case .toggle:
             guard hasKnownLockState else {
                 pendingSystemCommand = systemCommand
-                if let stateCharacteristic {
-                    peripheral?.readValue(for: stateCharacteristic)
-                }
+                _ = readStateIfPermitted()
                 return
             }
 
@@ -257,6 +253,20 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     private func publishWidgetState(_ state: String) {
         DoorStatusStore.save(state: state)
         WidgetCenter.shared.reloadTimelines(ofKind: "DoorUnlockerWidget")
+    }
+
+    @discardableResult
+    private func readStateIfPermitted() -> Bool {
+        guard let peripheral, let stateCharacteristic else {
+            return false
+        }
+
+        guard stateCharacteristic.properties.contains(.read) else {
+            return false
+        }
+
+        peripheral.readValue(for: stateCharacteristic)
+        return true
     }
 }
 
@@ -364,8 +374,10 @@ extension DoorUnlockerController: CBPeripheralDelegate {
                     commandCharacteristic = characteristic
                 } else if characteristic.uuid == stateUUID {
                     stateCharacteristic = characteristic
-                    peripheral.setNotifyValue(true, for: characteristic)
-                    peripheral.readValue(for: characteristic)
+                    if characteristic.properties.contains(.notify) || characteristic.properties.contains(.indicate) {
+                        peripheral.setNotifyValue(true, for: characteristic)
+                    }
+                    readStateIfPermitted()
                 } else if characteristic.uuid == pairingUUID {
                     pairingCharacteristic = characteristic
                 }
@@ -385,8 +397,9 @@ extension DoorUnlockerController: CBPeripheralDelegate {
     private func sendPendingSystemCommandIfReady() {
         guard isReady, let command = pendingSystemCommand else { return }
         if command == .toggle, !hasKnownLockState {
-            if let stateCharacteristic {
-                peripheral?.readValue(for: stateCharacteristic)
+            if !readStateIfPermitted() {
+                pendingSystemCommand = nil
+                toggleLock()
             }
             return
         }
@@ -398,7 +411,9 @@ extension DoorUnlockerController: CBPeripheralDelegate {
     nonisolated func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
         Task { @MainActor in
             if let error {
-                lastError = error.localizedDescription
+                if characteristic.uuid != stateUUID || !isReadNotPermitted(error) {
+                    lastError = error.localizedDescription
+                }
                 return
             }
 
@@ -423,11 +438,14 @@ extension DoorUnlockerController: CBPeripheralDelegate {
 
             if characteristic.uuid == pairingUUID {
                 pairingState = "Paired"
-                if let stateCharacteristic {
-                    peripheral.readValue(for: stateCharacteristic)
-                }
+                readStateIfPermitted()
             }
         }
+    }
+
+    private func isReadNotPermitted(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        return nsError.domain == CBATTError.errorDomain && nsError.code == CBATTError.Code.readNotPermitted.rawValue
     }
 
     private func updatePairingState(from state: String) {
