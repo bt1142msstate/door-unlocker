@@ -190,71 +190,32 @@ private struct LockStateIcon: View {
     let color: Color
 
     var body: some View {
-        if state.isUnlocked {
-            LockSymbol(name: "lock.open.fill", size: size, color: color, flipDegrees: 0)
-        } else {
-            if let startedAt = state.lockAnimationStartedAt {
-                TimelineView(.animation) { timeline in
-                    LockSymbol(
-                        name: symbolName(startedAt: startedAt, now: timeline.date),
-                        size: size,
-                        color: color,
-                        flipDegrees: flipDegrees(startedAt: startedAt, now: timeline.date)
-                    )
-                }
-            } else {
-                LockSymbol(
-                    name: fallbackSymbolName,
-                    size: size,
-                    color: color,
-                    flipDegrees: fallbackFlipDegrees
-                )
-            }
-        }
+        LockSymbol(name: pose.symbolName, size: size, color: color, flipDegrees: pose.flipDegrees)
+            .animation(.easeInOut(duration: lockFlipAnimationHalfDuration), value: state.lockIconPhase)
+            .animation(.easeInOut(duration: lockFlipAnimationHalfDuration), value: state.state)
     }
 
-    private var fallbackSymbolName: String {
+    private var pose: LockIconPose {
+        guard !state.isUnlocked else {
+            return LockIconPose(symbolName: "lock.open.fill", flipDegrees: 0)
+        }
+
         switch state.lockIconPhase {
         case 0:
-            return "lock.open.fill"
+            return LockIconPose(symbolName: "lock.open.fill", flipDegrees: 0)
         case 1:
-            return "lock.fill"
+            return LockIconPose(symbolName: "lock.open.fill", flipDegrees: 88)
+        case 2:
+            return LockIconPose(symbolName: "lock.fill", flipDegrees: -88)
         default:
-            return "lock.fill"
+            return LockIconPose(symbolName: "lock.fill", flipDegrees: 0)
         }
     }
+}
 
-    private var fallbackFlipDegrees: Double {
-        state.lockIconPhase == 1 ? -54 : 0
-    }
-
-    private func symbolName(startedAt: Date, now: Date) -> String {
-        animationProgress(startedAt: startedAt, now: now) < 0.5 ? "lock.open.fill" : "lock.fill"
-    }
-
-    private func flipDegrees(startedAt: Date, now: Date) -> Double {
-        let progress = animationProgress(startedAt: startedAt, now: now)
-        if progress < 0.5 {
-            let firstHalfProgress = progress / 0.5
-            return 90 * easeIn(firstHalfProgress)
-        }
-
-        let secondHalfProgress = (progress - 0.5) / 0.5
-        return -90 * (1 - easeOut(secondHalfProgress))
-    }
-
-    private func animationProgress(startedAt: Date, now: Date) -> Double {
-        let elapsed = now.timeIntervalSince(startedAt)
-        return max(0, min(1, elapsed / lockFlipAnimationDuration))
-    }
-
-    private func easeIn(_ progress: Double) -> Double {
-        progress * progress
-    }
-
-    private func easeOut(_ progress: Double) -> Double {
-        1 - pow(1 - progress, 2)
-    }
+private struct LockIconPose {
+    let symbolName: String
+    let flipDegrees: Double
 }
 
 private struct LockSymbol: View {
@@ -276,7 +237,7 @@ private struct LockSymbol: View {
     }
 }
 
-private let lockFlipAnimationDuration: TimeInterval = 1.3
+private let lockFlipAnimationHalfDuration: TimeInterval = 0.42
 
 private struct CompactCountdownIcon: View {
     let timerRange: ClosedRange<Date>

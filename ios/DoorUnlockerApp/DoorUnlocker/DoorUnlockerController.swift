@@ -16,7 +16,9 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     static let minimumAutoLockSeconds = 5
     static let maximumAutoLockSeconds = 120
     private static let liveActivityLockConfirmationSeconds: TimeInterval = 2.0
-    private static let liveActivityLockAnimationStepSeconds: TimeInterval = 0.65
+    private static let liveActivityLockAnimationSettleSeconds: TimeInterval = 0.12
+    private static let liveActivityLockAnimationHalfSeconds: TimeInterval = 0.42
+    private static let liveActivityLockAnimationSwapSeconds: TimeInterval = 0.10
     private static let liveActivityMinimumLockedHoldSeconds: TimeInterval = 0.75
     private static let liveActivityStaleGraceSeconds: TimeInterval = 8.0
 
@@ -778,27 +780,33 @@ final class DoorUnlockerController: NSObject, ObservableObject {
 
         let staleDate = animationStartedAt.addingTimeInterval(confirmationDuration + Self.liveActivityStaleGraceSeconds)
 
-        if confirmationDuration > 0 {
-            let firstPhase = liveActivityContent(state: "locking", phase: 0, staleDate: staleDate, relevanceScore: 0.7)
-            for activity in activities {
-                await activity.update(firstPhase)
-            }
-
-            guard !DoorStatusStore.load().isUnlocked else { return }
-            try? await Task.sleep(nanoseconds: UInt64(Self.liveActivityLockAnimationStepSeconds * 1_000_000_000))
-            guard !DoorStatusStore.load().isUnlocked else { return }
-
-            let secondPhase = liveActivityContent(state: "locking", phase: 1, staleDate: staleDate, relevanceScore: 0.7)
+        func updatePhase(_ phase: Int, state: String = "locking", relevanceScore: Double = 0.7) async -> Bool {
+            let content = liveActivityContent(state: state, phase: phase, staleDate: staleDate, relevanceScore: relevanceScore)
             for activity in Activity<DoorUnlockerActivityAttributes>.activities {
-                await activity.update(secondPhase)
+                await activity.update(content)
             }
-
-            try? await Task.sleep(nanoseconds: UInt64(Self.liveActivityLockAnimationStepSeconds * 1_000_000_000))
-            guard !DoorStatusStore.load().isUnlocked else { return }
+            return !DoorStatusStore.load().isUnlocked
         }
 
-        let finalContent = liveActivityContent(state: "locked", phase: 2, staleDate: nil, relevanceScore: 0.2)
-        let lockedContent = liveActivityContent(state: "locked", phase: 2, staleDate: staleDate, relevanceScore: 0.4)
+        func pause(_ seconds: TimeInterval) async -> Bool {
+            guard seconds > 0 else { return !DoorStatusStore.load().isUnlocked }
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            return !DoorStatusStore.load().isUnlocked
+        }
+
+        if confirmationDuration > 0 {
+            guard await updatePhase(0) else { return }
+            guard await pause(Self.liveActivityLockAnimationSettleSeconds) else { return }
+            guard await updatePhase(1) else { return }
+            guard await pause(Self.liveActivityLockAnimationHalfSeconds) else { return }
+            guard await updatePhase(2) else { return }
+            guard await pause(Self.liveActivityLockAnimationSwapSeconds) else { return }
+            guard await updatePhase(3, state: "locked", relevanceScore: 0.8) else { return }
+            guard await pause(Self.liveActivityLockAnimationHalfSeconds) else { return }
+        }
+
+        let finalContent = liveActivityContent(state: "locked", phase: 3, staleDate: nil, relevanceScore: 0.2)
+        let lockedContent = liveActivityContent(state: "locked", phase: 3, staleDate: staleDate, relevanceScore: 0.4)
         for activity in Activity<DoorUnlockerActivityAttributes>.activities {
             await activity.update(lockedContent)
         }
