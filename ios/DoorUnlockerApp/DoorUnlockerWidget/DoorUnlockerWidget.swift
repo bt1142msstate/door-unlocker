@@ -172,10 +172,9 @@ struct DoorUnlockerLiveActivity: Widget {
                     .symbolEffect(.bounce, value: context.state.state)
             } compactTrailing: {
                 if context.state.isUnlocked {
-                    LiveActivityTimerText(deadline: context.state.autoLockDeadline)
-                        .font(.caption2.monospacedDigit().weight(.bold))
-                        .foregroundStyle(.white)
-                        .frame(minWidth: 34)
+                    Image(systemName: "timer")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(context.state.activityColor)
                 } else {
                     Image(systemName: "checkmark")
                         .font(.caption2.weight(.bold))
