@@ -8,7 +8,7 @@ struct DoorUnlockerEntry: TimelineEntry {
 
 struct DoorUnlockerWidgetProvider: TimelineProvider {
     func placeholder(in context: Context) -> DoorUnlockerEntry {
-        DoorUnlockerEntry(date: .now, status: DoorStatusStore.Snapshot(state: "locked", updatedAt: .now))
+        DoorUnlockerEntry(date: .now, status: DoorStatusStore.Snapshot(state: "locked", updatedAt: .now, autoLockDeadline: nil))
     }
 
     func getSnapshot(in context: Context, completion: @escaping (DoorUnlockerEntry) -> Void) {
@@ -16,8 +16,16 @@ struct DoorUnlockerWidgetProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<DoorUnlockerEntry>) -> Void) {
-        let entry = DoorUnlockerEntry(date: .now, status: DoorStatusStore.load())
-        completion(Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(15 * 60))))
+        let now = Date()
+        let status = DoorStatusStore.load()
+        var entries = [DoorUnlockerEntry(date: now, status: status)]
+
+        if status.isUnlocked, let deadline = status.autoLockDeadline, deadline > now {
+            let lockedStatus = DoorStatusStore.Snapshot(state: "locked", updatedAt: deadline, autoLockDeadline: nil)
+            entries.append(DoorUnlockerEntry(date: deadline, status: lockedStatus))
+        }
+
+        completion(Timeline(entries: entries, policy: .after(Date().addingTimeInterval(15 * 60))))
     }
 }
 

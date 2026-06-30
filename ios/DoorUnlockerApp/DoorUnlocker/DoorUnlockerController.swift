@@ -47,6 +47,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     private var pendingAutoLockTimeoutSeconds: Int?
     private var queuedAutoLockTimeoutSeconds: Int?
     private var autoLockApplyTask: Task<Void, Never>?
+    private var autoLockPredictionTask: Task<Void, Never>?
 
     var isConnectedToController: Bool {
         pairingCharacteristic != nil && peripheral?.state == .connected
@@ -198,6 +199,13 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         pairingState = "Unknown"
         pairingApprovalCode = nil
         startScan()
+    }
+
+    func refreshStateFromController() {
+        reconcilePredictedAutoLock()
+        if !readStateIfPermitted() {
+            scan()
+        }
     }
 
     func toggleLock() {
@@ -412,8 +420,57 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         startScan()
     }
 
-    private func publishWidgetState(_ state: String) {
-        DoorStatusStore.save(state: state)
+    private func publishWidgetState(_ state: String, updatedAt: Date = .now) {
+        let deadline = predictedAutoLockDeadline(for: state, updatedAt: updatedAt)
+        DoorStatusStore.save(state: state, updatedAt: updatedAt, autoLockDeadline: deadline)
+        WidgetCenter.shared.reloadTimelines(ofKind: "DoorUnlockerWidget")
+        scheduleAutoLockPrediction(deadline: deadline)
+    }
+
+    private func predictedAutoLockDeadline(for state: String, updatedAt: Date) -> Date? {
+        switch state {
+        case "unlocking":
+            return updatedAt.addingTimeInterval(TimeInterval(autoLockSeconds + 2))
+        case "unlocked":
+            return updatedAt.addingTimeInterval(TimeInterval(autoLockSeconds))
+        default:
+            return nil
+        }
+    }
+
+    private func scheduleAutoLockPrediction(deadline: Date?) {
+        autoLockPredictionTask?.cancel()
+
+        guard let deadline else { return }
+
+        autoLockPredictionTask = Task { [weak self] in
+            let delay = max(0, deadline.timeIntervalSinceNow)
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+
+            await MainActor.run {
+                self?.applyPredictedAutoLock(deadline: deadline)
+            }
+        }
+    }
+
+    private func applyPredictedAutoLock(deadline: Date) {
+        guard isUnlocked else { return }
+
+        servoState = "locked"
+        updatePairingState(from: "locked")
+        DoorStatusStore.save(state: "locked", updatedAt: deadline)
+        WidgetCenter.shared.reloadTimelines(ofKind: "DoorUnlockerWidget")
+        _ = readStateIfPermitted()
+    }
+
+    private func reconcilePredictedAutoLock() {
+        let snapshot = DoorStatusStore.load()
+        guard isUnlocked, snapshot.state == "locked" else { return }
+
+        servoState = "locked"
+        updatePairingState(from: "locked")
+        DoorStatusStore.save(state: "locked", updatedAt: snapshot.updatedAt ?? .now)
         WidgetCenter.shared.reloadTimelines(ofKind: "DoorUnlockerWidget")
     }
 

@@ -59,6 +59,7 @@ struct ContentView: View {
         }
         .onAppear {
             displayedIconIsUnlocked = controller.isUnlocked
+            controller.refreshStateFromController()
             controller.performPendingSystemCommand()
         }
         .onOpenURL { url in
@@ -70,6 +71,7 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
+                controller.refreshStateFromController()
                 controller.performPendingSystemCommand()
             }
         }
