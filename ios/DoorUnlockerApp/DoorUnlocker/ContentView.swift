@@ -59,6 +59,7 @@ struct ContentView: View {
         }
         .onAppear {
             displayedIconIsUnlocked = controller.isUnlocked
+            controller.setAppActive(scenePhase == .active)
             controller.refreshStateFromController()
             controller.performPendingSystemCommand()
         }
@@ -70,6 +71,8 @@ struct ContentView: View {
             controller.performPendingSystemCommand()
         }
         .onChange(of: scenePhase) { _, phase in
+            controller.setAppActive(phase == .active)
+
             if phase == .active {
                 controller.refreshStateFromController()
                 controller.performPendingSystemCommand()

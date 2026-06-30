@@ -53,6 +53,9 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     private var autoLockPredictionTask: Task<Void, Never>?
     private var liveActivity: Activity<DoorUnlockerActivityAttributes>?
     private var liveActivityBackgroundTask: UIBackgroundTaskIdentifier = .invalid
+    private var liveActivityStartTask: Task<Void, Never>?
+    private var isAppActive = true
+    private var pendingLiveActivityState: (state: String, deadline: Date)?
 
     var isConnectedToController: Bool {
         pairingCharacteristic != nil && peripheral?.state == .connected
@@ -217,6 +220,28 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         if !readStateIfPermitted() {
             scan()
         }
+    }
+
+    func setAppActive(_ active: Bool) {
+        isAppActive = active
+
+        if active {
+            liveActivityStartTask?.cancel()
+            liveActivityStartTask = nil
+            endLiveActivityBackgroundTask()
+            Task { await endLiveActivity() }
+            return
+        }
+
+        guard let pendingLiveActivityState,
+              pendingLiveActivityState.deadline > .now else {
+            return
+        }
+
+        scheduleLiveActivityStart(
+            state: pendingLiveActivityState.state,
+            deadline: pendingLiveActivityState.deadline
+        )
     }
 
     func toggleLock() {
@@ -522,15 +547,43 @@ final class DoorUnlockerController: NSObject, ObservableObject {
 
     private func syncLiveActivity(state: String, deadline: Date?) {
         if (state == "unlocked" || state == "unlocking"), let deadline, deadline > .now {
-            beginLiveActivityBackgroundTask()
-            Task { await startOrUpdateLiveActivity(state: state, deadline: deadline) }
+            pendingLiveActivityState = (state, deadline)
+            guard !isAppActive else {
+                Task { await endLiveActivity() }
+                return
+            }
+
+            scheduleLiveActivityStart(state: state, deadline: deadline)
         } else {
+            liveActivityStartTask?.cancel()
+            liveActivityStartTask = nil
+            pendingLiveActivityState = nil
             endLiveActivityBackgroundTask()
             Task { await endLiveActivity() }
         }
     }
 
+    private func scheduleLiveActivityStart(state: String, deadline: Date) {
+        liveActivityStartTask?.cancel()
+        beginLiveActivityBackgroundTask()
+        liveActivityStartTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            guard !Task.isCancelled else { return }
+            await self?.startLiveActivityIfAllowed(state: state, deadline: deadline)
+        }
+    }
+
+    private func startLiveActivityIfAllowed(state: String, deadline: Date) async {
+        guard !isAppActive, deadline > .now else {
+            endLiveActivityBackgroundTask()
+            return
+        }
+
+        await startOrUpdateLiveActivity(state: state, deadline: deadline)
+    }
+
     private func startOrUpdateLiveActivity(state: String, deadline: Date) async {
+        defer { endLiveActivityBackgroundTask() }
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
 
         let contentState = DoorUnlockerActivityAttributes.ContentState(state: state, autoLockDeadline: deadline)
