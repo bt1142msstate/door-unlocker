@@ -1,0 +1,30 @@
+.DS_Store
+
+# Local scratch/output
+tmp/
+build/
+DerivedData/
+
+# Xcode local state
+*.xcuserstate
+*.xcuserdata/
+ios/DoorUnlockerApp/build/
+ios/DoorUnlockerApp/DerivedData/
+ios/DoorUnlockerApp/*.xcworkspace/xcuserdata/
+ios/DoorUnlockerApp/DoorUnlocker.xcodeproj/xcuserdata/
+ios/DoorUnlockerApp/DoorUnlocker.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Arduino / embedded build output
+*.elf
+*.hex
+*.bin
+*.uf2
+
+# Local secrets/config
+*.local
+*.local.*
+*.mobileprovision

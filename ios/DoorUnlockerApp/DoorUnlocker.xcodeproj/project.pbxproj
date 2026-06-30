@@ -1,0 +1,492 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		10B20BD47753B48886EABF78 /* DoorWidgetCommandTokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D91C0FD61396E67578EE1C0 /* DoorWidgetCommandTokenStore.swift */; };
+		1CE118D0124605B28CF5CDB3 /* DoorCommandAuthenticator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F822EC57202B5EA172B5EFB0 /* DoorCommandAuthenticator.swift */; };
+		287242EBEF3523FD61AF8C2D /* DoorStatusStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBB6997B63AE0BDFABE531E0 /* DoorStatusStore.swift */; };
+		40A5D2734BE7C6E3B996F58E /* DoorUnlockerController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B422530FE77703E4CFD14BA2 /* DoorUnlockerController.swift */; };
+		4442C1C4FA7AD4B3AB0E9DC5 /* DoorUnlockerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6006324EC0B293AD27A8443E /* DoorUnlockerApp.swift */; };
+		8530F8EC9369127A2C814B63 /* DoorUnlockerWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01BAFBDA99BDA7E082535494 /* DoorUnlockerWidget.swift */; };
+		88E62CD904E8ACB4B754B518 /* DoorWidgetCommandTokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D91C0FD61396E67578EE1C0 /* DoorWidgetCommandTokenStore.swift */; };
+		8E26F5A685A77038C6F72B43 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1709BA0379F800D24C670A9 /* Assets.xcassets */; };
+		B672D6F72D9042D7BDBEFA47 /* DoorStatusStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBB6997B63AE0BDFABE531E0 /* DoorStatusStore.swift */; };
+		BC5113FA941825A65D6170FD /* DoorUnlockerIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 626A7EBCA1C540D87179AF0B /* DoorUnlockerIntents.swift */; };
+		B1E2D3C4A59647F08A9B1C2D /* DoorControlIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = F13A7C9E2B604D8F9A1C3E50 /* DoorControlIntents.swift */; };
+		C0A24214E575BDA1276F33AF /* DoorUnlockerWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 0A1C429066F1F2E4A615BFA4 /* DoorUnlockerWidget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		C3D4E5F6A7B8490C9D0E1F2A /* DoorCommandStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C18937C3E54DF5410DC0842C /* DoorCommandStore.swift */; };
+		C7A1CB81F107BF62CF0AB7E2 /* DoorCommandStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C18937C3E54DF5410DC0842C /* DoorCommandStore.swift */; };
+		CD26DC925341526E3CEE5581 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AB287595DBCAA1A991BB44A /* ContentView.swift */; };
+		D8B4C2A11F6946D78E933A20 /* DoorControlIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = F13A7C9E2B604D8F9A1C3E50 /* DoorControlIntents.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		2051B45B2F40E8C7D22EF368 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 535DF995015E4E39B4B094B3 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F42BABACB2910DEDCC789512;
+			remoteInfo = DoorUnlockerWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		C5BEA806DAC54B293F3165D4 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				C0A24214E575BDA1276F33AF /* DoorUnlockerWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		01BAFBDA99BDA7E082535494 /* DoorUnlockerWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoorUnlockerWidget.swift; sourceTree = "<group>"; };
+		0A1C429066F1F2E4A615BFA4 /* DoorUnlockerWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = DoorUnlockerWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		0AB287595DBCAA1A991BB44A /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		1FDCC1CBEB3E9CF0A706B5FB /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		5DC3578D81B2ABDCA0882633 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		6006324EC0B293AD27A8443E /* DoorUnlockerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoorUnlockerApp.swift; sourceTree = "<group>"; };
+		626A7EBCA1C540D87179AF0B /* DoorUnlockerIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoorUnlockerIntents.swift; sourceTree = "<group>"; };
+		6D91C0FD61396E67578EE1C0 /* DoorWidgetCommandTokenStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoorWidgetCommandTokenStore.swift; sourceTree = "<group>"; };
+		87D3E3944BACBFBDA0A74FF6 /* DoorUnlockerWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DoorUnlockerWidget.entitlements; sourceTree = "<group>"; };
+		8BA7D014826C2CC3B54C0A35 /* DoorUnlocker.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DoorUnlocker.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1709BA0379F800D24C670A9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B422530FE77703E4CFD14BA2 /* DoorUnlockerController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoorUnlockerController.swift; sourceTree = "<group>"; };
+		C18937C3E54DF5410DC0842C /* DoorCommandStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoorCommandStore.swift; sourceTree = "<group>"; };
+		CF7B201F99DC442C8B877742 /* DoorUnlocker.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DoorUnlocker.entitlements; sourceTree = "<group>"; };
+		DBB6997B63AE0BDFABE531E0 /* DoorStatusStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoorStatusStore.swift; sourceTree = "<group>"; };
+		F13A7C9E2B604D8F9A1C3E50 /* DoorControlIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoorControlIntents.swift; sourceTree = "<group>"; };
+		F822EC57202B5EA172B5EFB0 /* DoorCommandAuthenticator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoorCommandAuthenticator.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		7D35D1008D5BEEA25A211A02 /* DoorUnlockerWidget */ = {
+			isa = PBXGroup;
+			children = (
+				87D3E3944BACBFBDA0A74FF6 /* DoorUnlockerWidget.entitlements */,
+				01BAFBDA99BDA7E082535494 /* DoorUnlockerWidget.swift */,
+				5DC3578D81B2ABDCA0882633 /* Info.plist */,
+			);
+			path = DoorUnlockerWidget;
+			sourceTree = "<group>";
+		};
+		89CB75A34E6AB450A833E44C /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8BA7D014826C2CC3B54C0A35 /* DoorUnlocker.app */,
+				0A1C429066F1F2E4A615BFA4 /* DoorUnlockerWidget.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C8F4EED447F58BB3A4D3DD4A = {
+			isa = PBXGroup;
+			children = (
+				E369E258474051BDBE3C125C /* DoorUnlocker */,
+				7D35D1008D5BEEA25A211A02 /* DoorUnlockerWidget */,
+				CCCD134E5A2C613EA62A7ABF /* Shared */,
+				89CB75A34E6AB450A833E44C /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		CCCD134E5A2C613EA62A7ABF /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				F13A7C9E2B604D8F9A1C3E50 /* DoorControlIntents.swift */,
+				DBB6997B63AE0BDFABE531E0 /* DoorStatusStore.swift */,
+				6D91C0FD61396E67578EE1C0 /* DoorWidgetCommandTokenStore.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		E369E258474051BDBE3C125C /* DoorUnlocker */ = {
+			isa = PBXGroup;
+			children = (
+				A1709BA0379F800D24C670A9 /* Assets.xcassets */,
+				0AB287595DBCAA1A991BB44A /* ContentView.swift */,
+				F822EC57202B5EA172B5EFB0 /* DoorCommandAuthenticator.swift */,
+				C18937C3E54DF5410DC0842C /* DoorCommandStore.swift */,
+				CF7B201F99DC442C8B877742 /* DoorUnlocker.entitlements */,
+				6006324EC0B293AD27A8443E /* DoorUnlockerApp.swift */,
+				B422530FE77703E4CFD14BA2 /* DoorUnlockerController.swift */,
+				626A7EBCA1C540D87179AF0B /* DoorUnlockerIntents.swift */,
+				1FDCC1CBEB3E9CF0A706B5FB /* Info.plist */,
+			);
+			path = DoorUnlocker;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		D3E7D36CD3931F29BD15D98D /* DoorUnlocker */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E5FB345CA66B6E1F6B267EF3 /* Build configuration list for PBXNativeTarget "DoorUnlocker" */;
+			buildPhases = (
+				5BAC1CC91D78883B28014676 /* Sources */,
+				96E6FBADC2C3956D2F4C1C7E /* Resources */,
+				C5BEA806DAC54B293F3165D4 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BF33CB24866D7239226DC4B4 /* PBXTargetDependency */,
+			);
+			name = DoorUnlocker;
+			packageProductDependencies = (
+			);
+			productName = DoorUnlocker;
+			productReference = 8BA7D014826C2CC3B54C0A35 /* DoorUnlocker.app */;
+			productType = "com.apple.product-type.application";
+		};
+		F42BABACB2910DEDCC789512 /* DoorUnlockerWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 967B3DB21685EB76D7EA658B /* Build configuration list for PBXNativeTarget "DoorUnlockerWidget" */;
+			buildPhases = (
+				AA36AE99812BACD904B1DAE6 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DoorUnlockerWidget;
+			packageProductDependencies = (
+			);
+			productName = DoorUnlockerWidget;
+			productReference = 0A1C429066F1F2E4A615BFA4 /* DoorUnlockerWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		535DF995015E4E39B4B094B3 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					D3E7D36CD3931F29BD15D98D = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					F42BABACB2910DEDCC789512 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = B88D509F6285040DD5791429 /* Build configuration list for PBXProject "DoorUnlocker" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = C8F4EED447F58BB3A4D3DD4A;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 89CB75A34E6AB450A833E44C /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D3E7D36CD3931F29BD15D98D /* DoorUnlocker */,
+				F42BABACB2910DEDCC789512 /* DoorUnlockerWidget */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		96E6FBADC2C3956D2F4C1C7E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8E26F5A685A77038C6F72B43 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		5BAC1CC91D78883B28014676 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CD26DC925341526E3CEE5581 /* ContentView.swift in Sources */,
+				1CE118D0124605B28CF5CDB3 /* DoorCommandAuthenticator.swift in Sources */,
+				C7A1CB81F107BF62CF0AB7E2 /* DoorCommandStore.swift in Sources */,
+				287242EBEF3523FD61AF8C2D /* DoorStatusStore.swift in Sources */,
+				4442C1C4FA7AD4B3AB0E9DC5 /* DoorUnlockerApp.swift in Sources */,
+				40A5D2734BE7C6E3B996F58E /* DoorUnlockerController.swift in Sources */,
+				D8B4C2A11F6946D78E933A20 /* DoorControlIntents.swift in Sources */,
+				BC5113FA941825A65D6170FD /* DoorUnlockerIntents.swift in Sources */,
+				88E62CD904E8ACB4B754B518 /* DoorWidgetCommandTokenStore.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA36AE99812BACD904B1DAE6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B672D6F72D9042D7BDBEFA47 /* DoorStatusStore.swift in Sources */,
+				B1E2D3C4A59647F08A9B1C2D /* DoorControlIntents.swift in Sources */,
+				C3D4E5F6A7B8490C9D0E1F2A /* DoorCommandStore.swift in Sources */,
+				8530F8EC9369127A2C814B63 /* DoorUnlockerWidget.swift in Sources */,
+				10B20BD47753B48886EABF78 /* DoorWidgetCommandTokenStore.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		BF33CB24866D7239226DC4B4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F42BABACB2910DEDCC789512 /* DoorUnlockerWidget */;
+			targetProxy = 2051B45B2F40E8C7D22EF368 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		590DBB1A012841DBA0C6FB1B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		5EAAB52A5D43D63B70C004E3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		868AD467759CEDDE527A562E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = DoorUnlockerWidget/DoorUnlockerWidget.entitlements;
+				DEVELOPMENT_TEAM = "";
+				INFOPLIST_FILE = DoorUnlockerWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.bt1142msstate.DoorUnlocker.widget;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B18892C0271890008A4ABA7B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = DoorUnlocker/DoorUnlocker.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = "";
+				INFOPLIST_FILE = DoorUnlocker/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.bt1142msstate.DoorUnlocker;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		BA256235FD288331EA198C9F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = DoorUnlockerWidget/DoorUnlockerWidget.entitlements;
+				DEVELOPMENT_TEAM = "";
+				INFOPLIST_FILE = DoorUnlockerWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.bt1142msstate.DoorUnlocker.widget;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		FFFAA0EAA2A1E71F8AF7ABC8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = DoorUnlocker/DoorUnlocker.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = "";
+				INFOPLIST_FILE = DoorUnlocker/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.bt1142msstate.DoorUnlocker;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		967B3DB21685EB76D7EA658B /* Build configuration list for PBXNativeTarget "DoorUnlockerWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				868AD467759CEDDE527A562E /* Debug */,
+				BA256235FD288331EA198C9F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B88D509F6285040DD5791429 /* Build configuration list for PBXProject "DoorUnlocker" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				590DBB1A012841DBA0C6FB1B /* Debug */,
+				5EAAB52A5D43D63B70C004E3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E5FB345CA66B6E1F6B267EF3 /* Build configuration list for PBXNativeTarget "DoorUnlocker" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FFFAA0EAA2A1E71F8AF7ABC8 /* Debug */,
+				B18892C0271890008A4ABA7B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 535DF995015E4E39B4B094B3 /* Project object */;
+}

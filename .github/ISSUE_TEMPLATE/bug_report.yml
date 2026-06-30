@@ -1,0 +1,43 @@
+name: Bug Report
+description: Report a firmware, iOS app, wiring page, or build issue.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - iOS app
+        - Firmware
+        - Wiring diagram
+        - Hardware setup
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps To Reproduce
+      description: Include the device, board, OS, Xcode, Arduino IDE, and library versions where relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Add logs, screenshots, wiring photos, or anything else useful. Do not include private command keys.
