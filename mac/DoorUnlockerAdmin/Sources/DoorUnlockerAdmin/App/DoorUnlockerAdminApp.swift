@@ -7,7 +7,7 @@ struct DoorUnlockerAdminApp: App {
     @StateObject private var store = DoorAdminStore()
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup("Door Unlocker") {
             ContentView(store: store)
                 .frame(minWidth: 980, minHeight: 680)
         }
@@ -21,10 +21,10 @@ struct DoorUnlockerAdminApp: App {
                 .disabled(!store.isConnected || store.isBusy)
 
                 Button(store.status.isUnlocked ? "Lock" : "Unlock") {
-                    store.status.isUnlocked ? store.lock() : store.unlock()
+                    store.toggleLock()
                 }
                 .keyboardShortcut("l", modifiers: [.command])
-                .disabled(!store.isConnected || store.isBusy)
+                .disabled(!store.canSendDoorCommand || store.isBusy)
             }
         }
     }

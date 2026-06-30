@@ -1,6 +1,6 @@
 # Door Unlocker
 
-Open-source desk-test prototype for a BLE-controlled servo actuator. The project uses a Seeed Studio XIAO nRF52840 Sense to drive a high-torque servo, plus a SwiftUI iPhone app with Lock/Unlock control, Siri/App Intents, widgets, and Action Button support.
+Open-source desk-test prototype for a BLE-controlled servo actuator. The project uses a Seeed Studio XIAO nRF52840 Sense to drive a high-torque servo, plus SwiftUI iPhone and Mac apps for lock control, pairing, and controller administration.
 
 This is a bench prototype and wiring reference, not a certified door lock, access-control system, or life-safety device.
 
@@ -12,7 +12,7 @@ This is a bench prototype and wiring reference, not a certified door lock, acces
 
 - XIAO nRF52840 Sense firmware for BLE control, authenticated commands, servo movement, and onboard LED state.
 - SwiftUI iPhone app for connecting over BLE and toggling between locked and unlocked states.
-- SwiftUI Mac admin app for USB-C controller management, pairing approval, trusted-device removal, and direct lock/unlock.
+- SwiftUI Mac admin app for USB-C controller management, Bluetooth lock/unlock, pairing approval, and trusted-device removal.
 - Siri/App Shortcuts, WidgetKit home widget, and Control Widget support for iPhone Action Button controls.
 - Interactive no-solder desk-test wiring diagram with hardware list, costs, and part details.
 - Hardware notes for a battery-powered 2S setup using XT30 pigtails, WAGO lever nuts, a buck converter, and a breadboard.
@@ -55,12 +55,13 @@ index.html                       GitHub Pages entry point
 7. Connect to the XIAO from the iPhone app and tap **Pair This iPhone** while the app shows `Pairing Enabled`.
 8. Compare the code shown in the app with the USB serial output, then type `pair approve CODE`, or open the Mac admin app and approve the code there.
 9. Use the main toggle, Siri/App Shortcuts, widgets, iOS Controls, or the Mac admin app after pairing completes.
+10. To pair the Mac for wireless control, connect over USB-C in the Mac admin app, enable pairing, connect wirelessly, tap **Pair This Mac**, then approve the shown code from the Mac admin app.
 
-The app generates its own P-256 signing key locally. It prefers Secure Enclave when available and falls back to a Keychain-stored software key when needed. The XIAO stores only the phone's public key, so the repository does not contain a command secret.
+The iPhone and Mac apps each generate their own P-256 signing key locally. They prefer Secure Enclave when available and fall back to a Keychain-stored software key when needed. The XIAO stores only trusted device public keys, so the repository does not contain a command secret.
 
 ## Firmware Notes
 
-The firmware advertises a BLE peripheral for the iPhone app, stores up to four paired phone public keys in internal flash, verifies signed `v2` commands, drives the servo to locked or unlocked positions, and changes the XIAO LED color based on state.
+The firmware advertises a BLE peripheral for the iPhone and Mac apps, stores up to four paired device public keys in internal flash, verifies signed `v2` commands, drives the servo to locked or unlocked positions, and changes the XIAO LED color based on state.
 
 Unlock commands hold the servo at the unlock angle for up to 30 seconds by default. The iPhone app can set the controller timeout from 5-120 seconds, and the XIAO stores that value locally. After the configured timeout, the controller automatically returns to the locked/rest position to reduce battery drain and servo stress.
 
@@ -71,14 +72,14 @@ USB serial commands:
 - `pair reject`: reject the pending phone request.
 - `pair off`: disable BLE pairing mode and clear any pending request.
 - `pair status`: print pairing mode, pending request, and paired phone count.
-- `pairs list`: print paired phone slots and fingerprints.
-- `pairs remove N`: remove one paired phone by slot number.
-- `pairs clear`: remove all paired phones.
+- `pairs list`: print paired device slots, fingerprints, and names when known.
+- `pairs remove N`: remove one paired device by slot number.
+- `pairs clear`: remove all paired devices.
 - `app status`: print machine-readable status for the Mac admin app.
-- `app pairs`: print machine-readable paired-device slots and fingerprints.
+- `app pairs`: print machine-readable paired-device slots, fingerprints, counters, and names when known.
 - `app pair on` / `app pair off`: enable or disable USB-gated pairing from the Mac admin app.
-- `app approve CODE` / `app reject`: approve or reject a pending phone request from the Mac admin app.
-- `app remove N`: remove one paired phone by slot number from the Mac admin app.
+- `app approve CODE` / `app reject`: approve or reject a pending device request from the Mac admin app.
+- `app remove N`: remove one paired device by slot number from the Mac admin app.
 - `app lock` / `app unlock`: move the actuator from the Mac admin app over trusted USB.
 
 LED states:
@@ -108,13 +109,17 @@ The app provides:
 
 ## Mac Admin App Notes
 
-The Mac admin app is in `mac/DoorUnlockerAdmin` and talks to the XIAO over USB-C serial at 115200 baud. It can:
+The Mac admin app is in `mac/DoorUnlockerAdmin`. It talks to the XIAO over USB-C serial at 115200 baud for admin actions, and it can also connect over Bluetooth for normal lock/unlock control after the Mac has been paired as a trusted device.
 
 - Show controller state, pairing mode, auto-lock timeout, and trusted-device count.
-- List trusted phones by slot and public-key fingerprint.
+- List trusted devices by friendly name when known, plus slot and public-key fingerprint.
 - Enable or disable pairing mode.
-- Approve or reject a pending phone pairing request by typing the code shown in the iPhone app.
-- Remove one trusted phone, clear all trusted phones, or send lock/unlock over USB.
+- Approve or reject a pending iPhone or Mac pairing request by typing the code shown in the app.
+- Pair the Mac itself for wireless control.
+- Remove one trusted device, clear all trusted devices, or send lock/unlock over USB.
+- Connect over Bluetooth and use the same single Lock/Unlock toggle as the iPhone app.
+
+Device names are stored by the firmware for new pairings. Existing pairings made before this feature may show as `Device 1`, `Device 2`, and so on until that device is paired again.
 
 Run it locally with:
 
@@ -124,9 +129,9 @@ Run it locally with:
 
 ## Security And Safety
 
-This project intentionally avoids publishing a command secret. The phone signs each command with a locally generated private key, and the XIAO verifies the signature with the paired public key.
+This project intentionally avoids publishing a command secret. The iPhone and Mac apps sign each wireless command with a locally generated private key, and the XIAO verifies the signature with the paired public key.
 
-BLE pairing is locked unless USB-C serial pairing mode is enabled. A phone can submit a pairing request only after `pair on`, and it is not trusted until the USB-side operator types `pair approve CODE` with the code shown in the iPhone app or approves the same code in the Mac admin app. Pairing mode turns itself off after approval. If the app is deleted, the phone is replaced, or the signing key is lost, connect over USB-C, send `pair on`, and pair the replacement phone. Use `pairs remove N`, `app remove N`, or `pairs clear` over USB-C if you need to remove trusted phones.
+BLE pairing is locked unless USB-C serial pairing mode is enabled. A device can submit a pairing request only after `pair on`, and it is not trusted until the USB-side operator types `pair approve CODE` with the code shown in the app or approves the same code in the Mac admin app. Pairing mode turns itself off after approval. If an app is deleted, a device is replaced, or a signing key is lost, connect over USB-C, send `pair on`, and pair the replacement device. Use `pairs remove N`, `app remove N`, or `pairs clear` over USB-C if you need to remove trusted devices.
 
 For anything beyond desk testing, review the mechanical mount, fail-safe behavior, battery handling, apartment rules, fire-safety requirements, and lock/egress requirements before use.
 

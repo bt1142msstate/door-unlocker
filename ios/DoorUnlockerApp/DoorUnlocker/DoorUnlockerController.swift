@@ -384,9 +384,9 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         }
 
         do {
-            let publicKey = try DoorCommandAuthenticator.publicKeyForPairing()
+            let pairingPayload = try DoorCommandAuthenticator.pairingPayload(deviceName: UIDevice.current.name)
             let approvalCode = try DoorCommandAuthenticator.pairingFingerprint()
-            guard publicKey.count <= peripheral.maximumWriteValueLength(for: .withResponse) else {
+            guard pairingPayload.count <= peripheral.maximumWriteValueLength(for: .withResponse) else {
                 lastError = "Pairing key is too large for this BLE connection"
                 return
             }
@@ -394,7 +394,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
             lastError = nil
             pairingApprovalCode = approvalCode
             pairingState = "Pairing"
-            peripheral.writeValue(publicKey, for: pairingCharacteristic, type: .withResponse)
+            peripheral.writeValue(pairingPayload, for: pairingCharacteristic, type: .withResponse)
         } catch {
             lastError = error.localizedDescription
         }

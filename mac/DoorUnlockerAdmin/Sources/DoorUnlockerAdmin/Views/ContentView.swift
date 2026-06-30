@@ -6,25 +6,9 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView {
             SidebarView(store: store)
-                .navigationSplitViewColumnWidth(min: 260, ideal: 300)
+                .navigationSplitViewColumnWidth(min: 260, ideal: 292)
         } detail: {
             DetailView(store: store)
-        }
-        .toolbar {
-            ToolbarItemGroup {
-                Button {
-                    store.refreshPorts()
-                } label: {
-                    Label("Refresh Ports", systemImage: "arrow.triangle.2.circlepath")
-                }
-
-                Button {
-                    store.isConnected ? store.disconnect() : store.connect()
-                } label: {
-                    Label(store.isConnected ? "Disconnect" : "Connect", systemImage: store.isConnected ? "cable.connector.slash" : "cable.connector")
-                }
-                .disabled(store.isBusy || store.selectedPortID == nil)
-            }
         }
     }
 }
@@ -35,32 +19,32 @@ private struct SidebarView: View {
     var body: some View {
         List {
             Section {
-                VStack(alignment: .leading, spacing: 10) {
-                    Label("Door Unlocker Admin", systemImage: "lock.shield")
-                        .font(.headline)
-
-                    Picker("USB Port", selection: $store.selectedPortID) {
-                        ForEach(store.ports) { port in
-                            Text(port.displayName).tag(Optional(port.id))
-                        }
-                    }
-                    .labelsHidden()
-                    .disabled(store.isConnected || store.ports.isEmpty)
-
-                    if store.ports.isEmpty {
-                        Text("No USB serial controller found")
-                            .foregroundStyle(.secondary)
+                Label {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Door Unlocker")
+                            .font(.headline)
+                        Text("Admin")
                             .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
+                } icon: {
+                    Image(systemName: "door.left.hand.closed")
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(.green)
                 }
                 .padding(.vertical, 4)
             }
 
+            Section("Connections") {
+                SidebarMetric(title: "Primary", value: store.primaryConnectionTitle, symbol: "point.3.connected.trianglepath.dotted")
+                SidebarMetric(title: "Bluetooth", value: store.wirelessConnectionState, symbol: "wave.3.right")
+                SidebarMetric(title: "USB", value: store.isConnected ? "Connected" : "Disconnected", symbol: "cable.connector")
+            }
+
             Section("Controller") {
-                SidebarMetric(title: "Connection", value: store.isConnected ? "Connected" : "Disconnected", symbol: "dot.radiowaves.left.and.right")
                 SidebarMetric(title: "State", value: store.status.stateTitle, symbol: store.status.isUnlocked ? "lock.open.fill" : "lock.fill")
                 SidebarMetric(title: "Pairing", value: store.status.pairingTitle, symbol: "person.badge.key.fill")
-                SidebarMetric(title: "Trusted Devices", value: "\(store.status.pairedCount)/\(max(store.status.maxPairs, 4))", symbol: "iphone.gen3")
+                SidebarMetric(title: "Trusted", value: "\(store.status.pairedCount)/\(max(store.status.maxPairs, 4))", symbol: "iphone.gen3")
             }
 
             if let error = store.lastError {
@@ -101,78 +85,190 @@ private struct DetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                HeaderView(store: store)
-                ControlsPanel(store: store)
+            VStack(alignment: .leading, spacing: 18) {
+                HeroControl(store: store)
+                ConnectionPanel(store: store)
                 PairingPanel(store: store)
                 DevicesPanel(store: store)
                 LogPanel(lines: store.logLines)
             }
-            .padding(24)
+            .padding(26)
         }
         .background(.background)
     }
 }
 
-private struct HeaderView: View {
+private struct HeroControl: View {
     @ObservedObject var store: DoorAdminStore
 
     var body: some View {
-        HStack(alignment: .center, spacing: 16) {
-            ZStack {
-                Circle()
-                    .fill(store.status.isUnlocked ? .green.opacity(0.16) : .blue.opacity(0.14))
-                Image(systemName: store.status.isUnlocked ? "lock.open.fill" : "lock.fill")
-                    .font(.system(size: 30, weight: .semibold))
-                    .foregroundStyle(store.status.isUnlocked ? .green : .blue)
-            }
-            .frame(width: 68, height: 68)
+        HStack(spacing: 22) {
+            Button {
+                store.toggleLock()
+            } label: {
+                ZStack {
+                    Circle()
+                        .fill(store.status.isUnlocked ? .blue.opacity(0.14) : .green.opacity(0.15))
+                        .overlay {
+                            Circle()
+                                .stroke(store.status.isUnlocked ? .blue.opacity(0.22) : .green.opacity(0.24), lineWidth: 1)
+                        }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(store.status.stateTitle)
-                    .font(.largeTitle.weight(.semibold))
+                    VStack(spacing: 10) {
+                        Image(systemName: store.status.isUnlocked ? "lock.fill" : "lock.open.fill")
+                            .font(.system(size: 44, weight: .semibold))
+                        Text(store.status.isUnlocked ? "Lock" : "Unlock")
+                            .font(.title3.weight(.semibold))
+                    }
+                    .foregroundStyle(store.status.isUnlocked ? .blue : .green)
+                }
+                .frame(width: 150, height: 150)
+                .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!store.canSendDoorCommand || store.isBusy)
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 10) {
+                    StatusPill(text: store.status.stateTitle, symbol: store.status.isUnlocked ? "lock.open.fill" : "lock.fill", tint: store.status.isUnlocked ? .green : .blue)
+                    StatusPill(text: store.primaryConnectionTitle, symbol: store.isWirelessReady ? "wave.3.right" : "cable.connector", tint: .secondary)
+                }
+
+                Text(store.status.isUnlocked ? "Unlocked" : "Locked")
+                    .font(.system(size: 44, weight: .semibold))
+                    .contentTransition(.numericText())
+
                 Text(store.message)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
+                    .lineLimit(2)
+
+                if store.isBusy {
+                    ProgressView()
+                        .controlSize(.small)
+                }
             }
 
             Spacer()
+        }
+        .padding(22)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
 
-            Button {
-                store.refreshAll()
-            } label: {
-                Label("Refresh", systemImage: "arrow.clockwise")
+private struct StatusPill: View {
+    let text: String
+    let symbol: String
+    let tint: Color
+
+    var body: some View {
+        Label(text, systemImage: symbol)
+            .font(.caption.weight(.medium))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(.thinMaterial, in: Capsule())
+    }
+}
+
+private struct ConnectionPanel: View {
+    @ObservedObject var store: DoorAdminStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Connections")
+                .font(.headline)
+
+            HStack(alignment: .top, spacing: 12) {
+                ConnectionTile(
+                    title: "Wireless",
+                    subtitle: store.wirelessConnectionState,
+                    symbol: "wave.3.right",
+                    primaryTitle: store.wirelessPrimaryActionTitle,
+                    primaryAction: {
+                        store.toggleWirelessConnection()
+                    },
+                    secondaryTitle: "Pair This Mac",
+                    secondaryAction: {
+                        store.pairThisMacWireless()
+                    },
+                    isSecondaryDisabled: !store.isWirelessPairingReady || store.isBusy
+                )
+
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Label("USB Admin", systemImage: "cable.connector")
+                            .font(.headline)
+                        Spacer()
+                        Text(store.isConnected ? "Connected" : "Disconnected")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Picker("USB Port", selection: $store.selectedPortID) {
+                        ForEach(store.ports) { port in
+                            Text(port.displayName).tag(Optional(port.id))
+                        }
+                    }
+                    .labelsHidden()
+                    .disabled(store.isConnected || store.ports.isEmpty)
+
+                    HStack {
+                        Button(store.isConnected ? "Disconnect" : "Connect") {
+                            store.isConnected ? store.disconnect() : store.connect()
+                        }
+                        .disabled(store.isBusy || store.selectedPortID == nil)
+
+                        Button("Refresh Ports") {
+                            store.refreshPorts()
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
-            .disabled(!store.isConnected || store.isBusy)
+
+            if let code = store.wirelessPairingApprovalCode {
+                Label("Mac pairing code: \(code)", systemImage: "key.horizontal.fill")
+                    .font(.callout.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 }
 
-private struct ControlsPanel: View {
-    @ObservedObject var store: DoorAdminStore
+private struct ConnectionTile: View {
+    let title: String
+    let subtitle: String
+    let symbol: String
+    let primaryTitle: String
+    let primaryAction: () -> Void
+    let secondaryTitle: String
+    let secondaryAction: () -> Void
+    let isSecondaryDisabled: Bool
 
     var body: some View {
-        GroupBox("Lock Control") {
-            HStack(spacing: 12) {
-                Button {
-                    store.unlock()
-                } label: {
-                    Label("Unlock", systemImage: "lock.open.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.green)
-
-                Button {
-                    store.lock()
-                } label: {
-                    Label("Lock", systemImage: "lock.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label(title, systemImage: symbol)
+                    .font(.headline)
+                Spacer()
+                Text(subtitle)
+                    .foregroundStyle(.secondary)
             }
-            .disabled(!store.isConnected || store.isBusy)
-            .padding(.vertical, 4)
+
+            HStack {
+                Button(primaryTitle, action: primaryAction)
+                    .buttonStyle(.borderedProminent)
+                Button(secondaryTitle, action: secondaryAction)
+                    .buttonStyle(.bordered)
+                    .disabled(isSecondaryDisabled)
+            }
         }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
@@ -180,46 +276,44 @@ private struct PairingPanel: View {
     @ObservedObject var store: DoorAdminStore
 
     var body: some View {
-        GroupBox("Pairing") {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Label(store.status.hasPendingRequest ? "Pending Approval" : "Mode \(store.status.pairingTitle)", systemImage: "person.badge.key.fill")
-                        .font(.headline)
-
-                    Spacer()
-
-                    Button("Enable") {
-                        store.enablePairingMode()
-                    }
-                    .disabled(!store.isConnected || store.isBusy || store.status.pairingMode == "enabled")
-
-                    Button("Disable") {
-                        store.disablePairingMode()
-                    }
-                    .disabled(!store.isConnected || store.isBusy || store.status.pairingMode != "enabled")
-                }
-
-                if let pendingFingerprint = store.status.pendingFingerprint {
-                    LabeledContent("Pending fingerprint", value: pendingFingerprint)
-                }
-
-                HStack(spacing: 10) {
-                    TextField("Approval code from iPhone", text: $store.approvalCode)
-                        .textFieldStyle(.roundedBorder)
-
-                    Button("Approve") {
-                        store.approvePairing()
-                    }
-                    .buttonStyle(.borderedProminent)
-
-                    Button("Reject") {
-                        store.rejectPairing()
-                    }
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Pairing")
+                    .font(.headline)
+                Spacer()
+                Button(store.status.pairingMode == "enabled" ? "Disable Pairing" : "Enable Pairing") {
+                    store.status.pairingMode == "enabled" ? store.disablePairingMode() : store.enablePairingMode()
                 }
                 .disabled(!store.isConnected || store.isBusy)
             }
-            .padding(.vertical, 4)
+
+            if let pendingFingerprint = store.status.pendingFingerprint {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(store.status.pendingName ?? "Pending device")
+                        .font(.title3.weight(.semibold))
+                    Text(pendingFingerprint)
+                        .font(.system(.callout, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            HStack(spacing: 10) {
+                TextField("Approval code from iPhone or Mac", text: $store.approvalCode)
+                    .textFieldStyle(.roundedBorder)
+
+                Button("Approve") {
+                    store.approvePairing()
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button("Reject") {
+                    store.rejectPairing()
+                }
+            }
+            .disabled(!store.isConnected || store.isBusy)
         }
+        .padding(16)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
@@ -227,54 +321,61 @@ private struct DevicesPanel: View {
     @ObservedObject var store: DoorAdminStore
 
     var body: some View {
-        GroupBox("Trusted Devices") {
-            VStack(alignment: .leading, spacing: 12) {
-                if store.pairedDevices.isEmpty {
-                    ContentUnavailableView("No trusted devices", systemImage: "iphone.slash")
-                        .frame(maxWidth: .infinity, minHeight: 150)
-                } else {
-                    List(store.pairedDevices, selection: $store.selectedDeviceID) { device in
-                        HStack(spacing: 12) {
-                            Text("#\(device.slot)")
-                                .font(.system(.body, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                                .frame(width: 38, alignment: .leading)
-
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(device.fingerprint)
-                                    .font(.system(.body, design: .monospaced))
-                                Text("Counter \(device.counter)")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            Spacer()
-                        }
-                        .tag(device.id)
-                    }
-                    .frame(minHeight: 180)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Trusted Devices")
+                    .font(.headline)
+                Spacer()
+                Button(role: .destructive) {
+                    store.clearAllDevices()
+                } label: {
+                    Label("Clear All", systemImage: "trash")
                 }
-
-                HStack {
-                    Button(role: .destructive) {
-                        store.removeSelectedDevice()
-                    } label: {
-                        Label("Remove Selected", systemImage: "minus.circle")
-                    }
-                    .disabled(!store.isConnected || store.isBusy || store.selectedDeviceID == nil)
-
-                    Spacer()
-
-                    Button(role: .destructive) {
-                        store.clearAllDevices()
-                    } label: {
-                        Label("Clear All", systemImage: "trash")
-                    }
-                    .disabled(!store.isConnected || store.isBusy || store.pairedDevices.isEmpty)
-                }
+                .disabled(!store.isConnected || store.isBusy || store.pairedDevices.isEmpty)
             }
-            .padding(.vertical, 4)
+
+            if store.pairedDevices.isEmpty {
+                ContentUnavailableView("No trusted devices", systemImage: "iphone.slash")
+                    .frame(maxWidth: .infinity, minHeight: 130)
+            } else {
+                List(store.pairedDevices, selection: $store.selectedDeviceID) { device in
+                    HStack(spacing: 12) {
+                        Image(systemName: device.displayName.localizedCaseInsensitiveContains("mac") ? "macbook" : "iphone.gen3")
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                            .frame(width: 30)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(device.displayName)
+                                .font(.body.weight(.medium))
+                            Text(device.fingerprint)
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        Text("#\(device.slot)")
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .tag(device.id)
+                }
+                .frame(minHeight: 190)
+            }
+
+            HStack {
+                Button(role: .destructive) {
+                    store.removeSelectedDevice()
+                } label: {
+                    Label("Remove Selected", systemImage: "minus.circle")
+                }
+                .disabled(!store.isConnected || store.isBusy || store.selectedDeviceID == nil)
+                Spacer()
+            }
         }
+        .padding(16)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
@@ -282,7 +383,7 @@ private struct LogPanel: View {
     let lines: [String]
 
     var body: some View {
-        GroupBox("USB Log") {
+        DisclosureGroup("USB Log") {
             ScrollView {
                 VStack(alignment: .leading, spacing: 3) {
                     ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
@@ -293,9 +394,11 @@ private struct LogPanel: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, 6)
             }
-            .frame(minHeight: 120, maxHeight: 180)
+            .frame(minHeight: 100, maxHeight: 160)
         }
+        .padding(16)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }

@@ -6,9 +6,7 @@ enum DoorCommandAuthenticator {
     enum AuthError: LocalizedError {
         case keychainReadFailed(OSStatus)
         case keychainSaveFailed(OSStatus)
-        case secureEnclaveUnavailable
         case secureEnclaveAccessControlFailed
-        case signingKeyUnavailable
 
         var errorDescription: String? {
             switch self {
@@ -16,12 +14,8 @@ enum DoorCommandAuthenticator {
                 return "Could not read signing key from Keychain (\(status))."
             case .keychainSaveFailed(let status):
                 return "Could not save signing key to Keychain (\(status))."
-            case .secureEnclaveUnavailable:
-                return "Secure Enclave is unavailable on this device."
             case .secureEnclaveAccessControlFailed:
                 return "Could not create Secure Enclave access control."
-            case .signingKeyUnavailable:
-                return "Could not create a signing key."
             }
         }
     }
@@ -49,30 +43,22 @@ enum DoorCommandAuthenticator {
         }
     }
 
-    private static let counterKey = "SecureDoorCommandCounter"
-    private static let keychainService = "DoorUnlocker.SigningIdentity"
+    private static let counterKey = "DoorUnlockerAdminSecureCommandCounter"
+    private static let keychainService = "DoorUnlockerAdmin.SigningIdentity"
     private static let secureEnclaveAccount = "secure-enclave-p256"
     private static let softwareAccount = "software-p256"
     private static let pairingPayloadWithNameVersion: UInt8 = 0x01
     private static let maximumPairingDeviceNameLength = 24
 
-    static func publicKeyForPairing() throws -> Data {
-        try identity().publicKeyX963Representation
-    }
-
     static func pairingPayload(deviceName: String) throws -> Data {
         var payload = Data([pairingPayloadWithNameVersion])
-        payload.append(try publicKeyForPairing())
+        payload.append(try identity().publicKeyX963Representation)
         payload.append(sanitizedDeviceNameData(deviceName))
         return payload
     }
 
     static func pairingFingerprint() throws -> String {
-        try fingerprint(for: publicKeyForPairing())
-    }
-
-    static func payload(for command: DoorUnlockerController.Command) throws -> Data {
-        try payload(for: command.rawValue)
+        try fingerprint(for: identity().publicKeyX963Representation)
     }
 
     static func payload(for commandText: String) throws -> Data {
@@ -100,7 +86,7 @@ enum DoorCommandAuthenticator {
             .replacingOccurrences(of: "\n", with: " ")
             .replacingOccurrences(of: "\r", with: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        let fallback = trimmed.isEmpty ? "iPhone" : trimmed
+        let fallback = trimmed.isEmpty ? "Mac" : trimmed
         let ascii = fallback.unicodeScalars.map { scalar -> UInt8 in
             scalar.isASCII && scalar.value >= 32 && scalar.value <= 126 ? UInt8(scalar.value) : UInt8(ascii: "?")
         }
@@ -133,11 +119,8 @@ enum DoorCommandAuthenticator {
     }
 
     private static func createSecureEnclaveKey() throws -> SecureEnclave.P256.Signing.PrivateKey {
-        #if targetEnvironment(simulator)
-        throw AuthError.secureEnclaveUnavailable
-        #else
         guard SecureEnclave.isAvailable else {
-            throw AuthError.secureEnclaveUnavailable
+            throw AuthError.secureEnclaveAccessControlFailed
         }
 
         var accessError: Unmanaged<CFError>?
@@ -151,7 +134,6 @@ enum DoorCommandAuthenticator {
         }
 
         return try SecureEnclave.P256.Signing.PrivateKey(accessControl: accessControl)
-        #endif
     }
 
     private static func readKeychainData(account: String) throws -> Data? {

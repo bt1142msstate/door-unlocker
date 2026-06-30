@@ -20,6 +20,8 @@ enum DoorSerialParser {
                 status.hasPendingRequest = value == "yes"
             case "pending_fingerprint":
                 status.pendingFingerprint = value.isEmpty || value == "unknown" ? nil : value
+            case "pending_name":
+                status.pendingName = value.isEmpty ? nil : value
             case "ble_state":
                 status.bleState = value
             case "unlocked":
@@ -43,7 +45,8 @@ enum DoorSerialParser {
             return PairedDevice(
                 slot: slot,
                 fingerprint: values["fingerprint"] ?? "unknown",
-                counter: values["counter"] ?? "0"
+                counter: values["counter"] ?? "0",
+                name: values["name"]
             )
         }
     }
@@ -84,12 +87,23 @@ enum DoorSerialParser {
     }
 
     private static func keyValueFields(_ line: String) -> [String: String] {
-        line.split(separator: " ").reduce(into: [:]) { fields, part in
+        var fieldText = line
+        var parsedName: String?
+        if let nameRange = line.range(of: " name=") {
+            parsedName = String(line[nameRange.upperBound...])
+            fieldText = String(line[..<nameRange.lowerBound])
+        }
+
+        var fields = fieldText.split(separator: " ").reduce(into: [String: String]()) { fields, part in
             let text = String(part)
             guard let separator = text.firstIndex(of: "=") else { return }
             let key = String(text[..<separator])
             let value = String(text[text.index(after: separator)...])
             fields[key] = value
         }
+        if let parsedName, !parsedName.isEmpty {
+            fields["name"] = parsedName
+        }
+        return fields
     }
 }

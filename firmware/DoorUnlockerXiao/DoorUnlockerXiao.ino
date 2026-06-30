@@ -36,11 +36,15 @@ static const char LEGACY_PUBLIC_KEY_FILENAME[] = "/door-public-key.bin";
 static const char PAIRINGS_FILENAME[] = "/door-pairings.bin";
 static const char UNLOCK_TIMEOUT_FILENAME[] = "/unlock-timeout.txt";
 static const uint16_t SECURE_COMMAND_MAX_LEN = 220;
-static const uint16_t PAIRING_MAX_LEN = 80;
+static const uint16_t PAIRING_MAX_LEN = 100;
 static const size_t P256_PUBLIC_KEY_LEN = 65;   // X9.63 uncompressed: 0x04 || X || Y
 static const size_t P256_SIGNATURE_LEN = 64;    // Raw ECDSA: R || S
 static const uint8_t MAX_PAIRED_PHONES = 4;
-static const size_t PAIRING_RECORD_LEN = P256_PUBLIC_KEY_LEN + sizeof(uint64_t);
+static const uint8_t PAIRING_PAYLOAD_WITH_NAME_VERSION = 0x01;
+static const size_t PAIRED_DEVICE_NAME_LEN = 24;
+static const size_t PAIRED_DEVICE_NAME_STORAGE_LEN = PAIRED_DEVICE_NAME_LEN + 1;
+static const size_t LEGACY_PAIRING_RECORD_LEN = P256_PUBLIC_KEY_LEN + sizeof(uint64_t);
+static const size_t PAIRING_RECORD_LEN = LEGACY_PAIRING_RECORD_LEN + PAIRED_DEVICE_NAME_STORAGE_LEN;
 static const size_t PAIRING_FINGERPRINT_LEN = 19; // 8-byte SHA-256 prefix as XXXX-XXXX-XXXX-XXXX
 
 BLEService doorService = BLEService(DOOR_SERVICE_UUID);
@@ -60,9 +64,11 @@ bool unlockAutoLockActive = false;
 uint32_t unlockAutoLockStartedMs = 0;
 uint16_t unlockHoldTimeoutSeconds = DEFAULT_UNLOCK_HOLD_TIMEOUT_SECONDS;
 uint8_t pendingPairingPublicKey[P256_PUBLIC_KEY_LEN] = {0};
+char pendingPairingDeviceName[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
 uint8_t pairedPublicKeyCount = 0;
 uint8_t pairedPublicKeys[MAX_PAIRED_PHONES][P256_PUBLIC_KEY_LEN] = {{0}};
 uint64_t pairedCounters[MAX_PAIRED_PHONES] = {0};
+char pairedDeviceNames[MAX_PAIRED_PHONES][PAIRED_DEVICE_NAME_STORAGE_LEN] = {{0}};
 
 bool parseUnsigned64Range(const char* start, const char* end, uint64_t* value) {
   if (start == nullptr || end == nullptr || start >= end) {
@@ -209,9 +215,59 @@ bool pairingCodeMatches(const char* expected, const char* provided) {
   return *expected == 0 && *provided == 0;
 }
 
+void sanitizeDeviceName(const uint8_t* rawName, size_t rawLen, char* output, size_t outputLen) {
+  if (output == nullptr || outputLen == 0) {
+    return;
+  }
+
+  memset(output, 0, outputLen);
+  if (rawName == nullptr || rawLen == 0) {
+    return;
+  }
+
+  size_t writeIndex = 0;
+  bool previousWasSpace = false;
+  for (size_t readIndex = 0; readIndex < rawLen && writeIndex < outputLen - 1; readIndex++) {
+    uint8_t value = rawName[readIndex];
+    if (value == 0) {
+      break;
+    }
+
+    bool isPrintable = value >= 32 && value <= 126;
+    if (!isPrintable) {
+      continue;
+    }
+
+    char character = (char) value;
+    if (character == '\t' || character == '\r' || character == '\n') {
+      character = ' ';
+    }
+
+    if (character == ' ') {
+      if (writeIndex == 0 || previousWasSpace) {
+        continue;
+      }
+      previousWasSpace = true;
+    } else {
+      previousWasSpace = false;
+    }
+
+    output[writeIndex++] = character;
+  }
+
+  while (writeIndex > 0 && output[writeIndex - 1] == ' ') {
+    output[--writeIndex] = 0;
+  }
+}
+
+void copyDeviceName(const char* name, char* output, size_t outputLen) {
+  sanitizeDeviceName((const uint8_t*) name, name == nullptr ? 0 : strlen(name), output, outputLen);
+}
+
 void clearPendingPairing() {
   pendingPairingExists = false;
   memset(pendingPairingPublicKey, 0, sizeof(pendingPairingPublicKey));
+  memset(pendingPairingDeviceName, 0, sizeof(pendingPairingDeviceName));
 }
 
 void printPendingPairingRequest() {
@@ -227,6 +283,10 @@ void printPendingPairingRequest() {
     Serial.println(fingerprint);
   } else {
     Serial.println("Fingerprint unavailable.");
+  }
+  if (pendingPairingDeviceName[0] != 0) {
+    Serial.print("Device name: ");
+    Serial.println(pendingPairingDeviceName);
   }
   Serial.println("Compare it with the iPhone app, then type 'pair approve CODE' or 'pair reject'.");
 }
@@ -317,13 +377,21 @@ bool readLegacyCounter(uint64_t* counter) {
   return parseUnsigned64Text(buffer, counter);
 }
 
-bool pairedPublicKeyExists(const uint8_t* rawKey) {
+int8_t pairedPublicKeyIndex(const uint8_t* rawKey) {
+  if (rawKey == nullptr) {
+    return -1;
+  }
+
   for (uint8_t index = 0; index < pairedPublicKeyCount; index++) {
     if (memcmp(pairedPublicKeys[index], rawKey, P256_PUBLIC_KEY_LEN) == 0) {
-      return true;
+      return index;
     }
   }
-  return false;
+  return -1;
+}
+
+bool pairedPublicKeyExists(const uint8_t* rawKey) {
+  return pairedPublicKeyIndex(rawKey) >= 0;
 }
 
 int8_t pairedPublicKeyIndexForFingerprint(const char* fingerprint) {
@@ -381,6 +449,7 @@ bool savePairings() {
     encodeUnsigned64(pairedCounters[index], counterBytes);
     file.write(pairedPublicKeys[index], P256_PUBLIC_KEY_LEN);
     file.write(counterBytes, sizeof(counterBytes));
+    file.write((uint8_t*) pairedDeviceNames[index], PAIRED_DEVICE_NAME_STORAGE_LEN);
   }
 
   file.close();
@@ -395,13 +464,26 @@ void loadPairings() {
   pairedPublicKeyCount = 0;
   memset(pairedPublicKeys, 0, sizeof(pairedPublicKeys));
   memset(pairedCounters, 0, sizeof(pairedCounters));
+  memset(pairedDeviceNames, 0, sizeof(pairedDeviceNames));
 
   File file(InternalFS);
   if (file.open(PAIRINGS_FILENAME, FILE_O_READ)) {
     bool needsRepair = false;
+    bool usesNamedRecords = false;
+    bool usesLegacyRecords = false;
+    uint32_t fileSize = file.size();
+    if (fileSize > 0 && fileSize % PAIRING_RECORD_LEN == 0) {
+      usesNamedRecords = true;
+    } else if (fileSize > 0 && fileSize % LEGACY_PAIRING_RECORD_LEN == 0) {
+      usesLegacyRecords = true;
+    } else if (fileSize > 0) {
+      needsRepair = true;
+    }
+
     while (pairedPublicKeyCount < MAX_PAIRED_PHONES) {
       uint8_t rawKey[P256_PUBLIC_KEY_LEN] = {0};
       uint8_t counterBytes[8] = {0};
+      char deviceName[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
       uint32_t keyReadLen = file.read(rawKey, sizeof(rawKey));
       if (keyReadLen == 0) {
         break;
@@ -417,9 +499,22 @@ void loadPairings() {
         break;
       }
 
+      if (usesNamedRecords) {
+        uint32_t nameReadLen = file.read((uint8_t*) deviceName, PAIRED_DEVICE_NAME_STORAGE_LEN);
+        if (nameReadLen != PAIRED_DEVICE_NAME_STORAGE_LEN) {
+          needsRepair = true;
+          break;
+        }
+        deviceName[PAIRED_DEVICE_NAME_LEN] = 0;
+      } else if (!usesLegacyRecords) {
+        needsRepair = true;
+        break;
+      }
+
       if (isValidPublicKey(rawKey) && !pairedPublicKeyExists(rawKey)) {
         memcpy(pairedPublicKeys[pairedPublicKeyCount], rawKey, P256_PUBLIC_KEY_LEN);
         pairedCounters[pairedPublicKeyCount] = decodeUnsigned64(counterBytes);
+        copyDeviceName(deviceName, pairedDeviceNames[pairedPublicKeyCount], PAIRED_DEVICE_NAME_STORAGE_LEN);
         pairedPublicKeyCount++;
       } else {
         needsRepair = true;
@@ -427,9 +522,9 @@ void loadPairings() {
     }
     file.close();
 
-    if (needsRepair) {
+    if (needsRepair || usesLegacyRecords) {
       savePairings();
-      Serial.println("Repaired paired phone table");
+      Serial.println(usesLegacyRecords ? "Migrated paired phone table names" : "Repaired paired phone table");
     }
 
     Serial.print("Loaded paired phones: ");
@@ -451,6 +546,7 @@ void loadPairings() {
 
   if (readLen == sizeof(legacyKey) && isValidPublicKey(legacyKey)) {
     memcpy(pairedPublicKeys[0], legacyKey, P256_PUBLIC_KEY_LEN);
+    memset(pairedDeviceNames[0], 0, PAIRED_DEVICE_NAME_STORAGE_LEN);
     pairedPublicKeyCount = 1;
     readLegacyCounter(&pairedCounters[0]);
     savePairings();
@@ -463,12 +559,17 @@ void loadPairings() {
   }
 }
 
-bool appendPairedPublicKey(const uint8_t* rawKey) {
+bool appendPairedPublicKey(const uint8_t* rawKey, const char* deviceName) {
   if (!ensureInternalFS() || !isValidPublicKey(rawKey)) {
     return false;
   }
 
-  if (pairedPublicKeyExists(rawKey)) {
+  int8_t existingIndex = pairedPublicKeyIndex(rawKey);
+  if (existingIndex >= 0) {
+    if (deviceName != nullptr && deviceName[0] != 0) {
+      copyDeviceName(deviceName, pairedDeviceNames[existingIndex], PAIRED_DEVICE_NAME_STORAGE_LEN);
+      return savePairings();
+    }
     return true;
   }
 
@@ -477,6 +578,7 @@ bool appendPairedPublicKey(const uint8_t* rawKey) {
   }
 
   memcpy(pairedPublicKeys[pairedPublicKeyCount], rawKey, P256_PUBLIC_KEY_LEN);
+  copyDeviceName(deviceName, pairedDeviceNames[pairedPublicKeyCount], PAIRED_DEVICE_NAME_STORAGE_LEN);
   pairedCounters[pairedPublicKeyCount] = 0;
   pairedPublicKeyCount++;
   return savePairings();
@@ -490,22 +592,27 @@ bool removePairedPublicKeyAt(uint8_t removeIndex) {
   uint8_t originalCount = pairedPublicKeyCount;
   uint8_t originalKeys[MAX_PAIRED_PHONES][P256_PUBLIC_KEY_LEN] = {{0}};
   uint64_t originalCounters[MAX_PAIRED_PHONES] = {0};
+  char originalNames[MAX_PAIRED_PHONES][PAIRED_DEVICE_NAME_STORAGE_LEN] = {{0}};
   memcpy(originalKeys, pairedPublicKeys, sizeof(pairedPublicKeys));
   memcpy(originalCounters, pairedCounters, sizeof(pairedCounters));
+  memcpy(originalNames, pairedDeviceNames, sizeof(pairedDeviceNames));
 
   for (uint8_t index = removeIndex; index + 1 < pairedPublicKeyCount; index++) {
     memcpy(pairedPublicKeys[index], pairedPublicKeys[index + 1], P256_PUBLIC_KEY_LEN);
     pairedCounters[index] = pairedCounters[index + 1];
+    memcpy(pairedDeviceNames[index], pairedDeviceNames[index + 1], PAIRED_DEVICE_NAME_STORAGE_LEN);
   }
 
   pairedPublicKeyCount--;
   memset(pairedPublicKeys[pairedPublicKeyCount], 0, P256_PUBLIC_KEY_LEN);
   pairedCounters[pairedPublicKeyCount] = 0;
+  memset(pairedDeviceNames[pairedPublicKeyCount], 0, PAIRED_DEVICE_NAME_STORAGE_LEN);
 
   if (!savePairings()) {
     pairedPublicKeyCount = originalCount;
     memcpy(pairedPublicKeys, originalKeys, sizeof(pairedPublicKeys));
     memcpy(pairedCounters, originalCounters, sizeof(pairedCounters));
+    memcpy(pairedDeviceNames, originalNames, sizeof(pairedDeviceNames));
     return false;
   }
 
@@ -523,6 +630,7 @@ void clearPairings() {
   pairedPublicKeyCount = 0;
   memset(pairedPublicKeys, 0, sizeof(pairedPublicKeys));
   memset(pairedCounters, 0, sizeof(pairedCounters));
+  memset(pairedDeviceNames, 0, sizeof(pairedDeviceNames));
 
   if (ensureInternalFS()) {
     InternalFS.remove(PAIRINGS_FILENAME);
@@ -903,17 +1011,32 @@ void pairingWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint8_t
     return;
   }
 
-  if (len != P256_PUBLIC_KEY_LEN) {
+  const uint8_t* rawKey = data;
+  char deviceName[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
+  bool hasNamedPayload = len > P256_PUBLIC_KEY_LEN
+    && data[0] == PAIRING_PAYLOAD_WITH_NAME_VERSION
+    && len >= P256_PUBLIC_KEY_LEN + 1;
+
+  if (hasNamedPayload) {
+    rawKey = data + 1;
+    size_t nameLen = len - 1 - P256_PUBLIC_KEY_LEN;
+    sanitizeDeviceName(data + 1 + P256_PUBLIC_KEY_LEN, nameLen, deviceName, sizeof(deviceName));
+  } else if (len != P256_PUBLIC_KEY_LEN) {
     rejectCommand("bad pairing key length");
     return;
   }
 
-  if (!isValidPublicKey(data)) {
+  if (!isValidPublicKey(rawKey)) {
     rejectCommand("invalid pairing key");
     return;
   }
 
-  if (pairedPublicKeyExists(data)) {
+  int8_t existingIndex = pairedPublicKeyIndex(rawKey);
+  if (existingIndex >= 0) {
+    if (deviceName[0] != 0) {
+      copyDeviceName(deviceName, pairedDeviceNames[existingIndex], PAIRED_DEVICE_NAME_STORAGE_LEN);
+      savePairings();
+    }
     pairingModeEnabled = false;
     clearPendingPairing();
     Serial.println("Phone key was already paired; pairing mode disabled");
@@ -933,7 +1056,7 @@ void pairingWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint8_t
   }
 
   if (pendingPairingExists) {
-    if (memcmp(pendingPairingPublicKey, data, P256_PUBLIC_KEY_LEN) == 0) {
+    if (memcmp(pendingPairingPublicKey, rawKey, P256_PUBLIC_KEY_LEN) == 0) {
       printPendingPairingRequest();
       publishState(currentStateText());
       updateStatusLed();
@@ -945,7 +1068,8 @@ void pairingWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint8_t
     return;
   }
 
-  memcpy(pendingPairingPublicKey, data, P256_PUBLIC_KEY_LEN);
+  memcpy(pendingPairingPublicKey, rawKey, P256_PUBLIC_KEY_LEN);
+  copyDeviceName(deviceName, pendingPairingDeviceName, sizeof(pendingPairingDeviceName));
   pendingPairingExists = true;
   Serial.println("Phone pairing request received over BLE.");
   printPendingPairingRequest();
@@ -995,7 +1119,7 @@ bool approvePendingPairing(const char* approvalCode) {
     return false;
   }
 
-  if (!appendPairedPublicKey(pendingPairingPublicKey)) {
+  if (!appendPairedPublicKey(pendingPairingPublicKey, pendingPairingDeviceName)) {
     rejectCommand("pairing save failed");
     updateStatusLed();
     return false;
@@ -1105,6 +1229,8 @@ void printAppStatus() {
     } else {
       Serial.println("unknown");
     }
+    Serial.print("pending_name=");
+    Serial.println(pendingPairingDeviceName);
   }
   Serial.print("ble_state=");
   Serial.println(currentStateText());
@@ -1133,6 +1259,8 @@ void printAppPairs() {
     }
     Serial.print(" counter=");
     printUnsigned64(pairedCounters[index]);
+    Serial.print(" name=");
+    Serial.print(pairedDeviceNames[index]);
     Serial.println();
   }
   Serial.println("APP_PAIRS_END");

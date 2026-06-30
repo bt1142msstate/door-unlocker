@@ -21,6 +21,7 @@ struct ControllerStatus: Equatable {
     var maxPairs = 0
     var hasPendingRequest = false
     var pendingFingerprint: String?
+    var pendingName: String?
     var bleState = "unknown"
     var isUnlocked = false
     var autoLockSeconds = 30
@@ -59,8 +60,16 @@ struct PairedDevice: Identifiable, Hashable {
     let slot: Int
     let fingerprint: String
     let counter: String
+    let name: String?
 
     var id: String {
         fingerprint == "unknown" ? "slot-\(slot)" : fingerprint
+    }
+
+    var displayName: String {
+        guard let name, !name.isEmpty else {
+            return "Device \(slot)"
+        }
+        return name
     }
 }
