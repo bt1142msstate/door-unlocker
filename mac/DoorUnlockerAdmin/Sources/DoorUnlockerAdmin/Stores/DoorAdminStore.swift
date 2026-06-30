@@ -76,6 +76,9 @@ final class DoorAdminStore: NSObject, ObservableObject {
     private var lastUSBStatusSyncAt: Date?
     private var lastUSBDiscoveryAt: Date?
     private var didTrustMacDuringUSBSession = false
+    private var pendingWirelessCommandText: String?
+    private var pendingWirelessPredictedCommand: Command?
+    private var shouldDisconnectWirelessAfterCommand = false
 
     var selectedPort: SerialPortCandidate? {
         ports.first { $0.id == selectedPortID }
@@ -105,11 +108,11 @@ final class DoorAdminStore: NSObject, ObservableObject {
     }
 
     private var canUseWirelessFallback: Bool {
-        !isConnected && !isUSBConnectInFlight
+        !isConnected && !isUSBConnectInFlight && pendingWirelessCommandText != nil
     }
 
     var canSendDoorCommand: Bool {
-        isWirelessReady || isConnected
+        isWirelessReady || isConnected || central?.state == .poweredOn
     }
 
     var primaryConnectionTitle: String {
@@ -296,13 +299,37 @@ final class DoorAdminStore: NSObject, ObservableObject {
             }
         } else if isWirelessReady {
             sendWirelessCommandText(command.rawValue, predictedDoorCommand: command)
+        } else {
+            queueWirelessCommand(command.rawValue, predictedDoorCommand: command)
         }
     }
 
-    private func sendWirelessCommandText(_ commandText: String, predictedDoorCommand: Command? = nil) {
+    private func queueWirelessCommand(_ commandText: String, predictedDoorCommand: Command? = nil) {
+        pendingWirelessCommandText = commandText
+        pendingWirelessPredictedCommand = predictedDoorCommand
+        wirelessConnectionState = "Connecting on demand"
+
+        if isWirelessReady {
+            sendQueuedWirelessCommand()
+        } else {
+            scanBluetooth()
+        }
+    }
+
+    private func sendQueuedWirelessCommand() {
+        guard let commandText = pendingWirelessCommandText else { return }
+        let predictedCommand = pendingWirelessPredictedCommand
+        if sendWirelessCommandText(commandText, predictedDoorCommand: predictedCommand) {
+            pendingWirelessCommandText = nil
+            pendingWirelessPredictedCommand = nil
+        }
+    }
+
+    @discardableResult
+    private func sendWirelessCommandText(_ commandText: String, predictedDoorCommand: Command? = nil) -> Bool {
         guard let peripheral, let commandCharacteristic else {
             lastError = "Not connected wirelessly."
-            return
+            return false
         }
 
         do {
@@ -310,7 +337,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
             let writeType: CBCharacteristicWriteType = commandCharacteristic.properties.contains(.write) ? .withResponse : .withoutResponse
             guard payload.count <= peripheral.maximumWriteValueLength(for: writeType) else {
                 lastError = "Secure command is too large for this Bluetooth connection."
-                return
+                return false
             }
 
             lastError = nil
@@ -326,8 +353,14 @@ final class DoorAdminStore: NSObject, ObservableObject {
                 message = predictedDoorCommand == .unlock ? "Unlocking door" : "Locking door"
             }
             peripheral.writeValue(payload, for: commandCharacteristic, type: writeType)
+            shouldDisconnectWirelessAfterCommand = true
+            if writeType == .withoutResponse {
+                scheduleWirelessDisconnect()
+            }
+            return true
         } catch {
             lastError = error.localizedDescription
+            return false
         }
     }
 
@@ -469,7 +502,9 @@ final class DoorAdminStore: NSObject, ObservableObject {
             return
         }
 
-        autoLockStatus = "Waiting for controller"
+        pendingAutoLockSeconds = nil
+        autoLockStatus = "Setting..."
+        queueWirelessCommand("SET_TIMEOUT:\(seconds)")
     }
 
     private func schedulePendingAutoLockRetry() {
@@ -680,6 +715,17 @@ final class DoorAdminStore: NSObject, ObservableObject {
         wirelessPairingState = isConnected ? "USB-C active" : "Unknown"
     }
 
+    private func scheduleWirelessDisconnect() {
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 900_000_000)
+            await MainActor.run {
+                guard let self, self.shouldDisconnectWirelessAfterCommand else { return }
+                self.shouldDisconnectWirelessAfterCommand = false
+                self.stopWirelessSession(reason: self.isConnected ? "USB-C active" : "Idle")
+            }
+        }
+    }
+
     private func readStateIfPossible() {
         guard let peripheral, let stateCharacteristic else { return }
         if stateCharacteristic.properties.contains(.read) {
@@ -756,8 +802,10 @@ extension DoorAdminStore: CBCentralManagerDelegate {
                 bluetoothState = "On"
                 if canUseWirelessFallback && !isWirelessSessionActive {
                     scanBluetooth()
-                } else if !canUseWirelessFallback {
+                } else if isConnected || isUSBConnectInFlight {
                     stopWirelessSession(reason: "USB-C active")
+                } else {
+                    stopWirelessSession(reason: "Idle")
                 }
             case .poweredOff:
                 bluetoothState = "Off"
@@ -802,7 +850,7 @@ extension DoorAdminStore: CBCentralManagerDelegate {
     nonisolated func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         Task { @MainActor in
             self.peripheral = nil
-            wirelessConnectionState = "Disconnected"
+            wirelessConnectionState = "Idle"
             commandCharacteristic = nil
             stateCharacteristic = nil
             pairingCharacteristic = nil
@@ -863,6 +911,7 @@ extension DoorAdminStore: CBPeripheralDelegate {
                 wirelessConnectionState = "Ready"
                 message = "Wireless ready"
                 await applyPendingAutoLockSeconds()
+                sendQueuedWirelessCommand()
             } else {
                 wirelessConnectionState = "Incomplete"
                 lastError = "Required Bluetooth characteristics were not found."
@@ -897,6 +946,9 @@ extension DoorAdminStore: CBPeripheralDelegate {
                 readStateIfPossible()
             } else if characteristic.uuid == commandUUID {
                 readStateIfPossible()
+                if shouldDisconnectWirelessAfterCommand {
+                    scheduleWirelessDisconnect()
+                }
             }
         }
     }

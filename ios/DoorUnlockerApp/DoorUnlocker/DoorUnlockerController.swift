@@ -1230,6 +1230,7 @@ extension DoorUnlockerController: CBPeripheralDelegate {
                 sendPendingSystemCommandIfReady()
             } else {
                 lastError = "Required controller characteristic not found"
+                central?.cancelPeripheralConnection(peripheral)
                 scheduleReconnectCheck(after: 1)
             }
         }

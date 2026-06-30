@@ -338,7 +338,7 @@ private struct WirelessStatusTile: View {
         if store.isWirelessReady {
             return "Wireless commands are available."
         }
-        return "The app connects wirelessly in the background when the controller is nearby."
+        return "Wireless stays idle and connects only when the Mac sends a command."
     }
 
     private var statusSymbol: String {
