@@ -191,110 +191,92 @@ private struct LockStateIcon: View {
 
     var body: some View {
         if state.isUnlocked {
-            LockGlyph(progress: 0, size: size, color: color)
+            LockSymbol(name: "lock.open.fill", size: size, color: color, flipDegrees: 0)
         } else {
             if let startedAt = state.lockAnimationStartedAt {
                 TimelineView(.animation) { timeline in
-                    LockGlyph(
-                        progress: lockProgress(startedAt: startedAt, now: timeline.date),
+                    LockSymbol(
+                        name: symbolName(startedAt: startedAt, now: timeline.date),
                         size: size,
-                        color: color
+                        color: color,
+                        flipDegrees: flipDegrees(startedAt: startedAt, now: timeline.date)
                     )
                 }
             } else {
-                LockGlyph(progress: fallbackProgress, size: size, color: color)
+                LockSymbol(
+                    name: fallbackSymbolName,
+                    size: size,
+                    color: color,
+                    flipDegrees: fallbackFlipDegrees
+                )
             }
         }
     }
 
-    private var fallbackProgress: CGFloat {
+    private var fallbackSymbolName: String {
         switch state.lockIconPhase {
         case 0:
-            return 0
+            return "lock.open.fill"
         case 1:
-            return 0.58
+            return "lock.fill"
         default:
-            return 1
+            return "lock.fill"
         }
     }
 
-    private func lockProgress(startedAt: Date, now: Date) -> CGFloat {
+    private var fallbackFlipDegrees: Double {
+        state.lockIconPhase == 1 ? -54 : 0
+    }
+
+    private func symbolName(startedAt: Date, now: Date) -> String {
+        animationProgress(startedAt: startedAt, now: now) < 0.5 ? "lock.open.fill" : "lock.fill"
+    }
+
+    private func flipDegrees(startedAt: Date, now: Date) -> Double {
+        let progress = animationProgress(startedAt: startedAt, now: now)
+        if progress < 0.5 {
+            let firstHalfProgress = progress / 0.5
+            return 90 * easeIn(firstHalfProgress)
+        }
+
+        let secondHalfProgress = (progress - 0.5) / 0.5
+        return -90 * (1 - easeOut(secondHalfProgress))
+    }
+
+    private func animationProgress(startedAt: Date, now: Date) -> Double {
         let elapsed = now.timeIntervalSince(startedAt)
-        return CGFloat(max(0, min(1, elapsed / lockClosureAnimationDuration)))
+        return max(0, min(1, elapsed / lockFlipAnimationDuration))
+    }
+
+    private func easeIn(_ progress: Double) -> Double {
+        progress * progress
+    }
+
+    private func easeOut(_ progress: Double) -> Double {
+        1 - pow(1 - progress, 2)
     }
 }
 
-private struct LockGlyph: View {
-    let progress: CGFloat
+private struct LockSymbol: View {
+    let name: String
     let size: CGFloat
     let color: Color
+    let flipDegrees: Double
 
     var body: some View {
-        let easedProgress = smoothStep(progress)
-        let openAmount = 1 - easedProgress
-        let settleProgress = max(0, min(1, (progress - 0.82) / 0.18))
-        let settle = sin(settleProgress * .pi)
-        let shackleAngle = (-36 * openAmount) + (3 * settle)
-        let shackleX = size * 0.16 * openAmount
-        let shackleY = -size * 0.08 * openAmount
-        let bodyScale = 0.96 + (0.04 * easedProgress) + (0.035 * settle)
-        let pulseOpacity = max(0, min(1, (progress - 0.76) / 0.24)) * 0.24 * (1 - settleProgress)
-
-        ZStack {
-            Circle()
-                .stroke(color.opacity(pulseOpacity), lineWidth: max(1, size * 0.08))
-                .scaleEffect(0.92 + (0.18 * settleProgress))
-
-            LockShackleShape()
-                .stroke(
-                    color,
-                    style: StrokeStyle(
-                        lineWidth: max(1.7, size * 0.13),
-                        lineCap: .round,
-                        lineJoin: .round
-                    )
-                )
-                .frame(width: size * 0.78, height: size * 0.7)
-                .rotationEffect(.degrees(Double(shackleAngle)), anchor: .bottomLeading)
-                .offset(x: shackleX, y: shackleY - size * 0.06)
-
-            RoundedRectangle(cornerRadius: max(2, size * 0.14), style: .continuous)
-                .fill(color)
-                .frame(width: size * 0.88, height: size * 0.58)
-                .offset(y: size * 0.18)
-                .scaleEffect(bodyScale)
-        }
-        .frame(width: size * 1.45, height: size * 1.45)
-    }
-
-    private func smoothStep(_ value: CGFloat) -> CGFloat {
-        let clamped = max(0, min(1, value))
-        return clamped * clamped * (3 - (2 * clamped))
+        Image(systemName: name)
+            .font(.system(size: size, weight: .bold))
+            .foregroundStyle(color)
+            .rotation3DEffect(
+                .degrees(flipDegrees),
+                axis: (x: 0, y: 1, z: 0),
+                perspective: 0.55
+            )
+            .frame(width: size * 1.35, height: size * 1.35)
     }
 }
 
-private struct LockShackleShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        let leftX = rect.minX + (rect.width * 0.2)
-        let rightX = rect.maxX - (rect.width * 0.2)
-        let shoulderY = rect.minY + (rect.height * 0.36)
-        let bottomY = rect.maxY
-        let topY = rect.minY + (rect.height * 0.03)
-
-        var path = Path()
-        path.move(to: CGPoint(x: leftX, y: bottomY))
-        path.addLine(to: CGPoint(x: leftX, y: shoulderY))
-        path.addCurve(
-            to: CGPoint(x: rightX, y: shoulderY),
-            control1: CGPoint(x: leftX, y: topY),
-            control2: CGPoint(x: rightX, y: topY)
-        )
-        path.addLine(to: CGPoint(x: rightX, y: bottomY))
-        return path
-    }
-}
-
-private let lockClosureAnimationDuration: TimeInterval = 1.25
+private let lockFlipAnimationDuration: TimeInterval = 1.3
 
 private struct CompactCountdownIcon: View {
     let timerRange: ClosedRange<Date>
