@@ -9,6 +9,10 @@ struct DoorUnlockerActivityAttributes: ActivityAttributes {
         var isUnlocked: Bool {
             state == "unlocked" || state == "unlocking"
         }
+
+        var isLocked: Bool {
+            state == "locked" || state == "locking"
+        }
     }
 
     let title: String

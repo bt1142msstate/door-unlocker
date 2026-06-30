@@ -133,35 +133,60 @@ struct DoorUnlockerLiveActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label("Unlocked", systemImage: "lock.open.fill")
+                    Label(context.state.activityTitle, systemImage: context.state.symbolName)
                         .font(.headline.weight(.bold))
-                        .foregroundStyle(Color(red: 0.35, green: 0.86, blue: 0.58))
+                        .foregroundStyle(context.state.activityColor)
+                        .contentTransition(.symbolEffect(.replace))
+                        .symbolEffect(.bounce, value: context.state.state)
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
-                    LiveActivityTimerText(deadline: context.state.autoLockDeadline)
-                        .font(.headline.monospacedDigit().weight(.bold))
-                        .foregroundStyle(.white)
+                    if context.state.isUnlocked {
+                        LiveActivityTimerText(deadline: context.state.autoLockDeadline)
+                            .font(.headline.monospacedDigit().weight(.bold))
+                            .foregroundStyle(.white)
+                    } else {
+                        Text("Done")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(.white)
+                    }
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
-                    ProgressView(timerInterval: timerRange(until: context.state.autoLockDeadline), countsDown: true) {
-                        Text("Auto-lock")
-                            .font(.caption.weight(.semibold))
+                    if context.state.isUnlocked {
+                        ProgressView(timerInterval: timerRange(until: context.state.autoLockDeadline), countsDown: true) {
+                            Text("Auto-lock")
+                                .font(.caption.weight(.semibold))
+                        }
+                        .tint(context.state.activityColor)
+                    } else {
+                        Label("Locked", systemImage: "checkmark.circle.fill")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(context.state.activityColor)
                     }
-                    .tint(Color(red: 0.35, green: 0.86, blue: 0.58))
                 }
             } compactLeading: {
-                Image(systemName: "lock.open.fill")
-                    .foregroundStyle(Color(red: 0.35, green: 0.86, blue: 0.58))
+                Image(systemName: context.state.symbolName)
+                    .foregroundStyle(context.state.activityColor)
+                    .contentTransition(.symbolEffect(.replace))
+                    .symbolEffect(.bounce, value: context.state.state)
             } compactTrailing: {
-                LiveActivityTimerText(deadline: context.state.autoLockDeadline)
-                    .font(.caption2.monospacedDigit().weight(.bold))
-                    .foregroundStyle(.white)
-                    .frame(minWidth: 34)
+                if context.state.isUnlocked {
+                    LiveActivityTimerText(deadline: context.state.autoLockDeadline)
+                        .font(.caption2.monospacedDigit().weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(minWidth: 34)
+                } else {
+                    Image(systemName: "checkmark")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(context.state.activityColor)
+                        .contentTransition(.symbolEffect(.replace))
+                }
             } minimal: {
-                Image(systemName: "lock.open.fill")
-                    .foregroundStyle(Color(red: 0.35, green: 0.86, blue: 0.58))
+                Image(systemName: context.state.symbolName)
+                    .foregroundStyle(context.state.activityColor)
+                    .contentTransition(.symbolEffect(.replace))
+                    .symbolEffect(.bounce, value: context.state.state)
             }
         }
     }
@@ -174,10 +199,12 @@ private struct LiveActivityView: View {
         HStack(spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color(red: 0.35, green: 0.86, blue: 0.58).opacity(0.18))
-                Image(systemName: "lock.open.fill")
+                    .fill(context.state.activityColor.opacity(0.18))
+                Image(systemName: context.state.symbolName)
                     .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(Color(red: 0.35, green: 0.86, blue: 0.58))
+                    .foregroundStyle(context.state.activityColor)
+                    .contentTransition(.symbolEffect(.replace))
+                    .symbolEffect(.bounce, value: context.state.state)
             }
             .frame(width: 44, height: 44)
 
@@ -185,8 +212,15 @@ private struct LiveActivityView: View {
                 Text("Door Unlocker")
                     .font(.headline.weight(.bold))
                 HStack(spacing: 4) {
-                    Text("Auto-locks in")
-                    LiveActivityTimerText(deadline: context.state.autoLockDeadline)
+                    if context.state.isUnlocked {
+                        Text("Auto-locks in")
+                        LiveActivityTimerText(deadline: context.state.autoLockDeadline)
+                    } else {
+                        Text("Locked")
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(context.state.activityColor)
+                            .contentTransition(.symbolEffect(.replace))
+                    }
                 }
                     .font(.subheadline.monospacedDigit().weight(.semibold))
                     .foregroundStyle(.secondary)
@@ -209,6 +243,20 @@ private struct LiveActivityTimerText: View {
 private func timerRange(until deadline: Date) -> ClosedRange<Date> {
     let now = Date()
     return now ... max(now, deadline)
+}
+
+private extension DoorUnlockerActivityAttributes.ContentState {
+    var activityTitle: String {
+        isUnlocked ? "Unlocked" : "Locked"
+    }
+
+    var symbolName: String {
+        isUnlocked ? "lock.open.fill" : "lock.fill"
+    }
+
+    var activityColor: Color {
+        isUnlocked ? Color(red: 0.35, green: 0.86, blue: 0.58) : Color(red: 0.35, green: 0.72, blue: 1.0)
+    }
 }
 
 @available(iOSApplicationExtension 18.0, *)

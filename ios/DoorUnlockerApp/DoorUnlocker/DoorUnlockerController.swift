@@ -15,6 +15,8 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     static let defaultAutoLockSeconds = 30
     static let minimumAutoLockSeconds = 5
     static let maximumAutoLockSeconds = 120
+    private static let liveActivityLockConfirmationSeconds: TimeInterval = 2.0
+    private static let liveActivityStaleGraceSeconds: TimeInterval = 8.0
 
     @Published private(set) var bluetoothState = "Starting"
     @Published private(set) var connectionState = "Disconnected"
@@ -52,6 +54,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     private var autoLockApplyTask: Task<Void, Never>?
     private var autoLockPredictionTask: Task<Void, Never>?
     private var liveActivity: Activity<DoorUnlockerActivityAttributes>?
+    private var liveActivityCompletionTask: Task<Void, Never>?
     private var liveActivityBackgroundTask: UIBackgroundTaskIdentifier = .invalid
 
     var isConnectedToController: Bool {
@@ -136,6 +139,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     override init() {
         super.init()
         central = CBCentralManager(delegate: self, queue: .main)
+        dismissStoredLockedLiveActivityIfNeeded()
     }
 
     private static func storedAutoLockSeconds() -> Int {
@@ -520,28 +524,52 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         publishWidgetState("locked", updatedAt: snapshot.updatedAt ?? .now)
     }
 
+    private func dismissStoredLockedLiveActivityIfNeeded() {
+        let snapshot = DoorStatusStore.load()
+        guard !snapshot.isUnlocked, !Activity<DoorUnlockerActivityAttributes>.activities.isEmpty else { return }
+
+        beginLiveActivityBackgroundTask()
+        Task { await completeAndDismissLiveActivity() }
+    }
+
     private func syncLiveActivity(state: String, deadline: Date?) {
         if (state == "unlocked" || state == "unlocking"), let deadline, deadline > .now {
+            liveActivityCompletionTask?.cancel()
             beginLiveActivityBackgroundTask()
             Task { await startOrUpdateLiveActivity(state: state, deadline: deadline) }
+            scheduleLiveActivityCompletion(deadline: deadline)
         } else {
-            endLiveActivityBackgroundTask()
-            Task { await endLiveActivity() }
+            liveActivityCompletionTask?.cancel()
+            beginLiveActivityBackgroundTask()
+            Task { await completeAndDismissLiveActivity() }
+        }
+    }
+
+    private func scheduleLiveActivityCompletion(deadline: Date) {
+        liveActivityCompletionTask?.cancel()
+        liveActivityCompletionTask = Task { [weak self] in
+            let sleepSeconds = max(0, deadline.timeIntervalSinceNow)
+            if sleepSeconds > 0 {
+                try? await Task.sleep(nanoseconds: UInt64(sleepSeconds * 1_000_000_000))
+            }
+
+            guard !Task.isCancelled else { return }
+            await self?.completeAndDismissLiveActivity()
         }
     }
 
     private func startOrUpdateLiveActivity(state: String, deadline: Date) async {
-        defer { endLiveActivityBackgroundTask() }
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
 
         let contentState = DoorUnlockerActivityAttributes.ContentState(state: state, autoLockDeadline: deadline)
         let content = ActivityContent(
             state: contentState,
-            staleDate: deadline
+            staleDate: deadline.addingTimeInterval(Self.liveActivityLockConfirmationSeconds + Self.liveActivityStaleGraceSeconds),
+            relevanceScore: 1
         )
 
         do {
-            if let activity = liveActivity ?? Activity<DoorUnlockerActivityAttributes>.activities.first {
+            if let activity = activeLiveActivity {
                 liveActivity = activity
                 await activity.update(content)
             } else {
@@ -557,19 +585,32 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         }
     }
 
-    private func endLiveActivity() async {
+    private func completeAndDismissLiveActivity() async {
+        defer { endLiveActivityBackgroundTask() }
+
         let activities = Activity<DoorUnlockerActivityAttributes>.activities
         guard liveActivity != nil || !activities.isEmpty else { return }
 
+        let dismissalDate = Date().addingTimeInterval(Self.liveActivityLockConfirmationSeconds)
         let content = ActivityContent(
             state: DoorUnlockerActivityAttributes.ContentState(state: "locked", autoLockDeadline: .now),
-            staleDate: nil
+            staleDate: dismissalDate,
+            relevanceScore: 0.2
         )
 
         for activity in activities {
-            await activity.end(content, dismissalPolicy: .immediate)
+            await activity.end(content, dismissalPolicy: .after(dismissalDate))
         }
         liveActivity = nil
+    }
+
+    private var activeLiveActivity: Activity<DoorUnlockerActivityAttributes>? {
+        let activities = Activity<DoorUnlockerActivityAttributes>.activities
+        return liveActivity.flatMap { activity in
+            activity.activityState == .active || activity.activityState == .stale ? activity : nil
+        } ?? activities.first { activity in
+            activity.activityState == .active || activity.activityState == .stale
+        }
     }
 
     private func beginLiveActivityBackgroundTask() {
