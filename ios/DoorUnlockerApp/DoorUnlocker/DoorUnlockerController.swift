@@ -10,6 +10,10 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         case lock = "LOCK"
     }
 
+    static let defaultAutoLockSeconds = 30
+    static let minimumAutoLockSeconds = 5
+    static let maximumAutoLockSeconds = 120
+
     @Published private(set) var bluetoothState = "Starting"
     @Published private(set) var connectionState = "Disconnected"
     @Published private(set) var deviceName = "DoorUnlocker-XIAO-v2"
@@ -17,6 +21,8 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     @Published private(set) var pairingState = "Unknown"
     @Published private(set) var pairingApprovalCode: String?
     @Published private(set) var isAuthenticatingUnlock = false
+    @Published private(set) var autoLockSeconds = DoorUnlockerController.storedAutoLockSeconds()
+    @Published private(set) var autoLockStatus = "Ready to set"
     @Published var requiresUnlockAuthentication = UserDefaults.standard.bool(forKey: DoorUnlockerController.unlockAuthenticationKey) {
         didSet {
             UserDefaults.standard.set(requiresUnlockAuthentication, forKey: Self.unlockAuthenticationKey)
@@ -25,6 +31,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     @Published var lastError: String?
 
     private static let unlockAuthenticationKey = "RequireUnlockAuthentication"
+    private static let autoLockSecondsKey = "AutoLockSeconds"
     private let serviceUUID = CBUUID(string: "7A5A1000-2B8D-4C3E-94E7-0B3C0DDAAF10")
     private let commandUUID = CBUUID(string: "7A5A1001-2B8D-4C3E-94E7-0B3C0DDAAF10")
     private let stateUUID = CBUUID(string: "7A5A1002-2B8D-4C3E-94E7-0B3C0DDAAF10")
@@ -37,6 +44,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     private var pairingCharacteristic: CBCharacteristic?
     private var reconnectTimer: Timer?
     private var pendingSystemCommand: DoorSystemCommand?
+    private var pendingAutoLockTimeoutSeconds: Int?
 
     var isConnectedToController: Bool {
         pairingCharacteristic != nil && peripheral?.state == .connected
@@ -100,14 +108,47 @@ final class DoorUnlockerController: NSObject, ObservableObject {
             return "Pairing Pending"
         case "paired":
             return "Paired"
+        case "timeout_set":
+            return "Auto-lock Updated"
         default:
             return isReady ? "Ready" : connectionState
         }
     }
 
+    var autoLockRange: ClosedRange<Int> {
+        Self.minimumAutoLockSeconds ... Self.maximumAutoLockSeconds
+    }
+
     override init() {
         super.init()
         central = CBCentralManager(delegate: self, queue: .main)
+    }
+
+    private static func storedAutoLockSeconds() -> Int {
+        let storedValue = UserDefaults.standard.integer(forKey: autoLockSecondsKey)
+        let seconds = storedValue == 0 ? defaultAutoLockSeconds : storedValue
+        return clampedAutoLockSeconds(seconds)
+    }
+
+    private static func clampedAutoLockSeconds(_ seconds: Int) -> Int {
+        min(max(seconds, minimumAutoLockSeconds), maximumAutoLockSeconds)
+    }
+
+    func updateAutoLockSeconds(_ seconds: Int) {
+        autoLockSeconds = Self.clampedAutoLockSeconds(seconds)
+        UserDefaults.standard.set(autoLockSeconds, forKey: Self.autoLockSecondsKey)
+        autoLockStatus = "Ready to set"
+    }
+
+    func applyAutoLockTimeout() {
+        let commandText = "SET_TIMEOUT:\(autoLockSeconds)"
+        pendingAutoLockTimeoutSeconds = autoLockSeconds
+        autoLockStatus = "Setting..."
+
+        if !writeAuthenticatedCommand(commandText) {
+            pendingAutoLockTimeoutSeconds = nil
+            autoLockStatus = "Not set"
+        }
     }
 
     func scan() {
@@ -157,33 +198,42 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     }
 
     private func sendAuthenticated(_ command: Command) {
+        let didWrite = writeAuthenticatedCommand(command.rawValue)
+        if didWrite {
+            servoState = command == .unlock ? "unlocking" : "locking"
+            publishWidgetState(servoState)
+        }
+    }
+
+    @discardableResult
+    private func writeAuthenticatedCommand(_ commandText: String) -> Bool {
         guard let peripheral, let commandCharacteristic else {
             lastError = "Not connected"
-            return
+            return false
         }
 
         guard isPaired else {
             lastError = "Pair this iPhone before sending commands"
-            return
+            return false
         }
 
         let data: Data
         do {
-            data = try DoorCommandAuthenticator.payload(for: command)
+            data = try DoorCommandAuthenticator.payload(for: commandText)
         } catch {
             lastError = error.localizedDescription
-            return
+            return false
         }
 
         let writeType: CBCharacteristicWriteType = commandCharacteristic.properties.contains(.write) ? .withResponse : .withoutResponse
         guard data.count <= peripheral.maximumWriteValueLength(for: writeType) else {
             lastError = "Secure command is too large for this BLE connection"
-            return
+            return false
         }
 
+        lastError = nil
         peripheral.writeValue(data, for: commandCharacteristic, type: writeType)
-        servoState = command == .unlock ? "unlocking" : "locking"
-        publishWidgetState(servoState)
+        return true
     }
 
     private func authenticateAndSendUnlock() async {
@@ -519,11 +569,21 @@ extension DoorUnlockerController: CBPeripheralDelegate {
     nonisolated func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
         Task { @MainActor in
             if let error {
+                if characteristic.uuid == commandUUID, pendingAutoLockTimeoutSeconds != nil {
+                    pendingAutoLockTimeoutSeconds = nil
+                    autoLockStatus = "Not set"
+                }
                 lastError = error.localizedDescription
                 if characteristic.uuid == pairingUUID {
                     pairingState = "Pairing locked"
                 }
                 return
+            }
+
+            if characteristic.uuid == commandUUID, let seconds = pendingAutoLockTimeoutSeconds {
+                pendingAutoLockTimeoutSeconds = nil
+                autoLockStatus = "Controller set to \(seconds)s"
+                readStateIfPermitted()
             }
 
             if characteristic.uuid == pairingUUID {
@@ -550,7 +610,7 @@ extension DoorUnlockerController: CBPeripheralDelegate {
         case "pairing_locked", "unpaired":
             pairingState = "Pairing locked"
             pairingApprovalCode = nil
-        case "paired", "locked", "unlocked", "locking", "unlocking":
+        case "paired", "locked", "unlocked", "locking", "unlocking", "timeout_set":
             pairingState = "Paired"
             if state == "paired" {
                 pairingApprovalCode = nil

@@ -135,6 +135,7 @@ struct ContentView: View {
 
             metric(title: "Pairing", value: controller.pairingState, icon: "key.horizontal.fill")
             unlockAuthenticationToggle
+            autoLockTimeoutControl
 
             if controller.canPair {
                 Label("Tap Pair This iPhone, then approve its code over USB-C.", systemImage: "key.fill")
@@ -310,6 +311,52 @@ struct ContentView: View {
         }
         .toggleStyle(.switch)
         .tint(accent)
+        .padding(12)
+        .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private var autoLockTimeoutControl: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Stepper(
+                value: Binding(
+                    get: { controller.autoLockSeconds },
+                    set: { controller.updateAutoLockSeconds($0) }
+                ),
+                in: controller.autoLockRange,
+                step: 5
+            ) {
+                HStack(spacing: 8) {
+                    Image(systemName: "timer")
+                        .foregroundStyle(accent)
+                    Text("Auto-lock")
+                        .font(.caption.weight(.bold))
+                    Spacer(minLength: 8)
+                    Text("\(controller.autoLockSeconds)s")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            HStack(spacing: 10) {
+                Text(controller.autoLockStatus)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+
+                Spacer(minLength: 8)
+
+                Button {
+                    controller.applyAutoLockTimeout()
+                } label: {
+                    Label("Set", systemImage: "arrow.down.to.line.compact")
+                        .font(.caption.weight(.bold))
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(!controller.isReady)
+            }
+        }
         .padding(12)
         .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }

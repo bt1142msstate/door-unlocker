@@ -60,7 +60,7 @@ The app generates its own P-256 signing key locally. It prefers Secure Enclave w
 
 The firmware advertises a BLE peripheral for the iPhone app, stores up to four paired phone public keys in internal flash, verifies signed `v2` commands, drives the servo to locked or unlocked positions, and changes the XIAO LED color based on state.
 
-Unlock commands hold the servo at the unlock angle for up to 30 seconds. After that timeout, the controller automatically returns to the locked/rest position to reduce battery drain and servo stress.
+Unlock commands hold the servo at the unlock angle for up to 30 seconds by default. The iPhone app can set the controller timeout from 5-120 seconds, and the XIAO stores that value locally. After the configured timeout, the controller automatically returns to the locked/rest position to reduce battery drain and servo stress.
 
 USB serial commands:
 
@@ -90,6 +90,7 @@ The app provides:
 - BLE connection management.
 - USB-gated pairing that sends only the phone public key to the XIAO and requires typing the app's approval code over USB-C.
 - Optional Face ID/passcode confirmation before sending unlock commands.
+- Auto-lock timeout setting that is stored and enforced by the controller.
 - Siri/App Intents for voice and shortcut automation.
 - A home screen widget.
 - A Control Widget so the project can appear in iOS Controls and be assigned to the Action Button on supported iPhones.

@@ -21,7 +21,9 @@ static const int LOCK_ANGLE = 20;        // Rest/release position
 static const int UNLOCK_ANGLE = 95;      // Handle-push position
 static const int SERVO_STEP_DELAY_MS = 8;
 static const int SERVO_DETACH_DELAY_MS = 250;
-static const uint32_t UNLOCK_HOLD_TIMEOUT_MS = 30UL * 1000UL;
+static const uint16_t DEFAULT_UNLOCK_HOLD_TIMEOUT_SECONDS = 30;
+static const uint16_t MIN_UNLOCK_HOLD_TIMEOUT_SECONDS = 5;
+static const uint16_t MAX_UNLOCK_HOLD_TIMEOUT_SECONDS = 120;
 
 // Door Unlocker BLE v2 UUIDs. The v2 service avoids stale iOS GATT caches
 // from earlier firmware that did not include the pairing characteristic.
@@ -32,6 +34,7 @@ static const char PAIRING_CHAR_UUID[] = "7A5A1003-2B8D-4C3E-94E7-0B3C0DDAAF10";
 static const char LEGACY_COUNTER_FILENAME[] = "/door-counter.txt";
 static const char LEGACY_PUBLIC_KEY_FILENAME[] = "/door-public-key.bin";
 static const char PAIRINGS_FILENAME[] = "/door-pairings.bin";
+static const char UNLOCK_TIMEOUT_FILENAME[] = "/unlock-timeout.txt";
 static const uint16_t SECURE_COMMAND_MAX_LEN = 220;
 static const uint16_t PAIRING_MAX_LEN = 80;
 static const size_t P256_PUBLIC_KEY_LEN = 65;   // X9.63 uncompressed: 0x04 || X || Y
@@ -55,6 +58,7 @@ bool pairingModeEnabled = false;
 bool pendingPairingExists = false;
 bool unlockAutoLockActive = false;
 uint32_t unlockAutoLockStartedMs = 0;
+uint16_t unlockHoldTimeoutSeconds = DEFAULT_UNLOCK_HOLD_TIMEOUT_SECONDS;
 uint8_t pendingPairingPublicKey[P256_PUBLIC_KEY_LEN] = {0};
 uint8_t pairedPublicKeyCount = 0;
 uint8_t pairedPublicKeys[MAX_PAIRED_PHONES][P256_PUBLIC_KEY_LEN] = {{0}};
@@ -229,6 +233,60 @@ uint64_t decodeUnsigned64(const uint8_t* bytes) {
     value = (value << 8) | bytes[index];
   }
   return value;
+}
+
+uint32_t unlockHoldTimeoutMs() {
+  return (uint32_t) unlockHoldTimeoutSeconds * 1000UL;
+}
+
+bool isValidUnlockHoldTimeout(uint64_t seconds) {
+  return seconds >= MIN_UNLOCK_HOLD_TIMEOUT_SECONDS && seconds <= MAX_UNLOCK_HOLD_TIMEOUT_SECONDS;
+}
+
+bool saveUnlockHoldTimeout() {
+  if (!ensureInternalFS()) {
+    return false;
+  }
+
+  if (InternalFS.exists(UNLOCK_TIMEOUT_FILENAME)) {
+    InternalFS.remove(UNLOCK_TIMEOUT_FILENAME);
+  }
+
+  File file(InternalFS);
+  if (!file.open(UNLOCK_TIMEOUT_FILENAME, FILE_O_WRITE)) {
+    return false;
+  }
+
+  char buffer[8] = {0};
+  snprintf(buffer, sizeof(buffer), "%u", unlockHoldTimeoutSeconds);
+  file.write((uint8_t*) buffer, strlen(buffer));
+  file.close();
+  return true;
+}
+
+void loadUnlockHoldTimeout() {
+  unlockHoldTimeoutSeconds = DEFAULT_UNLOCK_HOLD_TIMEOUT_SECONDS;
+
+  if (!ensureInternalFS()) {
+    return;
+  }
+
+  File file(InternalFS);
+  if (!file.open(UNLOCK_TIMEOUT_FILENAME, FILE_O_READ)) {
+    return;
+  }
+
+  char buffer[8] = {0};
+  uint32_t readLen = file.read(buffer, sizeof(buffer) - 1);
+  file.close();
+  buffer[min<uint32_t>(readLen, sizeof(buffer) - 1)] = 0;
+
+  uint64_t seconds = 0;
+  if (parseUnsigned64Text(buffer, &seconds) && isValidUnlockHoldTimeout(seconds)) {
+    unlockHoldTimeoutSeconds = seconds;
+  } else {
+    InternalFS.remove(UNLOCK_TIMEOUT_FILENAME);
+  }
 }
 
 bool readLegacyCounter(uint64_t* counter) {
@@ -459,7 +517,51 @@ int8_t verifySignedPayload(const char* payload, const uint8_t* signature) {
 }
 
 bool isKnownCommand(const char* command) {
-  return strcmp(command, "UNLOCK") == 0 || strcmp(command, "LOCK") == 0;
+  return strcmp(command, "UNLOCK") == 0
+    || strcmp(command, "LOCK") == 0
+    || strncmp(command, "SET_TIMEOUT:", 12) == 0;
+}
+
+bool parseSetTimeoutCommand(const char* command, uint16_t* seconds) {
+  static const char prefix[] = "SET_TIMEOUT:";
+  if (command == nullptr || seconds == nullptr || strncmp(command, prefix, strlen(prefix)) != 0) {
+    return false;
+  }
+
+  uint64_t parsedSeconds = 0;
+  if (!parseUnsigned64Text(command + strlen(prefix), &parsedSeconds)) {
+    return false;
+  }
+
+  if (!isValidUnlockHoldTimeout(parsedSeconds)) {
+    return false;
+  }
+
+  *seconds = (uint16_t) parsedSeconds;
+  return true;
+}
+
+bool setUnlockHoldTimeoutSeconds(uint16_t seconds) {
+  if (!isValidUnlockHoldTimeout(seconds)) {
+    return false;
+  }
+
+  uint16_t previousSeconds = unlockHoldTimeoutSeconds;
+  unlockHoldTimeoutSeconds = seconds;
+  if (!saveUnlockHoldTimeout()) {
+    unlockHoldTimeoutSeconds = previousSeconds;
+    return false;
+  }
+
+  if (unlocked) {
+    unlockAutoLockStartedMs = millis();
+    unlockAutoLockActive = true;
+  }
+
+  Serial.print("Auto-lock timeout set to ");
+  Serial.print(unlockHoldTimeoutSeconds);
+  Serial.println(" seconds.");
+  return true;
 }
 
 const char* currentStateText() {
@@ -574,7 +676,7 @@ void unlockHold() {
   publishState("unlocked");
   updateStatusLed();
   Serial.print("Auto-lock scheduled in ");
-  Serial.print(UNLOCK_HOLD_TIMEOUT_MS / 1000UL);
+  Serial.print(unlockHoldTimeoutSeconds);
   Serial.println(" seconds.");
 }
 
@@ -583,7 +685,7 @@ void handleUnlockTimeout() {
     return;
   }
 
-  if ((uint32_t)(millis() - unlockAutoLockStartedMs) < UNLOCK_HOLD_TIMEOUT_MS) {
+  if ((uint32_t)(millis() - unlockAutoLockStartedMs) < unlockHoldTimeoutMs()) {
     return;
   }
 
@@ -680,6 +782,22 @@ void handleCommand(char* payload) {
     unlockHold();
   } else if (strcmp(command, "LOCK") == 0) {
     lockRest();
+  } else {
+    uint16_t requestedSeconds = 0;
+    if (!parseSetTimeoutCommand(command, &requestedSeconds)) {
+      rejectCommand("bad timeout");
+      return;
+    }
+
+    if (!setUnlockHoldTimeoutSeconds(requestedSeconds)) {
+      rejectCommand("timeout save failed");
+      return;
+    }
+
+    publishState("timeout_set");
+    delay(250);
+    publishState(currentStateText());
+    updateStatusLed();
   }
 }
 
@@ -1037,6 +1155,7 @@ void setup() {
   setupStatusLed();
   nRFCrypto.begin();
   loadPairings();
+  loadUnlockHoldTimeout();
   updateStatusLed();
 
   attachServoIfNeeded();
@@ -1064,6 +1183,9 @@ void setup() {
   Serial.println("DoorUnlocker-XIAO-v2 ready");
   Serial.print("Service UUID: ");
   Serial.println(DOOR_SERVICE_UUID);
+  Serial.print("Auto-lock timeout: ");
+  Serial.print(unlockHoldTimeoutSeconds);
+  Serial.println(" seconds");
   printPairingHelp();
 }
 

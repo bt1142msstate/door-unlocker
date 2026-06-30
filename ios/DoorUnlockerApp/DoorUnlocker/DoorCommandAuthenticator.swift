@@ -63,8 +63,12 @@ enum DoorCommandAuthenticator {
     }
 
     static func payload(for command: DoorUnlockerController.Command) throws -> Data {
+        try payload(for: command.rawValue)
+    }
+
+    static func payload(for commandText: String) throws -> Data {
         let counter = nextCounter()
-        let message = "v2|\(counter)|\(command.rawValue)"
+        let message = "v2|\(counter)|\(commandText)"
         let signature = try identity().signature(for: Data(message.utf8))
         let signatureHex = signature.map { String(format: "%02x", $0) }.joined()
         return Data("\(message)|\(signatureHex)".utf8)
