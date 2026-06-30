@@ -52,6 +52,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     private static let autoLockSecondsKey = "AutoLockSeconds"
     private static let deviceDisplayNameKey = "DoorUnlockerDeviceDisplayName"
     private static let maximumDeviceDisplayNameLength = 24
+    private static let widgetKind = "DoorUnlockerWidget"
     private let serviceUUID = CBUUID(string: "7A5A1000-2B8D-4C3E-94E7-0B3C0DDAAF10")
     private let commandUUID = CBUUID(string: "7A5A1001-2B8D-4C3E-94E7-0B3C0DDAAF10")
     private let stateUUID = CBUUID(string: "7A5A1002-2B8D-4C3E-94E7-0B3C0DDAAF10")
@@ -76,6 +77,9 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     private var liveActivityCompletionTask: Task<Void, Never>?
     private var isCompletingLiveActivity = false
     private var liveActivityBackgroundTask: UIBackgroundTaskIdentifier = .invalid
+    private var widgetReloadTask: Task<Void, Never>?
+    private var widgetReloadBackgroundTask: UIBackgroundTaskIdentifier = .invalid
+    private var widgetReloadGeneration = 0
 
     var isConnectedToController: Bool {
         pairingCharacteristic != nil && peripheral?.state == .connected
@@ -694,21 +698,53 @@ final class DoorUnlockerController: NSObject, ObservableObject {
             deadline: deadline
         )
         DoorStatusStore.save(state: state, updatedAt: updatedAt, autoLockStartedAt: startedAt, autoLockDeadline: deadline)
-        reloadDoorWidgets()
+        reloadDoorWidgets(deadline: deadline)
         notifyIfNeeded(for: state, previousSnapshot: previousSnapshot, deadline: deadline)
         scheduleAutoLockPrediction(deadline: deadline)
         syncLiveActivity(state: state, startedAt: startedAt, deadline: deadline)
     }
 
-    private func reloadDoorWidgets() {
-        WidgetCenter.shared.reloadTimelines(ofKind: "DoorUnlockerWidget")
-        WidgetCenter.shared.reloadAllTimelines()
+    private func reloadDoorWidgets(deadline: Date? = nil) {
+        requestDoorWidgetReload()
+        widgetReloadTask?.cancel()
+        widgetReloadGeneration += 1
+        let generation = widgetReloadGeneration
+        endWidgetReloadBackgroundTask()
+        beginWidgetReloadBackgroundTask()
 
-        Task {
-            try? await Task.sleep(for: .seconds(2))
-            WidgetCenter.shared.reloadTimelines(ofKind: "DoorUnlockerWidget")
-            WidgetCenter.shared.reloadAllTimelines()
+        let now = Date()
+        var reloadDates = [1.0, 2.5, 6.0].map { now.addingTimeInterval($0) }
+        if let deadline {
+            reloadDates.append(deadline.addingTimeInterval(-0.25))
+            reloadDates.append(deadline.addingTimeInterval(0.25))
+            reloadDates.append(deadline.addingTimeInterval(1.5))
         }
+        reloadDates = reloadDates
+            .filter { $0 > now }
+            .sorted()
+
+        widgetReloadTask = Task { [weak self] in
+            for reloadDate in reloadDates {
+                let delay = reloadDate.timeIntervalSinceNow
+                if delay > 0 {
+                    try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                }
+                if Task.isCancelled { break }
+                await MainActor.run {
+                    self?.requestDoorWidgetReload()
+                }
+            }
+
+            await MainActor.run {
+                guard self?.widgetReloadGeneration == generation else { return }
+                self?.endWidgetReloadBackgroundTask()
+            }
+        }
+    }
+
+    private func requestDoorWidgetReload() {
+        WidgetCenter.shared.reloadTimelines(ofKind: Self.widgetKind)
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     private func requestUnlockNotificationAuthorization() {
@@ -1092,6 +1128,24 @@ final class DoorUnlockerController: NSObject, ObservableObject {
 
         UIApplication.shared.endBackgroundTask(liveActivityBackgroundTask)
         liveActivityBackgroundTask = .invalid
+    }
+
+    private func beginWidgetReloadBackgroundTask() {
+        guard widgetReloadBackgroundTask == .invalid else { return }
+
+        widgetReloadBackgroundTask = UIApplication.shared.beginBackgroundTask(withName: "DoorUnlockerWidgetReload") { [weak self] in
+            Task { @MainActor in
+                self?.widgetReloadTask?.cancel()
+                self?.endWidgetReloadBackgroundTask()
+            }
+        }
+    }
+
+    private func endWidgetReloadBackgroundTask() {
+        guard widgetReloadBackgroundTask != .invalid else { return }
+
+        UIApplication.shared.endBackgroundTask(widgetReloadBackgroundTask)
+        widgetReloadBackgroundTask = .invalid
     }
 
     @discardableResult

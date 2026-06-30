@@ -22,12 +22,19 @@ struct DoorUnlockerWidgetProvider: TimelineProvider {
         var entries = [DoorUnlockerEntry(date: now, status: status)]
 
         if status.isUnlocked, let deadline = status.autoLockDeadline, deadline > now {
+            var refreshDate = now.addingTimeInterval(5)
+            while refreshDate < deadline, entries.count < 12 {
+                entries.append(DoorUnlockerEntry(date: refreshDate, status: status))
+                refreshDate = refreshDate.addingTimeInterval(5)
+            }
+
             let lockedStatus = DoorStatusStore.Snapshot(state: "locked", updatedAt: deadline, autoLockStartedAt: nil, autoLockDeadline: nil)
             entries.append(DoorUnlockerEntry(date: deadline, status: lockedStatus))
+            completion(Timeline(entries: entries, policy: .after(deadline.addingTimeInterval(2))))
+            return
         }
 
-        let nextRefresh = now.addingTimeInterval(status.isUnlocked ? 30 : 60)
-        completion(Timeline(entries: entries, policy: .after(nextRefresh)))
+        completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(15))))
     }
 }
 
@@ -59,7 +66,7 @@ struct DoorUnlockerWidgetView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.78)
 
-                    Text(lastUpdatedText)
+                    Text(statusDetailText)
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -103,7 +110,12 @@ struct DoorUnlockerWidgetView: View {
         entry.status.isUnlocked ? Color(red: 0.35, green: 0.86, blue: 0.58) : Color(red: 0.35, green: 0.72, blue: 1.0)
     }
 
-    private var lastUpdatedText: String {
+    private var statusDetailText: String {
+        if entry.status.isUnlocked, let deadline = entry.status.autoLockDeadline, deadline > entry.date {
+            let seconds = max(0, Int(ceil(deadline.timeIntervalSince(entry.date))))
+            return "Locks in \(seconds)s"
+        }
+
         guard let updatedAt = entry.status.updatedAt else {
             return "Waiting for app"
         }
