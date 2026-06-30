@@ -123,6 +123,12 @@ final class DoorAdminStore: NSObject, ObservableObject {
 
     override init() {
         super.init()
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleLocalCommandNotification(_:)),
+            name: DoorLocalCommandBridge.notificationName,
+            object: DoorLocalCommandBridge.sender
+        )
         refreshPorts()
         central = CBCentralManager(delegate: self, queue: .main)
         startStateSyncLoop()
@@ -131,6 +137,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
     deinit {
         syncTask?.cancel()
         autoLockApplyTask?.cancel()
+        DistributedNotificationCenter.default().removeObserver(self)
     }
 
     func refreshPorts() {
@@ -253,6 +260,25 @@ final class DoorAdminStore: NSObject, ObservableObject {
 
     func toggleLock() {
         status.isUnlocked ? lock() : unlock()
+    }
+
+    @objc private func handleLocalCommandNotification(_ notification: Notification) {
+        guard let command = notification.userInfo?[DoorLocalCommandBridge.commandKey] as? String else { return }
+
+        switch command {
+        case "lock":
+            lock()
+        case "unlock":
+            unlock()
+        case "toggle":
+            toggleLock()
+        case "timeout":
+            guard let rawSeconds = notification.userInfo?[DoorLocalCommandBridge.argumentKey] as? String,
+                  let seconds = Int(rawSeconds) else { return }
+            updateAutoLockSeconds(seconds)
+        default:
+            break
+        }
     }
 
     private func sendDoorCommand(_ command: Command) {

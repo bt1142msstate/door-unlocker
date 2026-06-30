@@ -144,6 +144,7 @@ That build also creates `dist/door-unlocker`, a USB-C command-line tool:
 ```
 
 Use `./dist/door-unlocker --help` for the full command list. The CLI auto-detects the XIAO serial port by default and also accepts `--port /dev/cu.usbmodemXXXX`.
+When the Mac app is already running, `lock`, `unlock`, `toggle`, and `timeout` are handed to the app locally so the CLI does not compete with the app for the USB-C serial stream.
 
 ## Security And Safety
 

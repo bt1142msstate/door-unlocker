@@ -1,4 +1,5 @@
 import DoorUnlockerCore
+import AppKit
 import Foundation
 
 enum DoorUnlockerCLI {
@@ -10,6 +11,10 @@ enum DoorUnlockerCLI {
     static func main() {
         do {
             let options = try parseOptions(Array(CommandLine.arguments.dropFirst()))
+            if options.portPath == nil, sendToRunningAppIfAvailable(options.command) {
+                return
+            }
+
             let port = try selectedPort(path: options.portPath)
             let connection = try SerialPortConnection(path: port.path)
             defer { connection.close() }
@@ -45,6 +50,38 @@ enum DoorUnlockerCLI {
 
         guard !command.isEmpty else { throw CLIError.missingCommand }
         return Options(portPath: portPath, command: command)
+    }
+
+    private static func sendToRunningAppIfAvailable(_ command: [String]) -> Bool {
+        guard commandCanRunInApp(command),
+              !NSRunningApplication.runningApplications(withBundleIdentifier: DoorLocalCommandBridge.appBundleIdentifier).isEmpty else {
+            return false
+        }
+
+        var userInfo = [DoorLocalCommandBridge.commandKey: command[0]]
+        if command[0] == "timeout", command.count >= 2 {
+            userInfo[DoorLocalCommandBridge.argumentKey] = command[1]
+        }
+
+        DistributedNotificationCenter.default().postNotificationName(
+            DoorLocalCommandBridge.notificationName,
+            object: DoorLocalCommandBridge.sender,
+            userInfo: userInfo,
+            deliverImmediately: true
+        )
+        print("sent_to_app=\(command[0])")
+        return true
+    }
+
+    private static func commandCanRunInApp(_ command: [String]) -> Bool {
+        switch command.first {
+        case "lock", "unlock", "toggle":
+            return true
+        case "timeout":
+            return command.count >= 2 && Int(command[1]) != nil
+        default:
+            return false
+        }
     }
 
     private static func selectedPort(path: String?) throws -> SerialPortCandidate {
