@@ -4,7 +4,7 @@ Contributions are welcome if they keep the project practical, documented, and sa
 
 ## Guidelines
 
-- Do not commit private command keys, Apple Developer Team IDs, provisioning profiles, or device-specific secrets.
+- Do not commit private signing keys, Apple Developer Team IDs, provisioning profiles, or device-specific secrets.
 - Keep hardware changes clear enough for a desk-test builder to follow.
 - Include screenshots or wiring diagrams when changing the physical layout.
 - For iOS changes, verify the app still builds in Xcode.

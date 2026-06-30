@@ -129,6 +129,14 @@ struct ContentView: View {
                 metric(title: "Link", value: controller.connectionState, icon: "antenna.radiowaves.left.and.right")
             }
 
+            metric(title: "Pairing", value: controller.pairingState, icon: "key.horizontal.fill")
+
+            if controller.canPair {
+                Label("Pair this iPhone before sending lock commands.", systemImage: "key.fill")
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(accent)
+            }
+
             if let error = controller.lastError {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
                     .font(.footnote.weight(.medium))
@@ -253,14 +261,27 @@ struct ContentView: View {
     }
 
     private var footerControls: some View {
-        Button {
-            controller.scan()
-        } label: {
-            Label(controller.isReady ? "Refresh Connection" : "Reconnect", systemImage: "antenna.radiowaves.left.and.right")
-                .frame(maxWidth: .infinity, minHeight: 50)
+        VStack(spacing: 10) {
+            if controller.canPair {
+                Button {
+                    controller.pairThisPhone()
+                } label: {
+                    Label("Pair This iPhone", systemImage: "key.fill")
+                        .frame(maxWidth: .infinity, minHeight: 50)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+            }
+
+            Button {
+                controller.scan()
+            } label: {
+                Label(controller.isReady ? "Refresh Connection" : "Reconnect", systemImage: "antenna.radiowaves.left.and.right")
+                    .frame(maxWidth: .infinity, minHeight: 50)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
         }
-        .buttonStyle(.bordered)
-        .controlSize(.large)
     }
 }
 

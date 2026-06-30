@@ -45,27 +45,25 @@ index.html                       GitHub Pages entry point
 ## Quick Start
 
 1. Clone the repository.
-2. Generate a private 32-byte command key:
+2. Flash the XIAO firmware from the Arduino IDE.
+3. Open `ios/DoorUnlockerApp/DoorUnlocker.xcodeproj` in Xcode.
+4. Set your own Apple Developer Team, bundle identifiers, and App Group identifiers.
+5. Build and run the iPhone app on your device.
+6. Connect to the XIAO and tap **Pair This iPhone** when the app shows `Pair Needed`.
+7. Use the main toggle, Siri/App Shortcuts, widgets, or iOS Controls after pairing completes.
 
-   ```bash
-   openssl rand -hex 32
-   ```
-
-3. Convert the generated hex into comma-separated bytes and paste the same bytes into:
-
-   - `firmware/DoorUnlockerXiao/DoorUnlockerXiao.ino`
-   - `ios/DoorUnlockerApp/DoorUnlocker/DoorCommandAuthenticator.swift`
-
-4. Flash the XIAO firmware from the Arduino IDE.
-5. Open `ios/DoorUnlockerApp/DoorUnlocker.xcodeproj` in Xcode.
-6. Set your own Apple Developer Team, bundle identifiers, and App Group identifiers.
-7. Build and run the iPhone app on your device.
-
-The committed command key is a public sample key. Do not use it for real hardware.
+The app generates its own P-256 signing key locally. It prefers Secure Enclave when available and falls back to a Keychain-stored software key when needed. The XIAO stores only the phone's public key, so the repository does not contain a command secret.
 
 ## Firmware Notes
 
-The firmware advertises a BLE peripheral for the iPhone app, verifies signed commands, drives the servo to locked or unlocked positions, and changes the XIAO LED color based on state.
+The firmware advertises a BLE peripheral for the iPhone app, stores one paired phone public key in internal flash, verifies signed `v2` commands, drives the servo to locked or unlocked positions, and changes the XIAO LED color based on state.
+
+LED states:
+
+- Red: no phone public key is paired.
+- Blue: locked.
+- Green: unlocked.
+- Yellow: servo is moving.
 
 Servo angles and timing are defined near the top of `firmware/DoorUnlockerXiao/DoorUnlockerXiao.ino`.
 
@@ -75,6 +73,7 @@ The app provides:
 
 - One main state toggle for Lock/Unlock.
 - BLE connection management.
+- First-run pairing that sends only the phone public key to the XIAO.
 - Siri/App Intents for voice and shortcut automation.
 - A home screen widget.
 - A Control Widget so the project can appear in iOS Controls and be assigned to the Action Button on supported iPhones.
@@ -82,7 +81,9 @@ The app provides:
 
 ## Security And Safety
 
-This project intentionally avoids publishing a private command key. Anyone building the project should generate their own key and flash/install matching firmware and app builds.
+This project intentionally avoids publishing a command secret. The phone signs each command with a locally generated private key, and the XIAO verifies the signature with the paired public key.
+
+If the app is deleted, the phone is replaced, or the signing key is lost, re-pair after clearing or reflashing the XIAO firmware storage. A future hardware revision should add a physical pairing/reset gesture.
 
 For anything beyond desk testing, review the mechanical mount, fail-safe behavior, battery handling, apartment rules, fire-safety requirements, and lock/egress requirements before use.
 

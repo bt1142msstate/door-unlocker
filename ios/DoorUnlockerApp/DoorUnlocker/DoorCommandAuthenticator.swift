@@ -3,23 +3,162 @@ import Foundation
 import Security
 
 enum DoorCommandAuthenticator {
-    private static let counterKey = "SecureDoorCommandCounter"
-    // Public sample key. Replace with a private 32-byte key and paste the same
-    // bytes into DoorUnlockerXiao.ino before real hardware use.
-    private static let keyBytes: [UInt8] = [
-        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
-        0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
-        0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f
-    ]
+    enum AuthError: LocalizedError {
+        case keychainReadFailed(OSStatus)
+        case keychainSaveFailed(OSStatus)
+        case secureEnclaveUnavailable
+        case secureEnclaveAccessControlFailed
+        case signingKeyUnavailable
 
-    static func payload(for command: DoorUnlockerController.Command) -> Data {
+        var errorDescription: String? {
+            switch self {
+            case .keychainReadFailed(let status):
+                return "Could not read signing key from Keychain (\(status))."
+            case .keychainSaveFailed(let status):
+                return "Could not save signing key to Keychain (\(status))."
+            case .secureEnclaveUnavailable:
+                return "Secure Enclave is unavailable on this device."
+            case .secureEnclaveAccessControlFailed:
+                return "Could not create Secure Enclave access control."
+            case .signingKeyUnavailable:
+                return "Could not create a signing key."
+            }
+        }
+    }
+
+    private enum SigningIdentity {
+        case secureEnclave(SecureEnclave.P256.Signing.PrivateKey)
+        case software(P256.Signing.PrivateKey)
+
+        var publicKeyX963Representation: Data {
+            switch self {
+            case .secureEnclave(let key):
+                return key.publicKey.x963Representation
+            case .software(let key):
+                return key.publicKey.x963Representation
+            }
+        }
+
+        func signature(for data: Data) throws -> Data {
+            switch self {
+            case .secureEnclave(let key):
+                return try key.signature(for: data).rawRepresentation
+            case .software(let key):
+                return try key.signature(for: data).rawRepresentation
+            }
+        }
+    }
+
+    private static let counterKey = "SecureDoorCommandCounter"
+    private static let keychainService = "DoorUnlocker.SigningIdentity"
+    private static let secureEnclaveAccount = "secure-enclave-p256"
+    private static let softwareAccount = "software-p256"
+
+    static func publicKeyForPairing() throws -> Data {
+        try identity().publicKeyX963Representation
+    }
+
+    static func payload(for command: DoorUnlockerController.Command) throws -> Data {
         let counter = nextCounter()
-        let message = "v1|\(counter)|\(command.rawValue)"
-        let key = SymmetricKey(data: keyBytes)
-        let signature = HMAC<SHA256>.authenticationCode(for: Data(message.utf8), using: key)
-        let mac = signature.map { String(format: "%02x", $0) }.joined()
-        return Data("\(message)|\(mac)".utf8)
+        let message = "v2|\(counter)|\(command.rawValue)"
+        let signature = try identity().signature(for: Data(message.utf8))
+        let signatureHex = signature.map { String(format: "%02x", $0) }.joined()
+        return Data("\(message)|\(signatureHex)".utf8)
+    }
+
+    private static func identity() throws -> SigningIdentity {
+        if let data = try readKeychainData(account: secureEnclaveAccount) {
+            if let key = try? SecureEnclave.P256.Signing.PrivateKey(dataRepresentation: data) {
+                return .secureEnclave(key)
+            }
+            deleteKeychainData(account: secureEnclaveAccount)
+        }
+
+        if let data = try readKeychainData(account: softwareAccount) {
+            if let key = try? P256.Signing.PrivateKey(rawRepresentation: data) {
+                return .software(key)
+            }
+            deleteKeychainData(account: softwareAccount)
+        }
+
+        if let secureEnclaveKey = try? createSecureEnclaveKey() {
+            try saveKeychainData(secureEnclaveKey.dataRepresentation, account: secureEnclaveAccount)
+            return .secureEnclave(secureEnclaveKey)
+        }
+
+        let softwareKey = P256.Signing.PrivateKey()
+        try saveKeychainData(softwareKey.rawRepresentation, account: softwareAccount)
+        return .software(softwareKey)
+    }
+
+    private static func createSecureEnclaveKey() throws -> SecureEnclave.P256.Signing.PrivateKey {
+        #if targetEnvironment(simulator)
+        throw AuthError.secureEnclaveUnavailable
+        #else
+        guard SecureEnclave.isAvailable else {
+            throw AuthError.secureEnclaveUnavailable
+        }
+
+        var accessError: Unmanaged<CFError>?
+        guard let accessControl = SecAccessControlCreateWithFlags(
+            nil,
+            kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            [.privateKeyUsage],
+            &accessError
+        ) else {
+            throw AuthError.secureEnclaveAccessControlFailed
+        }
+
+        return try SecureEnclave.P256.Signing.PrivateKey(accessControl: accessControl)
+        #endif
+    }
+
+    private static func readKeychainData(account: String) throws -> Data? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keychainService,
+            kSecAttrAccount as String: account,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        if status == errSecItemNotFound {
+            return nil
+        }
+        guard status == errSecSuccess else {
+            throw AuthError.keychainReadFailed(status)
+        }
+
+        return item as? Data
+    }
+
+    private static func saveKeychainData(_ data: Data, account: String) throws {
+        deleteKeychainData(account: account)
+
+        let attributes: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keychainService,
+            kSecAttrAccount as String: account,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+            kSecValueData as String: data
+        ]
+
+        let status = SecItemAdd(attributes as CFDictionary, nil)
+        guard status == errSecSuccess else {
+            throw AuthError.keychainSaveFailed(status)
+        }
+    }
+
+    private static func deleteKeychainData(account: String) {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keychainService,
+            kSecAttrAccount as String: account
+        ]
+
+        SecItemDelete(query as CFDictionary)
     }
 
     private static func nextCounter() -> UInt64 {

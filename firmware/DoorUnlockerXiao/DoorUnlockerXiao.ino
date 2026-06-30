@@ -1,6 +1,9 @@
 #include <bluefruit.h>
 #include <Servo.h>
 #include "Adafruit_nRFCrypto.h"
+#include "nrf_cc310/include/crys_ecpki_build.h"
+#include "nrf_cc310/include/crys_ecpki_domain.h"
+#include "nrf_cc310/include/crys_ecpki_ecdsa.h"
 #include <Adafruit_LittleFS.h>
 #include <InternalFileSystem.h>
 
@@ -22,21 +25,18 @@ static const int SERVO_DETACH_DELAY_MS = 250;
 static const char DOOR_SERVICE_UUID[] = "4F6B8D90-7E44-4D5D-9C4E-51F0C78B6A01";
 static const char COMMAND_CHAR_UUID[] = "4F6B8D91-7E44-4D5D-9C4E-51F0C78B6A01";
 static const char STATE_CHAR_UUID[]   = "4F6B8D92-7E44-4D5D-9C4E-51F0C78B6A01";
+static const char PAIRING_CHAR_UUID[] = "4F6B8D93-7E44-4D5D-9C4E-51F0C78B6A01";
 static const char COUNTER_FILENAME[] = "/door-counter.txt";
-static const uint16_t SECURE_COMMAND_MAX_LEN = 128;
-
-// Public sample key. Replace with a private 32-byte key and paste the same
-// bytes into DoorCommandAuthenticator.swift before real hardware use.
-static const uint8_t COMMAND_AUTH_KEY[32] = {
-  0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-  0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
-  0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
-  0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f
-};
+static const char PUBLIC_KEY_FILENAME[] = "/door-public-key.bin";
+static const uint16_t SECURE_COMMAND_MAX_LEN = 220;
+static const uint16_t PAIRING_MAX_LEN = 80;
+static const size_t P256_PUBLIC_KEY_LEN = 65;   // X9.63 uncompressed: 0x04 || X || Y
+static const size_t P256_SIGNATURE_LEN = 64;    // Raw ECDSA: R || S
 
 BLEService doorService = BLEService(DOOR_SERVICE_UUID);
 BLECharacteristic commandCharacteristic = BLECharacteristic(COMMAND_CHAR_UUID);
 BLECharacteristic stateCharacteristic = BLECharacteristic(STATE_CHAR_UUID);
+BLECharacteristic pairingCharacteristic = BLECharacteristic(PAIRING_CHAR_UUID);
 BLEDis deviceInformation;
 
 Servo handleServo;
@@ -44,6 +44,9 @@ int currentAngle = LOCK_ANGLE;
 bool unlocked = false;
 bool servoMoving = false;
 uint64_t lastAcceptedCounter = 0;
+bool internalFsReady = false;
+bool hasPairedPublicKey = false;
+uint8_t pairedPublicKey[P256_PUBLIC_KEY_LEN] = {0};
 
 bool parseUnsigned64Range(const char* start, const char* end, uint64_t* value) {
   if (start == nullptr || end == nullptr || start >= end) {
@@ -82,9 +85,93 @@ void printUnsigned64(uint64_t value) {
   Serial.print(buffer);
 }
 
+bool ensureInternalFS() {
+  if (internalFsReady) {
+    return true;
+  }
+
+  internalFsReady = InternalFS.begin();
+  if (!internalFsReady) {
+    Serial.println("InternalFS failed; pairing and replay protection unavailable");
+  }
+
+  return internalFsReady;
+}
+
+bool buildPublicKeyFromRaw(const uint8_t* rawKey, CRYS_ECPKI_UserPublKey_t* publicKey) {
+  const CRYS_ECPKI_Domain_t* domain = CRYS_ECPKI_GetEcDomain(CRYS_ECPKI_DomainID_secp256r1);
+  if (domain == nullptr || rawKey == nullptr || publicKey == nullptr || rawKey[0] != 0x04) {
+    return false;
+  }
+
+  static CRYS_ECPKI_BUILD_TempData_t buildTemp;
+  memset(&buildTemp, 0, sizeof(buildTemp));
+
+  uint32_t err = CRYS_ECPKI_BuildPublKeyPartlyCheck(
+    domain,
+    (uint8_t*) rawKey,
+    P256_PUBLIC_KEY_LEN,
+    publicKey,
+    &buildTemp
+  );
+
+  return err == CRYS_OK;
+}
+
+bool isValidPublicKey(const uint8_t* rawKey) {
+  CRYS_ECPKI_UserPublKey_t publicKey;
+  memset(&publicKey, 0, sizeof(publicKey));
+  return buildPublicKeyFromRaw(rawKey, &publicKey);
+}
+
+void loadPairedPublicKey() {
+  if (!ensureInternalFS()) {
+    return;
+  }
+
+  File file(InternalFS);
+  if (!file.open(PUBLIC_KEY_FILENAME, FILE_O_READ)) {
+    Serial.println("No paired phone public key yet");
+    return;
+  }
+
+  uint32_t readLen = file.read(pairedPublicKey, sizeof(pairedPublicKey));
+  file.close();
+
+  if (readLen == sizeof(pairedPublicKey) && isValidPublicKey(pairedPublicKey)) {
+    hasPairedPublicKey = true;
+    Serial.println("Loaded paired phone public key");
+  } else {
+    memset(pairedPublicKey, 0, sizeof(pairedPublicKey));
+    hasPairedPublicKey = false;
+    InternalFS.remove(PUBLIC_KEY_FILENAME);
+    Serial.println("Removed invalid paired phone public key");
+  }
+}
+
+bool savePairedPublicKey(const uint8_t* rawKey) {
+  if (!ensureInternalFS() || !isValidPublicKey(rawKey)) {
+    return false;
+  }
+
+  if (InternalFS.exists(PUBLIC_KEY_FILENAME)) {
+    InternalFS.remove(PUBLIC_KEY_FILENAME);
+  }
+
+  File file(InternalFS);
+  if (!file.open(PUBLIC_KEY_FILENAME, FILE_O_WRITE)) {
+    return false;
+  }
+
+  file.write(rawKey, P256_PUBLIC_KEY_LEN);
+  file.close();
+  memcpy(pairedPublicKey, rawKey, P256_PUBLIC_KEY_LEN);
+  hasPairedPublicKey = true;
+  return true;
+}
+
 void loadLastAcceptedCounter() {
-  if (!InternalFS.begin()) {
-    Serial.println("InternalFS failed; secure command replay protection unavailable");
+  if (!ensureInternalFS()) {
     return;
   }
 
@@ -110,6 +197,10 @@ void loadLastAcceptedCounter() {
 }
 
 bool saveLastAcceptedCounter(uint64_t counter) {
+  if (!ensureInternalFS()) {
+    return false;
+  }
+
   if (InternalFS.exists(COUNTER_FILENAME)) {
     InternalFS.remove(COUNTER_FILENAME);
   }
@@ -124,55 +215,6 @@ bool saveLastAcceptedCounter(uint64_t counter) {
   file.write(buffer, strlen(buffer));
   file.close();
   return true;
-}
-
-bool sha256Digest(const uint8_t* data, size_t len, uint8_t digest[32]) {
-  nRFCrypto_Hash hash;
-  if (!hash.begin(CRYS_HASH_SHA256_mode)) {
-    return false;
-  }
-
-  if (len > 0) {
-    hash.update((uint8_t*) data, len);
-  }
-
-  return hash.end(digest) == 32;
-}
-
-bool hmacSha256(const uint8_t* key, size_t keyLen, const uint8_t* message, size_t messageLen, uint8_t mac[32]) {
-  uint8_t normalizedKey[64] = {0};
-  if (keyLen > sizeof(normalizedKey)) {
-    if (!sha256Digest(key, keyLen, normalizedKey)) {
-      return false;
-    }
-  } else {
-    memcpy(normalizedKey, key, keyLen);
-  }
-
-  uint8_t innerPad[64] = {0};
-  uint8_t outerPad[64] = {0};
-  for (size_t index = 0; index < sizeof(normalizedKey); index++) {
-    innerPad[index] = normalizedKey[index] ^ 0x36;
-    outerPad[index] = normalizedKey[index] ^ 0x5c;
-  }
-
-  uint8_t innerDigest[32] = {0};
-  nRFCrypto_Hash hash;
-  if (!hash.begin(CRYS_HASH_SHA256_mode)) {
-    return false;
-  }
-  hash.update(innerPad, sizeof(innerPad));
-  hash.update((uint8_t*) message, messageLen);
-  if (hash.end(innerDigest) != 32) {
-    return false;
-  }
-
-  if (!hash.begin(CRYS_HASH_SHA256_mode)) {
-    return false;
-  }
-  hash.update(outerPad, sizeof(outerPad));
-  hash.update(innerDigest, sizeof(innerDigest));
-  return hash.end(mac) == 32;
 }
 
 int8_t hexNibble(char value) {
@@ -205,17 +247,43 @@ bool hexToBytes(const char* hex, uint8_t* bytes, size_t byteLen) {
   return true;
 }
 
-bool constantTimeEqual(const uint8_t* left, const uint8_t* right, size_t len) {
-  uint8_t diff = 0;
-  for (size_t index = 0; index < len; index++) {
-    diff |= left[index] ^ right[index];
+bool verifySignedPayload(const char* payload, const uint8_t* signature) {
+  if (!hasPairedPublicKey) {
+    return false;
   }
 
-  return diff == 0;
+  CRYS_ECPKI_UserPublKey_t publicKey;
+  memset(&publicKey, 0, sizeof(publicKey));
+  if (!buildPublicKeyFromRaw(pairedPublicKey, &publicKey)) {
+    return false;
+  }
+
+  static CRYS_ECDSA_VerifyUserContext_t verifyContext;
+  memset(&verifyContext, 0, sizeof(verifyContext));
+
+  uint32_t err = CRYS_ECDSA_Verify(
+    &verifyContext,
+    &publicKey,
+    CRYS_ECPKI_HASH_SHA256_mode,
+    (uint8_t*) signature,
+    P256_SIGNATURE_LEN,
+    (uint8_t*) payload,
+    strlen(payload)
+  );
+
+  return err == CRYS_OK;
 }
 
 bool isKnownCommand(const char* command) {
   return strcmp(command, "UNLOCK") == 0 || strcmp(command, "LOCK") == 0;
+}
+
+const char* currentStateText() {
+  if (!hasPairedPublicKey) {
+    return "unpaired";
+  }
+
+  return unlocked ? "unlocked" : "locked";
 }
 
 void setRgbLed(bool red, bool green, bool blue) {
@@ -228,6 +296,8 @@ void setRgbLed(bool red, bool green, bool blue) {
 void updateStatusLed() {
   if (servoMoving) {
     setRgbLed(true, true, false);   // Yellow while the servo is moving.
+  } else if (!hasPairedPublicKey) {
+    setRgbLed(true, false, false);  // Red means no phone is paired yet.
   } else if (unlocked) {
     setRgbLed(false, true, false);  // Green means unlocked.
   } else {
@@ -256,7 +326,7 @@ void rejectCommand(const char* reason) {
   Serial.println(reason);
   publishState("rejected");
   delay(250);
-  publishState(unlocked ? "unlocked" : "locked");
+  publishState(currentStateText());
 }
 
 void attachServoIfNeeded() {
@@ -307,16 +377,21 @@ void unlockHold() {
 }
 
 bool authenticateCommand(char* payload, uint64_t* acceptedCounter, const char** acceptedCommand) {
-  char* macSeparator = strrchr(payload, '|');
-  if (macSeparator == nullptr) {
-    rejectCommand("missing MAC");
+  if (!hasPairedPublicKey) {
+    rejectCommand("phone not paired");
     return false;
   }
 
-  *macSeparator = 0;
-  const char* macText = macSeparator + 1;
+  char* signatureSeparator = strrchr(payload, '|');
+  if (signatureSeparator == nullptr) {
+    rejectCommand("missing signature");
+    return false;
+  }
 
-  if (strncmp(payload, "v1|", 3) != 0) {
+  *signatureSeparator = 0;
+  const char* signatureText = signatureSeparator + 1;
+
+  if (strncmp(payload, "v2|", 3) != 0) {
     rejectCommand("bad protocol version");
     return false;
   }
@@ -345,20 +420,14 @@ bool authenticateCommand(char* payload, uint64_t* acceptedCounter, const char** 
     return false;
   }
 
-  uint8_t providedMac[32] = {0};
-  if (!hexToBytes(macText, providedMac, sizeof(providedMac))) {
-    rejectCommand("bad MAC encoding");
+  uint8_t signature[P256_SIGNATURE_LEN] = {0};
+  if (!hexToBytes(signatureText, signature, sizeof(signature))) {
+    rejectCommand("bad signature encoding");
     return false;
   }
 
-  uint8_t expectedMac[32] = {0};
-  if (!hmacSha256(COMMAND_AUTH_KEY, sizeof(COMMAND_AUTH_KEY), (uint8_t*) payload, strlen(payload), expectedMac)) {
-    rejectCommand("MAC calculation failed");
-    return false;
-  }
-
-  if (!constantTimeEqual(providedMac, expectedMac, sizeof(expectedMac))) {
-    rejectCommand("MAC mismatch");
+  if (!verifySignedPayload(payload, signature)) {
+    rejectCommand("signature mismatch");
     return false;
   }
 
@@ -407,6 +476,40 @@ void commandWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint8_t
   handleCommand(buffer);
 }
 
+void pairingWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint8_t* data, uint16_t len) {
+  (void) connHandle;
+  (void) chr;
+
+  if (hasPairedPublicKey) {
+    rejectCommand("already paired");
+    return;
+  }
+
+  if (len != P256_PUBLIC_KEY_LEN) {
+    rejectCommand("bad pairing key length");
+    return;
+  }
+
+  if (!isValidPublicKey(data)) {
+    rejectCommand("invalid pairing key");
+    return;
+  }
+
+  if (!savePairedPublicKey(data)) {
+    rejectCommand("pairing save failed");
+    return;
+  }
+
+  lastAcceptedCounter = 0;
+  saveLastAcceptedCounter(lastAcceptedCounter);
+
+  Serial.println("Paired phone public key");
+  publishState("paired");
+  delay(250);
+  publishState(currentStateText());
+  updateStatusLed();
+}
+
 void connectCallback(uint16_t connHandle) {
   BLEConnection* connection = Bluefruit.Connection(connHandle);
   char centralName[32] = {0};
@@ -419,7 +522,7 @@ void connectCallback(uint16_t connHandle) {
 
   Serial.print("Connected to ");
   Serial.println(centralName);
-  publishState(unlocked ? "unlocked" : "locked");
+  publishState(currentStateText());
   updateStatusLed();
 }
 
@@ -440,11 +543,17 @@ void setupDoorService() {
   commandCharacteristic.setWriteCallback(commandWrittenCallback);
   commandCharacteristic.begin();
 
+  pairingCharacteristic.setProperties(CHR_PROPS_WRITE);
+  pairingCharacteristic.setPermission(SECMODE_NO_ACCESS, SECMODE_ENC_NO_MITM);
+  pairingCharacteristic.setMaxLen(PAIRING_MAX_LEN);
+  pairingCharacteristic.setWriteCallback(pairingWrittenCallback);
+  pairingCharacteristic.begin();
+
   stateCharacteristic.setProperties(CHR_PROPS_READ | CHR_PROPS_NOTIFY);
   stateCharacteristic.setPermission(SECMODE_OPEN, SECMODE_NO_ACCESS);
   stateCharacteristic.setMaxLen(24);
   stateCharacteristic.begin();
-  stateCharacteristic.write("locked");
+  stateCharacteristic.write(currentStateText());
 }
 
 void startAdvertising() {
@@ -465,7 +574,9 @@ void setup() {
 
   setupStatusLed();
   nRFCrypto.begin();
+  loadPairedPublicKey();
   loadLastAcceptedCounter();
+  updateStatusLed();
 
   attachServoIfNeeded();
   handleServo.write(LOCK_ANGLE);
