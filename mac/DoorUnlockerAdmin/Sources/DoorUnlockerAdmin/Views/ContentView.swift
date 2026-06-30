@@ -325,18 +325,15 @@ private struct WirelessStatusTile: View {
 
                 Label(statusText, systemImage: statusSymbol)
                 .font(.callout)
-                .foregroundStyle(store.isWirelessReady ? .green : .secondary)
+                .foregroundStyle(store.isConnected || store.isWirelessReady ? .green : .secondary)
                 .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
 
     private var statusText: String {
-        if store.isConnected && store.isWirelessReady {
-            return "USB-C is active. Wireless is also available as a fallback."
-        }
         if store.isConnected {
-            return "Using USB-C. Wireless stays in the background for when the cable is not connected."
+            return "Using USB-C. Wireless is paused so the iPhone can connect."
         }
         if store.isWirelessReady {
             return "Wireless commands are available."
@@ -345,7 +342,10 @@ private struct WirelessStatusTile: View {
     }
 
     private var statusSymbol: String {
-        store.isWirelessReady ? "checkmark.circle.fill" : "antenna.radiowaves.left.and.right"
+        if store.isConnected {
+            return "pause.circle.fill"
+        }
+        return store.isWirelessReady ? "checkmark.circle.fill" : "antenna.radiowaves.left.and.right"
     }
 }
 

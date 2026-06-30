@@ -104,19 +104,20 @@ final class DoorAdminStore: NSObject, ObservableObject {
         peripheral?.state == .connected && commandCharacteristic != nil && stateCharacteristic != nil
     }
 
+    private var canUseWirelessFallback: Bool {
+        !isConnected && !isUSBConnectInFlight
+    }
+
     var canSendDoorCommand: Bool {
         isWirelessReady || isConnected
     }
 
     var primaryConnectionTitle: String {
-        if isConnected && isWirelessReady {
-            return "USB + Wireless"
+        if isConnected {
+            return "USB"
         }
         if isWirelessReady {
             return "Wireless"
-        }
-        if isConnected {
-            return "USB"
         }
         return "Disconnected"
     }
@@ -151,6 +152,10 @@ final class DoorAdminStore: NSObject, ObservableObject {
     private func scanBluetooth() {
         guard central?.state == .poweredOn else {
             wirelessConnectionState = "Bluetooth off"
+            return
+        }
+        guard canUseWirelessFallback else {
+            stopWirelessSession(reason: "USB-C active")
             return
         }
 
@@ -342,14 +347,12 @@ final class DoorAdminStore: NSObject, ObservableObject {
             lastUSBDiscoveryAt = nil
             didTrustMacDuringUSBSession = false
             message = "Connecting to controller"
+            stopWirelessSession(reason: "USB-C active")
 
             try await Task.sleep(nanoseconds: 1_200_000_000)
             try await loadControllerState()
             try await trustThisMacOverUSBIfNeeded()
             await applyPendingAutoLockSeconds()
-            if central?.state == .poweredOn && !isWirelessSessionActive {
-                scanBluetooth()
-            }
         }
     }
 
@@ -652,12 +655,29 @@ final class DoorAdminStore: NSObject, ObservableObject {
 
     private func connect(to peripheral: CBPeripheral) {
         guard let central else { return }
+        guard canUseWirelessFallback else {
+            stopWirelessSession(reason: "USB-C active")
+            return
+        }
 
         self.peripheral = peripheral
         self.peripheral?.delegate = self
         wirelessConnectionState = "Connecting"
         central.stopScan()
         central.connect(peripheral, options: nil)
+    }
+
+    private func stopWirelessSession(reason: String) {
+        central?.stopScan()
+        if let peripheral, peripheral.state == .connected || peripheral.state == .connecting {
+            central?.cancelPeripheralConnection(peripheral)
+        }
+        peripheral = nil
+        commandCharacteristic = nil
+        stateCharacteristic = nil
+        pairingCharacteristic = nil
+        wirelessConnectionState = reason
+        wirelessPairingState = isConnected ? "USB-C active" : "Unknown"
     }
 
     private func readStateIfPossible() {
@@ -734,8 +754,10 @@ extension DoorAdminStore: CBCentralManagerDelegate {
             switch central.state {
             case .poweredOn:
                 bluetoothState = "On"
-                if !isWirelessSessionActive {
+                if canUseWirelessFallback && !isWirelessSessionActive {
                     scanBluetooth()
+                } else if !canUseWirelessFallback {
+                    stopWirelessSession(reason: "USB-C active")
                 }
             case .poweredOff:
                 bluetoothState = "Off"
@@ -788,7 +810,7 @@ extension DoorAdminStore: CBCentralManagerDelegate {
             if let error {
                 lastError = error.localizedDescription
             }
-            if central.state == .poweredOn {
+            if central.state == .poweredOn && canUseWirelessFallback {
                 scanBluetooth()
             }
         }
