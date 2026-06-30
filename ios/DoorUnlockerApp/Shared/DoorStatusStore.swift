@@ -45,6 +45,18 @@ enum DoorStatusStore {
             state == "unlocked" || state == "unlocking"
         }
 
+        var nextActionTitle: String {
+            isUnlocked ? "Lock" : "Unlock"
+        }
+
+        var nextActionName: String {
+            isUnlocked ? "lock" : "unlock"
+        }
+
+        var nextActionSymbolName: String {
+            isUnlocked ? "lock.fill" : "lock.open.fill"
+        }
+
         var symbolName: String {
             isUnlocked ? "lock.open.fill" : "lock.fill"
         }

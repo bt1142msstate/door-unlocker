@@ -58,10 +58,11 @@ struct DoorUnlockerWidgetView: View {
 
             Spacer(minLength: 0)
 
-            HStack(spacing: 8) {
-                commandLink(title: "Lock", icon: "lock.fill", url: DoorWidgetCommandTokenStore.commandURL(action: "lock"))
-                commandLink(title: "Unlock", icon: "lock.open.fill", url: DoorWidgetCommandTokenStore.commandURL(action: "unlock"))
-            }
+            commandLink(
+                title: entry.status.nextActionTitle,
+                icon: entry.status.nextActionSymbolName,
+                url: DoorWidgetCommandTokenStore.commandURL(action: entry.status.nextActionName)
+            )
         }
         .padding()
         .containerBackground(for: .widget) {
@@ -82,7 +83,7 @@ struct DoorUnlockerWidgetView: View {
                 .font(.caption.weight(.bold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
-                .frame(maxWidth: .infinity, minHeight: 34)
+                .frame(maxWidth: .infinity, minHeight: 40)
                 .foregroundStyle(.white)
                 .background(Color.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
@@ -109,7 +110,7 @@ struct DoorUnlockerWidget: Widget {
             DoorUnlockerWidgetView(entry: entry)
         }
         .configurationDisplayName("Door Unlocker")
-        .description("Quick access to lock and unlock commands.")
+        .description("Quick access to the next lock command.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
