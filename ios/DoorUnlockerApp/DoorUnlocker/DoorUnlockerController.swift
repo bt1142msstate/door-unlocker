@@ -2,6 +2,7 @@ import CoreBluetooth
 import Foundation
 import ActivityKit
 import LocalAuthentication
+import UIKit
 import WidgetKit
 
 @MainActor
@@ -51,6 +52,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     private var autoLockApplyTask: Task<Void, Never>?
     private var autoLockPredictionTask: Task<Void, Never>?
     private var liveActivity: Activity<DoorUnlockerActivityAttributes>?
+    private var liveActivityBackgroundTask: UIBackgroundTaskIdentifier = .invalid
 
     var isConnectedToController: Bool {
         pairingCharacteristic != nil && peripheral?.state == .connected
@@ -520,8 +522,10 @@ final class DoorUnlockerController: NSObject, ObservableObject {
 
     private func syncLiveActivity(state: String, deadline: Date?) {
         if (state == "unlocked" || state == "unlocking"), let deadline, deadline > .now {
+            beginLiveActivityBackgroundTask()
             Task { await startOrUpdateLiveActivity(state: state, deadline: deadline) }
         } else {
+            endLiveActivityBackgroundTask()
             Task { await endLiveActivity() }
         }
     }
@@ -532,8 +536,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         let contentState = DoorUnlockerActivityAttributes.ContentState(state: state, autoLockDeadline: deadline)
         let content = ActivityContent(
             state: contentState,
-            staleDate: deadline.addingTimeInterval(10),
-            relevanceScore: 1
+            staleDate: deadline
         )
 
         do {
@@ -566,6 +569,23 @@ final class DoorUnlockerController: NSObject, ObservableObject {
             await activity.end(content, dismissalPolicy: .immediate)
         }
         liveActivity = nil
+    }
+
+    private func beginLiveActivityBackgroundTask() {
+        guard liveActivityBackgroundTask == .invalid else { return }
+
+        liveActivityBackgroundTask = UIApplication.shared.beginBackgroundTask(withName: "DoorUnlockerAutoLock") { [weak self] in
+            Task { @MainActor in
+                self?.endLiveActivityBackgroundTask()
+            }
+        }
+    }
+
+    private func endLiveActivityBackgroundTask() {
+        guard liveActivityBackgroundTask != .invalid else { return }
+
+        UIApplication.shared.endBackgroundTask(liveActivityBackgroundTask)
+        liveActivityBackgroundTask = .invalid
     }
 
     @discardableResult

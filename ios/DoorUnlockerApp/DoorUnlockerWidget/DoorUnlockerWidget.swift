@@ -139,13 +139,13 @@ struct DoorUnlockerLiveActivity: Widget {
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text(context.state.autoLockDeadline, style: .timer)
+                    LiveActivityTimerText(deadline: context.state.autoLockDeadline)
                         .font(.headline.monospacedDigit().weight(.bold))
                         .foregroundStyle(.white)
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
-                    ProgressView(timerInterval: Date() ... context.state.autoLockDeadline, countsDown: true) {
+                    ProgressView(timerInterval: timerRange(until: context.state.autoLockDeadline), countsDown: true) {
                         Text("Auto-lock")
                             .font(.caption.weight(.semibold))
                     }
@@ -155,7 +155,7 @@ struct DoorUnlockerLiveActivity: Widget {
                 Image(systemName: "lock.open.fill")
                     .foregroundStyle(Color(red: 0.35, green: 0.86, blue: 0.58))
             } compactTrailing: {
-                Text(context.state.autoLockDeadline, style: .timer)
+                LiveActivityTimerText(deadline: context.state.autoLockDeadline)
                     .font(.caption2.monospacedDigit().weight(.bold))
                     .foregroundStyle(.white)
                     .frame(minWidth: 34)
@@ -184,7 +184,10 @@ private struct LiveActivityView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Door Unlocker")
                     .font(.headline.weight(.bold))
-                Text("Auto-locks in \(context.state.autoLockDeadline, style: .timer)")
+                HStack(spacing: 4) {
+                    Text("Auto-locks in")
+                    LiveActivityTimerText(deadline: context.state.autoLockDeadline)
+                }
                     .font(.subheadline.monospacedDigit().weight(.semibold))
                     .foregroundStyle(.secondary)
             }
@@ -193,6 +196,19 @@ private struct LiveActivityView: View {
         }
         .padding(16)
     }
+}
+
+private struct LiveActivityTimerText: View {
+    let deadline: Date
+
+    var body: some View {
+        Text(timerInterval: timerRange(until: deadline), countsDown: true, showsHours: false)
+    }
+}
+
+private func timerRange(until deadline: Date) -> ClosedRange<Date> {
+    let now = Date()
+    return now ... max(now, deadline)
 }
 
 @available(iOSApplicationExtension 18.0, *)
