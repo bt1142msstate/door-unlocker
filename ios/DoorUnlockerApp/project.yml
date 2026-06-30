@@ -33,6 +33,8 @@ targets:
         NSBluetoothAlwaysUsageDescription: Door Unlocker uses Bluetooth to connect to your XIAO desk-test controller.
         NSFaceIDUsageDescription: Door Unlocker can require Face ID or your device passcode before sending unlock commands.
         NSSupportsLiveActivities: true
+        UIBackgroundModes:
+          - bluetooth-central
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UISupportedInterfaceOrientations~ipad:

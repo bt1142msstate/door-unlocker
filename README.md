@@ -103,6 +103,7 @@ The app provides:
 - Optional Face ID/passcode confirmation before sending unlock commands.
 - Auto-lock timeout setting that is stored and enforced by the controller.
 - Editable iPhone display name that updates the trusted-device record without re-pairing.
+- Optional unlock notifications when the controller reports `unlocked` while the app is in the background.
 - Siri/App Intents for voice and shortcut automation.
 - A home screen widget.
 - A Control Widget so the project can appear in iOS Controls and be assigned to the Action Button on supported iPhones.
@@ -124,6 +125,8 @@ The Mac admin app is in `mac/DoorUnlockerAdmin`. It automatically connects to th
 The Mac admin app does not display pending approval codes or pending public-key fingerprints. Device names are stored by the firmware for new pairings. Existing pairings made before this feature may show as `Device 1`, `Device 2`, and so on until that device is paired again.
 
 iOS may hide the user-assigned system device name from apps, so the iPhone app keeps its own Door Unlocker display name. Updating that name sends an authenticated rename command to the controller; it does not require deleting or re-pairing the phone.
+
+For background widget updates, the app stores each BLE state update in the shared app group and asks WidgetKit to reload the Door Unlocker widget. The app also enables the `bluetooth-central` background mode so iOS can wake it for controller BLE activity when allowed. iOS can still defer or skip background widget refreshes, especially if the app was force-quit, Background App Refresh is disabled, Bluetooth permission is denied, or Low Power Mode is limiting background work.
 
 Run it locally with:
 

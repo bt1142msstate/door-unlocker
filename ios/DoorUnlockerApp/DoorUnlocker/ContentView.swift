@@ -79,6 +79,7 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
+                controller.refreshNotificationSettings()
                 controller.refreshStateFromController()
                 controller.performPendingSystemCommand()
             } else {
@@ -335,6 +336,7 @@ struct ContentView: View {
         )) {
             VStack(spacing: 10) {
                 unlockAuthenticationToggle
+                unlockNotificationsToggle
                 deviceDisplayNameControl
                 autoLockTimeoutControl
             }
@@ -370,6 +372,31 @@ struct ContentView: View {
                 Text(controller.requiresUnlockAuthentication ? "On" : "Off")
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(.secondary)
+            }
+        }
+        .toggleStyle(.switch)
+        .tint(accent)
+        .disabled(controller.isAuthenticatingSettings)
+        .padding(12)
+        .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private var unlockNotificationsToggle: some View {
+        Toggle(isOn: Binding(
+            get: { controller.unlockNotificationsEnabled },
+            set: { controller.setUnlockNotificationsEnabled($0) }
+        )) {
+            HStack(spacing: 8) {
+                Image(systemName: "bell.badge.fill")
+                    .foregroundStyle(accent)
+                Text("Unlock Notifications")
+                    .font(.caption.weight(.bold))
+                Spacer(minLength: 8)
+                Text(controller.unlockNotificationStatus)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
         }
         .toggleStyle(.switch)

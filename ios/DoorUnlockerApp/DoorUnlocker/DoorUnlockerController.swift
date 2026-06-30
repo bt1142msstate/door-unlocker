@@ -3,6 +3,7 @@ import Foundation
 import ActivityKit
 import LocalAuthentication
 import UIKit
+import UserNotifications
 import WidgetKit
 
 @MainActor
@@ -41,9 +42,13 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     @Published private(set) var deviceDisplayName = DoorUnlockerController.storedDeviceDisplayName()
     @Published private(set) var deviceDisplayNameStatus = "Ready to sync"
     @Published private(set) var requiresUnlockAuthentication = UserDefaults.standard.bool(forKey: DoorUnlockerController.unlockAuthenticationKey)
+    @Published private(set) var unlockNotificationsEnabled = UserDefaults.standard.bool(forKey: DoorUnlockerController.unlockNotificationsKey)
+    @Published private(set) var unlockNotificationStatus = "Checking"
     @Published var lastError: String?
 
     private static let unlockAuthenticationKey = "RequireUnlockAuthentication"
+    private static let unlockNotificationsKey = "UnlockNotificationsEnabled"
+    private static let unlockNotificationIdentifier = "DoorUnlockerUnlocked"
     private static let autoLockSecondsKey = "AutoLockSeconds"
     private static let deviceDisplayNameKey = "DoorUnlockerDeviceDisplayName"
     private static let maximumDeviceDisplayNameLength = 24
@@ -154,6 +159,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     override init() {
         super.init()
         central = CBCentralManager(delegate: self, queue: .main)
+        refreshNotificationSettings()
         dismissStoredLockedLiveActivityIfNeeded()
     }
 
@@ -199,6 +205,31 @@ final class DoorUnlockerController: NSObject, ObservableObject {
 
         requiresUnlockAuthentication = isRequired
         UserDefaults.standard.set(isRequired, forKey: Self.unlockAuthenticationKey)
+    }
+
+    func setUnlockNotificationsEnabled(_ isEnabled: Bool) {
+        guard isEnabled != unlockNotificationsEnabled else { return }
+        guard areSettingsUnlocked else {
+            lastError = "Open Settings with Face ID or passcode first"
+            return
+        }
+
+        if isEnabled {
+            requestUnlockNotificationAuthorization()
+        } else {
+            unlockNotificationsEnabled = false
+            unlockNotificationStatus = "Off"
+            UserDefaults.standard.set(false, forKey: Self.unlockNotificationsKey)
+            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [Self.unlockNotificationIdentifier])
+        }
+    }
+
+    func refreshNotificationSettings() {
+        UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+            Task { @MainActor in
+                self?.applyNotificationSettings(settings)
+            }
+        }
     }
 
     func updateAutoLockSeconds(_ seconds: Int) {
@@ -630,6 +661,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         resetAutoLockDeadline: Bool = false,
         controllerRemainingSeconds: Int? = nil
     ) {
+        let previousSnapshot = DoorStatusStore.load()
         let deadline = predictedAutoLockDeadline(
             for: state,
             updatedAt: updatedAt,
@@ -645,8 +677,79 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         )
         DoorStatusStore.save(state: state, updatedAt: updatedAt, autoLockStartedAt: startedAt, autoLockDeadline: deadline)
         WidgetCenter.shared.reloadTimelines(ofKind: "DoorUnlockerWidget")
+        notifyIfNeeded(for: state, previousSnapshot: previousSnapshot, deadline: deadline)
         scheduleAutoLockPrediction(deadline: deadline)
         syncLiveActivity(state: state, startedAt: startedAt, deadline: deadline)
+    }
+
+    private func requestUnlockNotificationAuthorization() {
+        unlockNotificationStatus = "Requesting"
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { [weak self] granted, _ in
+            Task { @MainActor in
+                guard let self else { return }
+                self.unlockNotificationsEnabled = granted
+                UserDefaults.standard.set(granted, forKey: Self.unlockNotificationsKey)
+                self.unlockNotificationStatus = granted ? "On" : "Permission needed"
+                if !granted {
+                    self.lastError = "Enable Door Unlocker notifications in iPhone Settings."
+                }
+                self.refreshNotificationSettings()
+            }
+        }
+    }
+
+    private func applyNotificationSettings(_ settings: UNNotificationSettings) {
+        switch settings.authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            unlockNotificationStatus = unlockNotificationsEnabled ? "On" : "Off"
+        case .denied:
+            unlockNotificationsEnabled = false
+            UserDefaults.standard.set(false, forKey: Self.unlockNotificationsKey)
+            unlockNotificationStatus = "Permission needed"
+        case .notDetermined:
+            unlockNotificationStatus = unlockNotificationsEnabled ? "Permission needed" : "Off"
+        @unknown default:
+            unlockNotificationStatus = "Unknown"
+        }
+    }
+
+    private func notifyIfNeeded(
+        for state: String,
+        previousSnapshot: DoorStatusStore.Snapshot,
+        deadline: Date?
+    ) {
+        guard state == "unlocked",
+              previousSnapshot.state != "unlocked",
+              unlockNotificationsEnabled,
+              UIApplication.shared.applicationState != .active else {
+            return
+        }
+
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            guard settings.authorizationStatus == .authorized ||
+                    settings.authorizationStatus == .provisional ||
+                    settings.authorizationStatus == .ephemeral else {
+                return
+            }
+
+            let content = UNMutableNotificationContent()
+            content.title = "Door unlocked"
+            if let deadline, deadline > .now {
+                let remainingSeconds = max(0, Int(ceil(deadline.timeIntervalSinceNow)))
+                content.body = "Auto-locks in \(remainingSeconds) seconds."
+            } else {
+                content.body = "Door Unlocker is unlocked."
+            }
+            content.sound = .default
+            content.threadIdentifier = "DoorUnlocker"
+
+            let request = UNNotificationRequest(
+                identifier: Self.unlockNotificationIdentifier,
+                content: content,
+                trigger: nil
+            )
+            UNUserNotificationCenter.current().add(request)
+        }
     }
 
     private func predictedAutoLockDeadline(
