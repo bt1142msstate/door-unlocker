@@ -21,11 +21,12 @@ static const int UNLOCK_ANGLE = 95;      // Handle-push position
 static const int SERVO_STEP_DELAY_MS = 8;
 static const int SERVO_DETACH_DELAY_MS = 250;
 
-// Door Unlocker BLE UUIDs.
-static const char DOOR_SERVICE_UUID[] = "4F6B8D90-7E44-4D5D-9C4E-51F0C78B6A01";
-static const char COMMAND_CHAR_UUID[] = "4F6B8D91-7E44-4D5D-9C4E-51F0C78B6A01";
-static const char STATE_CHAR_UUID[]   = "4F6B8D92-7E44-4D5D-9C4E-51F0C78B6A01";
-static const char PAIRING_CHAR_UUID[] = "4F6B8D93-7E44-4D5D-9C4E-51F0C78B6A01";
+// Door Unlocker BLE v2 UUIDs. The v2 service avoids stale iOS GATT caches
+// from earlier firmware that did not include the pairing characteristic.
+static const char DOOR_SERVICE_UUID[] = "7A5A1000-2B8D-4C3E-94E7-0B3C0DDAAF10";
+static const char COMMAND_CHAR_UUID[] = "7A5A1001-2B8D-4C3E-94E7-0B3C0DDAAF10";
+static const char STATE_CHAR_UUID[]   = "7A5A1002-2B8D-4C3E-94E7-0B3C0DDAAF10";
+static const char PAIRING_CHAR_UUID[] = "7A5A1003-2B8D-4C3E-94E7-0B3C0DDAAF10";
 static const char COUNTER_FILENAME[] = "/door-counter.txt";
 static const char PUBLIC_KEY_FILENAME[] = "/door-public-key.bin";
 static const uint16_t SECURE_COMMAND_MAX_LEN = 220;
@@ -587,7 +588,7 @@ void setup() {
   Bluefruit.begin();
   Bluefruit.autoConnLed(false);
   Bluefruit.setTxPower(4);
-  Bluefruit.setName("DoorUnlocker-XIAO");
+  Bluefruit.setName("DoorUnlocker-XIAO-v2");
   Bluefruit.Security.setIOCaps(false, false, false);
   Bluefruit.Security.setMITM(false);
   Bluefruit.Periph.setConnectCallback(connectCallback);
@@ -600,7 +601,7 @@ void setup() {
   setupDoorService();
   startAdvertising();
 
-  Serial.println("DoorUnlocker-XIAO ready");
+  Serial.println("DoorUnlocker-XIAO-v2 ready");
   Serial.print("Service UUID: ");
   Serial.println(DOOR_SERVICE_UUID);
 }

@@ -11,15 +11,15 @@ final class DoorUnlockerController: NSObject, ObservableObject {
 
     @Published private(set) var bluetoothState = "Starting"
     @Published private(set) var connectionState = "Disconnected"
-    @Published private(set) var deviceName = "DoorUnlocker-XIAO"
+    @Published private(set) var deviceName = "DoorUnlocker-XIAO-v2"
     @Published private(set) var servoState = "unknown"
     @Published private(set) var pairingState = "Unknown"
     @Published var lastError: String?
 
-    private let serviceUUID = CBUUID(string: "4F6B8D90-7E44-4D5D-9C4E-51F0C78B6A01")
-    private let commandUUID = CBUUID(string: "4F6B8D91-7E44-4D5D-9C4E-51F0C78B6A01")
-    private let stateUUID = CBUUID(string: "4F6B8D92-7E44-4D5D-9C4E-51F0C78B6A01")
-    private let pairingUUID = CBUUID(string: "4F6B8D93-7E44-4D5D-9C4E-51F0C78B6A01")
+    private let serviceUUID = CBUUID(string: "7A5A1000-2B8D-4C3E-94E7-0B3C0DDAAF10")
+    private let commandUUID = CBUUID(string: "7A5A1001-2B8D-4C3E-94E7-0B3C0DDAAF10")
+    private let stateUUID = CBUUID(string: "7A5A1002-2B8D-4C3E-94E7-0B3C0DDAAF10")
+    private let pairingUUID = CBUUID(string: "7A5A1003-2B8D-4C3E-94E7-0B3C0DDAAF10")
 
     private var central: CBCentralManager?
     private var peripheral: CBPeripheral?
@@ -302,7 +302,7 @@ extension DoorUnlockerController: CBCentralManagerDelegate {
     nonisolated func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String: Any], rssi RSSI: NSNumber) {
         Task { @MainActor in
             let localName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
-            deviceName = peripheral.name ?? localName ?? "DoorUnlocker-XIAO"
+            deviceName = peripheral.name ?? localName ?? "DoorUnlocker-XIAO-v2"
             connect(to: peripheral)
         }
     }
