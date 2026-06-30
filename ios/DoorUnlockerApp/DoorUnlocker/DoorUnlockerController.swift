@@ -545,10 +545,17 @@ final class DoorUnlockerController: NSObject, ObservableObject {
             resetAutoLockDeadline: resetAutoLockDeadline,
             controllerRemainingSeconds: controllerRemainingSeconds
         )
-        DoorStatusStore.save(state: state, updatedAt: updatedAt, autoLockDeadline: deadline)
+        let startedAt = predictedAutoLockStartedAt(
+            for: state,
+            updatedAt: updatedAt,
+            resetAutoLockDeadline: resetAutoLockDeadline,
+            controllerRemainingSeconds: controllerRemainingSeconds,
+            deadline: deadline
+        )
+        DoorStatusStore.save(state: state, updatedAt: updatedAt, autoLockStartedAt: startedAt, autoLockDeadline: deadline)
         WidgetCenter.shared.reloadTimelines(ofKind: "DoorUnlockerWidget")
         scheduleAutoLockPrediction(deadline: deadline)
-        syncLiveActivity(state: state, deadline: deadline)
+        syncLiveActivity(state: state, startedAt: startedAt, deadline: deadline)
     }
 
     private func predictedAutoLockDeadline(
@@ -577,6 +584,33 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         default:
             return nil
         }
+    }
+
+    private func predictedAutoLockStartedAt(
+        for state: String,
+        updatedAt: Date,
+        resetAutoLockDeadline: Bool,
+        controllerRemainingSeconds: Int?,
+        deadline: Date?
+    ) -> Date? {
+        guard (state == "unlocking" || state == "unlocked"), let deadline else {
+            return nil
+        }
+
+        if controllerRemainingSeconds != nil {
+            return deadline.addingTimeInterval(-TimeInterval(max(1, autoLockSeconds)))
+        }
+
+        let snapshot = DoorStatusStore.load()
+        if !resetAutoLockDeadline,
+           snapshot.isUnlocked,
+           let existingDeadline = snapshot.autoLockDeadline,
+           abs(existingDeadline.timeIntervalSince(deadline)) < 1.5,
+           let existingStartedAt = snapshot.autoLockStartedAt {
+            return existingStartedAt
+        }
+
+        return updatedAt
     }
 
     private func scheduleAutoLockPrediction(deadline: Date?) {
@@ -649,11 +683,11 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         liveActivityCompletionTask = Task { await completeAndDismissLiveActivity(confirmationDuration: 0) }
     }
 
-    private func syncLiveActivity(state: String, deadline: Date?) {
+    private func syncLiveActivity(state: String, startedAt: Date?, deadline: Date?) {
         if (state == "unlocked" || state == "unlocking"), let deadline, deadline > .now {
             liveActivityCompletionTask?.cancel()
             beginLiveActivityBackgroundTask()
-            Task { await startOrUpdateLiveActivity(state: state, deadline: deadline) }
+            Task { await startOrUpdateLiveActivity(state: state, startedAt: startedAt ?? .now, deadline: deadline) }
             scheduleLiveActivityCompletion(deadline: deadline)
         } else {
             liveActivityCompletionTask?.cancel()
@@ -675,10 +709,10 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         }
     }
 
-    private func startOrUpdateLiveActivity(state: String, deadline: Date) async {
+    private func startOrUpdateLiveActivity(state: String, startedAt: Date, deadline: Date) async {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
 
-        let contentState = DoorUnlockerActivityAttributes.ContentState(state: state, autoLockDeadline: deadline)
+        let contentState = DoorUnlockerActivityAttributes.ContentState(state: state, autoLockStartedAt: startedAt, autoLockDeadline: deadline)
         let content = ActivityContent(
             state: contentState,
             staleDate: deadline.addingTimeInterval(Self.liveActivityLockConfirmationSeconds + Self.liveActivityStaleGraceSeconds),
@@ -708,15 +742,27 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         let activities = Activity<DoorUnlockerActivityAttributes>.activities
         guard liveActivity != nil || !activities.isEmpty else { return }
         let confirmationDuration = confirmationDuration ?? Self.liveActivityLockConfirmationSeconds
+        let lockedAt = Date()
 
         let finalContent = ActivityContent(
-            state: DoorUnlockerActivityAttributes.ContentState(state: "locked", autoLockDeadline: .now),
+            state: DoorUnlockerActivityAttributes.ContentState(state: "locked", autoLockStartedAt: lockedAt, autoLockDeadline: lockedAt),
             staleDate: nil,
             relevanceScore: 0.2
         )
 
+        let lockedContent = ActivityContent(
+            state: finalContent.state,
+            staleDate: lockedAt.addingTimeInterval(confirmationDuration + Self.liveActivityStaleGraceSeconds),
+            relevanceScore: 0.4
+        )
+        for activity in activities {
+            await activity.update(lockedContent)
+        }
+
+        guard !DoorStatusStore.load().isUnlocked else { return }
+
         let dismissalPolicy: ActivityUIDismissalPolicy = confirmationDuration > 0
-            ? .after(.now.addingTimeInterval(confirmationDuration))
+            ? .after(lockedAt.addingTimeInterval(confirmationDuration))
             : .immediate
         for activity in Activity<DoorUnlockerActivityAttributes>.activities {
             await activity.end(finalContent, dismissalPolicy: dismissalPolicy)

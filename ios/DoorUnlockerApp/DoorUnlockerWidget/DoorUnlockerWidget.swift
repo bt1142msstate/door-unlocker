@@ -9,7 +9,7 @@ struct DoorUnlockerEntry: TimelineEntry {
 
 struct DoorUnlockerWidgetProvider: TimelineProvider {
     func placeholder(in context: Context) -> DoorUnlockerEntry {
-        DoorUnlockerEntry(date: .now, status: DoorStatusStore.Snapshot(state: "locked", updatedAt: .now, autoLockDeadline: nil))
+        DoorUnlockerEntry(date: .now, status: DoorStatusStore.Snapshot(state: "locked", updatedAt: .now, autoLockStartedAt: nil, autoLockDeadline: nil))
     }
 
     func getSnapshot(in context: Context, completion: @escaping (DoorUnlockerEntry) -> Void) {
@@ -22,7 +22,7 @@ struct DoorUnlockerWidgetProvider: TimelineProvider {
         var entries = [DoorUnlockerEntry(date: now, status: status)]
 
         if status.isUnlocked, let deadline = status.autoLockDeadline, deadline > now {
-            let lockedStatus = DoorStatusStore.Snapshot(state: "locked", updatedAt: deadline, autoLockDeadline: nil)
+            let lockedStatus = DoorStatusStore.Snapshot(state: "locked", updatedAt: deadline, autoLockStartedAt: nil, autoLockDeadline: nil)
             entries.append(DoorUnlockerEntry(date: deadline, status: lockedStatus))
         }
 
@@ -154,7 +154,7 @@ struct DoorUnlockerLiveActivity: Widget {
 
                 DynamicIslandExpandedRegion(.bottom) {
                     if context.state.isUnlocked {
-                        ProgressView(timerInterval: timerRange(until: context.state.autoLockDeadline), countsDown: true) {
+                        ProgressView(timerInterval: context.state.autoLockTimerRange, countsDown: true) {
                             Text("Auto-lock")
                                 .font(.caption.weight(.semibold))
                         }
@@ -172,7 +172,7 @@ struct DoorUnlockerLiveActivity: Widget {
                     .symbolEffect(.bounce, value: context.state.state)
             } compactTrailing: {
                 if context.state.isUnlocked {
-                    CompactCountdownIcon(deadline: context.state.autoLockDeadline, color: context.state.activityColor)
+                    CompactCountdownIcon(timerRange: context.state.autoLockTimerRange, color: context.state.activityColor)
                 } else {
                     Image(systemName: "checkmark")
                         .font(.caption2.weight(.bold))
@@ -190,12 +190,12 @@ struct DoorUnlockerLiveActivity: Widget {
 }
 
 private struct CompactCountdownIcon: View {
-    let deadline: Date
+    let timerRange: ClosedRange<Date>
     let color: Color
 
     var body: some View {
         ZStack {
-            ProgressView(timerInterval: timerRange(until: deadline), countsDown: true)
+            ProgressView(timerInterval: timerRange, countsDown: true)
                 .progressViewStyle(.circular)
                 .tint(color)
                 .labelsHidden()
@@ -230,7 +230,7 @@ private struct LiveActivityView: View {
                 HStack(spacing: 4) {
                     if context.state.isUnlocked {
                         Text("Auto-locks in")
-                        LiveActivityTimerText(deadline: context.state.autoLockDeadline)
+                        LiveActivityTimerText(timerRange: context.state.autoLockTimerRange)
                     } else {
                         Text("Locked")
                         Image(systemName: "checkmark.circle.fill")
@@ -249,19 +249,20 @@ private struct LiveActivityView: View {
 }
 
 private struct LiveActivityTimerText: View {
-    let deadline: Date
+    let timerRange: ClosedRange<Date>
 
     var body: some View {
-        Text(timerInterval: timerRange(until: deadline), countsDown: true, showsHours: false)
+        Text(timerInterval: timerRange, countsDown: true, showsHours: false)
     }
 }
 
-private func timerRange(until deadline: Date) -> ClosedRange<Date> {
-    let now = Date()
-    return now ... max(now, deadline)
-}
-
 private extension DoorUnlockerActivityAttributes.ContentState {
+    var autoLockTimerRange: ClosedRange<Date> {
+        let fallbackStartedAt = autoLockDeadline.addingTimeInterval(-30)
+        let startedAt = min(autoLockStartedAt ?? fallbackStartedAt, autoLockDeadline.addingTimeInterval(-1))
+        return startedAt ... max(autoLockDeadline, startedAt.addingTimeInterval(1))
+    }
+
     var activityTitle: String {
         isUnlocked ? "Unlocked" : "Locked"
     }
