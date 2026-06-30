@@ -1,3 +1,4 @@
+import ActivityKit
 import SwiftUI
 import WidgetKit
 
@@ -123,6 +124,77 @@ struct DoorUnlockerWidget: Widget {
     }
 }
 
+struct DoorUnlockerLiveActivity: Widget {
+    var body: some WidgetConfiguration {
+        ActivityConfiguration(for: DoorUnlockerActivityAttributes.self) { context in
+            LiveActivityView(context: context)
+                .activityBackgroundTint(Color(red: 0.03, green: 0.05, blue: 0.04))
+                .activitySystemActionForegroundColor(.white)
+        } dynamicIsland: { context in
+            DynamicIsland {
+                DynamicIslandExpandedRegion(.leading) {
+                    Label("Unlocked", systemImage: "lock.open.fill")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(Color(red: 0.35, green: 0.86, blue: 0.58))
+                }
+
+                DynamicIslandExpandedRegion(.trailing) {
+                    Text(context.state.autoLockDeadline, style: .timer)
+                        .font(.headline.monospacedDigit().weight(.bold))
+                        .foregroundStyle(.white)
+                }
+
+                DynamicIslandExpandedRegion(.bottom) {
+                    ProgressView(timerInterval: Date() ... context.state.autoLockDeadline, countsDown: true) {
+                        Text("Auto-lock")
+                            .font(.caption.weight(.semibold))
+                    }
+                    .tint(Color(red: 0.35, green: 0.86, blue: 0.58))
+                }
+            } compactLeading: {
+                Image(systemName: "lock.open.fill")
+                    .foregroundStyle(Color(red: 0.35, green: 0.86, blue: 0.58))
+            } compactTrailing: {
+                Text(context.state.autoLockDeadline, style: .timer)
+                    .font(.caption2.monospacedDigit().weight(.bold))
+                    .foregroundStyle(.white)
+                    .frame(minWidth: 34)
+            } minimal: {
+                Image(systemName: "lock.open.fill")
+                    .foregroundStyle(Color(red: 0.35, green: 0.86, blue: 0.58))
+            }
+        }
+    }
+}
+
+private struct LiveActivityView: View {
+    let context: ActivityViewContext<DoorUnlockerActivityAttributes>
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color(red: 0.35, green: 0.86, blue: 0.58).opacity(0.18))
+                Image(systemName: "lock.open.fill")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(Color(red: 0.35, green: 0.86, blue: 0.58))
+            }
+            .frame(width: 44, height: 44)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Door Unlocker")
+                    .font(.headline.weight(.bold))
+                Text("Auto-locks in \(context.state.autoLockDeadline, style: .timer)")
+                    .font(.subheadline.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 8)
+        }
+        .padding(16)
+    }
+}
+
 @available(iOSApplicationExtension 18.0, *)
 struct DoorUnlockerControl: ControlWidget {
     let kind = "DoorUnlockerControl"
@@ -143,6 +215,7 @@ struct DoorUnlockerControl: ControlWidget {
 struct DoorUnlockerWidgetBundle: WidgetBundle {
     var body: some Widget {
         DoorUnlockerWidget()
+        DoorUnlockerLiveActivity()
 
         if #available(iOSApplicationExtension 18.0, *) {
             DoorUnlockerControl()

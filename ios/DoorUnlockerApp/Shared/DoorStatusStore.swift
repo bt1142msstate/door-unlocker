@@ -1,4 +1,18 @@
 import Foundation
+import ActivityKit
+
+struct DoorUnlockerActivityAttributes: ActivityAttributes {
+    struct ContentState: Codable, Hashable {
+        let state: String
+        let autoLockDeadline: Date
+
+        var isUnlocked: Bool {
+            state == "unlocked" || state == "unlocking"
+        }
+    }
+
+    let title: String
+}
 
 enum DoorStatusStore {
     static let appGroupIdentifier = "group.io.github.bt1142msstate.DoorUnlocker"

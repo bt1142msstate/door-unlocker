@@ -1,5 +1,6 @@
 import CoreBluetooth
 import Foundation
+import ActivityKit
 import LocalAuthentication
 import WidgetKit
 
@@ -49,6 +50,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     private var queuedAutoLockTimeoutSeconds: Int?
     private var autoLockApplyTask: Task<Void, Never>?
     private var autoLockPredictionTask: Task<Void, Never>?
+    private var liveActivity: Activity<DoorUnlockerActivityAttributes>?
 
     var isConnectedToController: Bool {
         pairingCharacteristic != nil && peripheral?.state == .connected
@@ -432,6 +434,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         DoorStatusStore.save(state: state, updatedAt: updatedAt, autoLockDeadline: deadline)
         WidgetCenter.shared.reloadTimelines(ofKind: "DoorUnlockerWidget")
         scheduleAutoLockPrediction(deadline: deadline)
+        syncLiveActivity(state: state, deadline: deadline)
     }
 
     private func predictedAutoLockDeadline(for state: String, updatedAt: Date, resetAutoLockDeadline: Bool) -> Date? {
@@ -501,8 +504,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         servoState = "locked"
         autoLockRemainingSeconds = nil
         updatePairingState(from: "locked")
-        DoorStatusStore.save(state: "locked", updatedAt: deadline)
-        WidgetCenter.shared.reloadTimelines(ofKind: "DoorUnlockerWidget")
+        publishWidgetState("locked", updatedAt: deadline)
         _ = readStateIfPermitted()
     }
 
@@ -513,8 +515,57 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         servoState = "locked"
         autoLockRemainingSeconds = nil
         updatePairingState(from: "locked")
-        DoorStatusStore.save(state: "locked", updatedAt: snapshot.updatedAt ?? .now)
-        WidgetCenter.shared.reloadTimelines(ofKind: "DoorUnlockerWidget")
+        publishWidgetState("locked", updatedAt: snapshot.updatedAt ?? .now)
+    }
+
+    private func syncLiveActivity(state: String, deadline: Date?) {
+        if (state == "unlocked" || state == "unlocking"), let deadline, deadline > .now {
+            Task { await startOrUpdateLiveActivity(state: state, deadline: deadline) }
+        } else {
+            Task { await endLiveActivity() }
+        }
+    }
+
+    private func startOrUpdateLiveActivity(state: String, deadline: Date) async {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+
+        let contentState = DoorUnlockerActivityAttributes.ContentState(state: state, autoLockDeadline: deadline)
+        let content = ActivityContent(
+            state: contentState,
+            staleDate: deadline.addingTimeInterval(10),
+            relevanceScore: 1
+        )
+
+        do {
+            if let activity = liveActivity ?? Activity<DoorUnlockerActivityAttributes>.activities.first {
+                liveActivity = activity
+                await activity.update(content)
+            } else {
+                let attributes = DoorUnlockerActivityAttributes(title: "Door Unlocker")
+                liveActivity = try Activity<DoorUnlockerActivityAttributes>.request(
+                    attributes: attributes,
+                    content: content,
+                    pushType: nil
+                )
+            }
+        } catch {
+            print("Live Activity unavailable: \(error.localizedDescription)")
+        }
+    }
+
+    private func endLiveActivity() async {
+        let activities = Activity<DoorUnlockerActivityAttributes>.activities
+        guard liveActivity != nil || !activities.isEmpty else { return }
+
+        let content = ActivityContent(
+            state: DoorUnlockerActivityAttributes.ContentState(state: "locked", autoLockDeadline: .now),
+            staleDate: nil
+        )
+
+        for activity in activities {
+            await activity.end(content, dismissalPolicy: .immediate)
+        }
+        liveActivity = nil
     }
 
     @discardableResult

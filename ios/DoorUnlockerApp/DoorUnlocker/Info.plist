@@ -35,6 +35,8 @@
 	<string>Door Unlocker uses Bluetooth to connect to your XIAO desk-test controller.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Door Unlocker can require Face ID or your device passcode before sending unlock commands.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>
