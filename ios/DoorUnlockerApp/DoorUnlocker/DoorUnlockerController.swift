@@ -16,6 +16,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     static let minimumAutoLockSeconds = 5
     static let maximumAutoLockSeconds = 120
     private static let liveActivityLockConfirmationSeconds: TimeInterval = 2.0
+    private static let liveActivityLockAnimationStepSeconds: TimeInterval = 0.45
     private static let liveActivityStaleGraceSeconds: TimeInterval = 8.0
 
     @Published private(set) var bluetoothState = "Starting"
@@ -742,27 +743,63 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         let activities = Activity<DoorUnlockerActivityAttributes>.activities
         guard liveActivity != nil || !activities.isEmpty else { return }
         let confirmationDuration = confirmationDuration ?? Self.liveActivityLockConfirmationSeconds
+        let animationStartedAt = Date()
+
+        func liveActivityContent(
+            state: String,
+            phase: Int?,
+            staleDate: Date?,
+            relevanceScore: Double
+        ) -> ActivityContent<DoorUnlockerActivityAttributes.ContentState> {
+            ActivityContent(
+                state: DoorUnlockerActivityAttributes.ContentState(
+                    state: state,
+                    autoLockStartedAt: animationStartedAt,
+                    autoLockDeadline: animationStartedAt,
+                    lockAnimationStartedAt: animationStartedAt,
+                    lockAnimationPhase: phase
+                ),
+                staleDate: staleDate,
+                relevanceScore: relevanceScore
+            )
+        }
+
+        let staleDate = animationStartedAt.addingTimeInterval(confirmationDuration + Self.liveActivityStaleGraceSeconds)
+
+        if confirmationDuration > 0 {
+            let firstPhase = liveActivityContent(state: "locking", phase: 0, staleDate: staleDate, relevanceScore: 0.7)
+            for activity in activities {
+                await activity.update(firstPhase)
+            }
+
+            guard !DoorStatusStore.load().isUnlocked else { return }
+            try? await Task.sleep(nanoseconds: UInt64(Self.liveActivityLockAnimationStepSeconds * 1_000_000_000))
+            guard !DoorStatusStore.load().isUnlocked else { return }
+
+            let secondPhase = liveActivityContent(state: "locking", phase: 1, staleDate: staleDate, relevanceScore: 0.7)
+            for activity in Activity<DoorUnlockerActivityAttributes>.activities {
+                await activity.update(secondPhase)
+            }
+
+            try? await Task.sleep(nanoseconds: UInt64(Self.liveActivityLockAnimationStepSeconds * 1_000_000_000))
+            guard !DoorStatusStore.load().isUnlocked else { return }
+        }
+
         let lockedAt = Date()
-
-        let finalContent = ActivityContent(
-            state: DoorUnlockerActivityAttributes.ContentState(state: "locked", autoLockStartedAt: lockedAt, autoLockDeadline: lockedAt),
-            staleDate: nil,
-            relevanceScore: 0.2
-        )
-
-        let lockedContent = ActivityContent(
-            state: finalContent.state,
-            staleDate: lockedAt.addingTimeInterval(confirmationDuration + Self.liveActivityStaleGraceSeconds),
-            relevanceScore: 0.4
-        )
-        for activity in activities {
+        let finalContent = liveActivityContent(state: "locked", phase: 2, staleDate: nil, relevanceScore: 0.2)
+        let lockedContent = liveActivityContent(state: "locked", phase: 2, staleDate: staleDate, relevanceScore: 0.4)
+        for activity in Activity<DoorUnlockerActivityAttributes>.activities {
             await activity.update(lockedContent)
         }
 
         guard !DoorStatusStore.load().isUnlocked else { return }
 
+        let dismissalDate = max(
+            lockedAt,
+            animationStartedAt.addingTimeInterval(confirmationDuration)
+        )
         let dismissalPolicy: ActivityUIDismissalPolicy = confirmationDuration > 0
-            ? .after(lockedAt.addingTimeInterval(confirmationDuration))
+            ? .after(dismissalDate)
             : .immediate
         for activity in Activity<DoorUnlockerActivityAttributes>.activities {
             await activity.end(finalContent, dismissalPolicy: dismissalPolicy)

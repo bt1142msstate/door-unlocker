@@ -133,11 +133,12 @@ struct DoorUnlockerLiveActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label(context.state.activityTitle, systemImage: context.state.symbolName)
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(context.state.activityColor)
-                        .contentTransition(.symbolEffect(.replace))
-                        .symbolEffect(.bounce, value: context.state.state)
+                    HStack(spacing: 6) {
+                        LockStateIcon(state: context.state, size: 16, color: context.state.activityColor)
+                        Text(context.state.activityTitle)
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(context.state.activityColor)
+                    }
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
@@ -146,7 +147,7 @@ struct DoorUnlockerLiveActivity: Widget {
                             .font(.caption.weight(.bold))
                             .foregroundStyle(context.state.activityColor)
                     } else {
-                        Text("Done")
+                        Text(context.state.state == "locking" ? "Closing" : "Done")
                             .font(.headline.weight(.bold))
                             .foregroundStyle(.white)
                     }
@@ -160,31 +161,71 @@ struct DoorUnlockerLiveActivity: Widget {
                         }
                         .tint(context.state.activityColor)
                     } else {
-                        Label("Locked", systemImage: "checkmark.circle.fill")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(context.state.activityColor)
+                        HStack(spacing: 5) {
+                            LockStateIcon(state: context.state, size: 12, color: context.state.activityColor)
+                            Text(context.state.lockStatusText)
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(context.state.activityColor)
+                        }
                     }
                 }
             } compactLeading: {
-                Image(systemName: context.state.symbolName)
-                    .foregroundStyle(context.state.activityColor)
-                    .contentTransition(.symbolEffect(.replace))
-                    .symbolEffect(.bounce, value: context.state.state)
+                LockStateIcon(state: context.state, size: 13, color: context.state.activityColor)
             } compactTrailing: {
                 if context.state.isUnlocked {
                     CompactCountdownIcon(timerRange: context.state.autoLockTimerRange, color: context.state.activityColor)
                 } else {
-                    Image(systemName: "checkmark")
-                        .font(.caption2.weight(.bold))
-                        .foregroundStyle(context.state.activityColor)
-                        .contentTransition(.symbolEffect(.replace))
+                    LockStateIcon(state: context.state, size: 11, color: context.state.activityColor)
                 }
             } minimal: {
-                Image(systemName: context.state.symbolName)
-                    .foregroundStyle(context.state.activityColor)
-                    .contentTransition(.symbolEffect(.replace))
-                    .symbolEffect(.bounce, value: context.state.state)
+                LockStateIcon(state: context.state, size: 13, color: context.state.activityColor)
             }
+        }
+    }
+}
+
+private struct LockStateIcon: View {
+    let state: DoorUnlockerActivityAttributes.ContentState
+    let size: CGFloat
+    let color: Color
+
+    var body: some View {
+        if state.isUnlocked {
+            Image(systemName: "lock.open.fill")
+                .font(.system(size: size, weight: .bold))
+                .foregroundStyle(color)
+                .frame(width: size * 1.35, height: size * 1.35)
+        } else {
+            lockPhaseIcon
+                .font(.system(size: size, weight: .bold))
+                .foregroundStyle(color)
+                .frame(width: size * 1.35, height: size * 1.35)
+                .contentTransition(.symbolEffect(.replace))
+                .animation(.easeInOut(duration: 0.28), value: state.lockIconPhase)
+        }
+    }
+
+    @ViewBuilder
+    private var lockPhaseIcon: some View {
+        switch state.lockIconPhase {
+        case 0:
+            Image(systemName: "lock.open.fill")
+                .rotationEffect(.degrees(-8))
+                .scaleEffect(1.02)
+        case 1:
+            ZStack {
+                Image(systemName: "lock.open.fill")
+                    .opacity(0.28)
+                    .rotation3DEffect(.degrees(74), axis: (x: 0, y: 1, z: 0), perspective: 0.65)
+                    .scaleEffect(0.92)
+                Image(systemName: "lock.fill")
+                    .opacity(0.72)
+                    .rotation3DEffect(.degrees(-54), axis: (x: 0, y: 1, z: 0), perspective: 0.65)
+                    .scaleEffect(0.96)
+            }
+        default:
+            Image(systemName: "lock.fill")
+                .scaleEffect(1.02)
         }
     }
 }
@@ -216,11 +257,7 @@ private struct LiveActivityView: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(context.state.activityColor.opacity(0.18))
-                Image(systemName: context.state.symbolName)
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(context.state.activityColor)
-                    .contentTransition(.symbolEffect(.replace))
-                    .symbolEffect(.bounce, value: context.state.state)
+                LockStateIcon(state: context.state, size: 24, color: context.state.activityColor)
             }
             .frame(width: 44, height: 44)
 
@@ -232,10 +269,8 @@ private struct LiveActivityView: View {
                         Text("Auto-locks in")
                         LiveActivityTimerText(timerRange: context.state.autoLockTimerRange)
                     } else {
-                        Text("Locked")
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(context.state.activityColor)
-                            .contentTransition(.symbolEffect(.replace))
+                        Text(context.state.lockStatusText)
+                        LockStateIcon(state: context.state, size: 13, color: context.state.activityColor)
                     }
                 }
                     .font(.subheadline.monospacedDigit().weight(.semibold))
@@ -264,7 +299,20 @@ private extension DoorUnlockerActivityAttributes.ContentState {
     }
 
     var activityTitle: String {
-        isUnlocked ? "Unlocked" : "Locked"
+        if state == "locking" {
+            return "Locking"
+        }
+
+        return isUnlocked ? "Unlocked" : "Locked"
+    }
+
+    var lockStatusText: String {
+        state == "locking" ? "Locking" : "Locked"
+    }
+
+    var lockIconPhase: Int {
+        guard !isUnlocked else { return 0 }
+        return lockAnimationPhase ?? (state == "locking" ? 1 : 2)
     }
 
     var symbolName: String {

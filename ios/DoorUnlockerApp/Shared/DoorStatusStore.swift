@@ -6,11 +6,21 @@ struct DoorUnlockerActivityAttributes: ActivityAttributes {
         let state: String
         let autoLockStartedAt: Date?
         let autoLockDeadline: Date
+        let lockAnimationStartedAt: Date?
+        let lockAnimationPhase: Int?
 
-        init(state: String, autoLockStartedAt: Date? = nil, autoLockDeadline: Date) {
+        init(
+            state: String,
+            autoLockStartedAt: Date? = nil,
+            autoLockDeadline: Date,
+            lockAnimationStartedAt: Date? = nil,
+            lockAnimationPhase: Int? = nil
+        ) {
             self.state = state
             self.autoLockDeadline = autoLockDeadline
             self.autoLockStartedAt = autoLockStartedAt
+            self.lockAnimationStartedAt = lockAnimationStartedAt
+            self.lockAnimationPhase = lockAnimationPhase
         }
 
         var isUnlocked: Bool {
