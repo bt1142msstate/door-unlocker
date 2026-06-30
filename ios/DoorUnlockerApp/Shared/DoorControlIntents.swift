@@ -43,7 +43,7 @@ struct ToggleDoorIntent: AppIntent {
             return .result(dialog: "Door unlocked.")
         }
 
-        DoorCommandStore.request(.toggle)
-        return .result(dialog: "Door toggled.")
+        DoorCommandStore.request(.unlock)
+        return .result(dialog: "Door unlocked.")
     }
 }
