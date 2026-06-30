@@ -646,7 +646,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         guard !snapshot.isUnlocked, !Activity<DoorUnlockerActivityAttributes>.activities.isEmpty else { return }
 
         beginLiveActivityBackgroundTask()
-        liveActivityCompletionTask = Task { await completeAndDismissLiveActivity() }
+        liveActivityCompletionTask = Task { await completeAndDismissLiveActivity(confirmationDuration: 0) }
     }
 
     private func syncLiveActivity(state: String, deadline: Date?) {
@@ -702,33 +702,24 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         }
     }
 
-    private func completeAndDismissLiveActivity() async {
+    private func completeAndDismissLiveActivity(confirmationDuration: TimeInterval? = nil) async {
         defer { endLiveActivityBackgroundTask() }
 
         let activities = Activity<DoorUnlockerActivityAttributes>.activities
         guard liveActivity != nil || !activities.isEmpty else { return }
-
-        let lockedContent = ActivityContent(
-            state: DoorUnlockerActivityAttributes.ContentState(state: "locked", autoLockDeadline: .now),
-            staleDate: Date().addingTimeInterval(Self.liveActivityLockConfirmationSeconds + Self.liveActivityStaleGraceSeconds),
-            relevanceScore: 0.2
-        )
-
-        for activity in activities {
-            await activity.update(lockedContent)
-        }
-
-        try? await Task.sleep(nanoseconds: UInt64(Self.liveActivityLockConfirmationSeconds * 1_000_000_000))
-        guard !Task.isCancelled else { return }
+        let confirmationDuration = confirmationDuration ?? Self.liveActivityLockConfirmationSeconds
 
         let finalContent = ActivityContent(
             state: DoorUnlockerActivityAttributes.ContentState(state: "locked", autoLockDeadline: .now),
             staleDate: nil,
-            relevanceScore: 0
+            relevanceScore: 0.2
         )
 
+        let dismissalPolicy: ActivityUIDismissalPolicy = confirmationDuration > 0
+            ? .after(.now.addingTimeInterval(confirmationDuration))
+            : .immediate
         for activity in Activity<DoorUnlockerActivityAttributes>.activities {
-            await activity.end(finalContent, dismissalPolicy: .immediate)
+            await activity.end(finalContent, dismissalPolicy: dismissalPolicy)
         }
         liveActivity = nil
     }
