@@ -189,6 +189,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     private func authenticateAndSendUnlock() async {
         guard !isAuthenticatingUnlock else { return }
 
+        lastError = nil
         isAuthenticatingUnlock = true
         defer { isAuthenticatingUnlock = false }
 
@@ -209,7 +210,26 @@ final class DoorUnlockerController: NSObject, ObservableObject {
             guard allowed else { return }
             sendAuthenticated(.unlock)
         } catch {
-            lastError = "Unlock authentication canceled"
+            if isAuthenticationCancellation(error) {
+                lastError = nil
+            } else {
+                lastError = "Unlock authentication failed"
+            }
+        }
+    }
+
+    private func isAuthenticationCancellation(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        guard nsError.domain == LAError.errorDomain,
+              let code = LAError.Code(rawValue: nsError.code) else {
+            return false
+        }
+
+        switch code {
+        case .userCancel, .systemCancel, .appCancel:
+            return true
+        default:
+            return false
         }
     }
 
