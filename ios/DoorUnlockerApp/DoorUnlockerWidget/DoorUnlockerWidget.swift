@@ -172,9 +172,7 @@ struct DoorUnlockerLiveActivity: Widget {
                     .symbolEffect(.bounce, value: context.state.state)
             } compactTrailing: {
                 if context.state.isUnlocked {
-                    Image(systemName: "timer")
-                        .font(.caption2.weight(.bold))
-                        .foregroundStyle(context.state.activityColor)
+                    CompactCountdownIcon(deadline: context.state.autoLockDeadline, color: context.state.activityColor)
                 } else {
                     Image(systemName: "checkmark")
                         .font(.caption2.weight(.bold))
@@ -188,6 +186,25 @@ struct DoorUnlockerLiveActivity: Widget {
                     .symbolEffect(.bounce, value: context.state.state)
             }
         }
+    }
+}
+
+private struct CompactCountdownIcon: View {
+    let deadline: Date
+    let color: Color
+
+    var body: some View {
+        ZStack {
+            ProgressView(timerInterval: timerRange(until: deadline), countsDown: true)
+                .progressViewStyle(.circular)
+                .tint(color)
+                .labelsHidden()
+
+            Image(systemName: "timer")
+                .font(.system(size: 8, weight: .black))
+                .foregroundStyle(color)
+        }
+        .frame(width: 18, height: 18)
     }
 }
 
