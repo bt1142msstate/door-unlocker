@@ -37,6 +37,7 @@ static const char PAIRINGS_FILENAME[] = "/door-pairings.bin";
 static const char UNLOCK_TIMEOUT_FILENAME[] = "/unlock-timeout.txt";
 static const uint16_t SECURE_COMMAND_MAX_LEN = 220;
 static const uint16_t PAIRING_MAX_LEN = 100;
+static const uint16_t SERIAL_COMMAND_MAX_LEN = 260;
 static const size_t P256_PUBLIC_KEY_LEN = 65;   // X9.63 uncompressed: 0x04 || X || Y
 static const size_t P256_SIGNATURE_LEN = 64;    // Raw ECDSA: R || S
 static const uint8_t MAX_PAIRED_PHONES = 4;
@@ -101,6 +102,30 @@ bool parseUnsigned64Text(const char* text, uint64_t* value) {
   }
 
   return parseUnsigned64Range(text, text + strlen(text), value);
+}
+
+bool decodeHexBytes(const char* hex, uint8_t* output, size_t outputCapacity, size_t* outputLen) {
+  if (hex == nullptr || output == nullptr || outputLen == nullptr) {
+    return false;
+  }
+
+  size_t hexLen = strlen(hex);
+  if (hexLen == 0 || (hexLen % 2) != 0 || hexLen / 2 > outputCapacity) {
+    return false;
+  }
+
+  size_t writeIndex = 0;
+  for (size_t readIndex = 0; readIndex < hexLen; readIndex += 2) {
+    int8_t high = hexNibble(hex[readIndex]);
+    int8_t low = hexNibble(hex[readIndex + 1]);
+    if (high < 0 || low < 0) {
+      return false;
+    }
+    output[writeIndex++] = (uint8_t) ((high << 4) | low);
+  }
+
+  *outputLen = writeIndex;
+  return true;
 }
 
 void printUnsigned64(uint64_t value) {
@@ -1277,6 +1302,64 @@ bool approvePendingPairing(const char* approvalCode) {
   return true;
 }
 
+bool pairDeviceFromUSBPayload(const char* payloadHex) {
+  uint8_t payload[PAIRING_MAX_LEN] = {0};
+  size_t payloadLen = 0;
+  if (!decodeHexBytes(payloadHex, payload, sizeof(payload), &payloadLen)) {
+    printAppError("reason=bad_pairing_payload");
+    return false;
+  }
+
+  const uint8_t* rawKey = payload;
+  char deviceName[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
+  bool hasNamedPayload = payloadLen > P256_PUBLIC_KEY_LEN
+    && payload[0] == PAIRING_PAYLOAD_WITH_NAME_VERSION
+    && payloadLen >= P256_PUBLIC_KEY_LEN + 1;
+
+  if (hasNamedPayload) {
+    rawKey = payload + 1;
+    size_t nameLen = payloadLen - 1 - P256_PUBLIC_KEY_LEN;
+    sanitizeDeviceName(payload + 1 + P256_PUBLIC_KEY_LEN, nameLen, deviceName, sizeof(deviceName));
+  } else if (payloadLen != P256_PUBLIC_KEY_LEN) {
+    printAppError("reason=bad_pairing_key_length");
+    return false;
+  }
+
+  if (!isValidPublicKey(rawKey)) {
+    printAppError("reason=invalid_pairing_key");
+    return false;
+  }
+
+  if (!pairedPublicKeyExists(rawKey) && pairedPublicKeyCount >= MAX_PAIRED_PHONES) {
+    printAppError("reason=paired_table_full");
+    return false;
+  }
+
+  if (!appendPairedPublicKey(rawKey, deviceName)) {
+    printAppError("reason=pairing_save_failed");
+    return false;
+  }
+
+  char fingerprint[PAIRING_FINGERPRINT_LEN + 1] = {0};
+  pairingModeEnabled = false;
+  clearPendingPairing();
+  Serial.print("APP_OK paired=yes");
+  if (keyFingerprint(rawKey, fingerprint, sizeof(fingerprint))) {
+    Serial.print(" fingerprint=");
+    Serial.print(fingerprint);
+  }
+  if (deviceName[0] != 0) {
+    Serial.print(" name=");
+    Serial.print(deviceName);
+  }
+  Serial.println();
+  publishState("paired");
+  delay(250);
+  publishState(currentStateText());
+  updateStatusLed();
+  return true;
+}
+
 void rejectPendingPairing() {
   if (!pendingPairingExists) {
     Serial.println("No pending device pairing request to reject.");
@@ -1448,6 +1531,15 @@ bool handleAppCommand(char* command) {
       printAppError("reason=approval_failed");
     }
     printAppStatus();
+  } else if (serialCommandStartsWith(subcommand, "pair usb") || serialCommandStartsWith(subcommand, "pair direct")) {
+    char* payloadHex = subcommand + (serialCommandStartsWith(subcommand, "pair direct") ? strlen("pair direct") : strlen("pair usb"));
+    payloadHex = trimSerialCommand(payloadHex);
+    if (*payloadHex == 0) {
+      printAppError("reason=missing_pairing_payload");
+    } else {
+      pairDeviceFromUSBPayload(payloadHex);
+    }
+    printAppStatus();
   } else if (serialCommandEquals(subcommand, "reject") || serialCommandEquals(subcommand, "pair reject")) {
     bool hadPendingRequest = pendingPairingExists;
     rejectPendingPairing();
@@ -1522,6 +1614,8 @@ void printPairingHelp() {
   Serial.println("  pairs remove N Remove paired device by slot number");
   Serial.println("  pairs clear    Remove all paired devices");
   Serial.println("  app status     Print machine-readable controller status for the Mac app");
+  Serial.println("  app pair usb HEX");
+  Serial.println("                 Trust a Mac app key sent over USB-C");
 }
 
 void printPairingStatus() {
@@ -1621,8 +1715,8 @@ void handleSerialCommand(char* rawLine) {
 }
 
 void processSerialCommands() {
-  static char buffer[120] = {0};
-  static uint8_t length = 0;
+  static char buffer[SERIAL_COMMAND_MAX_LEN + 1] = {0};
+  static uint16_t length = 0;
 
   while (Serial.available() > 0) {
     char value = Serial.read();

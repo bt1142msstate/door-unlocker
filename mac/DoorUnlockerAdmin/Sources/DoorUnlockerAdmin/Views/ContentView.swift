@@ -264,7 +264,6 @@ private struct PanelSurface<Content: View>: View {
 
 private struct ConnectionPanel: View {
     @ObservedObject var store: DoorAdminStore
-    @State private var isUSBSetupExpanded = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -276,63 +275,45 @@ private struct ConnectionPanel: View {
             }
 
             HStack(alignment: .top, spacing: 12) {
-                ConnectionTile(
-                    title: "Wireless Control",
-                    subtitle: store.wirelessConnectionState,
-                    symbol: "wave.3.right",
-                    primaryTitle: store.wirelessPrimaryActionTitle,
-                    primaryAction: {
-                        store.toggleWirelessConnection()
-                    },
-                    secondaryTitle: "Pair This Mac",
-                    secondaryAction: {
-                        store.pairThisMacWireless()
-                    },
-                    isSecondaryDisabled: !store.isWirelessPairingReady || store.isBusy
-                )
+                WirelessStatusTile(store: store)
 
                 PanelSurface {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
-                            Label("USB-C Setup", systemImage: "cable.connector")
+                            Label("USB-C Controller", systemImage: "cable.connector")
                                 .font(.headline)
                             Spacer()
                             Text(store.isConnected ? "Connected" : "Disconnected")
                                 .foregroundStyle(.secondary)
                         }
 
-                        Text("Used to approve new devices and manage trusted devices. Normal lock control can stay wireless.")
+                        Text("Used for trusted admin access. When connected, lock control and settings use USB-C automatically.")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
 
-                        DisclosureGroup("Setup connection", isExpanded: $isUSBSetupExpanded) {
-                            VStack(alignment: .leading, spacing: 10) {
-                                Picker("Controller", selection: $store.selectedPortID) {
-                                    ForEach(store.ports) { port in
-                                        Text(port.displayName).tag(Optional(port.id))
-                                    }
-                                }
-                                .disabled(store.isConnected || store.ports.isEmpty)
+                        HStack(spacing: 10) {
+                            Label(
+                                store.isConnected
+                                    ? "This Mac is trusted automatically over USB-C."
+                                    : "Plug in the controller and the app will connect automatically.",
+                                systemImage: store.isConnected ? "checkmark.circle.fill" : "cable.connector.slash"
+                            )
+                            .font(.callout)
+                            .foregroundStyle(store.isConnected ? .green : .secondary)
+                            .fixedSize(horizontal: false, vertical: true)
 
-                                HStack {
-                                    Button(store.isConnected ? "Disconnect" : "Connect") {
-                                        store.isConnected ? store.disconnect() : store.connect()
-                                    }
-                                    .disabled(store.isBusy || store.selectedPortID == nil)
+                            Spacer()
 
-                                    Button {
-                                        store.refreshPorts()
-                                    } label: {
-                                        Label("Refresh", systemImage: "arrow.clockwise")
-                                    }
-                                    .labelStyle(.iconOnly)
-                                    .help("Look for the controller again")
-                                }
-                                .buttonStyle(.bordered)
+                            Button {
+                                store.refreshPorts()
+                            } label: {
+                                Label("Look Again", systemImage: "arrow.clockwise")
                             }
+                            .labelStyle(.iconOnly)
+                            .buttonStyle(.bordered)
+                            .help("Look for the controller again")
                         }
-                        .tint(.secondary)
                     }
                 }
             }
@@ -340,34 +321,27 @@ private struct ConnectionPanel: View {
     }
 }
 
-private struct ConnectionTile: View {
-    let title: String
-    let subtitle: String
-    let symbol: String
-    let primaryTitle: String
-    let primaryAction: () -> Void
-    let secondaryTitle: String
-    let secondaryAction: () -> Void
-    let isSecondaryDisabled: Bool
+private struct WirelessStatusTile: View {
+    @ObservedObject var store: DoorAdminStore
 
     var body: some View {
         PanelSurface {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Label(title, systemImage: symbol)
+                    Label("Wireless Control", systemImage: "wave.3.right")
                         .font(.headline)
                     Spacer()
-                    Text(subtitle)
+                    Text(store.wirelessConnectionState)
                         .foregroundStyle(.secondary)
                 }
 
-                HStack {
-                    Button(primaryTitle, action: primaryAction)
-                        .buttonStyle(.borderedProminent)
-                    Button(secondaryTitle, action: secondaryAction)
-                        .buttonStyle(.bordered)
-                        .disabled(isSecondaryDisabled)
-                }
+                Label(
+                    store.isWirelessReady ? "Wireless commands are available." : "The app connects wirelessly in the background when the controller is nearby.",
+                    systemImage: store.isWirelessReady ? "checkmark.circle.fill" : "antenna.radiowaves.left.and.right"
+                )
+                .font(.callout)
+                .foregroundStyle(store.isWirelessReady ? .green : .secondary)
+                .fixedSize(horizontal: false, vertical: true)
             }
         }
     }

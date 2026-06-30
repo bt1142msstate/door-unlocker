@@ -57,6 +57,12 @@ enum DoorCommandAuthenticator {
         return payload
     }
 
+    static func pairingPayloadHex(deviceName: String) throws -> String {
+        try pairingPayload(deviceName: deviceName)
+            .map { String(format: "%02x", $0) }
+            .joined()
+    }
+
     static func payload(for commandText: String) throws -> Data {
         let counter = nextCounter()
         let message = "v2|\(counter)|\(commandText)"

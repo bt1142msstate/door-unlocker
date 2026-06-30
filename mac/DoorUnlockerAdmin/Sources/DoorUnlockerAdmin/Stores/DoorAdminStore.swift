@@ -70,7 +70,11 @@ final class DoorAdminStore: NSObject, ObservableObject {
     private var autoLockApplyTask: Task<Void, Never>?
     private var pendingAutoLockSeconds: Int?
     private var isSilentStatusSyncInFlight = false
+    private var isUSBConnectInFlight = false
     private var hasConfirmedExpiredAutoLockDeadline = false
+    private var lastUSBStatusSyncAt: Date?
+    private var lastUSBDiscoveryAt: Date?
+    private var didTrustMacDuringUSBSession = false
 
     var selectedPort: SerialPortCandidate? {
         ports.first { $0.id == selectedPortID }
@@ -99,19 +103,14 @@ final class DoorAdminStore: NSObject, ObservableObject {
         peripheral?.state == .connected && commandCharacteristic != nil && stateCharacteristic != nil
     }
 
-    var isWirelessPairingReady: Bool {
-        peripheral?.state == .connected && pairingCharacteristic != nil
-    }
-
-    var wirelessPrimaryActionTitle: String {
-        isWirelessSessionActive ? "Disconnect" : "Connect"
-    }
-
     var canSendDoorCommand: Bool {
         isWirelessReady || isConnected
     }
 
     var primaryConnectionTitle: String {
+        if isConnected && isWirelessReady {
+            return "USB + Wireless"
+        }
         if isWirelessReady {
             return "Wireless"
         }
@@ -138,26 +137,10 @@ final class DoorAdminStore: NSObject, ObservableObject {
         if selectedPortID == nil || !ports.contains(where: { $0.id == selectedPortID }) {
             selectedPortID = ports.first?.id
         }
+        autoConnectUSBIfAvailable()
     }
 
-    func connect() {
-        guard !isBusy else { return }
-        Task { await connectToSelectedPort() }
-    }
-
-    func disconnect() {
-        connection?.close()
-        connection = nil
-        isConnected = false
-        status = .disconnected
-        pairedDevices = []
-        selectedDeviceID = nil
-        hasConfirmedExpiredAutoLockDeadline = false
-        message = "Controller disconnected"
-        appendLog(["Disconnected"])
-    }
-
-    func scanBluetooth() {
+    private func scanBluetooth() {
         guard central?.state == .poweredOn else {
             wirelessConnectionState = "Bluetooth off"
             return
@@ -174,25 +157,6 @@ final class DoorAdminStore: NSObject, ObservableObject {
         central?.scanForPeripherals(withServices: [serviceUUID], options: [
             CBCentralManagerScanOptionAllowDuplicatesKey: true
         ])
-    }
-
-    func disconnectBluetooth() {
-        if let peripheral {
-            central?.cancelPeripheralConnection(peripheral)
-        }
-        central?.stopScan()
-        peripheral = nil
-        commandCharacteristic = nil
-        stateCharacteristic = nil
-        pairingCharacteristic = nil
-        wirelessPairingState = "Unknown"
-        hasConfirmedExpiredAutoLockDeadline = false
-        wirelessConnectionState = "Disconnected"
-        message = isConnected ? "Using USB-C setup" : "Wireless disconnected"
-    }
-
-    func toggleWirelessConnection() {
-        isWirelessSessionActive ? disconnectBluetooth() : scanBluetooth()
     }
 
     func refreshAll() {
@@ -272,40 +236,16 @@ final class DoorAdminStore: NSObject, ObservableObject {
         status.isUnlocked ? lock() : unlock()
     }
 
-    func pairThisMacWireless() {
-        guard let peripheral, let pairingCharacteristic else {
-            lastError = "Connect wirelessly before pairing this Mac."
-            return
-        }
-
-        do {
-            let deviceName = Host.current().localizedName ?? "Mac"
-            let payload = try DoorCommandAuthenticator.pairingPayload(deviceName: deviceName)
-            guard payload.count <= peripheral.maximumWriteValueLength(for: .withResponse) else {
-                lastError = "Pairing key is too large for this Bluetooth connection."
-                return
-            }
-
-            lastError = nil
-            wirelessPairingState = "Pairing"
-            message = "Pairing request sent"
-            peripheral.writeValue(payload, for: pairingCharacteristic, type: .withResponse)
-        } catch {
-            lastError = error.localizedDescription
-        }
-    }
-
     private func sendDoorCommand(_ command: Command) {
-        if isWirelessReady {
+        if isConnected {
+            switch command {
+            case .lock:
+                sendStatusCommand("app lock", label: "Lock", timeout: 6)
+            case .unlock:
+                sendStatusCommand("app unlock", label: "Unlock", timeout: 6)
+            }
+        } else if isWirelessReady {
             sendWirelessCommandText(command.rawValue, predictedDoorCommand: command)
-            return
-        }
-
-        switch command {
-        case .lock:
-            sendStatusCommand("app lock", label: "Lock", timeout: 6)
-        case .unlock:
-            sendStatusCommand("app unlock", label: "Unlock", timeout: 6)
         }
     }
 
@@ -342,17 +282,66 @@ final class DoorAdminStore: NSObject, ObservableObject {
     }
 
     private func connectToSelectedPort() async {
-        await run("Connect") {
+        guard !isUSBConnectInFlight else { return }
+
+        isUSBConnectInFlight = true
+        defer { isUSBConnectInFlight = false }
+
+        await run("Connecting") {
             guard let selectedPort else { throw DoorAdminError.noPortSelected }
 
             connection?.close()
             connection = try SerialPortConnection(path: selectedPort.path)
             isConnected = true
+            lastUSBStatusSyncAt = nil
+            lastUSBDiscoveryAt = nil
+            didTrustMacDuringUSBSession = false
             message = "Connecting to controller"
 
             try await Task.sleep(nanoseconds: 1_200_000_000)
             try await loadControllerState()
+            try await trustThisMacOverUSBIfNeeded()
             await applyPendingAutoLockSeconds()
+            if central?.state == .poweredOn && !isWirelessSessionActive {
+                scanBluetooth()
+            }
+        }
+    }
+
+    private func autoConnectUSBIfAvailable() {
+        guard selectedPort != nil,
+              !isConnected,
+              !isBusy,
+              !isUSBConnectInFlight else { return }
+
+        Task { await connectToSelectedPort() }
+    }
+
+    private func refreshUSBPortsIfNeeded() {
+        guard !isConnected, !isBusy, !isUSBConnectInFlight else { return }
+
+        let now = Date()
+        guard lastUSBDiscoveryAt.map({ now.timeIntervalSince($0) >= 2 }) ?? true else { return }
+
+        lastUSBDiscoveryAt = now
+        refreshPorts()
+    }
+
+    private func trustThisMacOverUSBIfNeeded() async throws {
+        guard isConnected, !didTrustMacDuringUSBSession else { return }
+
+        let deviceName = Host.current().localizedName ?? "Mac"
+        let payloadHex = try DoorCommandAuthenticator.pairingPayloadHex(deviceName: deviceName)
+        let lines = try await transact("app pair usb \(payloadHex)", until: ["APP_STATUS_END"], timeout: 5)
+        appendLog(lines)
+        applyControllerStatus(DoorSerialParser.parseStatus(from: lines))
+        try await loadPairedDevices()
+
+        if let errorLine = lines.first(where: { $0.hasPrefix("APP_ERROR") }) {
+            lastError = "Could not trust this Mac automatically: \(errorLine)"
+        } else {
+            didTrustMacDuringUSBSession = true
+            message = "USB-C ready"
         }
     }
 
@@ -418,17 +407,17 @@ final class DoorAdminStore: NSObject, ObservableObject {
             return
         }
 
-        if isWirelessReady {
-            pendingAutoLockSeconds = nil
-            autoLockStatus = "Setting..."
-            sendWirelessCommandText("SET_TIMEOUT:\(seconds)")
-            return
-        }
-
         if isConnected {
             pendingAutoLockSeconds = nil
             autoLockStatus = "Setting..."
             sendStatusCommand("app timeout \(seconds)", label: "Auto-lock", timeout: 4)
+            return
+        }
+
+        if isWirelessReady {
+            pendingAutoLockSeconds = nil
+            autoLockStatus = "Setting..."
+            sendWirelessCommandText("SET_TIMEOUT:\(seconds)")
             return
         }
 
@@ -475,18 +464,27 @@ final class DoorAdminStore: NSObject, ObservableObject {
     }
 
     private func syncControllerStateIfNeeded() async {
-        let shouldConfirmExpiredAutoLock = updateLocalAutoLockCountdown()
-        guard shouldConfirmExpiredAutoLock else { return }
+        refreshUSBPortsIfNeeded()
 
-        hasConfirmedExpiredAutoLockDeadline = true
-        if isWirelessReady {
-            readStateIfPossible()
+        let shouldConfirmExpiredAutoLock = updateLocalAutoLockCountdown()
+
+        if isConnected, !isBusy {
+            let now = Date()
+            let isUSBPollDue = lastUSBStatusSyncAt.map { now.timeIntervalSince($0) >= 2 } ?? true
+            let shouldPollUSB = shouldConfirmExpiredAutoLock || isUSBPollDue
+            if shouldPollUSB {
+                lastUSBStatusSyncAt = now
+                if shouldConfirmExpiredAutoLock {
+                    hasConfirmedExpiredAutoLockDeadline = true
+                }
+                await silentlySyncUSBStatus()
+            }
             return
         }
 
-        if isConnected, !isBusy {
-            await silentlySyncUSBStatus()
-        }
+        guard shouldConfirmExpiredAutoLock, isWirelessReady else { return }
+        hasConfirmedExpiredAutoLockDeadline = true
+        readStateIfPossible()
     }
 
     private func updateLocalAutoLockCountdown() -> Bool {
@@ -689,6 +687,9 @@ extension DoorAdminStore: CBCentralManagerDelegate {
             switch central.state {
             case .poweredOn:
                 bluetoothState = "On"
+                if !isWirelessSessionActive {
+                    scanBluetooth()
+                }
             case .poweredOff:
                 bluetoothState = "Off"
                 wirelessConnectionState = "Bluetooth off"
@@ -739,6 +740,9 @@ extension DoorAdminStore: CBCentralManagerDelegate {
             wirelessPairingState = "Unknown"
             if let error {
                 lastError = error.localizedDescription
+            }
+            if central.state == .poweredOn {
+                scanBluetooth()
             }
         }
     }

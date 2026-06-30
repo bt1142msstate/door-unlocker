@@ -14,7 +14,9 @@ The iPhone app also has an optional setting to require Face ID or the device pas
 
 ## Pairing
 
-BLE pairing is locked by default. To add an iPhone or Mac, connect the XIAO over USB-C, open the serial monitor or Mac admin app, and enable pairing mode. Then connect with the app and tap **Pair This iPhone** or **Pair This Mac** while pairing mode is enabled. The device being paired shows a 4-digit approval code. Type that code with `pair approve CODE`, or type it into the Mac admin app. The Mac admin app intentionally does not display pending approval codes or pending public-key fingerprints. Pairing mode turns itself off after approval.
+BLE pairing is locked by default. To add an iPhone, connect the XIAO over USB-C, open the serial monitor or Mac admin app, and enable pairing mode. Then connect with the iPhone app and tap **Pair This iPhone** while pairing mode is enabled. The phone shows a 4-digit approval code. Type that code with `pair approve CODE`, or type it into the Mac admin app. The Mac admin app intentionally does not display pending approval codes or pending public-key fingerprints. Pairing mode turns itself off after approval.
+
+To trust the Mac itself, connect the XIAO over USB-C and open the Mac admin app. The app automatically sends its public signing key over the physically trusted USB-C admin channel and stores it directly, without a BLE approval code.
 
 The firmware can store multiple trusted public keys. Use USB-C serial command `pair status` to see the trusted device count and pending request, `pairs list` to list trusted fingerprints and names when known, `pairs remove N` to remove one trusted device, `pair reject` to reject a pending device, `pair off` to lock pairing mode, or `pairs clear` to remove all trusted devices. The Mac admin app wraps the same USB-C management path and can also use its own paired key for wireless lock/unlock commands.
 
@@ -22,7 +24,7 @@ If a phone or Mac is replaced, the app is deleted, or the signing key is lost, e
 
 If a trusted phone or Mac is compromised, remove that device from the XIAO pairing table or reset the XIAO pairing table and pair freshly installed apps.
 
-USB-C admin commands are treated as physically trusted controller-management actions. The Mac admin app can remove trusted phones and send lock/unlock over USB without using the phone command-signing key, so do not leave the controller USB port connected to an untrusted computer.
+USB-C admin commands are treated as physically trusted controller-management actions. The Mac admin app can trust the Mac's wireless key, remove trusted phones, and send lock/unlock over USB without using a previously paired wireless key, so do not leave the controller USB port connected to an untrusted computer.
 
 ## Responsible Use
 
