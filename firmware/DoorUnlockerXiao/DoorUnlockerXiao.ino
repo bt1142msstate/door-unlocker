@@ -754,7 +754,8 @@ int8_t verifySignedPayload(const char* payload, const uint8_t* signature) {
 bool isKnownCommand(const char* command) {
   return strcmp(command, "UNLOCK") == 0
     || strcmp(command, "LOCK") == 0
-    || strncmp(command, "SET_TIMEOUT:", 12) == 0;
+    || strncmp(command, "SET_TIMEOUT:", 12) == 0
+    || strncmp(command, "SET_NAME:", 9) == 0;
 }
 
 bool parseSetTimeoutCommand(const char* command, uint16_t* seconds) {
@@ -774,6 +775,17 @@ bool parseSetTimeoutCommand(const char* command, uint16_t* seconds) {
 
   *seconds = (uint16_t) parsedSeconds;
   return true;
+}
+
+bool parseSetNameCommand(const char* command, char* deviceName, size_t deviceNameLen) {
+  static const char prefix[] = "SET_NAME:";
+  if (command == nullptr || deviceName == nullptr || deviceNameLen == 0 || strncmp(command, prefix, strlen(prefix)) != 0) {
+    return false;
+  }
+
+  const char* rawName = command + strlen(prefix);
+  sanitizeDeviceName((const uint8_t*) rawName, strlen(rawName), deviceName, deviceNameLen);
+  return deviceName[0] != 0;
 }
 
 bool setUnlockHoldTimeoutSeconds(uint16_t seconds) {
@@ -1062,6 +1074,27 @@ void handleCommand(char* payload) {
     unlockHold();
   } else if (strcmp(command, "LOCK") == 0) {
     lockRest();
+  } else if (strncmp(command, "SET_NAME:", 9) == 0) {
+    char deviceName[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
+    char previousName[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
+    if (!parseSetNameCommand(command, deviceName, sizeof(deviceName))) {
+      rejectCommand("bad device name");
+      return;
+    }
+
+    copyDeviceName(pairedDeviceNames[pairingIndex], previousName, sizeof(previousName));
+    copyDeviceName(deviceName, pairedDeviceNames[pairingIndex], PAIRED_DEVICE_NAME_STORAGE_LEN);
+    if (!savePairings()) {
+      copyDeviceName(previousName, pairedDeviceNames[pairingIndex], PAIRED_DEVICE_NAME_STORAGE_LEN);
+      rejectCommand("device name save failed");
+      return;
+    }
+
+    Serial.print("Device ");
+    Serial.print(pairingIndex + 1);
+    Serial.print(" name set to ");
+    Serial.println(pairedDeviceNames[pairingIndex]);
+    publishState(currentStateText());
   } else {
     uint16_t requestedSeconds = 0;
     if (!parseSetTimeoutCommand(command, &requestedSeconds)) {

@@ -102,6 +102,7 @@ The app provides:
 - USB-gated pairing that sends only the phone public key to the XIAO and requires typing the 4-digit code shown on the phone over USB-C or in the Mac admin app.
 - Optional Face ID/passcode confirmation before sending unlock commands.
 - Auto-lock timeout setting that is stored and enforced by the controller.
+- Editable iPhone display name that updates the trusted-device record without re-pairing.
 - Siri/App Intents for voice and shortcut automation.
 - A home screen widget.
 - A Control Widget so the project can appear in iOS Controls and be assigned to the Action Button on supported iPhones.
@@ -120,6 +121,8 @@ The Mac admin app is in `mac/DoorUnlockerAdmin`. It talks to the XIAO over USB-C
 - Connect over Bluetooth and use the same single Lock/Unlock toggle as the iPhone app.
 
 The Mac admin app does not display pending approval codes or pending public-key fingerprints. Device names are stored by the firmware for new pairings. Existing pairings made before this feature may show as `Device 1`, `Device 2`, and so on until that device is paired again.
+
+iOS may hide the user-assigned system device name from apps, so the iPhone app keeps its own Door Unlocker display name. Updating that name sends an authenticated rename command to the controller; it does not require deleting or re-pairing the phone.
 
 Run it locally with:
 

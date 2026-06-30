@@ -7,6 +7,8 @@ struct ContentView: View {
     @State private var displayedIconIsUnlocked = false
     @State private var iconFlipDegrees = 0.0
     @State private var settingsExpanded = false
+    @State private var deviceDisplayNameDraft = ""
+    @FocusState private var isDeviceDisplayNameFocused: Bool
 
     private var accent: Color {
         controller.isUnlocked ? Color(red: 0.35, green: 0.86, blue: 0.58) : Color(red: 0.35, green: 0.72, blue: 1.0)
@@ -59,8 +61,14 @@ struct ContentView: View {
         }
         .onAppear {
             displayedIconIsUnlocked = controller.isUnlocked
+            deviceDisplayNameDraft = controller.deviceDisplayName
             controller.refreshStateFromController()
             controller.performPendingSystemCommand()
+        }
+        .onChange(of: controller.deviceDisplayName) { _, name in
+            if !isDeviceDisplayNameFocused {
+                deviceDisplayNameDraft = name
+            }
         }
         .onOpenURL { url in
             DoorCommandStore.request(from: url)
@@ -311,6 +319,7 @@ struct ContentView: View {
         DisclosureGroup(isExpanded: $settingsExpanded) {
             VStack(spacing: 10) {
                 unlockAuthenticationToggle
+                deviceDisplayNameControl
                 autoLockTimeoutControl
             }
             .padding(.top, 10)
@@ -349,6 +358,39 @@ struct ContentView: View {
         }
         .toggleStyle(.switch)
         .tint(accent)
+        .disabled(controller.isAuthenticatingSettings)
+        .padding(12)
+        .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private var deviceDisplayNameControl: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "iphone.gen3")
+                    .foregroundStyle(accent)
+                Text("This iPhone")
+                    .font(.caption.weight(.bold))
+                Spacer(minLength: 8)
+                Text(controller.deviceDisplayName)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+
+            TextField("iPhone Air", text: $deviceDisplayNameDraft)
+                .textFieldStyle(.roundedBorder)
+                .submitLabel(.done)
+                .focused($isDeviceDisplayNameFocused)
+                .onSubmit {
+                    commitDeviceDisplayName()
+                }
+                .onChange(of: isDeviceDisplayNameFocused) { _, isFocused in
+                    if !isFocused {
+                        commitDeviceDisplayName()
+                    }
+                }
+        }
         .disabled(controller.isAuthenticatingSettings)
         .padding(12)
         .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -405,6 +447,16 @@ struct ContentView: View {
                     .background(Color.black.opacity(0.34), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
         }
+    }
+
+    private func commitDeviceDisplayName() {
+        let trimmedName = deviceDisplayNameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedName.isEmpty {
+            deviceDisplayNameDraft = controller.deviceDisplayName
+            return
+        }
+
+        controller.updateDeviceDisplayName(trimmedName)
     }
 }
 

@@ -29,11 +29,14 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     @Published private(set) var autoLockSeconds = DoorUnlockerController.storedAutoLockSeconds()
     @Published private(set) var autoLockStatus = "Ready to set"
     @Published private(set) var autoLockRemainingSeconds: Int?
+    @Published private(set) var deviceDisplayName = DoorUnlockerController.storedDeviceDisplayName()
     @Published private(set) var requiresUnlockAuthentication = UserDefaults.standard.bool(forKey: DoorUnlockerController.unlockAuthenticationKey)
     @Published var lastError: String?
 
     private static let unlockAuthenticationKey = "RequireUnlockAuthentication"
     private static let autoLockSecondsKey = "AutoLockSeconds"
+    private static let deviceDisplayNameKey = "DoorUnlockerDeviceDisplayName"
+    private static let maximumDeviceDisplayNameLength = 24
     private let serviceUUID = CBUUID(string: "7A5A1000-2B8D-4C3E-94E7-0B3C0DDAAF10")
     private let commandUUID = CBUUID(string: "7A5A1001-2B8D-4C3E-94E7-0B3C0DDAAF10")
     private let stateUUID = CBUUID(string: "7A5A1002-2B8D-4C3E-94E7-0B3C0DDAAF10")
@@ -50,6 +53,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     private var queuedAutoLockTimeoutSeconds: Int?
     private var autoLockApplyTask: Task<Void, Never>?
     private var autoLockPredictionTask: Task<Void, Never>?
+    private var lastSyncedDeviceDisplayName: String?
     private var liveActivity: Activity<DoorUnlockerActivityAttributes>?
     private var liveActivityCompletionTask: Task<Void, Never>?
     private var liveActivityBackgroundTask: UIBackgroundTaskIdentifier = .invalid
@@ -145,6 +149,29 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         return clampedAutoLockSeconds(seconds)
     }
 
+    private static func storedDeviceDisplayName() -> String {
+        if let storedName = UserDefaults.standard.string(forKey: deviceDisplayNameKey) {
+            let sanitizedName = sanitizedDeviceDisplayName(storedName)
+            if !sanitizedName.isEmpty {
+                return sanitizedName
+            }
+        }
+
+        return sanitizedDeviceDisplayName(UIDevice.current.name)
+    }
+
+    private static func sanitizedDeviceDisplayName(_ name: String) -> String {
+        let normalized = name
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallback = normalized.isEmpty ? "iPhone" : normalized
+        let ascii = fallback.unicodeScalars.map { scalar -> String in
+            scalar.isASCII && scalar.value >= 32 && scalar.value <= 126 ? String(scalar) : "?"
+        }
+        return String(ascii.joined().prefix(maximumDeviceDisplayNameLength)).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private static func clampedAutoLockSeconds(_ seconds: Int) -> Int {
         min(max(seconds, minimumAutoLockSeconds), maximumAutoLockSeconds)
     }
@@ -170,6 +197,21 @@ final class DoorUnlockerController: NSObject, ObservableObject {
                 self.autoLockSeconds = clampedSeconds
                 UserDefaults.standard.set(self.autoLockSeconds, forKey: Self.autoLockSecondsKey)
                 self.scheduleAutoLockTimeoutApply()
+            }
+        }
+    }
+
+    func updateDeviceDisplayName(_ name: String) {
+        let sanitizedName = Self.sanitizedDeviceDisplayName(name)
+        guard !sanitizedName.isEmpty, sanitizedName != deviceDisplayName else { return }
+
+        Task { [weak self] in
+            await self?.authenticateAndChangeSetting(localizedReason: "Authenticate to change this iPhone's Door Unlocker display name.") {
+                guard let self else { return }
+                self.deviceDisplayName = sanitizedName
+                UserDefaults.standard.set(sanitizedName, forKey: Self.deviceDisplayNameKey)
+                self.lastSyncedDeviceDisplayName = nil
+                self.syncDeviceDisplayNameIfReady()
             }
         }
     }
@@ -384,7 +426,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         }
 
         do {
-            let pairingPayload = try DoorCommandAuthenticator.pairingPayload(deviceName: UIDevice.current.name)
+            let pairingPayload = try DoorCommandAuthenticator.pairingPayload(deviceName: deviceDisplayName)
             let approvalCode = try DoorCommandAuthenticator.pairingApprovalCode()
             guard pairingPayload.count <= peripheral.maximumWriteValueLength(for: .withResponse) else {
                 lastError = "Pairing key is too large for this BLE connection"
@@ -397,6 +439,14 @@ final class DoorUnlockerController: NSObject, ObservableObject {
             peripheral.writeValue(pairingPayload, for: pairingCharacteristic, type: .withResponse)
         } catch {
             lastError = error.localizedDescription
+        }
+    }
+
+    private func syncDeviceDisplayNameIfReady() {
+        guard isReady, lastSyncedDeviceDisplayName != deviceDisplayName else { return }
+
+        if writeAuthenticatedCommand("SET_NAME:\(deviceDisplayName)") {
+            lastSyncedDeviceDisplayName = deviceDisplayName
         }
     }
 
@@ -900,6 +950,7 @@ extension DoorUnlockerController: CBPeripheralDelegate {
             updatePairingState(from: parsedState.state)
             publishWidgetState(parsedState.state, controllerRemainingSeconds: parsedState.remainingSeconds)
             sendPendingSystemCommandIfReady()
+            syncDeviceDisplayNameIfReady()
         }
     }
 
