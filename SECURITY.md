@@ -12,9 +12,9 @@ The XIAO stores trusted phone public keys in internal flash and accepts only `v2
 
 ## Pairing
 
-BLE pairing is locked by default. To add a phone, connect the XIAO over USB-C, open the serial monitor, and send `pair on`. Then connect with the iPhone app and tap **Pair This iPhone** while pairing mode is enabled. Pairing mode turns itself off after accepting one phone.
+BLE pairing is locked by default. To add a phone, connect the XIAO over USB-C, open the serial monitor, and send `pair on`. Then connect with the iPhone app and tap **Pair This iPhone** while pairing mode is enabled. The app shows a short approval code, and the XIAO prints the matching pending phone fingerprint over USB serial. Type `pair approve CODE` only when the app and USB serial output match. Pairing mode turns itself off after approval.
 
-The firmware can store multiple trusted phone public keys. Use USB-C serial command `pair status` to see the trusted phone count, `pair off` to lock pairing mode, or `pairs clear` to remove all trusted phones.
+The firmware can store multiple trusted phone public keys. Use USB-C serial command `pair status` to see the trusted phone count and pending request, `pair reject` to reject a pending phone, `pair off` to lock pairing mode, or `pairs clear` to remove all trusted phones.
 
 If the phone is replaced, the app is deleted, or the signing key is lost, enable USB-C pairing mode and pair the replacement phone. If a phone should no longer be trusted, clear the pairing table over USB-C and re-pair the phones you still trust.
 

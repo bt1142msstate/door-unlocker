@@ -51,7 +51,8 @@ index.html                       GitHub Pages entry point
 5. Build and run the iPhone app on your device.
 6. Open the XIAO serial monitor over USB-C and send `pair on`.
 7. Connect to the XIAO from the iPhone app and tap **Pair This iPhone** while the app shows `Pairing Enabled`.
-8. Use the main toggle, Siri/App Shortcuts, widgets, or iOS Controls after pairing completes.
+8. Compare the code shown in the app with the USB serial output, then type `pair approve CODE`.
+9. Use the main toggle, Siri/App Shortcuts, widgets, or iOS Controls after pairing completes.
 
 The app generates its own P-256 signing key locally. It prefers Secure Enclave when available and falls back to a Keychain-stored software key when needed. The XIAO stores only the phone's public key, so the repository does not contain a command secret.
 
@@ -61,15 +62,18 @@ The firmware advertises a BLE peripheral for the iPhone app, stores up to four p
 
 USB serial commands:
 
-- `pair on`: enable one-shot BLE pairing for the next phone.
-- `pair off`: disable BLE pairing mode.
-- `pair status`: print pairing mode and paired phone count.
+- `pair on`: enable BLE pairing requests.
+- `pair approve CODE`: approve the pending phone if the code matches the iPhone app.
+- `pair reject`: reject the pending phone request.
+- `pair off`: disable BLE pairing mode and clear any pending request.
+- `pair status`: print pairing mode, pending request, and paired phone count.
 - `pairs clear`: remove all paired phones.
 
 LED states:
 
 - Red: no phone can command the controller and USB pairing mode is locked.
-- Purple: USB pairing mode is enabled for the next phone.
+- Purple: USB pairing mode is enabled and waiting for a phone request.
+- Cyan: a phone pairing request is pending USB approval.
 - Blue: locked.
 - Green: unlocked.
 - Yellow: servo is moving.
@@ -82,7 +86,7 @@ The app provides:
 
 - One main state toggle for Lock/Unlock.
 - BLE connection management.
-- USB-gated pairing that sends only the phone public key to the XIAO.
+- USB-gated pairing that sends only the phone public key to the XIAO and requires typing the app's approval code over USB-C.
 - Siri/App Intents for voice and shortcut automation.
 - A home screen widget.
 - A Control Widget so the project can appear in iOS Controls and be assigned to the Action Button on supported iPhones.
@@ -92,7 +96,7 @@ The app provides:
 
 This project intentionally avoids publishing a command secret. The phone signs each command with a locally generated private key, and the XIAO verifies the signature with the paired public key.
 
-BLE pairing is locked unless USB-C serial pairing mode is enabled. Pairing mode turns itself off after accepting a phone. If the app is deleted, the phone is replaced, or the signing key is lost, connect over USB-C, send `pair on`, and pair the replacement phone. Use `pairs clear` over USB-C if you need to remove all trusted phones.
+BLE pairing is locked unless USB-C serial pairing mode is enabled. A phone can submit a pairing request only after `pair on`, and it is not trusted until the USB-side operator types `pair approve CODE` with the code shown in the iPhone app. Pairing mode turns itself off after approval. If the app is deleted, the phone is replaced, or the signing key is lost, connect over USB-C, send `pair on`, and pair the replacement phone. Use `pairs clear` over USB-C if you need to remove all trusted phones.
 
 For anything beyond desk testing, review the mechanical mount, fail-safe behavior, battery handling, apartment rules, fire-safety requirements, and lock/egress requirements before use.
 

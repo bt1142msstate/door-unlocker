@@ -14,6 +14,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     @Published private(set) var deviceName = "DoorUnlocker-XIAO-v2"
     @Published private(set) var servoState = "unknown"
     @Published private(set) var pairingState = "Unknown"
+    @Published private(set) var pairingApprovalCode: String?
     @Published var lastError: String?
 
     private let serviceUUID = CBUUID(string: "7A5A1000-2B8D-4C3E-94E7-0B3C0DDAAF10")
@@ -49,6 +50,10 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         isConnectedToController && pairingState == "Pairing locked"
     }
 
+    var isPairingPending: Bool {
+        pairingState == "Pairing pending" || pairingState == "Pairing"
+    }
+
     var isUnlocked: Bool {
         servoState == "unlocked" || servoState == "unlocking"
     }
@@ -79,6 +84,8 @@ final class DoorUnlockerController: NSObject, ObservableObject {
             return "Pairing Locked"
         case "pairing_enabled":
             return "Pairing Enabled"
+        case "pairing_pending":
+            return "Pairing Pending"
         case "paired":
             return "Paired"
         default:
@@ -113,6 +120,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         stateCharacteristic = nil
         pairingCharacteristic = nil
         pairingState = "Unknown"
+        pairingApprovalCode = nil
         startScan()
     }
 
@@ -163,12 +171,14 @@ final class DoorUnlockerController: NSObject, ObservableObject {
 
         do {
             let publicKey = try DoorCommandAuthenticator.publicKeyForPairing()
+            let approvalCode = try DoorCommandAuthenticator.pairingFingerprint()
             guard publicKey.count <= peripheral.maximumWriteValueLength(for: .withResponse) else {
                 lastError = "Pairing key is too large for this BLE connection"
                 return
             }
 
             lastError = nil
+            pairingApprovalCode = approvalCode
             pairingState = "Pairing"
             peripheral.writeValue(publicKey, for: pairingCharacteristic, type: .withResponse)
         } catch {
@@ -255,6 +265,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         stateCharacteristic = nil
         pairingCharacteristic = nil
         pairingState = "Unknown"
+        pairingApprovalCode = nil
         startScan()
     }
 
@@ -341,6 +352,7 @@ extension DoorUnlockerController: CBCentralManagerDelegate {
             stateCharacteristic = nil
             pairingCharacteristic = nil
             pairingState = "Unknown"
+            pairingApprovalCode = nil
             if let error {
                 lastError = error.localizedDescription
             }
@@ -459,10 +471,20 @@ extension DoorUnlockerController: CBPeripheralDelegate {
         switch state {
         case "pairing_enabled":
             pairingState = "Pairing enabled"
+            pairingApprovalCode = nil
+        case "pairing_pending":
+            pairingState = "Pairing pending"
+            if pairingApprovalCode == nil {
+                pairingApprovalCode = try? DoorCommandAuthenticator.pairingFingerprint()
+            }
         case "pairing_locked", "unpaired":
             pairingState = "Pairing locked"
+            pairingApprovalCode = nil
         case "paired", "locked", "unlocked", "locking", "unlocking":
             pairingState = "Paired"
+            if state == "paired" {
+                pairingApprovalCode = nil
+            }
         default:
             break
         }

@@ -132,9 +132,11 @@ struct ContentView: View {
             metric(title: "Pairing", value: controller.pairingState, icon: "key.horizontal.fill")
 
             if controller.canPair {
-                Label("Pair this iPhone before sending lock commands.", systemImage: "key.fill")
+                Label("Tap Pair This iPhone, then approve its code over USB-C.", systemImage: "key.fill")
                     .font(.footnote.weight(.medium))
                     .foregroundStyle(accent)
+            } else if controller.isPairingPending {
+                pairingApprovalPanel
             } else if controller.needsUsbPairingMode {
                 Label("Enable pairing over USB-C first, then tap Pair This iPhone.", systemImage: "cable.connector")
                     .font(.footnote.weight(.medium))
@@ -285,6 +287,26 @@ struct ContentView: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.large)
+        }
+    }
+
+    private var pairingApprovalPanel: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Approve this iPhone from the computer.", systemImage: "keyboard.fill")
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(accent)
+
+            if let code = controller.pairingApprovalCode {
+                Text("pair approve \(code)")
+                    .font(.system(.footnote, design: .monospaced).weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.black.opacity(0.34), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            }
         }
     }
 }
