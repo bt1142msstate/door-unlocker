@@ -23,6 +23,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     @Published private(set) var isAuthenticatingUnlock = false
     @Published private(set) var autoLockSeconds = DoorUnlockerController.storedAutoLockSeconds()
     @Published private(set) var autoLockStatus = "Ready to set"
+    @Published private(set) var autoLockRemainingSeconds: Int?
     @Published var requiresUnlockAuthentication = UserDefaults.standard.bool(forKey: DoorUnlockerController.unlockAuthenticationKey) {
         didSet {
             UserDefaults.standard.set(requiresUnlockAuthentication, forKey: Self.unlockAuthenticationKey)
@@ -120,6 +121,12 @@ final class DoorUnlockerController: NSObject, ObservableObject {
 
     var autoLockRange: ClosedRange<Int> {
         Self.minimumAutoLockSeconds ... Self.maximumAutoLockSeconds
+    }
+
+    var autoLockCountdownText: String? {
+        guard isUnlocked, let autoLockRemainingSeconds else { return nil }
+        guard autoLockRemainingSeconds > 0 else { return "Auto-locking now" }
+        return "Auto-locks in \(autoLockRemainingSeconds)s"
     }
 
     override init() {
@@ -232,7 +239,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         let didWrite = writeAuthenticatedCommand(command.rawValue)
         if didWrite {
             servoState = command == .unlock ? "unlocking" : "locking"
-            publishWidgetState(servoState)
+            publishWidgetState(servoState, resetAutoLockDeadline: command == .unlock)
         }
     }
 
@@ -420,19 +427,27 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         startScan()
     }
 
-    private func publishWidgetState(_ state: String, updatedAt: Date = .now) {
-        let deadline = predictedAutoLockDeadline(for: state, updatedAt: updatedAt)
+    private func publishWidgetState(_ state: String, updatedAt: Date = .now, resetAutoLockDeadline: Bool = false) {
+        let deadline = predictedAutoLockDeadline(for: state, updatedAt: updatedAt, resetAutoLockDeadline: resetAutoLockDeadline)
         DoorStatusStore.save(state: state, updatedAt: updatedAt, autoLockDeadline: deadline)
         WidgetCenter.shared.reloadTimelines(ofKind: "DoorUnlockerWidget")
         scheduleAutoLockPrediction(deadline: deadline)
     }
 
-    private func predictedAutoLockDeadline(for state: String, updatedAt: Date) -> Date? {
+    private func predictedAutoLockDeadline(for state: String, updatedAt: Date, resetAutoLockDeadline: Bool) -> Date? {
         switch state {
-        case "unlocking":
-            return updatedAt.addingTimeInterval(TimeInterval(autoLockSeconds + 2))
-        case "unlocked":
-            return updatedAt.addingTimeInterval(TimeInterval(autoLockSeconds))
+        case "unlocking", "unlocked":
+            let snapshot = DoorStatusStore.load()
+            if !resetAutoLockDeadline,
+               snapshot.isUnlocked,
+               let existingDeadline = snapshot.autoLockDeadline,
+               existingDeadline > updatedAt,
+               !(snapshot.state == "unlocking" && state == "unlocked") {
+                return existingDeadline
+            }
+
+            let movementGraceSeconds = state == "unlocking" ? 2 : 0
+            return updatedAt.addingTimeInterval(TimeInterval(autoLockSeconds + movementGraceSeconds))
         default:
             return nil
         }
@@ -441,23 +456,50 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     private func scheduleAutoLockPrediction(deadline: Date?) {
         autoLockPredictionTask?.cancel()
 
-        guard let deadline else { return }
+        guard let deadline else {
+            autoLockRemainingSeconds = nil
+            return
+        }
+
+        updateAutoLockRemaining(deadline: deadline)
 
         autoLockPredictionTask = Task { [weak self] in
-            let delay = max(0, deadline.timeIntervalSinceNow)
-            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-            guard !Task.isCancelled else { return }
+            while !Task.isCancelled {
+                await MainActor.run {
+                    self?.updateAutoLockRemaining(deadline: deadline)
+                }
+
+                let remaining = deadline.timeIntervalSinceNow
+                if remaining <= 0 {
+                    break
+                }
+
+                let sleepSeconds = min(1, max(0.1, remaining))
+                try? await Task.sleep(nanoseconds: UInt64(sleepSeconds * 1_000_000_000))
+            }
 
             await MainActor.run {
-                self?.applyPredictedAutoLock(deadline: deadline)
+                if !Task.isCancelled {
+                    self?.applyPredictedAutoLock(deadline: deadline)
+                }
             }
         }
+    }
+
+    private func updateAutoLockRemaining(deadline: Date) {
+        guard isUnlocked else {
+            autoLockRemainingSeconds = nil
+            return
+        }
+
+        autoLockRemainingSeconds = max(0, Int(ceil(deadline.timeIntervalSinceNow)))
     }
 
     private func applyPredictedAutoLock(deadline: Date) {
         guard isUnlocked else { return }
 
         servoState = "locked"
+        autoLockRemainingSeconds = nil
         updatePairingState(from: "locked")
         DoorStatusStore.save(state: "locked", updatedAt: deadline)
         WidgetCenter.shared.reloadTimelines(ofKind: "DoorUnlockerWidget")
@@ -469,6 +511,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         guard isUnlocked, snapshot.state == "locked" else { return }
 
         servoState = "locked"
+        autoLockRemainingSeconds = nil
         updatePairingState(from: "locked")
         DoorStatusStore.save(state: "locked", updatedAt: snapshot.updatedAt ?? .now)
         WidgetCenter.shared.reloadTimelines(ofKind: "DoorUnlockerWidget")
@@ -672,6 +715,9 @@ extension DoorUnlockerController: CBPeripheralDelegate {
             if characteristic.uuid == commandUUID, let seconds = pendingAutoLockTimeoutSeconds {
                 pendingAutoLockTimeoutSeconds = nil
                 autoLockStatus = "Controller set to \(seconds)s"
+                if isUnlocked {
+                    publishWidgetState(servoState, resetAutoLockDeadline: true)
+                }
                 readStateIfPermitted()
             }
 
