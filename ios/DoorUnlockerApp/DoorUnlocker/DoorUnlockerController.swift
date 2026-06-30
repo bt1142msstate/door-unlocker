@@ -17,6 +17,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     static let maximumAutoLockSeconds = 120
     private static let liveActivityLockConfirmationSeconds: TimeInterval = 2.0
     private static let liveActivityLockAnimationStepSeconds: TimeInterval = 0.45
+    private static let liveActivityMinimumLockedHoldSeconds: TimeInterval = 0.75
     private static let liveActivityStaleGraceSeconds: TimeInterval = 8.0
 
     @Published private(set) var bluetoothState = "Starting"
@@ -796,7 +797,6 @@ final class DoorUnlockerController: NSObject, ObservableObject {
             guard !DoorStatusStore.load().isUnlocked else { return }
         }
 
-        let lockedAt = Date()
         let finalContent = liveActivityContent(state: "locked", phase: 2, staleDate: nil, relevanceScore: 0.2)
         let lockedContent = liveActivityContent(state: "locked", phase: 2, staleDate: staleDate, relevanceScore: 0.4)
         for activity in Activity<DoorUnlockerActivityAttributes>.activities {
@@ -805,15 +805,16 @@ final class DoorUnlockerController: NSObject, ObservableObject {
 
         guard !DoorStatusStore.load().isUnlocked else { return }
 
-        let dismissalDate = max(
-            lockedAt,
-            animationStartedAt.addingTimeInterval(confirmationDuration)
-        )
-        let dismissalPolicy: ActivityUIDismissalPolicy = confirmationDuration > 0
-            ? .after(dismissalDate)
-            : .immediate
+        if confirmationDuration > 0 {
+            let elapsed = Date().timeIntervalSince(animationStartedAt)
+            let remainingConfirmation = max(0, confirmationDuration - elapsed)
+            let lockedHoldSeconds = max(Self.liveActivityMinimumLockedHoldSeconds, remainingConfirmation)
+            try? await Task.sleep(nanoseconds: UInt64(lockedHoldSeconds * 1_000_000_000))
+            guard !DoorStatusStore.load().isUnlocked else { return }
+        }
+
         for activity in Activity<DoorUnlockerActivityAttributes>.activities {
-            await activity.end(finalContent, dismissalPolicy: dismissalPolicy)
+            await activity.end(finalContent, dismissalPolicy: .immediate)
         }
         liveActivity = nil
     }
