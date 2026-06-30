@@ -332,7 +332,10 @@ struct ContentView: View {
     }
 
     private var unlockAuthenticationToggle: some View {
-        Toggle(isOn: $controller.requiresUnlockAuthentication) {
+        Toggle(isOn: Binding(
+            get: { controller.requiresUnlockAuthentication },
+            set: { controller.setRequiresUnlockAuthentication($0) }
+        )) {
             HStack(spacing: 8) {
                 Image(systemName: "faceid")
                     .foregroundStyle(accent)
@@ -346,6 +349,7 @@ struct ContentView: View {
         }
         .toggleStyle(.switch)
         .tint(accent)
+        .disabled(controller.isAuthenticatingSettings)
         .padding(12)
         .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
@@ -378,6 +382,7 @@ struct ContentView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
         }
+        .disabled(controller.isAuthenticatingSettings)
         .padding(12)
         .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }

@@ -6,9 +6,9 @@ struct LockDoorIntent: AppIntent {
     static var openAppWhenRun = true
     static var authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
-    func perform() async throws -> some IntentResult {
+    func perform() async throws -> some IntentResult & ProvidesDialog {
         DoorCommandStore.request(.lock)
-        return .result(dialog: "Locking Door Unlocker")
+        return .result(dialog: "Door Unlocker is locking.")
     }
 }
 
@@ -18,9 +18,9 @@ struct UnlockDoorIntent: AppIntent {
     static var openAppWhenRun = true
     static var authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
-    func perform() async throws -> some IntentResult {
+    func perform() async throws -> some IntentResult & ProvidesDialog {
         DoorCommandStore.request(.unlock)
-        return .result(dialog: "Unlocking Door Unlocker")
+        return .result(dialog: "Door Unlocker is unlocking.")
     }
 }
 
@@ -30,8 +30,20 @@ struct ToggleDoorIntent: AppIntent {
     static var openAppWhenRun = true
     static var authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
-    func perform() async throws -> some IntentResult {
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let snapshot = DoorStatusStore.load()
+
+        if snapshot.isUnlocked {
+            DoorCommandStore.request(.lock)
+            return .result(dialog: "Door Unlocker is locking.")
+        }
+
+        if snapshot.state == "locked" || snapshot.state == "locking" {
+            DoorCommandStore.request(.unlock)
+            return .result(dialog: "Door Unlocker is unlocking.")
+        }
+
         DoorCommandStore.request(.toggle)
-        return .result(dialog: "Toggling Door Unlocker")
+        return .result(dialog: "Door Unlocker is toggling.")
     }
 }
