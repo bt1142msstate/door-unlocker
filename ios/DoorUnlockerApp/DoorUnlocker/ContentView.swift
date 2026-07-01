@@ -184,9 +184,6 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(controller.stateTitle)
                         .font(.system(size: 34, weight: .bold, design: .rounded))
-                    Text(controller.isReady ? "Controller connected" : controller.connectionState)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.secondary)
 
                     if let countdownText = controller.autoLockCountdownText {
                         countdownBadge(countdownText)
