@@ -8,6 +8,8 @@ struct ContentView: View {
     @State private var iconFlipDegrees = 0.0
     @State private var settingsExpanded = false
     @State private var deviceDisplayNameDraft = ""
+    @State private var deviceDisplayNameCommitTask: Task<Void, Never>?
+    @State private var shouldLockSettingsAfterDeviceNameCommit = false
     @FocusState private var isDeviceDisplayNameFocused: Bool
 
     private var accent: Color {
@@ -433,11 +435,11 @@ struct ContentView: View {
                 .submitLabel(.done)
                 .focused($isDeviceDisplayNameFocused)
                 .onSubmit {
-                    commitDeviceDisplayName()
+                    scheduleDeviceDisplayNameCommit()
                 }
                 .onChange(of: isDeviceDisplayNameFocused) { _, isFocused in
                     if !isFocused {
-                        commitDeviceDisplayName()
+                        scheduleDeviceDisplayNameCommit()
                     }
                 }
 
@@ -505,7 +507,33 @@ struct ContentView: View {
         }
     }
 
-    private func commitDeviceDisplayName() {
+    private func scheduleDeviceDisplayNameCommit(lockSettingsAfterCommit: Bool = false) {
+        if lockSettingsAfterCommit {
+            shouldLockSettingsAfterDeviceNameCommit = true
+        }
+
+        deviceDisplayNameCommitTask?.cancel()
+        deviceDisplayNameCommitTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(120))
+            guard !Task.isCancelled else { return }
+
+            deviceDisplayNameCommitTask = nil
+            commitDeviceDisplayNameNow()
+
+            if shouldLockSettingsAfterDeviceNameCommit {
+                shouldLockSettingsAfterDeviceNameCommit = false
+                controller.lockSettings()
+            }
+        }
+    }
+
+    private func cancelPendingDeviceDisplayNameCommit() {
+        deviceDisplayNameCommitTask?.cancel()
+        deviceDisplayNameCommitTask = nil
+        shouldLockSettingsAfterDeviceNameCommit = false
+    }
+
+    private func commitDeviceDisplayNameNow() {
         let trimmedName = deviceDisplayNameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedName.isEmpty {
             deviceDisplayNameDraft = controller.deviceDisplayName
@@ -542,12 +570,15 @@ struct ContentView: View {
     private func closeSettings() {
         if isDeviceDisplayNameFocused {
             isDeviceDisplayNameFocused = false
-            commitDeviceDisplayName()
+            scheduleDeviceDisplayNameCommit(lockSettingsAfterCommit: true)
+        } else if deviceDisplayNameCommitTask != nil {
+            shouldLockSettingsAfterDeviceNameCommit = true
         } else {
+            cancelPendingDeviceDisplayNameCommit()
             deviceDisplayNameDraft = controller.deviceDisplayName
+            controller.lockSettings()
         }
 
-        controller.lockSettings()
         withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
             settingsExpanded = false
         }
