@@ -45,6 +45,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
 
     static let minimumAutoLockSeconds = 5
     static let maximumAutoLockSeconds = 120
+    private static let pairedDevicesSyncInterval: TimeInterval = 5
 
     @Published var ports: [SerialPortCandidate] = []
     @Published var selectedPortID: String?
@@ -81,6 +82,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
     private var isUSBConnectInFlight = false
     private var hasConfirmedExpiredAutoLockDeadline = false
     private var lastUSBStatusSyncAt: Date?
+    private var lastPairedDevicesSyncAt: Date?
     private var lastUSBDiscoveryAt: Date?
     private var didTrustMacDuringUSBSession = false
     private var pendingWirelessCommandText: String?
@@ -400,6 +402,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
             connection = try SerialPortConnection(path: selectedPort.path)
             isConnected = true
             lastUSBStatusSyncAt = nil
+            lastPairedDevicesSyncAt = nil
             lastUSBDiscoveryAt = nil
             didTrustMacDuringUSBSession = false
             message = "Connecting to controller"
@@ -497,10 +500,13 @@ final class DoorAdminStore: NSObject, ObservableObject {
         try await loadPairedDevices()
     }
 
-    private func loadPairedDevices() async throws {
+    private func loadPairedDevices(shouldLog: Bool = true) async throws {
         let pairLines = try await transact("app pairs", until: ["APP_PAIRS_END"], timeout: 4)
-        appendLog(pairLines)
+        if shouldLog {
+            appendLog(pairLines)
+        }
         pairedDevices = DoorSerialParser.parsePairs(from: pairLines)
+        lastPairedDevicesSyncAt = .now
 
         if let selectedDeviceID, pairedDevices.contains(where: { $0.id == selectedDeviceID }) {
             return
@@ -628,6 +634,8 @@ final class DoorAdminStore: NSObject, ObservableObject {
                 }
                 await silentlySyncUSBStatus()
             }
+
+            await syncPairedDevicesIfNeeded(now: now)
             return
         }
 
@@ -675,6 +683,23 @@ final class DoorAdminStore: NSObject, ObservableObject {
             }
         } catch {
             guard isConnected else { return }
+            lastError = error.localizedDescription
+        }
+    }
+
+    private func syncPairedDevicesIfNeeded(now: Date) async {
+        let isPairCountStale = status.pairedCount != pairedDevices.count
+        let secondsSinceLastSync = lastPairedDevicesSyncAt.map { now.timeIntervalSince($0) }
+        let isPairListDue = secondsSinceLastSync.map { $0 >= Self.pairedDevicesSyncInterval } ?? true
+        let canForceSyncForCountChange = isPairCountStale && (secondsSinceLastSync.map { $0 >= 1 } ?? true)
+
+        guard canForceSyncForCountChange || isPairListDue else { return }
+
+        do {
+            try await loadPairedDevices(shouldLog: false)
+        } catch {
+            guard isConnected else { return }
+            lastPairedDevicesSyncAt = now
             lastError = error.localizedDescription
         }
     }
