@@ -202,10 +202,6 @@ struct ContentView: View {
                 }
 
                 Spacer()
-
-                Image(systemName: controller.isUnlocked ? "lock.open.fill" : "lock.fill")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(accent)
             }
 
             controllerStatusSummary
