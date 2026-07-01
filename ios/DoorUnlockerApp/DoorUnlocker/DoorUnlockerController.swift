@@ -13,6 +13,12 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         case lock = "LOCK"
     }
 
+    private enum CommandWriteIntent {
+        case doorCommand
+        case autoLockTimeout(Int)
+        case deviceDisplayName(String)
+    }
+
     static let defaultAutoLockSeconds = 30
     static let minimumAutoLockSeconds = 5
     static let maximumAutoLockSeconds = 120
@@ -65,6 +71,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     private var pairingCharacteristic: CBCharacteristic?
     private var reconnectTimer: Timer?
     private var pendingSystemCommand: DoorSystemCommand?
+    private var pendingCommandWriteIntents: [CommandWriteIntent] = []
     private var pendingAutoLockTimeoutSeconds: Int?
     private var queuedAutoLockTimeoutSeconds: Int?
     private var autoLockApplyTask: Task<Void, Never>?
@@ -307,6 +314,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
             guard !Task.isCancelled else { return }
 
             await MainActor.run {
+                self?.autoLockApplyTask = nil
                 self?.applyAutoLockTimeout()
             }
         }
@@ -324,10 +332,34 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         pendingAutoLockTimeoutSeconds = autoLockSeconds
         autoLockStatus = "Setting..."
 
-        if !writeAuthenticatedCommand(commandText) {
+        if !writeAuthenticatedCommand(commandText, intent: .autoLockTimeout(autoLockSeconds)) {
             pendingAutoLockTimeoutSeconds = nil
             autoLockStatus = "Not set"
         }
+    }
+
+    private func applyControllerAutoLockTimeout(_ seconds: Int) {
+        let confirmedSeconds = Self.clampedAutoLockSeconds(seconds)
+
+        if pendingAutoLockTimeoutSeconds == confirmedSeconds {
+            pendingAutoLockTimeoutSeconds = nil
+        }
+
+        if queuedAutoLockTimeoutSeconds == confirmedSeconds {
+            queuedAutoLockTimeoutSeconds = nil
+        }
+
+        let hasNewerLocalIntent = autoLockSeconds != confirmedSeconds
+            && (autoLockApplyTask != nil || pendingAutoLockTimeoutSeconds != nil || queuedAutoLockTimeoutSeconds != nil)
+
+        guard !hasNewerLocalIntent else {
+            autoLockStatus = isReady ? "Setting..." : "Waiting for controller"
+            return
+        }
+
+        autoLockSeconds = confirmedSeconds
+        UserDefaults.standard.set(autoLockSeconds, forKey: Self.autoLockSecondsKey)
+        autoLockStatus = "Controller set to \(autoLockSeconds)s"
     }
 
     func scan() {
@@ -384,7 +416,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     }
 
     private func sendAuthenticated(_ command: Command) {
-        let didWrite = writeAuthenticatedCommand(command.rawValue)
+        let didWrite = writeAuthenticatedCommand(command.rawValue, intent: .doorCommand)
         if didWrite {
             servoState = command == .unlock ? "unlocking" : "locking"
             publishWidgetState(servoState, resetAutoLockDeadline: command == .unlock)
@@ -392,7 +424,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     }
 
     @discardableResult
-    private func writeAuthenticatedCommand(_ commandText: String) -> Bool {
+    private func writeAuthenticatedCommand(_ commandText: String, intent: CommandWriteIntent) -> Bool {
         guard let peripheral, let commandCharacteristic else {
             lastError = "Not connected"
             return false
@@ -418,6 +450,9 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         }
 
         lastError = nil
+        if writeType == .withResponse {
+            pendingCommandWriteIntents.append(intent)
+        }
         peripheral.writeValue(data, for: commandCharacteristic, type: writeType)
         return true
     }
@@ -549,7 +584,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
             return
         }
 
-        if writeAuthenticatedCommand("SET_NAME:\(nameToSync)") {
+        if writeAuthenticatedCommand("SET_NAME:\(nameToSync)", intent: .deviceDisplayName(nameToSync)) {
             pendingDeviceDisplayName = nil
             sentDeviceDisplayName = nameToSync
             deviceDisplayNameStatus = "Setting..."
@@ -1345,9 +1380,7 @@ extension DoorUnlockerController: CBPeripheralDelegate {
             let parsedState = parseControllerState(rawState)
             if parsedState.state == "timeout_set" {
                 if let seconds = parsedState.remainingSeconds {
-                    autoLockSeconds = Self.clampedAutoLockSeconds(seconds)
-                    UserDefaults.standard.set(autoLockSeconds, forKey: Self.autoLockSecondsKey)
-                    autoLockStatus = "Controller set to \(autoLockSeconds)s"
+                    applyControllerAutoLockTimeout(seconds)
                 }
                 updatePairingState(from: parsedState.state)
                 syncDeviceDisplayNameIfReady()
@@ -1371,12 +1404,25 @@ extension DoorUnlockerController: CBPeripheralDelegate {
 
     nonisolated func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
         Task { @MainActor in
-            if let error {
-                if characteristic.uuid == commandUUID, pendingAutoLockTimeoutSeconds != nil {
-                    pendingAutoLockTimeoutSeconds = nil
-                    autoLockStatus = "Not set"
+            let commandWriteIntent: CommandWriteIntent? = {
+                guard characteristic.uuid == commandUUID, !pendingCommandWriteIntents.isEmpty else {
+                    return nil
                 }
-                if characteristic.uuid == commandUUID, let name = sentDeviceDisplayName {
+                return pendingCommandWriteIntents.removeFirst()
+            }()
+
+            if let error {
+                if case .autoLockTimeout(let seconds) = commandWriteIntent,
+                   pendingAutoLockTimeoutSeconds == seconds {
+                    if autoLockApplyTask != nil {
+                        autoLockStatus = "Setting..."
+                    } else if autoLockSeconds == seconds {
+                        pendingAutoLockTimeoutSeconds = nil
+                        autoLockStatus = "Not set"
+                    }
+                }
+                if case .deviceDisplayName(let name) = commandWriteIntent,
+                   sentDeviceDisplayName == name {
                     deviceDisplayNameSyncTask?.cancel()
                     sentDeviceDisplayName = nil
                     pendingDeviceDisplayName = name
@@ -1389,16 +1435,17 @@ extension DoorUnlockerController: CBPeripheralDelegate {
                 return
             }
 
-            if characteristic.uuid == commandUUID, let seconds = pendingAutoLockTimeoutSeconds {
-                pendingAutoLockTimeoutSeconds = nil
-                autoLockStatus = "Controller set to \(seconds)s"
+            if case .autoLockTimeout(let seconds) = commandWriteIntent,
+               pendingAutoLockTimeoutSeconds == seconds {
+                autoLockStatus = autoLockSeconds == seconds ? "Waiting for controller" : "Setting..."
                 if isUnlocked {
                     publishWidgetState(servoState, resetAutoLockDeadline: true)
                 }
                 readStateIfPermitted()
             }
 
-            if characteristic.uuid == commandUUID, sentDeviceDisplayName != nil {
+            if case .deviceDisplayName(let name) = commandWriteIntent,
+               sentDeviceDisplayName == name {
                 deviceDisplayNameStatus = "Waiting for controller"
                 readStateIfPermitted()
             }

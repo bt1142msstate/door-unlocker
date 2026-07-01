@@ -37,6 +37,12 @@ final class DoorAdminStore: NSObject, ObservableObject {
         case lock = "LOCK"
     }
 
+    private enum WirelessCommandWriteIntent {
+        case doorCommand
+        case autoLockTimeout(Int)
+        case generic
+    }
+
     static let minimumAutoLockSeconds = 5
     static let maximumAutoLockSeconds = 120
 
@@ -70,6 +76,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
     private var syncTask: Task<Void, Never>?
     private var autoLockApplyTask: Task<Void, Never>?
     private var pendingAutoLockSeconds: Int?
+    private var inFlightAutoLockSeconds: Int?
     private var isSilentStatusSyncInFlight = false
     private var isUSBConnectInFlight = false
     private var hasConfirmedExpiredAutoLockDeadline = false
@@ -78,6 +85,8 @@ final class DoorAdminStore: NSObject, ObservableObject {
     private var didTrustMacDuringUSBSession = false
     private var pendingWirelessCommandText: String?
     private var pendingWirelessPredictedCommand: Command?
+    private var pendingWirelessCommandIntent: WirelessCommandWriteIntent?
+    private var pendingWirelessWriteIntents: [WirelessCommandWriteIntent] = []
     private var shouldDisconnectWirelessAfterCommand = false
 
     var selectedPort: SerialPortCandidate? {
@@ -251,6 +260,9 @@ final class DoorAdminStore: NSObject, ObservableObject {
         autoLockApplyTask?.cancel()
         autoLockApplyTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 400_000_000)
+            await MainActor.run {
+                self?.autoLockApplyTask = nil
+            }
             await self?.applyPendingAutoLockSeconds()
         }
     }
@@ -295,15 +307,20 @@ final class DoorAdminStore: NSObject, ObservableObject {
                 sendStatusCommand("app unlock", label: "Unlock", timeout: 6)
             }
         } else if isWirelessReady {
-            sendWirelessCommandText(command.rawValue, predictedDoorCommand: command)
+            sendWirelessCommandText(command.rawValue, predictedDoorCommand: command, intent: .doorCommand)
         } else {
-            queueWirelessCommand(command.rawValue, predictedDoorCommand: command)
+            queueWirelessCommand(command.rawValue, predictedDoorCommand: command, intent: .doorCommand)
         }
     }
 
-    private func queueWirelessCommand(_ commandText: String, predictedDoorCommand: Command? = nil) {
+    private func queueWirelessCommand(
+        _ commandText: String,
+        predictedDoorCommand: Command? = nil,
+        intent: WirelessCommandWriteIntent = .generic
+    ) {
         pendingWirelessCommandText = commandText
         pendingWirelessPredictedCommand = predictedDoorCommand
+        pendingWirelessCommandIntent = intent
         wirelessConnectionState = "Connecting on demand"
 
         if isWirelessReady {
@@ -316,14 +333,20 @@ final class DoorAdminStore: NSObject, ObservableObject {
     private func sendQueuedWirelessCommand() {
         guard let commandText = pendingWirelessCommandText else { return }
         let predictedCommand = pendingWirelessPredictedCommand
-        if sendWirelessCommandText(commandText, predictedDoorCommand: predictedCommand) {
+        let intent = pendingWirelessCommandIntent ?? .generic
+        if sendWirelessCommandText(commandText, predictedDoorCommand: predictedCommand, intent: intent) {
             pendingWirelessCommandText = nil
             pendingWirelessPredictedCommand = nil
+            pendingWirelessCommandIntent = nil
         }
     }
 
     @discardableResult
-    private func sendWirelessCommandText(_ commandText: String, predictedDoorCommand: Command? = nil) -> Bool {
+    private func sendWirelessCommandText(
+        _ commandText: String,
+        predictedDoorCommand: Command? = nil,
+        intent: WirelessCommandWriteIntent = .generic
+    ) -> Bool {
         guard let peripheral, let commandCharacteristic else {
             lastError = "Not connected wirelessly."
             return false
@@ -348,6 +371,9 @@ final class DoorAdminStore: NSObject, ObservableObject {
                 status = nextStatus
                 hasConfirmedExpiredAutoLockDeadline = false
                 message = predictedDoorCommand == .unlock ? "Unlocking door" : "Locking door"
+            }
+            if writeType == .withResponse {
+                pendingWirelessWriteIntents.append(intent)
             }
             peripheral.writeValue(payload, for: commandCharacteristic, type: writeType)
             shouldDisconnectWirelessAfterCommand = true
@@ -451,6 +477,12 @@ final class DoorAdminStore: NSObject, ObservableObject {
         do {
             try await operation()
         } catch {
+            if label == "Auto-lock" {
+                inFlightAutoLockSeconds = nil
+                if pendingAutoLockSeconds == nil {
+                    autoLockStatus = "Not set"
+                }
+            }
             lastError = error.localizedDescription
             message = "Something went wrong"
             appendLog(["ERROR \(error.localizedDescription)"])
@@ -486,6 +518,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         }
 
         if isConnected {
+            inFlightAutoLockSeconds = seconds
             pendingAutoLockSeconds = nil
             autoLockStatus = "Setting..."
             sendStatusCommand("app timeout \(seconds)", label: "Auto-lock", timeout: 4)
@@ -493,34 +526,70 @@ final class DoorAdminStore: NSObject, ObservableObject {
         }
 
         if isWirelessReady {
+            inFlightAutoLockSeconds = seconds
             pendingAutoLockSeconds = nil
             autoLockStatus = "Setting..."
-            sendWirelessCommandText("SET_TIMEOUT:\(seconds)")
+            if !sendWirelessCommandText("SET_TIMEOUT:\(seconds)", intent: .autoLockTimeout(seconds)) {
+                inFlightAutoLockSeconds = nil
+                pendingAutoLockSeconds = seconds
+                autoLockStatus = "Not set"
+            }
             return
         }
 
+        inFlightAutoLockSeconds = seconds
         pendingAutoLockSeconds = nil
         autoLockStatus = "Setting..."
-        queueWirelessCommand("SET_TIMEOUT:\(seconds)")
+        queueWirelessCommand("SET_TIMEOUT:\(seconds)", intent: .autoLockTimeout(seconds))
     }
 
     private func schedulePendingAutoLockRetry() {
         autoLockApplyTask?.cancel()
         autoLockApplyTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 750_000_000)
+            await MainActor.run {
+                self?.autoLockApplyTask = nil
+            }
             await self?.applyPendingAutoLockSeconds()
         }
     }
 
     private func applyControllerStatus(_ nextStatus: ControllerStatus) {
+        var nextStatus = nextStatus
+        reconcileAutoLockSeconds(in: &nextStatus)
+
         if !nextStatus.isUnlocked || autoLockDeadlineChanged(from: status.autoLockDeadline, to: nextStatus.autoLockDeadline) {
             hasConfirmedExpiredAutoLockDeadline = false
         }
-        if nextStatus.autoLockSeconds == pendingAutoLockSeconds {
+        status = nextStatus
+    }
+
+    private func reconcileAutoLockSeconds(in nextStatus: inout ControllerStatus) {
+        let controllerSeconds = min(max(nextStatus.autoLockSeconds, Self.minimumAutoLockSeconds), Self.maximumAutoLockSeconds)
+
+        if pendingAutoLockSeconds == controllerSeconds {
             pendingAutoLockSeconds = nil
         }
-        autoLockStatus = "Controller set to \(nextStatus.autoLockSeconds)s"
-        status = nextStatus
+
+        if inFlightAutoLockSeconds == controllerSeconds {
+            inFlightAutoLockSeconds = nil
+        }
+
+        let hasNewerLocalIntent = status.autoLockSeconds != controllerSeconds
+            && (autoLockApplyTask != nil || pendingAutoLockSeconds != nil || inFlightAutoLockSeconds != nil)
+
+        guard !hasNewerLocalIntent else {
+            nextStatus.autoLockSeconds = status.autoLockSeconds
+            if status.isUnlocked {
+                nextStatus.autoLockRemainingSeconds = status.autoLockRemainingSeconds
+                nextStatus.autoLockDeadline = status.autoLockDeadline
+            }
+            autoLockStatus = canSendDoorCommand ? "Setting..." : "Waiting for controller"
+            return
+        }
+
+        nextStatus.autoLockSeconds = controllerSeconds
+        autoLockStatus = "Controller set to \(controllerSeconds)s"
     }
 
     private func autoLockDeadlineChanged(from oldDeadline: Date?, to newDeadline: Date?) -> Bool {
@@ -741,10 +810,9 @@ final class DoorAdminStore: NSObject, ObservableObject {
                     nextStatus.autoLockDeadline = Date().addingTimeInterval(TimeInterval(seconds))
                     hasConfirmedExpiredAutoLockDeadline = false
                 }
+                reconcileAutoLockSeconds(in: &nextStatus)
                 status = nextStatus
-                pendingAutoLockSeconds = nil
             }
-            autoLockStatus = "Controller set to \(status.autoLockSeconds)s"
             updateWirelessPairingState(from: payload.state)
             return
         }
@@ -931,8 +999,22 @@ extension DoorAdminStore: CBPeripheralDelegate {
 
     nonisolated func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
         Task { @MainActor in
+            let commandWriteIntent: WirelessCommandWriteIntent? = {
+                guard characteristic.uuid == commandUUID, !pendingWirelessWriteIntents.isEmpty else {
+                    return nil
+                }
+                return pendingWirelessWriteIntents.removeFirst()
+            }()
+
             if let error {
                 lastError = error.localizedDescription
+                if case .autoLockTimeout(let seconds) = commandWriteIntent,
+                   inFlightAutoLockSeconds == seconds {
+                    inFlightAutoLockSeconds = nil
+                    if pendingAutoLockSeconds == nil {
+                        autoLockStatus = "Not set"
+                    }
+                }
                 if characteristic.uuid == pairingUUID {
                     wirelessPairingState = "Pairing locked"
                 }
