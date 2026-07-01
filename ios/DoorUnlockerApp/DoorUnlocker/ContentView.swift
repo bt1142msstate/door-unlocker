@@ -512,7 +512,13 @@ struct ContentView: View {
             return
         }
 
+        guard trimmedName != controller.deviceDisplayName else {
+            deviceDisplayNameDraft = controller.deviceDisplayName
+            return
+        }
+
         controller.updateDeviceDisplayName(trimmedName)
+        deviceDisplayNameDraft = controller.deviceDisplayName
     }
 
     private var settingsDisclosureActionText: String {
@@ -536,9 +542,6 @@ struct ContentView: View {
     private func closeSettings() {
         if isDeviceDisplayNameFocused {
             isDeviceDisplayNameFocused = false
-        }
-
-        if controller.areSettingsUnlocked {
             commitDeviceDisplayName()
         } else {
             deviceDisplayNameDraft = controller.deviceDisplayName
