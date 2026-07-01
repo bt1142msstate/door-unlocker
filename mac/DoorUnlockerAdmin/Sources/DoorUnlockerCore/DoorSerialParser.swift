@@ -8,6 +8,8 @@ public enum DoorSerialParser {
             guard let (key, value) = keyValue(line) else { continue }
 
             switch key {
+            case "model":
+                status.modelName = value
             case "protocol":
                 status.protocolVersion = value
             case "pairing_mode":

@@ -163,6 +163,7 @@ enum DoorUnlockerCLI {
     }
 
     private static func printStatus(_ status: ControllerStatus) {
+        print("model=\(status.modelTitle)")
         print("state=\(status.bleState)")
         print("unlocked=\(status.isUnlocked ? "yes" : "no")")
         print("pairing_mode=\(status.pairingMode)")

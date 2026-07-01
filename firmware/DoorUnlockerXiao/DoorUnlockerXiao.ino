@@ -24,6 +24,7 @@ static const int SERVO_DETACH_DELAY_MS = 250;
 static const uint16_t DEFAULT_UNLOCK_HOLD_TIMEOUT_SECONDS = 30;
 static const uint16_t MIN_UNLOCK_HOLD_TIMEOUT_SECONDS = 5;
 static const uint16_t MAX_UNLOCK_HOLD_TIMEOUT_SECONDS = 120;
+static const char CONTROLLER_MODEL_NAME[] = "DoorUnlocker-XIAO-v2";
 
 // Door Unlocker BLE v2 UUIDs. The v2 service avoids stale iOS GATT caches
 // from earlier firmware that did not include the pairing characteristic.
@@ -1564,6 +1565,8 @@ void printAppError(const char* detail) {
 void printAppStatus() {
   Serial.println("APP_STATUS_BEGIN");
   Serial.println("protocol=1");
+  Serial.print("model=");
+  Serial.println(CONTROLLER_MODEL_NAME);
   Serial.print("pairing_mode=");
   Serial.println(pairingModeEnabled ? "enabled" : "locked");
   Serial.print("paired_count=");
@@ -1947,7 +1950,7 @@ void setup() {
   Bluefruit.begin();
   Bluefruit.autoConnLed(false);
   Bluefruit.setTxPower(4);
-  Bluefruit.setName("DoorUnlocker-XIAO-v2");
+  Bluefruit.setName(CONTROLLER_MODEL_NAME);
   Bluefruit.Security.setIOCaps(false, false, false);
   Bluefruit.Security.setMITM(false);
   Bluefruit.Periph.setConnectCallback(connectCallback);
@@ -1960,7 +1963,8 @@ void setup() {
   setupDoorService();
   startAdvertising();
 
-  Serial.println("DoorUnlocker-XIAO-v2 ready");
+  Serial.print(CONTROLLER_MODEL_NAME);
+  Serial.println(" ready");
   Serial.print("Service UUID: ");
   Serial.println(DOOR_SERVICE_UUID);
   Serial.print("Auto-lock timeout: ");

@@ -75,7 +75,7 @@ USB serial commands:
 - `pairs list`: print paired device slots, fingerprints, and names when known.
 - `pairs remove N`: remove one paired device by slot number.
 - `pairs clear`: remove all paired devices.
-- `app status`: print machine-readable status for the Mac admin app.
+- `app status`: print machine-readable model, state, pairing, and timeout status for the Mac admin app.
 - `app pairs`: print machine-readable paired-device slots, fingerprints, counters, and names when known.
 - `app pair on` / `app pair off`: enable or disable USB-gated pairing from the Mac admin app.
 - `app approve CODE` / `app reject`: approve or reject a pending device request from the Mac admin app.
@@ -113,7 +113,7 @@ The app provides:
 
 The Mac admin app is in `mac/DoorUnlockerAdmin`. It automatically connects to the XIAO over USB-C serial at 115200 baud when the controller is plugged in, trusts the Mac over that USB-C admin channel, and auto-connects over Bluetooth when wireless control is available.
 
-- Show controller state, pairing mode, auto-lock timeout, live auto-lock countdown, and trusted-device count.
+- Show controller model, state, pairing mode, auto-lock timeout, live auto-lock countdown, and trusted-device count.
 - List trusted devices by friendly name when known, plus slot and public-key fingerprint.
 - Enable or disable pairing mode.
 - Approve or reject a pending iPhone pairing request by typing the 4-digit code shown on the phone.

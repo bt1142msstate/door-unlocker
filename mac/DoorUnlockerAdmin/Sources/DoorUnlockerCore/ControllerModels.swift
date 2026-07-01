@@ -19,6 +19,7 @@ public struct SerialPortCandidate: Identifiable, Hashable {
 }
 
 public struct ControllerStatus: Equatable {
+    public var modelName = "DoorUnlocker-XIAO-v2"
     public var protocolVersion = "unknown"
     public var pairingMode = "unknown"
     public var pairedCount = 0
@@ -32,6 +33,7 @@ public struct ControllerStatus: Equatable {
     public var autoLockDeadline: Date?
 
     public init(
+        modelName: String = "DoorUnlocker-XIAO-v2",
         protocolVersion: String = "unknown",
         pairingMode: String = "unknown",
         pairedCount: Int = 0,
@@ -44,6 +46,7 @@ public struct ControllerStatus: Equatable {
         autoLockRemainingSeconds: Int? = nil,
         autoLockDeadline: Date? = nil
     ) {
+        self.modelName = modelName
         self.protocolVersion = protocolVersion
         self.pairingMode = pairingMode
         self.pairedCount = pairedCount
@@ -58,6 +61,10 @@ public struct ControllerStatus: Equatable {
     }
 
     public static let disconnected = ControllerStatus()
+
+    public var modelTitle: String {
+        modelName.isEmpty ? "Unknown model" : modelName
+    }
 
     public var stateTitle: String {
         switch bleState {

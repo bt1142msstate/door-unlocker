@@ -37,6 +37,7 @@ private struct SidebarView: View {
             }
 
             Section("Door") {
+                SidebarMetric(title: "Model", value: store.status.modelTitle, symbol: "rectangle.connected.to.line.below")
                 SidebarMetric(title: "State", value: store.status.stateTitle, symbol: store.status.isUnlocked ? "lock.open.fill" : "lock.fill")
                 SidebarMetric(title: "Connection", value: store.primaryConnectionTitle, symbol: store.isWirelessReady ? "wave.3.right" : "cable.connector")
                 SidebarMetric(title: "Pairing", value: store.status.pairingTitle, symbol: "person.badge.key.fill")
@@ -181,6 +182,7 @@ private struct HeroControl: View {
             VStack(alignment: .leading, spacing: 13) {
                 HStack(spacing: 10) {
                     StatusPill(text: stateTitle, symbol: currentSymbol, tint: accent)
+                    StatusPill(text: store.status.modelTitle, symbol: "rectangle.connected.to.line.below", tint: .secondary)
                     StatusPill(text: store.primaryConnectionTitle, symbol: store.isWirelessReady ? "wave.3.right" : "cable.connector", tint: .secondary)
                 }
 
