@@ -22,7 +22,7 @@ private struct SidebarView: View {
             Section {
                 Label {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Door Unlocker")
+                        Text(store.lockName)
                             .font(.headline)
                         Text("Admin")
                             .font(.caption)
@@ -36,11 +36,9 @@ private struct SidebarView: View {
                 .padding(.vertical, 4)
             }
 
-            Section("Door") {
+            Section("Controller") {
+                SidebarMetric(title: "Status", value: store.controllerStatusTitle, symbol: store.controllerStatusSymbol)
                 SidebarMetric(title: "Model", value: store.status.modelTitle, symbol: "rectangle.connected.to.line.below")
-                SidebarMetric(title: "State", value: store.status.stateTitle, symbol: store.status.isUnlocked ? "lock.open.fill" : "lock.fill")
-                SidebarMetric(title: "Connection", value: store.primaryConnectionTitle, symbol: store.isWirelessReady ? "wave.3.right" : "cable.connector")
-                SidebarMetric(title: "Pairing", value: store.status.pairingTitle, symbol: "person.badge.key.fill")
                 SidebarMetric(title: "Trusted", value: "\(store.status.pairedCount)/\(max(store.status.maxPairs, 4))", symbol: "iphone.gen3")
             }
 
@@ -83,15 +81,51 @@ private struct DetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                DetailHeader(store: store)
                 HeroControl(store: store)
                 ConnectionPanel(store: store)
-                AutoLockPanel(store: store)
+                LockSettingsPanel(store: store)
                 PairingPanel(store: store)
                 DevicesPanel(store: store)
             }
             .padding(26)
         }
         .background(.background)
+    }
+}
+
+private struct DetailHeader: View {
+    @ObservedObject var store: DoorAdminStore
+
+    private var accent: Color {
+        store.status.isUnlocked ? Color(red: 0.35, green: 0.86, blue: 0.58) : Color(red: 0.35, green: 0.72, blue: 1.0)
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(accent.opacity(0.16))
+                Image(systemName: "door.left.hand.closed")
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(accent)
+            }
+            .frame(width: 48, height: 48)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(store.lockName)
+                    .font(.title2.weight(.bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                Label(store.status.modelTitle, systemImage: "rectangle.connected.to.line.below")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+
+            Spacer()
+        }
     }
 }
 
@@ -120,17 +154,27 @@ private struct HeroControl: View {
     }
 
     private var stateTitle: String {
-        let title = store.status.stateTitle
-        return title == "Unknown" ? "Disconnected" : title
+        store.stateTitle
     }
 
-    private var subtitle: String {
+    private var supportingText: String? {
         if store.isBusy {
             return store.message
         }
 
-        if store.message == "Door locked" || store.message == "Door unlocked" {
-            return store.canSendDoorCommand ? "Controller connected" : "Connect to the controller"
+        if store.status.hasPendingRequest {
+            return "Approve or reject the waiting device below."
+        }
+
+        let redundantMessages = [
+            "Door locked",
+            "Door unlocked",
+            "Controller ready",
+            "Disconnected"
+        ]
+
+        if redundantMessages.contains(store.message) {
+            return nil
         }
 
         return store.message
@@ -138,6 +182,42 @@ private struct HeroControl: View {
 
     var body: some View {
         HStack(spacing: 22) {
+            VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(stateTitle)
+                        .font(.system(size: 46, weight: .semibold, design: .rounded))
+                        .contentTransition(.numericText())
+
+                    if let countdownText = store.status.autoLockCountdownText {
+                        Label(countdownText, systemImage: "timer")
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(accent)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            .background(accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .contentTransition(.numericText())
+                    }
+                }
+
+                ControllerStatusStrip(store: store, tint: accent)
+
+                if let supportingText {
+                    Text(supportingText)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+
+                if let error = store.lastError {
+                    Label(error, systemImage: "exclamationmark.triangle.fill")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.yellow)
+                        .lineLimit(2)
+                }
+            }
+
+            Spacer(minLength: 16)
+
             Button {
                 store.toggleLock()
             } label: {
@@ -178,46 +258,10 @@ private struct HeroControl: View {
             .buttonStyle(.plain)
             .disabled(!store.canSendDoorCommand || store.isBusy)
             .onHover { isHovering = $0 }
-
-            VStack(alignment: .leading, spacing: 13) {
-                HStack(spacing: 10) {
-                    StatusPill(text: stateTitle, symbol: currentSymbol, tint: accent)
-                    StatusPill(text: store.status.modelTitle, symbol: "rectangle.connected.to.line.below", tint: .secondary)
-                    StatusPill(text: store.primaryConnectionTitle, symbol: store.isWirelessReady ? "wave.3.right" : "cable.connector", tint: .secondary)
-                }
-
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(stateTitle)
-                        .font(.system(size: 46, weight: .semibold, design: .rounded))
-                        .contentTransition(.numericText())
-
-                    Text(subtitle)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-
-                if let countdownText = store.status.autoLockCountdownText {
-                    Label(countdownText, systemImage: "timer")
-                        .font(.callout.weight(.semibold))
-                        .foregroundStyle(accent)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 7)
-                        .background(accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .contentTransition(.numericText())
-                }
-
-                if store.isBusy {
-                    ProgressView()
-                        .controlSize(.small)
-                }
-            }
-
-            Spacer()
         }
         .padding(24)
         .background {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(.regularMaterial)
                 .overlay(alignment: .topLeading) {
                     LinearGradient(
@@ -225,13 +269,47 @@ private struct HeroControl: View {
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(accent.opacity(0.16), lineWidth: 1)
         }
+    }
+}
+
+private struct ControllerStatusStrip: View {
+    @ObservedObject var store: DoorAdminStore
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 9) {
+            Image(systemName: store.controllerStatusSymbol)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(tint)
+                .frame(width: 30, height: 30)
+                .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(store.controllerStatusTitle)
+                    .font(.caption.weight(.bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+
+                Text(store.controllerStatusDetail)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity)
+        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -257,9 +335,9 @@ private struct PanelSurface<Content: View>: View {
         content
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(Color.primary.opacity(0.06), lineWidth: 1)
             }
     }
@@ -269,90 +347,94 @@ private struct ConnectionPanel: View {
     @ObservedObject var store: DoorAdminStore
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Connection")
-                    .font(.headline)
-                Spacer()
-                StatusPill(text: store.primaryConnectionTitle, symbol: store.isWirelessReady ? "wave.3.right" : "cable.connector", tint: .secondary)
-            }
-
-            HStack(alignment: .top, spacing: 12) {
-                WirelessStatusTile(store: store)
-
-                PanelSurface {
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack {
-                            Label("USB-C Controller", systemImage: "cable.connector")
-                                .font(.headline)
-                            Spacer()
-                            Text(store.isConnected ? "Connected" : "Disconnected")
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Text("Used for trusted admin access. When connected, lock control and settings use USB-C automatically.")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        Label(
-                            store.isConnected
-                                ? "This Mac is trusted automatically over USB-C."
-                                : "Plug in the controller and the app will connect automatically.",
-                            systemImage: store.isConnected ? "checkmark.circle.fill" : "cable.connector.slash"
-                        )
-                        .font(.callout)
-                        .foregroundStyle(store.isConnected ? .green : .secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-        }
-    }
-}
-
-private struct WirelessStatusTile: View {
-    @ObservedObject var store: DoorAdminStore
-
-    var body: some View {
         PanelSurface {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Label("Wireless Control", systemImage: "wave.3.right")
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .firstTextBaseline) {
+                    Label("Connection", systemImage: store.isConnected ? "cable.connector" : "wave.3.right")
                         .font(.headline)
                     Spacer()
-                    Text(store.wirelessConnectionState)
+                    Text(store.primaryConnectionTitle)
+                        .font(.caption.weight(.bold))
                         .foregroundStyle(.secondary)
                 }
 
-                Label(statusText, systemImage: statusSymbol)
-                .font(.callout)
-                .foregroundStyle(store.isConnected || store.isWirelessReady ? .green : .secondary)
-                .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(store.connectionSummaryTitle)
+                        .font(.title3.weight(.semibold))
+                    Text(store.connectionSummaryDetail)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Divider()
+
+                HStack(alignment: .top, spacing: 14) {
+                    ConnectionModeRow(
+                        title: "USB-C",
+                        value: store.isConnected ? "Connected" : "Auto",
+                        symbol: store.isConnected ? "checkmark.circle.fill" : "cable.connector",
+                        tint: store.isConnected ? .green : .secondary,
+                        detail: store.isConnected
+                            ? "Trusted admin access is active."
+                            : "Plug in the controller to use USB-C."
+                    )
+
+                    Divider()
+
+                    ConnectionModeRow(
+                        title: "Wireless",
+                        value: store.wirelessConnectionState,
+                        symbol: store.isConnected ? "pause.circle.fill" : (store.isWirelessReady ? "checkmark.circle.fill" : "antenna.radiowaves.left.and.right"),
+                        tint: store.isWirelessReady ? .green : .secondary,
+                        detail: store.isConnected
+                            ? "Paused while USB-C is active."
+                            : "Connects on demand for lock commands."
+                    )
+                }
             }
         }
     }
+}
 
-    private var statusText: String {
-        if store.isConnected {
-            return "Using USB-C. Wireless is paused so the iPhone can connect."
-        }
-        if store.isWirelessReady {
-            return "Wireless commands are available."
-        }
-        return "Wireless stays idle and connects only when the Mac sends a command."
-    }
+private struct ConnectionModeRow: View {
+    let title: String
+    let value: String
+    let symbol: String
+    let tint: Color
+    let detail: String
 
-    private var statusSymbol: String {
-        if store.isConnected {
-            return "pause.circle.fill"
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: symbol)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(tint)
+                .frame(width: 22)
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(title)
+                        .font(.callout.weight(.semibold))
+                    Text(value)
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
-        return store.isWirelessReady ? "checkmark.circle.fill" : "antenna.radiowaves.left.and.right"
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
-private struct AutoLockPanel: View {
+private struct LockSettingsPanel: View {
     @ObservedObject var store: DoorAdminStore
+    @State private var lockNameDraft = ""
+    @FocusState private var isLockNameFocused: Bool
 
     private var accent: Color {
         store.status.isUnlocked ? Color(red: 0.35, green: 0.86, blue: 0.58) : Color(red: 0.35, green: 0.72, blue: 1.0)
@@ -361,11 +443,44 @@ private struct AutoLockPanel: View {
     var body: some View {
         PanelSurface {
             VStack(alignment: .leading, spacing: 14) {
+                Label("Settings", systemImage: "slider.horizontal.3")
+                    .font(.headline)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "door.left.hand.closed")
+                            .foregroundStyle(accent)
+                        Text("Lock Name")
+                            .font(.caption.weight(.bold))
+                        Spacer(minLength: 8)
+                        Text(store.lockName)
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+
+                    TextField(DoorAdminStore.defaultLockName, text: $lockNameDraft)
+                        .textFieldStyle(.roundedBorder)
+                        .focused($isLockNameFocused)
+                        .onSubmit {
+                            commitLockName()
+                        }
+                        .onChange(of: isLockNameFocused) { _, isFocused in
+                            if !isFocused {
+                                commitLockName()
+                            }
+                        }
+                }
+
+                Divider()
+
                 HStack(alignment: .firstTextBaseline) {
                     Label("Auto-lock", systemImage: "timer")
-                        .font(.headline)
+                        .font(.caption.weight(.bold))
                     Spacer()
-                    StatusPill(text: "\(store.status.autoLockSeconds)s", symbol: "clock", tint: accent)
+                    Text("\(store.status.autoLockSeconds)s")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(.secondary)
                 }
 
                 Stepper(
@@ -398,6 +513,25 @@ private struct AutoLockPanel: View {
                 }
             }
         }
+        .onAppear {
+            lockNameDraft = store.lockName
+        }
+        .onChange(of: store.lockName) { _, name in
+            if !isLockNameFocused {
+                lockNameDraft = name
+            }
+        }
+    }
+
+    private func commitLockName() {
+        let trimmedName = lockNameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedName.isEmpty {
+            lockNameDraft = store.lockName
+            return
+        }
+
+        store.updateLockName(trimmedName)
+        lockNameDraft = store.lockName
     }
 }
 

@@ -43,10 +43,13 @@ final class DoorAdminStore: NSObject, ObservableObject {
         case generic
     }
 
+    static let defaultLockName = "My Lock"
     static let minimumAutoLockSeconds = 5
     static let maximumAutoLockSeconds = 120
+    private static let lockNameKey = "DoorUnlockerAdminLockName"
     private static let pairedDevicesSyncInterval: TimeInterval = 5
 
+    @Published private(set) var lockName = DoorAdminStore.loadLockName()
     @Published var ports: [SerialPortCandidate] = []
     @Published var selectedPortID: String?
     @Published private(set) var isConnected = false
@@ -134,6 +137,67 @@ final class DoorAdminStore: NSObject, ObservableObject {
             return "Wireless"
         }
         return "Disconnected"
+    }
+
+    var stateTitle: String {
+        let title = status.stateTitle
+        return title == "Unknown" ? "Disconnected" : title
+    }
+
+    var controllerStatusTitle: String {
+        if status.hasPendingRequest {
+            return "Pairing request"
+        }
+        if isConnected || isWirelessReady {
+            return "Controller ready"
+        }
+        if bluetoothState != "On" {
+            return "Bluetooth \(bluetoothState)"
+        }
+        return wirelessConnectionState
+    }
+
+    var controllerStatusDetail: String {
+        "Connection \(primaryConnectionTitle) - Pairing \(status.pairingTitle) - Trusted \(status.pairedCount)/\(max(status.maxPairs, 4))"
+    }
+
+    var controllerStatusSymbol: String {
+        if status.hasPendingRequest {
+            return "person.badge.key.fill"
+        }
+        if isConnected || isWirelessReady {
+            return "checkmark.circle.fill"
+        }
+        if bluetoothState != "On" {
+            return "exclamationmark.triangle.fill"
+        }
+        return "antenna.radiowaves.left.and.right"
+    }
+
+    var connectionSummaryTitle: String {
+        if isConnected {
+            return "USB-C connected"
+        }
+        if isWirelessReady {
+            return "Wireless ready"
+        }
+        if bluetoothState != "On" {
+            return "Bluetooth \(bluetoothState)"
+        }
+        return wirelessConnectionState
+    }
+
+    var connectionSummaryDetail: String {
+        if isConnected {
+            return "Admin commands and settings use USB-C. Wireless stays paused so the iPhone can connect."
+        }
+        if isWirelessReady {
+            return "Wireless commands are available when USB-C is not connected."
+        }
+        if bluetoothState != "On" {
+            return "Turn Bluetooth on to use wireless control."
+        }
+        return "USB-C connects automatically when plugged in. Wireless connects only when the Mac sends a command."
     }
 
     override init() {
@@ -616,6 +680,28 @@ final class DoorAdminStore: NSObject, ObservableObject {
                 await self?.syncControllerStateIfNeeded()
             }
         }
+    }
+
+    func updateLockName(_ name: String) {
+        let sanitizedName = Self.sanitizedLockName(name)
+        guard !sanitizedName.isEmpty else { return }
+        guard sanitizedName != lockName else { return }
+
+        lockName = sanitizedName
+        UserDefaults.standard.set(sanitizedName, forKey: Self.lockNameKey)
+    }
+
+    private static func loadLockName() -> String {
+        guard let savedName = UserDefaults.standard.string(forKey: lockNameKey) else {
+            return defaultLockName
+        }
+
+        let sanitizedName = sanitizedLockName(savedName)
+        return sanitizedName.isEmpty ? defaultLockName : sanitizedName
+    }
+
+    private static func sanitizedLockName(_ name: String) -> String {
+        DoorDeviceNameNormalizer.normalized(name, fallback: defaultLockName)
     }
 
     private func syncControllerStateIfNeeded() async {
