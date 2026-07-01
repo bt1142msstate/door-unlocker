@@ -491,6 +491,7 @@ struct ContentView: View {
             VStack(spacing: 10) {
                 unlockGestureControl
                 unlockAuthenticationToggle
+                proximityUnlockToggle
                 unlockNotificationsToggle
                 deviceDisplayNameControl
                 autoLockTimeoutControl
@@ -576,6 +577,31 @@ struct ContentView: View {
                 Text(controller.requiresUnlockAuthentication ? "On" : "Off")
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(.secondary)
+            }
+        }
+        .toggleStyle(.switch)
+        .tint(accent)
+        .disabled(controller.isAuthenticatingSettings)
+        .padding(12)
+        .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private var proximityUnlockToggle: some View {
+        Toggle(isOn: Binding(
+            get: { controller.proximityUnlockEnabled },
+            set: { controller.setProximityUnlockEnabled($0) }
+        )) {
+            HStack(spacing: 8) {
+                Image(systemName: "dot.radiowaves.left.and.right")
+                    .foregroundStyle(accent)
+                Text("Proximity Unlock")
+                    .font(.caption.weight(.bold))
+                Spacer(minLength: 8)
+                Text(controller.proximityUnlockStatus)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
         }
         .toggleStyle(.switch)

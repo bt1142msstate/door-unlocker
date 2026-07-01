@@ -25,6 +25,8 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     static let defaultUnlockHoldDurationSeconds = 1.0
     static let minimumUnlockHoldDurationSeconds = 0.5
     static let maximumUnlockHoldDurationSeconds = 3.0
+    static let proximityUnlockMinimumAwaySeconds: TimeInterval = 8.0
+    static let proximityUnlockCooldownSeconds: TimeInterval = 30.0
     private static let liveActivityLockConfirmationSeconds: TimeInterval = 2.0
     private static let liveActivityLockAnimationSettleSeconds: TimeInterval = 0.12
     private static let liveActivityLockAnimationHalfSeconds: TimeInterval = 0.42
@@ -55,6 +57,8 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     @Published private(set) var unlockHoldDurationSeconds = DoorUnlockerController.storedUnlockHoldDurationSeconds()
     @Published private(set) var unlockNotificationsEnabled = UserDefaults.standard.bool(forKey: DoorUnlockerController.unlockNotificationsKey)
     @Published private(set) var unlockNotificationStatus = "Checking"
+    @Published private(set) var proximityUnlockEnabled = DoorUnlockerController.storedProximityUnlockEnabled()
+    @Published private(set) var proximityUnlockStatus = DoorUnlockerController.storedProximityUnlockEnabled() ? "Monitoring" : "Off"
     @Published var lastError: String?
 
     private static let unlockAuthenticationKey = "RequireUnlockAuthentication"
@@ -62,6 +66,8 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     private static let unlockHoldDurationKey = "UnlockHoldDurationSeconds"
     private static let unlockNotificationsKey = "UnlockNotificationsEnabled"
     private static let unlockNotificationIdentifier = "DoorUnlockerUnlocked"
+    private static let proximityUnlockKey = "ProximityUnlockEnabled"
+    private static let proximityUnlockArmedAtKey = "ProximityUnlockArmedAt"
     private static let autoLockSecondsKey = "AutoLockSeconds"
     private static let deviceDisplayNameKey = "DoorUnlockerDeviceDisplayName"
     private static let maximumDeviceDisplayNameLength = 24
@@ -94,6 +100,8 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     private var widgetReloadTask: Task<Void, Never>?
     private var widgetReloadBackgroundTask: UIBackgroundTaskIdentifier = .invalid
     private var widgetReloadGeneration = 0
+    private var proximityUnlockArmedAt = DoorUnlockerController.storedProximityUnlockArmedAt()
+    private var lastProximityUnlockAt: Date?
 
     var isConnectedToController: Bool {
         pairingCharacteristic != nil && peripheral?.state == .connected
@@ -182,7 +190,17 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         super.init()
         central = CBCentralManager(delegate: self, queue: .main)
         refreshNotificationSettings()
+        updateProximityUnlockStatus()
         dismissStoredLockedLiveActivityIfNeeded()
+    }
+
+    private static func storedProximityUnlockEnabled() -> Bool {
+        UserDefaults.standard.bool(forKey: proximityUnlockKey)
+    }
+
+    private static func storedProximityUnlockArmedAt() -> Date? {
+        let timestamp = UserDefaults.standard.double(forKey: proximityUnlockArmedAtKey)
+        return timestamp > 0 ? Date(timeIntervalSince1970: timestamp) : nil
     }
 
     private static func storedAutoLockSeconds() -> Int {
@@ -296,6 +314,29 @@ final class DoorUnlockerController: NSObject, ObservableObject {
             UserDefaults.standard.set(false, forKey: Self.unlockNotificationsKey)
             UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [Self.unlockNotificationIdentifier])
         }
+    }
+
+    func setProximityUnlockEnabled(_ isEnabled: Bool) {
+        guard isEnabled != proximityUnlockEnabled else { return }
+        guard areSettingsUnlocked else {
+            lastError = "Open Settings with Face ID or passcode first"
+            return
+        }
+
+        proximityUnlockEnabled = isEnabled
+        UserDefaults.standard.set(isEnabled, forKey: Self.proximityUnlockKey)
+
+        if isEnabled {
+            if isReady {
+                clearProximityUnlockArming()
+            } else {
+                armProximityUnlockForReturn()
+            }
+        } else {
+            clearProximityUnlockArming()
+        }
+
+        updateProximityUnlockStatus()
     }
 
     func refreshNotificationSettings() {
@@ -422,6 +463,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
                 peripheral.discoverServices([serviceUUID])
             }
             readStateIfPermitted()
+            updateProximityUnlockStatus()
             return
         }
 
@@ -430,6 +472,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         pairingCharacteristic = nil
         pairingState = "Unknown"
         pairingApprovalCode = nil
+        updateProximityUnlockStatus()
         startScan()
     }
 
@@ -697,11 +740,82 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         }
     }
 
+    private func armProximityUnlockForReturn() {
+        guard proximityUnlockEnabled else { return }
+
+        let armedAt = Date()
+        proximityUnlockArmedAt = armedAt
+        UserDefaults.standard.set(armedAt.timeIntervalSince1970, forKey: Self.proximityUnlockArmedAtKey)
+        updateProximityUnlockStatus()
+    }
+
+    private func clearProximityUnlockArming() {
+        proximityUnlockArmedAt = nil
+        UserDefaults.standard.removeObject(forKey: Self.proximityUnlockArmedAtKey)
+    }
+
+    private func updateProximityUnlockStatus() {
+        guard proximityUnlockEnabled else {
+            proximityUnlockStatus = "Off"
+            return
+        }
+
+        if proximityUnlockArmedAt != nil {
+            proximityUnlockStatus = "Armed"
+        } else if isReady {
+            proximityUnlockStatus = "Monitoring"
+        } else if bluetoothState != "On" {
+            proximityUnlockStatus = bluetoothState
+        } else {
+            proximityUnlockStatus = "Waiting"
+        }
+    }
+
+    private func runProximityUnlockIfReady() {
+        guard proximityUnlockEnabled, let armedAt = proximityUnlockArmedAt else {
+            updateProximityUnlockStatus()
+            return
+        }
+
+        guard isReady, pendingSystemCommand == nil else {
+            updateProximityUnlockStatus()
+            return
+        }
+
+        guard servoState == "locked" else {
+            if isUnlocked {
+                clearProximityUnlockArming()
+            }
+            updateProximityUnlockStatus()
+            return
+        }
+
+        let now = Date()
+        guard now.timeIntervalSince(armedAt) >= Self.proximityUnlockMinimumAwaySeconds else {
+            clearProximityUnlockArming()
+            updateProximityUnlockStatus()
+            return
+        }
+
+        if let lastProximityUnlockAt,
+           now.timeIntervalSince(lastProximityUnlockAt) < Self.proximityUnlockCooldownSeconds {
+            clearProximityUnlockArming()
+            updateProximityUnlockStatus()
+            return
+        }
+
+        clearProximityUnlockArming()
+        lastProximityUnlockAt = now
+        proximityUnlockStatus = "Unlocking"
+        sendAuthenticated(.unlock)
+    }
+
     private func startScan() {
         guard central?.state == .poweredOn else { return }
 
         central?.stopScan()
         connectionState = "Scanning"
+        updateProximityUnlockStatus()
         central?.scanForPeripherals(withServices: [serviceUUID], options: [
             CBCentralManagerScanOptionAllowDuplicatesKey: true
         ])
@@ -715,12 +829,14 @@ final class DoorUnlockerController: NSObject, ObservableObject {
             self.peripheral = peripheral
             self.peripheral?.delegate = self
             connectionState = commandCharacteristic == nil ? "Discovering" : "Ready"
+            updateProximityUnlockStatus()
             peripheral.discoverServices([serviceUUID])
             return
         }
 
         guard peripheral.state != .connecting else {
             connectionState = "Connecting"
+            updateProximityUnlockStatus()
             scheduleReconnectCheck(after: 5)
             return
         }
@@ -728,6 +844,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         self.peripheral = peripheral
         self.peripheral?.delegate = self
         connectionState = "Connecting"
+        updateProximityUnlockStatus()
         central.stopScan()
         central.connect(peripheral, options: nil)
         scheduleReconnectCheck(after: 6)
@@ -754,6 +871,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         pairingCharacteristic = nil
         pairingState = "Unknown"
         pairingApprovalCode = nil
+        updateProximityUnlockStatus()
         startScan()
     }
 
@@ -1288,6 +1406,7 @@ extension DoorUnlockerController: CBCentralManagerDelegate {
                 bluetoothState = "Unknown"
                 connectionState = "Starting"
             }
+            updateProximityUnlockStatus()
         }
     }
 
@@ -1304,6 +1423,7 @@ extension DoorUnlockerController: CBCentralManagerDelegate {
             reconnectTimer?.invalidate()
             connectionState = "Discovering"
             lastError = nil
+            updateProximityUnlockStatus()
             peripheral.delegate = self
             peripheral.discoverServices([serviceUUID])
             scheduleReconnectCheck(after: 6)
@@ -1314,12 +1434,14 @@ extension DoorUnlockerController: CBCentralManagerDelegate {
         Task { @MainActor in
             connectionState = "Disconnected"
             lastError = error?.localizedDescription ?? "Connect failed"
+            updateProximityUnlockStatus()
             scheduleReconnectCheck(after: 1)
         }
     }
 
     nonisolated func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         Task { @MainActor in
+            let shouldArmProximityUnlock = proximityUnlockEnabled && isPaired
             connectionState = "Disconnected"
             commandCharacteristic = nil
             stateCharacteristic = nil
@@ -1328,6 +1450,11 @@ extension DoorUnlockerController: CBCentralManagerDelegate {
             pairingApprovalCode = nil
             if let error {
                 lastError = error.localizedDescription
+            }
+            if shouldArmProximityUnlock {
+                armProximityUnlockForReturn()
+            } else {
+                updateProximityUnlockStatus()
             }
             scheduleReconnectCheck(after: 1)
         }
@@ -1380,6 +1507,7 @@ extension DoorUnlockerController: CBPeripheralDelegate {
                 reconnectTimer?.invalidate()
                 connectionState = "Ready"
                 sendPendingSystemCommandIfReady()
+                updateProximityUnlockStatus()
             } else {
                 lastError = "Required controller characteristic not found"
                 central?.cancelPeripheralConnection(peripheral)
@@ -1444,6 +1572,7 @@ extension DoorUnlockerController: CBPeripheralDelegate {
             publishWidgetState(parsedState.state, controllerRemainingSeconds: parsedState.remainingSeconds)
             sendPendingSystemCommandIfReady()
             syncDeviceDisplayNameIfReady()
+            runProximityUnlockIfReady()
         }
     }
 
