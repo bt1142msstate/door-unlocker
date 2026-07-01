@@ -50,7 +50,9 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     @Published private(set) var autoLockSeconds = DoorUnlockerController.storedAutoLockSeconds()
     @Published private(set) var autoLockStatus = "Ready to set"
     @Published private(set) var autoLockRemainingSeconds: Int?
+    @Published private(set) var lockName = DoorStatusStore.loadLockName()
     @Published private(set) var deviceDisplayName = DoorUnlockerController.storedDeviceDisplayName()
+    @Published private(set) var lockNameStatus = "Shown in app and widget"
     @Published private(set) var deviceDisplayNameStatus = "Ready to sync"
     @Published private(set) var requiresUnlockAuthentication = UserDefaults.standard.bool(forKey: DoorUnlockerController.unlockAuthenticationKey)
     @Published private(set) var requiresHoldToUnlock = UserDefaults.standard.bool(forKey: DoorUnlockerController.unlockHoldRequirementKey)
@@ -371,6 +373,25 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         pendingDeviceDisplayName = sanitizedName
         deviceDisplayNameStatus = isReady ? "Setting..." : "Waiting for controller"
         syncDeviceDisplayNameIfReady()
+    }
+
+    func updateLockName(_ name: String) {
+        let sanitizedName = DoorStatusStore.sanitizedLockName(name)
+        guard !sanitizedName.isEmpty else { return }
+        guard areSettingsUnlocked else {
+            lastError = "Open Settings with Face ID or passcode first"
+            return
+        }
+
+        guard sanitizedName != lockName else {
+            lockNameStatus = "Shown in app and widget"
+            return
+        }
+
+        lockName = sanitizedName
+        DoorStatusStore.saveLockName(sanitizedName)
+        lockNameStatus = "Shown in app and widget"
+        requestDoorWidgetReload()
     }
 
     func unlockSettings() {
@@ -1031,12 +1052,12 @@ final class DoorUnlockerController: NSObject, ObservableObject {
             }
 
             let content = UNMutableNotificationContent()
-            content.title = "Door unlocked"
+            content.title = "\(self.lockName) unlocked"
             if let deadline, deadline > .now {
                 let remainingSeconds = max(0, Int(ceil(deadline.timeIntervalSinceNow)))
                 content.body = "Auto-locks in \(remainingSeconds) seconds."
             } else {
-                content.body = "Door Unlocker is unlocked."
+                content.body = "\(self.lockName) is unlocked."
             }
             content.sound = .default
             content.threadIdentifier = "DoorUnlocker"
@@ -1219,7 +1240,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
                 liveActivity = activity
                 await activity.update(content)
             } else {
-                let attributes = DoorUnlockerActivityAttributes(title: "Door Unlocker")
+                let attributes = DoorUnlockerActivityAttributes(title: lockName)
                 liveActivity = try Activity<DoorUnlockerActivityAttributes>.request(
                     attributes: attributes,
                     content: content,

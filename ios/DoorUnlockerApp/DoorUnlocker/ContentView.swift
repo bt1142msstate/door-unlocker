@@ -7,12 +7,15 @@ struct ContentView: View {
     @State private var displayedIconIsUnlocked = false
     @State private var iconFlipDegrees = 0.0
     @State private var settingsExpanded = false
+    @State private var lockNameDraft = ""
+    @State private var lockNameCommitTask: Task<Void, Never>?
     @State private var deviceDisplayNameDraft = ""
     @State private var deviceDisplayNameCommitTask: Task<Void, Never>?
-    @State private var shouldLockSettingsAfterDeviceNameCommit = false
+    @State private var shouldLockSettingsAfterNameCommits = false
     @State private var isUnlockHoldActive = false
     @State private var unlockHoldProgress = 0.0
     @State private var unlockHoldTask: Task<Void, Never>?
+    @FocusState private var isLockNameFocused: Bool
     @FocusState private var isDeviceDisplayNameFocused: Bool
 
     private var accent: Color {
@@ -92,9 +95,15 @@ struct ContentView: View {
         }
         .onAppear {
             displayedIconIsUnlocked = controller.isUnlocked
+            lockNameDraft = controller.lockName
             deviceDisplayNameDraft = controller.deviceDisplayName
             controller.refreshStateFromController()
             controller.performPendingSystemCommand()
+        }
+        .onChange(of: controller.lockName) { _, name in
+            if !isLockNameFocused {
+                lockNameDraft = name
+            }
         }
         .onChange(of: controller.deviceDisplayName) { _, name in
             if !isDeviceDisplayNameFocused {
@@ -164,8 +173,10 @@ struct ContentView: View {
             .frame(width: 48, height: 48)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text("Door Unlocker")
+                Text(controller.lockName)
                     .font(.title2.weight(.bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
                 Label(controller.deviceName, systemImage: "rectangle.connected.to.line.below")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
@@ -489,6 +500,7 @@ struct ContentView: View {
             }
         )) {
             VStack(spacing: 10) {
+                lockNameControl
                 unlockGestureControl
                 unlockAuthenticationToggle
                 proximityUnlockToggle
@@ -510,6 +522,45 @@ struct ContentView: View {
             }
         }
         .tint(accent)
+        .padding(12)
+        .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private var lockNameControl: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "door.left.hand.closed")
+                    .foregroundStyle(accent)
+                Text("Lock Name")
+                    .font(.caption.weight(.bold))
+                Spacer(minLength: 8)
+                Text(controller.lockName)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+
+            TextField(DoorStatusStore.defaultLockName, text: $lockNameDraft)
+                .textFieldStyle(.roundedBorder)
+                .submitLabel(.done)
+                .focused($isLockNameFocused)
+                .onSubmit {
+                    scheduleLockNameCommit()
+                }
+                .onChange(of: isLockNameFocused) { _, isFocused in
+                    if !isFocused {
+                        scheduleLockNameCommit()
+                    }
+                }
+
+            Text(controller.lockNameStatus)
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .disabled(controller.isAuthenticatingSettings)
         .padding(12)
         .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
@@ -741,9 +792,25 @@ struct ContentView: View {
         }
     }
 
+    private func scheduleLockNameCommit(lockSettingsAfterCommit: Bool = false) {
+        if lockSettingsAfterCommit {
+            shouldLockSettingsAfterNameCommits = true
+        }
+
+        lockNameCommitTask?.cancel()
+        lockNameCommitTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(120))
+            guard !Task.isCancelled else { return }
+
+            lockNameCommitTask = nil
+            commitLockNameNow()
+            completeSettingsCloseIfReady()
+        }
+    }
+
     private func scheduleDeviceDisplayNameCommit(lockSettingsAfterCommit: Bool = false) {
         if lockSettingsAfterCommit {
-            shouldLockSettingsAfterDeviceNameCommit = true
+            shouldLockSettingsAfterNameCommits = true
         }
 
         deviceDisplayNameCommitTask?.cancel()
@@ -753,18 +820,40 @@ struct ContentView: View {
 
             deviceDisplayNameCommitTask = nil
             commitDeviceDisplayNameNow()
-
-            if shouldLockSettingsAfterDeviceNameCommit {
-                shouldLockSettingsAfterDeviceNameCommit = false
-                controller.lockSettings()
-            }
+            completeSettingsCloseIfReady()
         }
+    }
+
+    private func cancelPendingLockNameCommit() {
+        lockNameCommitTask?.cancel()
+        lockNameCommitTask = nil
     }
 
     private func cancelPendingDeviceDisplayNameCommit() {
         deviceDisplayNameCommitTask?.cancel()
         deviceDisplayNameCommitTask = nil
-        shouldLockSettingsAfterDeviceNameCommit = false
+    }
+
+    private func cancelPendingNameCommits() {
+        cancelPendingLockNameCommit()
+        cancelPendingDeviceDisplayNameCommit()
+        shouldLockSettingsAfterNameCommits = false
+    }
+
+    private func commitLockNameNow() {
+        let trimmedName = lockNameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedName.isEmpty {
+            lockNameDraft = controller.lockName
+            return
+        }
+
+        guard trimmedName != controller.lockName else {
+            lockNameDraft = controller.lockName
+            return
+        }
+
+        controller.updateLockName(trimmedName)
+        lockNameDraft = controller.lockName
     }
 
     private func commitDeviceDisplayNameNow() {
@@ -781,6 +870,19 @@ struct ContentView: View {
 
         controller.updateDeviceDisplayName(trimmedName)
         deviceDisplayNameDraft = controller.deviceDisplayName
+    }
+
+    private func completeSettingsCloseIfReady() {
+        guard shouldLockSettingsAfterNameCommits,
+              lockNameCommitTask == nil,
+              deviceDisplayNameCommitTask == nil,
+              !isLockNameFocused,
+              !isDeviceDisplayNameFocused else {
+            return
+        }
+
+        shouldLockSettingsAfterNameCommits = false
+        controller.lockSettings()
     }
 
     private var settingsDisclosureActionText: String {
@@ -802,13 +904,18 @@ struct ContentView: View {
     }
 
     private func closeSettings() {
-        if isDeviceDisplayNameFocused {
+        if isLockNameFocused {
+            isLockNameFocused = false
+            scheduleLockNameCommit(lockSettingsAfterCommit: true)
+        } else if isDeviceDisplayNameFocused {
             isDeviceDisplayNameFocused = false
             scheduleDeviceDisplayNameCommit(lockSettingsAfterCommit: true)
-        } else if deviceDisplayNameCommitTask != nil {
-            shouldLockSettingsAfterDeviceNameCommit = true
+        } else if lockNameCommitTask != nil || deviceDisplayNameCommitTask != nil {
+            shouldLockSettingsAfterNameCommits = true
+            completeSettingsCloseIfReady()
         } else {
-            cancelPendingDeviceDisplayNameCommit()
+            cancelPendingNameCommits()
+            lockNameDraft = controller.lockName
             deviceDisplayNameDraft = controller.deviceDisplayName
             controller.lockSettings()
         }

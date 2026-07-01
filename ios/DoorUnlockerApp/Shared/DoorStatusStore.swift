@@ -37,14 +37,64 @@ struct DoorUnlockerActivityAttributes: ActivityAttributes {
 
 enum DoorStatusStore {
     static let appGroupIdentifier = "group.io.github.bt1142msstate.DoorUnlocker"
+    static let defaultLockName = "My Lock"
 
+    private static let lockNameKey = "DoorUnlockerLockName"
     private static let stateKey = "DoorUnlockerLastState"
     private static let updatedAtKey = "DoorUnlockerLastStateUpdatedAt"
     private static let autoLockStartedAtKey = "DoorUnlockerAutoLockStartedAt"
     private static let autoLockDeadlineKey = "DoorUnlockerAutoLockDeadline"
+    private static let maximumLockNameLength = 24
 
     static var sharedDefaults: UserDefaults {
         UserDefaults(suiteName: appGroupIdentifier) ?? .standard
+    }
+
+    static func saveLockName(_ name: String) {
+        let sanitizedName = sanitizedLockName(name)
+        guard !sanitizedName.isEmpty else { return }
+
+        sharedDefaults.set(sanitizedName, forKey: lockNameKey)
+        sharedDefaults.synchronize()
+    }
+
+    static func loadLockName() -> String {
+        guard let storedName = sharedDefaults.string(forKey: lockNameKey) else {
+            return defaultLockName
+        }
+
+        let sanitizedName = sanitizedLockName(storedName)
+        return sanitizedName.isEmpty ? defaultLockName : sanitizedName
+    }
+
+    static func sanitizedLockName(_ name: String) -> String {
+        let normalizedName = normalizedNameSource(name)
+        let fallback = normalizedName.isEmpty ? defaultLockName : normalizedName
+        let ascii = fallback.unicodeScalars.compactMap { scalar -> String? in
+            scalar.isASCII && scalar.value >= 32 && scalar.value <= 126 ? String(scalar) : nil
+        }
+        return String(ascii.joined().prefix(maximumLockNameLength)).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func normalizedNameSource(_ name: String) -> String {
+        name
+            .replacingOccurrences(of: "\u{2018}", with: "'")
+            .replacingOccurrences(of: "\u{2019}", with: "'")
+            .replacingOccurrences(of: "\u{201B}", with: "'")
+            .replacingOccurrences(of: "\u{2032}", with: "'")
+            .replacingOccurrences(of: "\u{201C}", with: "\"")
+            .replacingOccurrences(of: "\u{201D}", with: "\"")
+            .replacingOccurrences(of: "\u{201E}", with: "\"")
+            .replacingOccurrences(of: "\u{2033}", with: "\"")
+            .replacingOccurrences(of: "\u{2010}", with: "-")
+            .replacingOccurrences(of: "\u{2011}", with: "-")
+            .replacingOccurrences(of: "\u{2012}", with: "-")
+            .replacingOccurrences(of: "\u{2013}", with: "-")
+            .replacingOccurrences(of: "\u{2014}", with: "-")
+            .replacingOccurrences(of: "\u{2026}", with: "...")
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     static func save(state: String, updatedAt: Date = .now, autoLockStartedAt: Date? = nil, autoLockDeadline: Date? = nil) {

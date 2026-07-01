@@ -5,31 +5,37 @@ import WidgetKit
 struct DoorUnlockerEntry: TimelineEntry {
     let date: Date
     let status: DoorStatusStore.Snapshot
+    let lockName: String
 }
 
 struct DoorUnlockerWidgetProvider: TimelineProvider {
     func placeholder(in context: Context) -> DoorUnlockerEntry {
-        DoorUnlockerEntry(date: .now, status: DoorStatusStore.Snapshot(state: "locked", updatedAt: .now, autoLockStartedAt: nil, autoLockDeadline: nil))
+        DoorUnlockerEntry(
+            date: .now,
+            status: DoorStatusStore.Snapshot(state: "locked", updatedAt: .now, autoLockStartedAt: nil, autoLockDeadline: nil),
+            lockName: DoorStatusStore.defaultLockName
+        )
     }
 
     func getSnapshot(in context: Context, completion: @escaping (DoorUnlockerEntry) -> Void) {
-        completion(DoorUnlockerEntry(date: .now, status: DoorStatusStore.load()))
+        completion(DoorUnlockerEntry(date: .now, status: DoorStatusStore.load(), lockName: DoorStatusStore.loadLockName()))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<DoorUnlockerEntry>) -> Void) {
         let now = Date()
         let status = DoorStatusStore.load()
-        var entries = [DoorUnlockerEntry(date: now, status: status)]
+        let lockName = DoorStatusStore.loadLockName()
+        var entries = [DoorUnlockerEntry(date: now, status: status, lockName: lockName)]
 
         if status.isUnlocked, let deadline = status.autoLockDeadline, deadline > now {
             var refreshDate = now.addingTimeInterval(5)
             while refreshDate < deadline, entries.count < 12 {
-                entries.append(DoorUnlockerEntry(date: refreshDate, status: status))
+                entries.append(DoorUnlockerEntry(date: refreshDate, status: status, lockName: lockName))
                 refreshDate = refreshDate.addingTimeInterval(5)
             }
 
             let lockedStatus = DoorStatusStore.Snapshot(state: "locked", updatedAt: deadline, autoLockStartedAt: nil, autoLockDeadline: nil)
-            entries.append(DoorUnlockerEntry(date: deadline, status: lockedStatus))
+            entries.append(DoorUnlockerEntry(date: deadline, status: lockedStatus, lockName: lockName))
             completion(Timeline(entries: entries, policy: .after(deadline.addingTimeInterval(2))))
             return
         }
@@ -44,25 +50,21 @@ struct DoorUnlockerWidgetView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+            HStack(alignment: .top, spacing: 9) {
                 Image(systemName: "door.left.hand.closed")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(statusColor)
-
-                Text("Door Unlocker")
-                    .font(.headline.weight(.bold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
-            }
-
-            HStack(spacing: 8) {
-                Image(systemName: entry.status.symbolName)
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(statusColor)
+                    .frame(width: 24, height: 28)
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(entry.lockName)
+                        .font(.headline.weight(.bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+
                     Text(entry.status.title)
                         .font(.title3.weight(.bold))
+                        .foregroundStyle(statusColor)
                         .lineLimit(1)
                         .minimumScaleFactor(0.78)
 
@@ -71,6 +73,8 @@ struct DoorUnlockerWidgetView: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
+
+                Spacer(minLength: 0)
             }
 
             Spacer(minLength: 0)
@@ -284,8 +288,10 @@ private struct LiveActivityView: View {
             .frame(width: 44, height: 44)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Door Unlocker")
+                Text(context.attributes.title)
                     .font(.headline.weight(.bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
                 HStack(spacing: 4) {
                     if context.state.isUnlocked {
                         Text("Auto-locks in")
