@@ -10,6 +10,9 @@ struct ContentView: View {
     @State private var deviceDisplayNameDraft = ""
     @State private var deviceDisplayNameCommitTask: Task<Void, Never>?
     @State private var shouldLockSettingsAfterDeviceNameCommit = false
+    @State private var isUnlockHoldActive = false
+    @State private var unlockHoldProgress = 0.0
+    @State private var unlockHoldTask: Task<Void, Never>?
     @FocusState private var isDeviceDisplayNameFocused: Bool
 
     private var accent: Color {
@@ -25,11 +28,23 @@ struct ContentView: View {
             return controller.isUnlocked ? "Locking..." : "Unlocking..."
         }
 
+        if shouldHoldToUnlock {
+            return isUnlockHoldActive ? "Keep holding" : "Hold to unlock"
+        }
+
         return controller.isUnlocked ? "Tap to lock" : "Tap to unlock"
     }
 
     private var modeIcon: String {
         displayedIconIsUnlocked ? "lock.open.fill" : "lock.fill"
+    }
+
+    private var shouldHoldToUnlock: Bool {
+        controller.requiresHoldToUnlock && !controller.isUnlocked
+    }
+
+    private var isPrimaryActionEnabled: Bool {
+        controller.isReady && !controller.isBusy
     }
 
     var body: some View {
@@ -71,6 +86,9 @@ struct ContentView: View {
         }
         .onChange(of: controller.servoState) { _, state in
             flipLockIcon(for: state)
+            if state == "unlocking" || state == "unlocked" {
+                cancelUnlockHold()
+            }
         }
         .onAppear {
             displayedIconIsUnlocked = controller.isUnlocked
@@ -103,6 +121,17 @@ struct ContentView: View {
             withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
                 settingsExpanded = isUnlocked
             }
+        }
+        .onChange(of: controller.isBusy) { _, isBusy in
+            if isBusy {
+                cancelUnlockHold()
+            }
+        }
+        .onChange(of: controller.requiresHoldToUnlock) { _, _ in
+            cancelUnlockHold()
+        }
+        .onChange(of: controller.unlockHoldDurationSeconds) { _, _ in
+            cancelUnlockHold()
         }
     }
 
@@ -242,63 +271,132 @@ struct ContentView: View {
     }
 
     private var toggleButton: some View {
-        Button {
-            controller.toggleLock()
-        } label: {
-            VStack(spacing: 14) {
-                ZStack {
-                    Circle()
-                        .fill(Color.white.opacity(0.12))
+        VStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(Color.white.opacity(0.12))
 
-                    Circle()
-                        .strokeBorder(Color.white.opacity(controller.isChangingState ? 0.34 : 0), lineWidth: 5)
-                        .scaleEffect(controller.isChangingState && motionPhase ? 1.2 : 0.9)
-                        .opacity(controller.isChangingState && motionPhase ? 0.08 : 0.7)
+                Circle()
+                    .strokeBorder(Color.white.opacity(controller.isChangingState ? 0.34 : 0), lineWidth: 5)
+                    .scaleEffect(controller.isChangingState && motionPhase ? 1.2 : 0.9)
+                    .opacity(controller.isChangingState && motionPhase ? 0.08 : 0.7)
 
-                    Circle()
-                        .trim(from: 0.08, to: 0.82)
-                        .stroke(
-                            Color.white.opacity(controller.isChangingState ? 0.82 : 0),
-                            style: StrokeStyle(lineWidth: 6, lineCap: .round)
-                        )
-                        .rotationEffect(.degrees(controller.isChangingState && motionPhase ? 360 : 0))
+                Circle()
+                    .trim(from: 0.08, to: 0.82)
+                    .stroke(
+                        Color.white.opacity(controller.isChangingState ? 0.82 : 0),
+                        style: StrokeStyle(lineWidth: 6, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(controller.isChangingState && motionPhase ? 360 : 0))
 
-                    Image(systemName: modeIcon)
-                        .font(.system(size: 58, weight: .bold))
-                        .foregroundStyle(.white)
-                        .rotation3DEffect(
-                            .degrees(iconFlipDegrees),
-                            axis: (x: 0, y: 1, z: 0),
-                            perspective: 0.55
-                        )
-                        .scaleEffect(controller.isBusy && motionPhase ? 0.9 : 1.0)
-                }
-                .frame(width: 118, height: 118)
+                Circle()
+                    .trim(from: 0, to: unlockHoldProgress)
+                    .stroke(
+                        Color.white.opacity(isUnlockHoldActive ? 0.92 : 0),
+                        style: StrokeStyle(lineWidth: 7, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
 
-                Text(actionTitle)
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.86))
+                Image(systemName: modeIcon)
+                    .font(.system(size: 58, weight: .bold))
+                    .foregroundStyle(.white)
+                    .rotation3DEffect(
+                        .degrees(iconFlipDegrees),
+                        axis: (x: 0, y: 1, z: 0),
+                        perspective: 0.55
+                    )
+                    .scaleEffect((controller.isBusy && motionPhase) || isUnlockHoldActive ? 0.9 : 1.0)
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 260)
-            .background(
-                LinearGradient(
-                    colors: [accent.opacity(0.95), accent.opacity(0.55)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ),
-                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(Color.white.opacity(0.22))
-            }
-            .shadow(color: accent.opacity(0.28), radius: 24, y: 14)
-            .opacity(controller.isReady && !controller.isBusy ? 1.0 : 0.55)
+            .frame(width: 118, height: 118)
+
+            Text(actionTitle)
+                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.86))
         }
-        .buttonStyle(.plain)
-        .disabled(!controller.isReady || controller.isBusy)
+        .frame(maxWidth: .infinity)
+        .frame(height: 260)
+        .background(
+            LinearGradient(
+                colors: [accent.opacity(0.95), accent.opacity(0.55)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color.white.opacity(0.22))
+        }
+        .shadow(color: accent.opacity(0.28), radius: 24, y: 14)
+        .opacity(isPrimaryActionEnabled ? 1.0 : 0.55)
+        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .gesture(primaryActionGesture)
+        .onDisappear {
+            cancelUnlockHold()
+        }
         .accessibilityLabel(actionTitle)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint(shouldHoldToUnlock ? "Hold until the ring completes." : "")
+        .accessibilityAction {
+            performPrimaryAction()
+        }
+    }
+
+    private var primaryActionGesture: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { _ in
+                guard isPrimaryActionEnabled, shouldHoldToUnlock else { return }
+                beginUnlockHold()
+            }
+            .onEnded { _ in
+                if shouldHoldToUnlock {
+                    cancelUnlockHold()
+                } else {
+                    performPrimaryAction()
+                }
+            }
+    }
+
+    private func performPrimaryAction() {
+        guard isPrimaryActionEnabled else { return }
+        controller.toggleLock()
+    }
+
+    private func beginUnlockHold() {
+        guard !isUnlockHoldActive, isPrimaryActionEnabled, shouldHoldToUnlock else { return }
+
+        unlockHoldTask?.cancel()
+        isUnlockHoldActive = true
+        unlockHoldProgress = 0
+
+        let duration = controller.unlockHoldDurationSeconds
+        withAnimation(.linear(duration: duration)) {
+            unlockHoldProgress = 1
+        }
+
+        unlockHoldTask = Task { @MainActor in
+            let nanoseconds = UInt64((duration * 1_000_000_000).rounded())
+            try? await Task.sleep(nanoseconds: nanoseconds)
+            guard !Task.isCancelled else { return }
+
+            unlockHoldTask = nil
+            isUnlockHoldActive = false
+            unlockHoldProgress = 0
+
+            guard isPrimaryActionEnabled, shouldHoldToUnlock else { return }
+            controller.send(.unlock)
+        }
+    }
+
+    private func cancelUnlockHold() {
+        unlockHoldTask?.cancel()
+        unlockHoldTask = nil
+
+        guard isUnlockHoldActive || unlockHoldProgress > 0 else { return }
+        isUnlockHoldActive = false
+        withAnimation(.easeOut(duration: 0.16)) {
+            unlockHoldProgress = 0
+        }
     }
 
     private func flipLockIcon(for state: String) {
@@ -355,6 +453,7 @@ struct ContentView: View {
             }
         )) {
             VStack(spacing: 10) {
+                unlockGestureControl
                 unlockAuthenticationToggle
                 unlockNotificationsToggle
                 deviceDisplayNameControl
@@ -374,6 +473,55 @@ struct ContentView: View {
             }
         }
         .tint(accent)
+        .padding(12)
+        .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private var unlockGestureControl: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "hand.tap.fill")
+                    .foregroundStyle(accent)
+                Text("Unlock Gesture")
+                    .font(.caption.weight(.bold))
+                Spacer(minLength: 8)
+                Text(controller.requiresHoldToUnlock ? "Hold" : "Tap")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+            }
+
+            Picker("Unlock Gesture", selection: Binding(
+                get: { controller.requiresHoldToUnlock },
+                set: { controller.setRequiresHoldToUnlock($0) }
+            )) {
+                Text("Tap").tag(false)
+                Text("Hold").tag(true)
+            }
+            .pickerStyle(.segmented)
+
+            if controller.requiresHoldToUnlock {
+                Stepper(
+                    value: Binding(
+                        get: { controller.unlockHoldDurationSeconds },
+                        set: { controller.updateUnlockHoldDurationSeconds($0) }
+                    ),
+                    in: controller.unlockHoldDurationRange,
+                    step: 0.25
+                ) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "timer")
+                            .foregroundStyle(accent)
+                        Text("Hold Time")
+                            .font(.caption.weight(.bold))
+                        Spacer(minLength: 8)
+                        Text(formattedDuration(controller.unlockHoldDurationSeconds))
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .disabled(controller.isAuthenticatingSettings)
         .padding(12)
         .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
@@ -496,6 +644,19 @@ struct ContentView: View {
         .disabled(controller.isAuthenticatingSettings)
         .padding(12)
         .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private func formattedDuration(_ seconds: Double) -> String {
+        if abs(seconds.rounded() - seconds) < 0.001 {
+            return "\(Int(seconds))s"
+        }
+
+        let tenths = (seconds * 10).rounded() / 10
+        if abs(tenths - seconds) < 0.001 {
+            return String(format: "%.1fs", seconds)
+        }
+
+        return String(format: "%.2fs", seconds)
     }
 
     private var pairingApprovalPanel: some View {

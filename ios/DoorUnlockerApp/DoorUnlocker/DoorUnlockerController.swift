@@ -22,6 +22,9 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     static let defaultAutoLockSeconds = 30
     static let minimumAutoLockSeconds = 5
     static let maximumAutoLockSeconds = 120
+    static let defaultUnlockHoldDurationSeconds = 1.0
+    static let minimumUnlockHoldDurationSeconds = 0.5
+    static let maximumUnlockHoldDurationSeconds = 3.0
     private static let liveActivityLockConfirmationSeconds: TimeInterval = 2.0
     private static let liveActivityLockAnimationSettleSeconds: TimeInterval = 0.12
     private static let liveActivityLockAnimationHalfSeconds: TimeInterval = 0.42
@@ -48,11 +51,15 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     @Published private(set) var deviceDisplayName = DoorUnlockerController.storedDeviceDisplayName()
     @Published private(set) var deviceDisplayNameStatus = "Ready to sync"
     @Published private(set) var requiresUnlockAuthentication = UserDefaults.standard.bool(forKey: DoorUnlockerController.unlockAuthenticationKey)
+    @Published private(set) var requiresHoldToUnlock = UserDefaults.standard.bool(forKey: DoorUnlockerController.unlockHoldRequirementKey)
+    @Published private(set) var unlockHoldDurationSeconds = DoorUnlockerController.storedUnlockHoldDurationSeconds()
     @Published private(set) var unlockNotificationsEnabled = UserDefaults.standard.bool(forKey: DoorUnlockerController.unlockNotificationsKey)
     @Published private(set) var unlockNotificationStatus = "Checking"
     @Published var lastError: String?
 
     private static let unlockAuthenticationKey = "RequireUnlockAuthentication"
+    private static let unlockHoldRequirementKey = "RequireHoldToUnlock"
+    private static let unlockHoldDurationKey = "UnlockHoldDurationSeconds"
     private static let unlockNotificationsKey = "UnlockNotificationsEnabled"
     private static let unlockNotificationIdentifier = "DoorUnlockerUnlocked"
     private static let autoLockSecondsKey = "AutoLockSeconds"
@@ -161,6 +168,10 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         Self.minimumAutoLockSeconds ... Self.maximumAutoLockSeconds
     }
 
+    var unlockHoldDurationRange: ClosedRange<Double> {
+        Self.minimumUnlockHoldDurationSeconds ... Self.maximumUnlockHoldDurationSeconds
+    }
+
     var autoLockCountdownText: String? {
         guard isUnlocked, let autoLockRemainingSeconds else { return nil }
         guard autoLockRemainingSeconds > 0 else { return "Auto-locking now" }
@@ -178,6 +189,12 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         let storedValue = UserDefaults.standard.integer(forKey: autoLockSecondsKey)
         let seconds = storedValue == 0 ? defaultAutoLockSeconds : storedValue
         return clampedAutoLockSeconds(seconds)
+    }
+
+    private static func storedUnlockHoldDurationSeconds() -> Double {
+        let storedValue = UserDefaults.standard.double(forKey: unlockHoldDurationKey)
+        let seconds = storedValue == 0 ? defaultUnlockHoldDurationSeconds : storedValue
+        return clampedUnlockHoldDurationSeconds(seconds)
     }
 
     private static func storedDeviceDisplayName() -> String {
@@ -225,6 +242,11 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         min(max(seconds, minimumAutoLockSeconds), maximumAutoLockSeconds)
     }
 
+    private static func clampedUnlockHoldDurationSeconds(_ seconds: Double) -> Double {
+        let clampedSeconds = min(max(seconds, minimumUnlockHoldDurationSeconds), maximumUnlockHoldDurationSeconds)
+        return (clampedSeconds * 4).rounded() / 4
+    }
+
     func setRequiresUnlockAuthentication(_ isRequired: Bool) {
         guard isRequired != requiresUnlockAuthentication else { return }
         guard areSettingsUnlocked else {
@@ -234,6 +256,29 @@ final class DoorUnlockerController: NSObject, ObservableObject {
 
         requiresUnlockAuthentication = isRequired
         UserDefaults.standard.set(isRequired, forKey: Self.unlockAuthenticationKey)
+    }
+
+    func setRequiresHoldToUnlock(_ isRequired: Bool) {
+        guard isRequired != requiresHoldToUnlock else { return }
+        guard areSettingsUnlocked else {
+            lastError = "Open Settings with Face ID or passcode first"
+            return
+        }
+
+        requiresHoldToUnlock = isRequired
+        UserDefaults.standard.set(isRequired, forKey: Self.unlockHoldRequirementKey)
+    }
+
+    func updateUnlockHoldDurationSeconds(_ seconds: Double) {
+        let clampedSeconds = Self.clampedUnlockHoldDurationSeconds(seconds)
+        guard clampedSeconds != unlockHoldDurationSeconds else { return }
+        guard areSettingsUnlocked else {
+            lastError = "Open Settings with Face ID or passcode first"
+            return
+        }
+
+        unlockHoldDurationSeconds = clampedSeconds
+        UserDefaults.standard.set(clampedSeconds, forKey: Self.unlockHoldDurationKey)
     }
 
     func setUnlockNotificationsEnabled(_ isEnabled: Bool) {
