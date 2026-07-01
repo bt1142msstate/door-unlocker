@@ -200,12 +200,7 @@ struct ContentView: View {
                     .foregroundStyle(accent)
             }
 
-            HStack(spacing: 10) {
-                metric(title: "Bluetooth", value: controller.bluetoothState, icon: "dot.radiowaves.left.and.right")
-                metric(title: "Link", value: controller.connectionState, icon: "antenna.radiowaves.left.and.right")
-            }
-
-            metric(title: "Pairing", value: controller.pairingState, icon: "key.horizontal.fill")
+            controllerStatusSummary
             controllerSettings
 
             if controller.canPair {
@@ -235,24 +230,68 @@ struct ContentView: View {
         }
     }
 
-    private func metric(title: String, value: String, icon: String) -> some View {
+    private var controllerStatusSummary: some View {
         HStack(spacing: 8) {
-            Image(systemName: icon)
+            Image(systemName: controllerStatusIcon)
+                .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(accent)
+                .frame(width: 30, height: 30)
+                .background(accent.opacity(0.14), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Text(value)
+                Text(controllerStatusTitle)
                     .font(.caption.weight(.bold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
+
+                Text(controllerStatusDetail)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
             Spacer(minLength: 0)
         }
         .padding(12)
         .frame(maxWidth: .infinity)
         .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .accessibilityElement(children: .combine)
+    }
+
+    private var controllerStatusIcon: String {
+        if controller.isReady {
+            return "checkmark.circle.fill"
+        }
+
+        if controller.bluetoothState != "On" {
+            return "exclamationmark.triangle.fill"
+        }
+
+        if controller.isPairingPending || controller.needsUsbPairingMode || controller.canPair {
+            return "key.fill"
+        }
+
+        return "antenna.radiowaves.left.and.right"
+    }
+
+    private var controllerStatusTitle: String {
+        if controller.isReady {
+            return "Controller ready"
+        }
+
+        if controller.bluetoothState != "On" {
+            return "Bluetooth \(controller.bluetoothState)"
+        }
+
+        if controller.connectionState != "Ready" {
+            return controller.connectionState
+        }
+
+        return controller.pairingState
+    }
+
+    private var controllerStatusDetail: String {
+        "BT \(controller.bluetoothState) - Link \(controller.connectionState) - Pairing \(controller.pairingState)"
     }
 
     private func countdownBadge(_ text: String) -> some View {
