@@ -36,15 +36,26 @@ struct ContentView: View {
         ZStack {
             background
 
-            VStack(spacing: 18) {
+            VStack(spacing: settingsExpanded ? 12 : 18) {
                 header
                 stateCard
-                Spacer(minLength: 8)
-                toggleButton
-                Spacer(minLength: 16)
+                if settingsExpanded {
+                    Spacer(minLength: 0)
+                } else {
+                    Spacer(minLength: 8)
+                    toggleButton
+                        .transition(
+                            .asymmetric(
+                                insertion: .scale(scale: 0.94).combined(with: .opacity),
+                                removal: .scale(scale: 0.88).combined(with: .opacity)
+                            )
+                        )
+                    Spacer(minLength: 16)
+                }
                 footerControls
             }
             .padding(20)
+            .animation(.spring(response: 0.32, dampingFraction: 0.78), value: settingsExpanded)
         }
         .onChange(of: controller.isChangingState) { _, isChanging in
             if isChanging {
