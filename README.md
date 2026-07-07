@@ -4,6 +4,8 @@ Open-source desk-test prototype for a BLE-controlled servo actuator. The project
 
 This is a bench prototype and wiring reference, not a certified door lock, access-control system, or life-safety device.
 
+Current release: `v0.1.0-beta.1`, the first usable beta. The authenticated wireless command path is in place, but the hardware, multi-device behavior, battery setup, and enclosure still need longer real-world testing before a stable release.
+
 [View the Phase 1 wiring diagram](https://bt1142msstate.github.io/door-unlocker/)
 
 ![Phase 1 desk-test wiring diagram](screenshots/phase-1-desktop-dark.png)
@@ -31,6 +33,12 @@ Current Phase 1 desk-test parts:
 - Mini breadboard and jumper wires.
 
 The servo power should come directly from the battery-side power split. The XIAO should be powered through the buck converter. The servo signal line can go through the breadboard because it is only carrying PWM signal, not servo motor current.
+
+With the XIAO component side facing up and the USB-C connector at the top:
+
+- Servo signal uses XIAO `D2`: third pin down on the left side.
+- Common ground uses XIAO `GND`: second pin down on the right side.
+- Servo ground, battery negative, buck ground, and XIAO `GND` must all share the same ground reference.
 
 ## Repository Layout
 
@@ -61,9 +69,13 @@ The iPhone and Mac apps each generate their own P-256 signing key locally. They 
 
 ## Firmware Notes
 
-The firmware advertises a BLE peripheral for the iPhone and Mac apps, stores up to four paired device public keys in internal flash, verifies signed `v2` commands, drives the servo to locked or unlocked positions, and changes the XIAO LED color based on state.
+The firmware advertises a BLE peripheral for the iPhone and Mac apps, stores up to four paired device public keys in internal flash, allows up to four simultaneous BLE central connections, verifies signed `v3` commands, drives the servo to locked or unlocked positions, and changes the XIAO LED color based on state.
 
-Unlock commands hold the servo at the unlock angle for up to 30 seconds by default. The iPhone app can set the controller timeout from 5-120 seconds, and the XIAO stores that value locally. After the configured timeout, the controller automatically returns to the locked/rest position to reduce battery drain and servo stress.
+Unlock commands hold the servo at the unlock angle for up to 30 seconds by default. The iPhone and Mac apps can set the controller timeout from 5-120 seconds, and the XIAO stores that value locally. After the configured timeout, the controller automatically returns to the locked/rest position to reduce battery drain and servo stress.
+
+The controller also stores the last unlock timestamp locally. The apps include their current epoch time when sending an unlock command, and the XIAO persists that value so the iPhone and Mac apps can display the controller's last recorded unlock time.
+
+Servo calibration is also controller-owned. The default rest angle is `20` degrees and the default push angle is `95` degrees. Apps and USB commands can set both values, but the firmware rejects angles outside `10`-`170` degrees or angles closer than `10` degrees apart.
 
 USB serial commands:
 
@@ -75,12 +87,15 @@ USB serial commands:
 - `pairs list`: print paired device slots, fingerprints, and names when known.
 - `pairs remove N`: remove one paired device by slot number.
 - `pairs clear`: remove all paired devices.
-- `app status`: print machine-readable model, state, pairing, and timeout status for the Mac admin app.
+- `app status`: print machine-readable model, state, pairing, timeout, servo-angle, and last-unlock status for the Mac admin app.
 - `app pairs`: print machine-readable paired-device slots, fingerprints, counters, and names when known.
+- `app unlock [EPOCH_SECONDS]`: move the actuator and optionally save the controller-owned last-unlock timestamp.
+- `app angles REST PUSH`: set persisted servo rest and push angles, for example `app angles 20 95`.
 - `app pair on` / `app pair off`: enable or disable USB-gated pairing from the Mac admin app.
 - `app approve CODE` / `app reject`: approve or reject a pending device request from the Mac admin app.
 - `app remove N`: remove one paired device by slot number from the Mac admin app.
 - `app lock` / `app unlock`: move the actuator from the Mac admin app over trusted USB.
+- `app bootloader`: reboot the XIAO into UF2 bootloader mode for firmware updates.
 
 LED states:
 
@@ -91,7 +106,7 @@ LED states:
 - Green: unlocked.
 - Yellow: servo is moving.
 
-Servo angles and timing are defined near the top of `firmware/DoorUnlockerXiao/DoorUnlockerXiao.ino`.
+Servo angle defaults, safety limits, and timing constants are defined near the top of `firmware/DoorUnlockerXiao/DoorUnlockerXiao.ino`; the live angle values are stored on the controller after calibration.
 
 ## iPhone App Notes
 
@@ -102,6 +117,7 @@ The app provides:
 - USB-gated pairing that sends only the phone public key to the XIAO and requires typing the 4-digit code shown on the phone over USB-C or in the Mac admin app.
 - Optional Face ID/passcode confirmation before sending unlock commands.
 - Auto-lock timeout setting that is stored and enforced by the controller.
+- Servo rest/push angle calibration stored and enforced by the controller.
 - Editable iPhone display name that updates the trusted-device record without re-pairing.
 - Optional unlock notifications when the controller reports `unlocked` while the app is in the background.
 - Siri/App Intents for voice and shortcut automation.
@@ -119,7 +135,8 @@ The Mac admin app is in `mac/DoorUnlockerAdmin`. It automatically connects to th
 - Approve or reject a pending iPhone pairing request by typing the 4-digit code shown on the phone.
 - Automatically trust the Mac over USB-C for wireless control.
 - Remove one trusted device, clear all trusted devices, or send lock/unlock over USB.
-- Auto-connect over Bluetooth when available and use the same single Lock/Unlock toggle as the iPhone app.
+- Set controller-owned auto-lock timeout and servo rest/push angles.
+- Auto-connect over Bluetooth when available and use the same Lock/Unlock toggle as the iPhone app.
 - Provide a local CLI for scripts and automation.
 
 The Mac admin app does not display pending approval codes or pending public-key fingerprints. Device names are stored by the firmware for new pairings. Existing pairings made before this feature may show as `Device 1`, `Device 2`, and so on until that device is paired again.
@@ -134,6 +151,24 @@ Run it locally with:
 ./script/build_and_run.sh
 ```
 
+CLI examples:
+
+```sh
+cd mac/DoorUnlockerAdmin
+swift run door-unlocker status
+swift run door-unlocker lock
+swift run door-unlocker unlock
+swift run door-unlocker bootloader
+```
+
+After firmware that supports `app bootloader` is installed, future firmware updates can use:
+
+```sh
+./script/flash_xiao_uf2.sh --port /dev/cu.usbmodem3101
+```
+
+If the installed firmware is too old to enter UF2 mode from USB-C, the script will pause and ask for a one-time reset-button double press. The script uses `cp -X` when copying the UF2 so macOS does not add metadata files to the XIAO bootloader volume.
+
 That build also creates `dist/door-unlocker`, a USB-C command-line tool:
 
 ```sh
@@ -142,12 +177,17 @@ That build also creates `dist/door-unlocker`, a USB-C command-line tool:
 ./dist/door-unlocker lock
 ./dist/door-unlocker toggle
 ./dist/door-unlocker timeout 30
+./dist/door-unlocker angles 20 95
 ./dist/door-unlocker pairs
 ./dist/door-unlocker rename 1 "Brandon's iPhone"
 ```
 
 Use `./dist/door-unlocker --help` for the full command list. The CLI auto-detects the XIAO serial port by default and also accepts `--port /dev/cu.usbmodemXXXX`.
-When the Mac app is already running, `lock`, `unlock`, `toggle`, and `timeout` are handed to the app locally so the CLI does not compete with the app for the USB-C serial stream.
+When the Mac app is already running, `lock`, `unlock`, `toggle`, `timeout`, and `angles` are handed to the app locally so the CLI does not compete with the app for the USB-C serial stream.
+
+## Roadmap
+
+- Controller/app usage stats: track values such as daily unlock counts and recent lock/unlock history. Keep this local-first and privacy-preserving, with the controller as the source of truth where practical.
 
 ## Security And Safety
 

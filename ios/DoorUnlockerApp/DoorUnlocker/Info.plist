@@ -35,6 +35,15 @@
 	<string>Door Unlocker uses Bluetooth to connect to your XIAO desk-test controller.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Door Unlocker can require Face ID or your device passcode before sending unlock commands.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Door Unlocker uses your lock zone to avoid proximity unlock while you are still near your door.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Door Unlocker uses your location to set and check the lock zone for proximity unlock.</string>
+	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
+	<dict>
+		<key>LockZonePrecision</key>
+		<string>Door Unlocker uses precise location to decide whether your phone is inside the saved lock zone before proximity unlock can arm.</string>
+	</dict>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>UILaunchScreen</key>
@@ -45,6 +54,7 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>bluetooth-central</string>
+		<string>location</string>
 	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>

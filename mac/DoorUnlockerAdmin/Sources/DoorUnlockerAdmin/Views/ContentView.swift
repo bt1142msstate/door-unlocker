@@ -39,6 +39,7 @@ private struct SidebarView: View {
             Section("Controller") {
                 SidebarMetric(title: "Status", value: store.controllerStatusTitle, symbol: store.controllerStatusSymbol)
                 SidebarMetric(title: "Model", value: store.status.modelTitle, symbol: "rectangle.connected.to.line.below")
+                SidebarMetric(title: "Connected", value: "\(store.status.connectedCount)/\(max(store.status.maxConnections, 4))", symbol: "point.3.connected.trianglepath.dotted")
                 SidebarMetric(title: "Trusted", value: "\(store.status.pairedCount)/\(max(store.status.maxPairs, 4))", symbol: "iphone.gen3")
             }
 
@@ -132,21 +133,35 @@ private struct DetailHeader: View {
 private struct HeroControl: View {
     @ObservedObject var store: DoorAdminStore
     @State private var isHovering = false
+    @State private var displayedIconIsUnlocked = false
+    @State private var iconFlipDegrees = 0.0
+    @State private var iconFlipTask: Task<Void, Never>?
 
     private var accent: Color {
         store.status.isUnlocked ? Color(red: 0.35, green: 0.86, blue: 0.58) : Color(red: 0.35, green: 0.72, blue: 1.0)
     }
 
     private var currentSymbol: String {
-        store.status.isUnlocked ? "lock.open.fill" : "lock.fill"
+        displayedIconIsUnlocked ? "lock.open.fill" : "lock.fill"
     }
 
     private var actionTitle: String {
-        if store.isBusy {
-            return store.status.isUnlocked ? "Locking..." : "Unlocking..."
+        if store.status.bleState == "locking" {
+            return "Locking..."
+        }
+
+        if store.status.bleState == "unlocking" {
+            return "Unlocking..."
+        }
+
+        if isApplyingSettingsOnly {
+            return store.controllerSettingApplyTitle
         }
 
         guard store.canSendDoorCommand else {
+            if store.isWirelessReady && !store.isWirelessDoorCommandReady {
+                return "Securing link..."
+            }
             return "Connect first"
         }
 
@@ -155,6 +170,21 @@ private struct HeroControl: View {
 
     private var stateTitle: String {
         store.stateTitle
+    }
+
+    private var isApplyingSettingsOnly: Bool {
+        store.isApplyingControllerSetting && !store.isChangingDoorState
+    }
+
+    private var targetIconIsUnlocked: Bool {
+        switch store.status.bleState {
+        case "unlocking", "unlocked":
+            return true
+        case "locking", "locked":
+            return false
+        default:
+            return store.status.isUnlocked
+        }
     }
 
     private var supportingText: String? {
@@ -233,20 +263,33 @@ private struct HeroControl: View {
                     Circle()
                         .trim(from: 0.08, to: 0.82)
                         .stroke(
-                            accent.opacity(store.isBusy ? 0.75 : 0),
+                            accent.opacity(store.isChangingDoorState ? 0.75 : 0),
                             style: StrokeStyle(lineWidth: 5, lineCap: .round)
                         )
-                        .rotationEffect(.degrees(store.isBusy ? 360 : 0))
-                        .animation(store.isBusy ? .linear(duration: 1.0).repeatForever(autoreverses: false) : .default, value: store.isBusy)
+                        .rotationEffect(.degrees(store.isChangingDoorState ? 360 : 0))
+                        .animation(
+                            store.isChangingDoorState ? .linear(duration: 1.0).repeatForever(autoreverses: false) : .default,
+                            value: store.isChangingDoorState
+                        )
 
                     VStack(spacing: 11) {
-                        Image(systemName: currentSymbol)
-                            .font(.system(size: 46, weight: .semibold))
-                            .symbolRenderingMode(.hierarchical)
+                        if isApplyingSettingsOnly {
+                            SettingsApplyIcon(size: 46)
+                        } else {
+                            Image(systemName: currentSymbol)
+                                .font(.system(size: 46, weight: .semibold))
+                                .symbolRenderingMode(.hierarchical)
+                                .rotation3DEffect(
+                                    .degrees(iconFlipDegrees),
+                                    axis: (x: 0, y: 1, z: 0),
+                                    perspective: 0.55
+                                )
+                        }
                         Text(actionTitle)
                             .font(.title3.weight(.semibold))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.78)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.72)
                     }
                     .foregroundStyle(store.canSendDoorCommand ? accent : .secondary)
                 }
@@ -256,8 +299,22 @@ private struct HeroControl: View {
                 .contentShape(Circle())
             }
             .buttonStyle(.plain)
-            .disabled(!store.canSendDoorCommand || store.isBusy)
+            .disabled(!store.canSendDoorCommand || store.isBusy || store.isApplyingControllerSetting)
             .onHover { isHovering = $0 }
+        }
+        .animation(.spring(response: 0.26, dampingFraction: 0.78), value: store.isApplyingControllerSetting)
+        .onAppear {
+            displayedIconIsUnlocked = targetIconIsUnlocked
+        }
+        .onChange(of: store.status.bleState) { _, state in
+            flipLockIcon(for: state)
+        }
+        .onChange(of: store.status.isUnlocked) { _, _ in
+            flipLockIcon(isUnlocked: targetIconIsUnlocked)
+        }
+        .onDisappear {
+            iconFlipTask?.cancel()
+            iconFlipTask = nil
         }
         .padding(24)
         .background {
@@ -275,6 +332,47 @@ private struct HeroControl: View {
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(accent.opacity(0.16), lineWidth: 1)
+        }
+    }
+
+    private func flipLockIcon(for state: String) {
+        switch state {
+        case "unlocking", "unlocked":
+            flipLockIcon(isUnlocked: true)
+        case "locking", "locked":
+            flipLockIcon(isUnlocked: false)
+        default:
+            break
+        }
+    }
+
+    private func flipLockIcon(isUnlocked targetIsUnlocked: Bool) {
+        iconFlipTask?.cancel()
+        iconFlipTask = nil
+
+        guard displayedIconIsUnlocked != targetIsUnlocked else {
+            withAnimation(.easeOut(duration: 0.16)) {
+                iconFlipDegrees = 0
+            }
+            return
+        }
+
+        withAnimation(.easeIn(duration: 0.18)) {
+            iconFlipDegrees = 90
+        }
+
+        iconFlipTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 180_000_000)
+            guard !Task.isCancelled else { return }
+
+            displayedIconIsUnlocked = targetIsUnlocked
+            iconFlipDegrees = -90
+
+            withAnimation(.easeOut(duration: 0.22)) {
+                iconFlipDegrees = 0
+            }
+
+            iconFlipTask = nil
         }
     }
 }
@@ -392,6 +490,55 @@ private struct ConnectionPanel: View {
                             : "Connects on demand for lock commands."
                     )
                 }
+
+                Divider()
+
+                ConnectedDevicesList(status: store.status)
+            }
+        }
+    }
+}
+
+private struct ConnectedDevicesList: View {
+    let status: ControllerStatus
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Connected Devices", systemImage: "point.3.connected.trianglepath.dotted")
+                    .font(.callout.weight(.semibold))
+                Spacer()
+                Text("\(status.connectedCount)/\(max(status.maxConnections, 4))")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.secondary)
+            }
+
+            if status.connectedDevices.isEmpty {
+                Text(status.connectedCount > 0 ? "Connected devices are identifying." : "No wireless devices are connected.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(status.connectedDevices) { device in
+                        HStack(spacing: 10) {
+                            Image(systemName: device.displayName.localizedCaseInsensitiveContains("mac") ? "macbook" : "iphone.gen3")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 20)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(device.displayName)
+                                    .font(.caption.weight(.semibold))
+                                    .lineLimit(1)
+                                Text(device.trustTitle)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .padding(8)
+                        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                }
             }
         }
     }
@@ -434,10 +581,21 @@ private struct ConnectionModeRow: View {
 private struct LockSettingsPanel: View {
     @ObservedObject var store: DoorAdminStore
     @State private var lockNameDraft = ""
+    @State private var isLockNameDraftDirty = false
     @FocusState private var isLockNameFocused: Bool
 
     private var accent: Color {
         store.status.isUnlocked ? Color(red: 0.35, green: 0.86, blue: 0.58) : Color(red: 0.35, green: 0.72, blue: 1.0)
+    }
+
+    private var lockNameBinding: Binding<String> {
+        Binding(
+            get: { lockNameDraft },
+            set: { newValue in
+                lockNameDraft = newValue
+                isLockNameDraftDirty = newValue.trimmingCharacters(in: .whitespacesAndNewlines) != store.lockName
+            }
+        )
     }
 
     var body: some View {
@@ -452,14 +610,9 @@ private struct LockSettingsPanel: View {
                             .foregroundStyle(accent)
                         Text("Lock Name")
                             .font(.caption.weight(.bold))
-                        Spacer(minLength: 8)
-                        Text(store.lockName)
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
                     }
 
-                    TextField(DoorAdminStore.defaultLockName, text: $lockNameDraft)
+                    TextField(DoorAdminStore.defaultLockName, text: lockNameBinding)
                         .textFieldStyle(.roundedBorder)
                         .focused($isLockNameFocused)
                         .onSubmit {
@@ -468,8 +621,16 @@ private struct LockSettingsPanel: View {
                         .onChange(of: isLockNameFocused) { _, isFocused in
                             if !isFocused {
                                 commitLockName()
+                            } else if !isLockNameDraftDirty {
+                                lockNameDraft = store.lockName
                             }
                         }
+
+                    if !store.isApplyingControllerSetting {
+                        Text(store.lockNameStatus)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 Divider()
@@ -483,22 +644,76 @@ private struct LockSettingsPanel: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Stepper(
-                    value: Binding(
-                        get: { store.status.autoLockSeconds },
-                        set: { store.updateAutoLockSeconds($0) }
-                    ),
-                    in: store.autoLockRange,
-                    step: 5
-                ) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Lock after \(store.status.autoLockSeconds) seconds")
-                            .font(.title3.weight(.semibold))
-                            .contentTransition(.numericText())
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Lock after \(store.status.autoLockSeconds) seconds")
+                        .font(.title3.weight(.semibold))
+                        .contentTransition(.numericText())
+
+                    Slider(
+                        value: Binding(
+                            get: { Double(store.status.autoLockSeconds) },
+                            set: { store.updateAutoLockSeconds(Int($0.rounded())) }
+                        ),
+                        in: Double(store.autoLockRange.lowerBound) ... Double(store.autoLockRange.upperBound),
+                        step: 5
+                    )
+                    .tint(accent)
+                    .controlSize(.small)
+
+                    HStack {
+                        Text("\(store.autoLockRange.lowerBound)s")
+                        Spacer()
+                        Text("\(store.autoLockRange.upperBound)s")
+                    }
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                    if !store.isApplyingControllerSetting {
                         Text(store.autoLockStatus)
                             .font(.callout)
                             .foregroundStyle(.secondary)
                     }
+                }
+                .disabled(store.isBusy)
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Label("Servo Angles", systemImage: "dial.low")
+                            .font(.caption.weight(.bold))
+                        Spacer()
+                        Text("\(store.status.lockAngle)° / \(store.status.unlockAngle)°")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    servoAngleSlider(
+                        title: "Rest angle",
+                        value: store.status.lockAngle,
+                        setValue: store.updateLockServoAngle
+                    )
+
+                    servoAngleSlider(
+                        title: "Push angle",
+                        value: store.status.unlockAngle,
+                        setValue: store.updateUnlockServoAngle
+                    )
+
+                    Button {
+                        store.resetServoAnglesToDefaults()
+                    } label: {
+                        Label("Reset to Defaults", systemImage: "arrow.counterclockwise")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .tint(accent)
+
+                    Text(servoAnglesHelpText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .disabled(store.isBusy)
 
@@ -515,23 +730,75 @@ private struct LockSettingsPanel: View {
         }
         .onAppear {
             lockNameDraft = store.lockName
+            isLockNameDraftDirty = false
         }
         .onChange(of: store.lockName) { _, name in
-            if !isLockNameFocused {
+            if !isLockNameFocused || !isLockNameDraftDirty {
                 lockNameDraft = name
+                isLockNameDraftDirty = false
             }
         }
+    }
+
+    private func servoAngleSlider(title: String, value: Int, setValue: @escaping (Int) -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text(title)
+                    .font(.callout.weight(.semibold))
+                Spacer()
+                Text("\(value)°")
+                    .font(.callout.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+
+            Slider(
+                value: Binding(
+                    get: { Double(value) },
+                    set: { setValue(Int($0.rounded())) }
+                ),
+                in: Double(store.servoAngleRange.lowerBound) ... Double(store.servoAngleRange.upperBound),
+                step: 1
+            )
+            .tint(accent)
+            .controlSize(.small)
+        }
+    }
+
+    private var servoAnglesHelpText: String {
+        let rangeText = "Safe range \(store.servoAngleRange.lowerBound)°-\(store.servoAngleRange.upperBound)°, keep \(store.status.servoMinAngleGap)° apart"
+        guard !store.isApplyingControllerSetting else { return rangeText }
+        return "\(store.servoAnglesStatus) - \(rangeText.lowercased())"
     }
 
     private func commitLockName() {
         let trimmedName = lockNameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedName.isEmpty {
             lockNameDraft = store.lockName
+            isLockNameDraftDirty = false
             return
         }
 
         store.updateLockName(trimmedName)
         lockNameDraft = store.lockName
+        isLockNameDraftDirty = false
+    }
+}
+
+private struct SettingsApplyIcon: View {
+    let size: CGFloat
+    @State private var rotation = 0.0
+
+    var body: some View {
+        Image(systemName: "gearshape.fill")
+            .font(.system(size: size, weight: .semibold))
+            .symbolRenderingMode(.hierarchical)
+            .rotationEffect(.degrees(rotation))
+            .onAppear {
+                rotation = 0
+                withAnimation(.linear(duration: 1.0).repeatForever(autoreverses: false)) {
+                    rotation = 360
+                }
+            }
     }
 }
 

@@ -10,7 +10,7 @@ settings:
     DEVELOPMENT_TEAM: ""
     SDKROOT: iphoneos
     CURRENT_PROJECT_VERSION: "1"
-    MARKETING_VERSION: "1.0"
+    MARKETING_VERSION: "0.1.0"
 targets:
   DoorUnlocker:
     type: application
@@ -32,9 +32,14 @@ targets:
               - doorunlocker
         NSBluetoothAlwaysUsageDescription: Door Unlocker uses Bluetooth to connect to your XIAO desk-test controller.
         NSFaceIDUsageDescription: Door Unlocker can require Face ID or your device passcode before sending unlock commands.
+        NSLocationAlwaysAndWhenInUseUsageDescription: Door Unlocker uses your lock zone to avoid proximity unlock while you are still near your door.
+        NSLocationWhenInUseUsageDescription: Door Unlocker uses your location to set and check the lock zone for proximity unlock.
+        NSLocationTemporaryUsageDescriptionDictionary:
+          LockZonePrecision: Door Unlocker uses precise location to decide whether your phone is inside the saved lock zone before proximity unlock can arm.
         NSSupportsLiveActivities: true
         UIBackgroundModes:
           - bluetooth-central
+          - location
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UISupportedInterfaceOrientations~ipad:

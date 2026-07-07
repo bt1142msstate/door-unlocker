@@ -1,0 +1,110 @@
+{
+  "units": "mm",
+  "revision": "phase-2-first-pass",
+  "notes": [
+    "First-pass fit model for layout, service access, and 3D-print enclosure iteration.",
+    "Verify every component with calipers before printing a functional enclosure.",
+    "Dimensions include practical clearance where noted; not all vendor pages publish exact dimensions."
+  ],
+  "enclosure": {
+    "outer_width": 78,
+    "outer_depth": 37,
+    "outer_height": 352,
+    "wall": 3,
+    "corner_radius": 7,
+    "front_lip": 3,
+    "back_plate_width": 88,
+    "back_plate_depth": 4,
+    "back_plate_height": 366
+  },
+  "components": {
+    "solar_panel_placeholder": {
+      "width": 50,
+      "depth": 3,
+      "height": 80,
+      "source": "placeholder",
+      "clearance": 1.5,
+      "notes": "Exact solar panel not selected yet; top pocket is intentionally replaceable."
+    },
+    "pill_status_led": {
+      "width": 22,
+      "depth": 3,
+      "height": 5,
+      "source": "design placeholder",
+      "clearance": 1
+    },
+    "injora_35kg_servo": {
+      "width": 40.5,
+      "depth": 20.5,
+      "height": 40.5,
+      "source": "vendor/listing typical standard servo dimensions",
+      "clearance": 2,
+      "notes": "Mount tabs and wire strain relief need physical verification."
+    },
+    "servo_arm_with_cap_clearance": {
+      "width": 64,
+      "depth": 8,
+      "height": 10,
+      "source": "56mm horn plus rubber cap clearance",
+      "clearance": 3
+    },
+    "xiao_nrf52840_sense_pinned": {
+      "width": 17.8,
+      "depth": 11,
+      "height": 21,
+      "source": "Seeed XIAO footprint plus pin/header clearance",
+      "clearance": 2,
+      "notes": "Board footprint is 21 x 17.5mm; depth includes pre-soldered header/USB clearance."
+    },
+    "wago_222_413_pair": {
+      "single_width": 17,
+      "single_depth": 20.5,
+      "single_height": 14.5,
+      "count": 2,
+      "source": "WAGO 222-413 datasheet dimensions, rounded for clearance",
+      "clearance": 1.5
+    },
+    "lm2596_buck_current": {
+      "width": 60,
+      "depth": 12,
+      "height": 40,
+      "source": "common LED-voltmeter LM2596 module estimate",
+      "clearance": 2,
+      "notes": "This is the bulky current prototype buck. Future low-Iq regulator can shrink this bay."
+    },
+    "battery_2s_5000mah": {
+      "width": 43,
+      "depth": 22,
+      "height": 75,
+      "source": "common 2S 5000mAh transmitter pack estimate",
+      "clearance": 2,
+      "notes": "Designed as a vertical bottom-inserting cartridge with only a small pull lip exposed."
+    },
+    "future_camera_placeholders": {
+      "forward_camera": {
+        "width": 10,
+        "depth": 6,
+        "height": 10
+      },
+      "inward_camera": {
+        "width": 10,
+        "depth": 6,
+        "height": 10
+      },
+      "source": "phase 4 placeholder",
+      "notes": "Not modeled as functional cutouts yet; reserve optional top/front service space."
+    }
+  },
+  "color_key": {
+    "shell": "#1e2420",
+    "back_plate": "#2d332f",
+    "solar": "#2f6f9f",
+    "servo": "#4a64d8",
+    "servo_arm": "#111111",
+    "xiao": "#23a06f",
+    "wago": "#f28b32",
+    "buck": "#d7b546",
+    "battery": "#ef6c38",
+    "clearance": "#ff4d4d"
+  }
+}

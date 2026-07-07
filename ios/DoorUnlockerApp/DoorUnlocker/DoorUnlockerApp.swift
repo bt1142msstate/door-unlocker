@@ -2,6 +2,8 @@ import SwiftUI
 
 @main
 struct DoorUnlockerApp: App {
+    @StateObject private var controller = DoorUnlockerController()
+
     init() {
         DoorUnlockerShortcuts.updateAppShortcutParameters()
     }
@@ -9,6 +11,7 @@ struct DoorUnlockerApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(controller)
                 .preferredColorScheme(.dark)
         }
     }

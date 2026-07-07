@@ -19,45 +19,93 @@ public struct SerialPortCandidate: Identifiable, Hashable {
 }
 
 public struct ControllerStatus: Equatable {
-    public var modelName = "DoorUnlocker-XIAO-v2"
+    public static let defaultLockAngle = 20
+    public static let defaultUnlockAngle = 95
+    public static let defaultServoMinAngle = 10
+    public static let defaultServoMaxAngle = 170
+    public static let defaultServoMinAngleGap = 10
+
+    public var modelName = "DoorUnlocker-XIAO-v4"
+    public var lockName = "My Lock"
     public var protocolVersion = "unknown"
     public var pairingMode = "unknown"
     public var pairedCount = 0
     public var maxPairs = 0
+    public var connectedCount = 0
+    public var maxConnections = 4
+    public var connectedDevices: [ConnectedControllerDevice] = []
     public var hasPendingRequest = false
     public var pendingName: String?
     public var bleState = "unknown"
+    public var settingApplyingKind: String?
+    public var settingApplyingValue: String?
     public var isUnlocked = false
     public var autoLockSeconds = 30
     public var autoLockRemainingSeconds: Int?
     public var autoLockDeadline: Date?
+    public var lockAngle = ControllerStatus.defaultLockAngle
+    public var unlockAngle = ControllerStatus.defaultUnlockAngle
+    public var servoMinAngle = ControllerStatus.defaultServoMinAngle
+    public var servoMaxAngle = ControllerStatus.defaultServoMaxAngle
+    public var servoMinAngleGap = ControllerStatus.defaultServoMinAngleGap
+    public var lastUnlockAt: Date?
+    public var lastUnlockDeviceIdentifier: String?
+    public var lastUnlockDeviceName: String?
 
     public init(
-        modelName: String = "DoorUnlocker-XIAO-v2",
+        modelName: String = "DoorUnlocker-XIAO-v4",
+        lockName: String = "My Lock",
         protocolVersion: String = "unknown",
         pairingMode: String = "unknown",
         pairedCount: Int = 0,
         maxPairs: Int = 0,
+        connectedCount: Int = 0,
+        maxConnections: Int = 4,
+        connectedDevices: [ConnectedControllerDevice] = [],
         hasPendingRequest: Bool = false,
         pendingName: String? = nil,
         bleState: String = "unknown",
+        settingApplyingKind: String? = nil,
+        settingApplyingValue: String? = nil,
         isUnlocked: Bool = false,
         autoLockSeconds: Int = 30,
         autoLockRemainingSeconds: Int? = nil,
-        autoLockDeadline: Date? = nil
+        autoLockDeadline: Date? = nil,
+        lockAngle: Int = ControllerStatus.defaultLockAngle,
+        unlockAngle: Int = ControllerStatus.defaultUnlockAngle,
+        servoMinAngle: Int = ControllerStatus.defaultServoMinAngle,
+        servoMaxAngle: Int = ControllerStatus.defaultServoMaxAngle,
+        servoMinAngleGap: Int = ControllerStatus.defaultServoMinAngleGap,
+        lastUnlockAt: Date? = nil,
+        lastUnlockDeviceIdentifier: String? = nil,
+        lastUnlockDeviceName: String? = nil
     ) {
         self.modelName = modelName
+        self.lockName = lockName
         self.protocolVersion = protocolVersion
         self.pairingMode = pairingMode
         self.pairedCount = pairedCount
         self.maxPairs = maxPairs
+        self.connectedCount = connectedCount
+        self.maxConnections = maxConnections
+        self.connectedDevices = connectedDevices
         self.hasPendingRequest = hasPendingRequest
         self.pendingName = pendingName
         self.bleState = bleState
+        self.settingApplyingKind = settingApplyingKind
+        self.settingApplyingValue = settingApplyingValue
         self.isUnlocked = isUnlocked
         self.autoLockSeconds = autoLockSeconds
         self.autoLockRemainingSeconds = autoLockRemainingSeconds
         self.autoLockDeadline = autoLockDeadline
+        self.lockAngle = lockAngle
+        self.unlockAngle = unlockAngle
+        self.servoMinAngle = servoMinAngle
+        self.servoMaxAngle = servoMaxAngle
+        self.servoMinAngleGap = servoMinAngleGap
+        self.lastUnlockAt = lastUnlockAt
+        self.lastUnlockDeviceIdentifier = lastUnlockDeviceIdentifier
+        self.lastUnlockDeviceName = lastUnlockDeviceName
     }
 
     public static let disconnected = ControllerStatus()
@@ -93,10 +141,79 @@ public struct ControllerStatus: Equatable {
         pairingMode == "enabled" ? "Enabled" : "Locked"
     }
 
+    public var connectionCapacityTitle: String {
+        "\(connectedCount)/\(max(maxConnections, 4)) connected"
+    }
+
     public var autoLockCountdownText: String? {
         guard isUnlocked, let autoLockRemainingSeconds else { return nil }
         guard autoLockRemainingSeconds > 0 else { return "Auto-locking now" }
         return "Auto-locks in \(autoLockRemainingSeconds)s"
+    }
+
+    public var servoAngleRange: ClosedRange<Int> {
+        let lower = min(servoMinAngle, servoMaxAngle)
+        let upper = max(servoMinAngle, servoMaxAngle)
+        return lower ... upper
+    }
+
+    public var servoAngles: ServoAngles {
+        ServoAngles(lockAngle: lockAngle, unlockAngle: unlockAngle)
+    }
+
+    public var lastUnlockTitle: String {
+        guard let lastUnlockAt else { return "No unlock recorded" }
+        return lastUnlockAt.formatted(date: .abbreviated, time: .shortened)
+    }
+
+    public var lastUnlockRelativeTitle: String? {
+        guard let lastUnlockAt else { return nil }
+        return lastUnlockAt.formatted(.relative(presentation: .named))
+    }
+
+    public var lastUnlockDeviceTitle: String? {
+        guard lastUnlockAt != nil,
+              let lastUnlockDeviceName,
+              !lastUnlockDeviceName.isEmpty else {
+            return nil
+        }
+        return lastUnlockDeviceName
+    }
+}
+
+public struct ConnectedControllerDevice: Identifiable, Equatable, Hashable {
+    public let slot: Int
+    public let handle: String
+    public let name: String
+    public let isTrustedName: Bool
+
+    public init(slot: Int, handle: String, name: String, isTrustedName: Bool) {
+        self.slot = slot
+        self.handle = handle
+        self.name = name
+        self.isTrustedName = isTrustedName
+    }
+
+    public var id: String {
+        handle.isEmpty ? "slot-\(slot)" : handle
+    }
+
+    public var displayName: String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Connected Device \(slot)" : name
+    }
+
+    public var trustTitle: String {
+        isTrustedName ? "Trusted" : "Connected"
+    }
+}
+
+public struct ServoAngles: Equatable, Hashable {
+    public var lockAngle: Int
+    public var unlockAngle: Int
+
+    public init(lockAngle: Int, unlockAngle: Int) {
+        self.lockAngle = lockAngle
+        self.unlockAngle = unlockAngle
     }
 }
 

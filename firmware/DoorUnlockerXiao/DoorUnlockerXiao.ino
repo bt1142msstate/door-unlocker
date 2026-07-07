@@ -5,46 +5,91 @@
 #include "nrf_cc310/include/crys_ecpki_build.h"
 #include "nrf_cc310/include/crys_ecpki_domain.h"
 #include "nrf_cc310/include/crys_ecpki_ecdsa.h"
+#include "nrf_soc.h"
 #include <Adafruit_LittleFS.h>
 #include <InternalFileSystem.h>
 
 using namespace Adafruit_LittleFS_Namespace;
 
 // Desk-test wiring:
-// - Servo signal wire: XIAO D2
+// - Servo signal wire: XIAO D2, third pin down on the left with USB-C at the top
 // - Servo red/black power wires: battery/Wago power split, not breadboard power rails
+// - XIAO GND is second pin down on the right with USB-C at the top
 // - XIAO GND, buck converter GND, and servo GND must be common
 static const int SERVO_SIGNAL_PIN = D2;
 
 // Tune these on the desk before putting the mechanism near the door.
-static const int LOCK_ANGLE = 20;        // Rest/release position
-static const int UNLOCK_ANGLE = 95;      // Handle-push position
-static const int SERVO_STEP_DELAY_MS = 8;
-static const int SERVO_DETACH_DELAY_MS = 250;
+static const uint8_t DEFAULT_LOCK_ANGLE = 20;    // Rest/release position
+static const uint8_t DEFAULT_UNLOCK_ANGLE = 95;  // Handle-push position
+static const uint8_t MIN_SAFE_SERVO_ANGLE = 10;
+static const uint8_t MAX_SAFE_SERVO_ANGLE = 170;
+static const uint8_t MIN_SERVO_ANGLE_GAP = 10;
+static const int SERVO_ATTACH_SETTLE_MS = 0;
+static const int SERVO_MOVE_SETTLE_MS = 180;
+static const int SERVO_DETACH_DELAY_MS = 40;
+static const int MAIN_LOOP_IDLE_DELAY_MS = 2;
+static const int LAST_UNLOCK_NOTIFY_GAP_MS = 40;
+static const uint16_t FAST_CONN_INTERVAL_MIN = 12;  // 15 ms
+static const uint16_t FAST_CONN_INTERVAL_MAX = 24;  // 30 ms
+static const uint16_t FAST_CONN_INTERVAL_REQUEST = FAST_CONN_INTERVAL_MIN;
 static const uint16_t DEFAULT_UNLOCK_HOLD_TIMEOUT_SECONDS = 30;
 static const uint16_t MIN_UNLOCK_HOLD_TIMEOUT_SECONDS = 5;
 static const uint16_t MAX_UNLOCK_HOLD_TIMEOUT_SECONDS = 120;
-static const char CONTROLLER_MODEL_NAME[] = "DoorUnlocker-XIAO-v2";
+static const char DEFAULT_LOCK_NAME[] = "My Lock";
+static const char CONTROLLER_MODEL_NAME[] = "DoorUnlocker-XIAO-v4";
+// Fresh random-static BLE identity for the app-layer-security firmware. This
+// avoids stale iOS/macOS OS-level bond records from the earlier encrypted-GATT
+// builds while preserving trusted app keys in LittleFS.
+static const uint8_t CONTROLLER_BLE_STATIC_ADDRESS[6] = {
+  0x26, 0x20, 0x10, 0x5A, 0x17, 0xD8
+};
+static const uint32_t SETTING_APPLY_STATUS_MS = 3000;
 
 // Door Unlocker BLE v2 UUIDs. The v2 service avoids stale iOS GATT caches
 // from earlier firmware that did not include the pairing characteristic.
-static const char DOOR_SERVICE_UUID[] = "7A5A1000-2B8D-4C3E-94E7-0B3C0DDAAF10";
-static const char COMMAND_CHAR_UUID[] = "7A5A1001-2B8D-4C3E-94E7-0B3C0DDAAF10";
-static const char STATE_CHAR_UUID[]   = "7A5A1002-2B8D-4C3E-94E7-0B3C0DDAAF10";
-static const char PAIRING_CHAR_UUID[] = "7A5A1003-2B8D-4C3E-94E7-0B3C0DDAAF10";
+static const char DOOR_SERVICE_UUID[] = "7A5A2000-2B8D-4C3E-94E7-0B3C0DDAAF10";
+static const char COMMAND_CHAR_UUID[] = "7A5A2001-2B8D-4C3E-94E7-0B3C0DDAAF10";
+static const char STATE_CHAR_UUID[]   = "7A5A2002-2B8D-4C3E-94E7-0B3C0DDAAF10";
+static const char PAIRING_CHAR_UUID[] = "7A5A2003-2B8D-4C3E-94E7-0B3C0DDAAF10";
+static const char CONTROL_CHAR_UUID[]     = "7A5A2004-2B8D-4C3E-94E7-0B3C0DDAAF10";
 static const char LEGACY_COUNTER_FILENAME[] = "/door-counter.txt";
 static const char LEGACY_PUBLIC_KEY_FILENAME[] = "/door-public-key.bin";
 static const char PAIRINGS_FILENAME[] = "/door-pairings.bin";
 static const char UNLOCK_TIMEOUT_FILENAME[] = "/unlock-timeout.txt";
+static const char LOCK_NAME_FILENAME[] = "/lock-name.txt";
+static const char SERVO_ANGLES_FILENAME[] = "/servo-angles.txt";
+static const char LAST_UNLOCK_FILENAME[] = "/last-unlock.txt";
 static const uint16_t SECURE_COMMAND_MAX_LEN = 220;
 static const uint16_t PAIRING_MAX_LEN = 100;
 static const uint16_t SERIAL_COMMAND_MAX_LEN = 260;
+static const uint8_t BLE_COMMAND_QUEUE_CAPACITY = 8;
+static const size_t BLE_REJECT_REASON_LEN = 40;
+static const size_t STATE_PAYLOAD_MAX_LEN = 96;
+static const size_t V3_KEY_FINGERPRINT_LEN = 8;
+static const size_t V3_NONCE_LEN = 16;
+static const uint8_t V3_COMMAND_VERSION = 0x03;
+static const uint8_t V3_OP_UNLOCK = 0x01;
+static const uint8_t V3_OP_LOCK = 0x02;
+static const uint8_t V3_OP_GET_LOCK_NAME = 0x10;
+static const uint8_t V3_OP_GET_SERVO_ANGLES = 0x11;
+static const uint8_t V3_OP_GET_LAST_UNLOCK = 0x12;
+static const uint8_t V3_OP_SET_LOCK_NAME = 0x20;
+static const uint8_t V3_OP_SET_SERVO_ANGLES = 0x21;
+static const uint8_t V3_OP_SET_TIMEOUT = 0x22;
+static const uint8_t V3_OP_SET_DEVICE_NAME = 0x23;
+static const char V3_COMMAND_SIGNATURE_DOMAIN[] = "DoorUnlocker:v3:command";
 static const size_t P256_PUBLIC_KEY_LEN = 65;   // X9.63 uncompressed: 0x04 || X || Y
 static const size_t P256_SIGNATURE_LEN = 64;    // Raw ECDSA: R || S
+static const size_t V3_COMMAND_HEADER_LEN = 1 + 1 + V3_KEY_FINGERPRINT_LEN + V3_NONCE_LEN + 1;
+static const size_t V3_COMMAND_MIN_PACKET_LEN = V3_COMMAND_HEADER_LEN + P256_SIGNATURE_LEN;
+static const size_t V3_COMMAND_MAX_PAYLOAD_LEN = SECURE_COMMAND_MAX_LEN - V3_COMMAND_MIN_PACKET_LEN;
+static const uint8_t MAX_BLE_CONNECTIONS = 4;
 static const uint8_t MAX_PAIRED_PHONES = 4;
 static const uint8_t PAIRING_PAYLOAD_WITH_NAME_VERSION = 0x01;
 static const size_t PAIRED_DEVICE_NAME_LEN = 24;
 static const size_t PAIRED_DEVICE_NAME_STORAGE_LEN = PAIRED_DEVICE_NAME_LEN + 1;
+static const size_t LOCK_NAME_LEN = 24;
+static const size_t LOCK_NAME_STORAGE_LEN = LOCK_NAME_LEN + 1;
 static const size_t LEGACY_PAIRING_RECORD_LEN = P256_PUBLIC_KEY_LEN + sizeof(uint64_t);
 static const size_t PAIRING_RECORD_LEN = LEGACY_PAIRING_RECORD_LEN + PAIRED_DEVICE_NAME_STORAGE_LEN;
 static const size_t PAIRING_APPROVAL_CODE_LEN = 4;
@@ -54,10 +99,13 @@ BLEService doorService = BLEService(DOOR_SERVICE_UUID);
 BLECharacteristic commandCharacteristic = BLECharacteristic(COMMAND_CHAR_UUID);
 BLECharacteristic stateCharacteristic = BLECharacteristic(STATE_CHAR_UUID);
 BLECharacteristic pairingCharacteristic = BLECharacteristic(PAIRING_CHAR_UUID);
+BLECharacteristic controlCharacteristic = BLECharacteristic(CONTROL_CHAR_UUID);
 BLEDis deviceInformation;
 
 Servo handleServo;
-int currentAngle = LOCK_ANGLE;
+uint8_t lockAngle = DEFAULT_LOCK_ANGLE;
+uint8_t unlockAngle = DEFAULT_UNLOCK_ANGLE;
+int currentAngle = DEFAULT_LOCK_ANGLE;
 bool unlocked = false;
 bool servoMoving = false;
 bool internalFsReady = false;
@@ -67,12 +115,42 @@ bool unlockAutoLockActive = false;
 uint32_t unlockAutoLockStartedMs = 0;
 uint16_t unlockHoldTimeoutSeconds = DEFAULT_UNLOCK_HOLD_TIMEOUT_SECONDS;
 uint16_t lastPublishedUnlockRemainingSeconds = 0xFFFF;
+uint64_t lastUnlockEpochSeconds = 0;
+char lastUnlockDeviceFingerprint[PAIRING_FINGERPRINT_LEN + 1] = {0};
+char lastUnlockDeviceName[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
+char controllerLockName[LOCK_NAME_STORAGE_LEN] = {0};
+char activeSettingApplyKind[24] = {0};
+char activeSettingApplyValue[32] = {0};
+bool settingApplyStatusActive = false;
+uint32_t settingApplyStatusStartedMs = 0;
 uint8_t pendingPairingPublicKey[P256_PUBLIC_KEY_LEN] = {0};
 char pendingPairingDeviceName[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
+uint16_t pendingPairingConnHandle = BLE_CONN_HANDLE_INVALID;
 uint8_t pairedPublicKeyCount = 0;
 uint8_t pairedPublicKeys[MAX_PAIRED_PHONES][P256_PUBLIC_KEY_LEN] = {{0}};
 uint64_t pairedCounters[MAX_PAIRED_PHONES] = {0};
 char pairedDeviceNames[MAX_PAIRED_PHONES][PAIRED_DEVICE_NAME_STORAGE_LEN] = {{0}};
+bool connectedDeviceSlotsUsed[MAX_BLE_CONNECTIONS] = {false};
+bool connectedDeviceTrusted[MAX_BLE_CONNECTIONS] = {false};
+uint16_t connectedDeviceHandles[MAX_BLE_CONNECTIONS] = {0};
+char connectedDeviceNames[MAX_BLE_CONNECTIONS][PAIRED_DEVICE_NAME_STORAGE_LEN] = {{0}};
+bool connectedDeviceNonceValid[MAX_BLE_CONNECTIONS] = {false};
+uint8_t connectedDeviceNonces[MAX_BLE_CONNECTIONS][V3_NONCE_LEN] = {{0}};
+
+struct BleCommandJob {
+  bool isReject;
+  uint16_t connHandle;
+  uint16_t payloadLen;
+  uint8_t payload[SECURE_COMMAND_MAX_LEN];
+  char rejectReason[BLE_REJECT_REASON_LEN];
+};
+
+BleCommandJob bleCommandQueue[BLE_COMMAND_QUEUE_CAPACITY];
+volatile uint8_t bleCommandQueueHead = 0;
+volatile uint8_t bleCommandQueueTail = 0;
+volatile uint8_t bleCommandQueueCount = 0;
+volatile bool bleCommandQueueOverflowPending = false;
+uint16_t bleCommandQueueOverflowConnHandle = BLE_CONN_HANDLE_INVALID;
 
 bool parseUnsigned64Range(const char* start, const char* end, uint64_t* value) {
   if (start == nullptr || end == nullptr || start >= end) {
@@ -215,6 +293,29 @@ bool keyFingerprint(const uint8_t* rawKey, char* output, size_t outputLen) {
   return true;
 }
 
+bool keyFingerprintBytes(const uint8_t* rawKey, uint8_t* output, size_t outputLen) {
+  if (rawKey == nullptr || output == nullptr || outputLen < V3_KEY_FINGERPRINT_LEN) {
+    return false;
+  }
+
+  nRFCrypto_Hash hash;
+  uint32_t digest[16] = {0};
+  if (!hash.begin(CRYS_HASH_SHA256_mode)) {
+    return false;
+  }
+  if (!hash.update((uint8_t*) rawKey, P256_PUBLIC_KEY_LEN)) {
+    return false;
+  }
+
+  uint8_t digestLen = hash.end(digest);
+  if (digestLen < V3_KEY_FINGERPRINT_LEN) {
+    return false;
+  }
+
+  memcpy(output, (const uint8_t*) digest, V3_KEY_FINGERPRINT_LEN);
+  return true;
+}
+
 bool keyApprovalCode(const uint8_t* rawKey, char* output, size_t outputLen) {
   if (rawKey == nullptr || output == nullptr || outputLen < PAIRING_APPROVAL_CODE_LEN + 1) {
     return false;
@@ -238,6 +339,61 @@ bool keyApprovalCode(const uint8_t* rawKey, char* output, size_t outputLen) {
   uint16_t code = ((((uint16_t) bytes[0]) << 8) | bytes[1]) % 10000;
   snprintf(output, outputLen, "%04u", code);
   return true;
+}
+
+bool isFingerprintText(const char* text) {
+  if (text == nullptr || strlen(text) != PAIRING_FINGERPRINT_LEN) {
+    return false;
+  }
+
+  for (size_t index = 0; index < PAIRING_FINGERPRINT_LEN; index++) {
+    char value = text[index];
+    if (index == 4 || index == 9 || index == 14) {
+      if (value != '-') {
+        return false;
+      }
+      continue;
+    }
+
+    bool isHex = (value >= '0' && value <= '9')
+      || (value >= 'A' && value <= 'F')
+      || (value >= 'a' && value <= 'f');
+    if (!isHex) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool fingerprintForPairedDevice(uint8_t index, char* output, size_t outputLen) {
+  if (index >= pairedPublicKeyCount) {
+    return false;
+  }
+
+  return keyFingerprint(pairedPublicKeys[index], output, outputLen);
+}
+
+void copyResolvedLastUnlockDeviceName(char* output, size_t outputLen) {
+  if (output == nullptr || outputLen == 0) {
+    return;
+  }
+
+  memset(output, 0, outputLen);
+  if (lastUnlockDeviceFingerprint[0] != 0) {
+    for (uint8_t index = 0; index < pairedPublicKeyCount; index++) {
+      char fingerprint[PAIRING_FINGERPRINT_LEN + 1] = {0};
+      if (fingerprintForPairedDevice(index, fingerprint, sizeof(fingerprint))
+          && strcmp(fingerprint, lastUnlockDeviceFingerprint) == 0) {
+        copyDeviceName(pairedDeviceNames[index], output, outputLen);
+        if (output[0] != 0) {
+          return;
+        }
+      }
+    }
+  }
+
+  copyDeviceName(lastUnlockDeviceName, output, outputLen);
 }
 
 bool pairingCodeMatches(const char* expected, const char* provided) {
@@ -386,8 +542,365 @@ void copyDeviceName(const char* name, char* output, size_t outputLen) {
   sanitizeDeviceName((const uint8_t*) name, name == nullptr ? 0 : strlen(name), output, outputLen);
 }
 
+void copyLockName(const char* name, char* output, size_t outputLen) {
+  sanitizeDeviceName((const uint8_t*) name, name == nullptr ? 0 : strlen(name), output, outputLen);
+}
+
+bool saveLockName() {
+  if (!ensureInternalFS()) {
+    return false;
+  }
+
+  if (InternalFS.exists(LOCK_NAME_FILENAME)) {
+    InternalFS.remove(LOCK_NAME_FILENAME);
+  }
+
+  File file(InternalFS);
+  if (!file.open(LOCK_NAME_FILENAME, FILE_O_WRITE)) {
+    return false;
+  }
+
+  file.write((uint8_t*) controllerLockName, strlen(controllerLockName));
+  file.close();
+  return true;
+}
+
+void loadLockName() {
+  copyLockName(DEFAULT_LOCK_NAME, controllerLockName, sizeof(controllerLockName));
+
+  if (!ensureInternalFS()) {
+    return;
+  }
+
+  File file(InternalFS);
+  if (!file.open(LOCK_NAME_FILENAME, FILE_O_READ)) {
+    return;
+  }
+
+  char buffer[LOCK_NAME_STORAGE_LEN] = {0};
+  uint32_t readLen = file.read(buffer, sizeof(buffer) - 1);
+  file.close();
+  buffer[min<uint32_t>(readLen, sizeof(buffer) - 1)] = 0;
+
+  char sanitizedName[LOCK_NAME_STORAGE_LEN] = {0};
+  copyLockName(buffer, sanitizedName, sizeof(sanitizedName));
+  if (sanitizedName[0] == 0) {
+    InternalFS.remove(LOCK_NAME_FILENAME);
+  } else {
+    copyLockName(sanitizedName, controllerLockName, sizeof(controllerLockName));
+  }
+}
+
+bool setControllerLockName(const char* name) {
+  char sanitizedName[LOCK_NAME_STORAGE_LEN] = {0};
+  copyLockName(name, sanitizedName, sizeof(sanitizedName));
+  if (sanitizedName[0] == 0) {
+    return false;
+  }
+
+  char previousName[LOCK_NAME_STORAGE_LEN] = {0};
+  copyLockName(controllerLockName, previousName, sizeof(previousName));
+  copyLockName(sanitizedName, controllerLockName, sizeof(controllerLockName));
+  if (!saveLockName()) {
+    copyLockName(previousName, controllerLockName, sizeof(controllerLockName));
+    return false;
+  }
+
+  Serial.print("Lock name set to ");
+  Serial.println(controllerLockName);
+  return true;
+}
+
+bool isValidServoAngle(uint64_t angle) {
+  return angle >= MIN_SAFE_SERVO_ANGLE && angle <= MAX_SAFE_SERVO_ANGLE;
+}
+
+bool areValidServoAngles(uint64_t requestedLockAngle, uint64_t requestedUnlockAngle) {
+  if (!isValidServoAngle(requestedLockAngle) || !isValidServoAngle(requestedUnlockAngle)) {
+    return false;
+  }
+
+  uint64_t gap = requestedLockAngle > requestedUnlockAngle
+    ? requestedLockAngle - requestedUnlockAngle
+    : requestedUnlockAngle - requestedLockAngle;
+  return gap >= MIN_SERVO_ANGLE_GAP;
+}
+
+bool parseServoAnglesText(const char* text, uint16_t* requestedLockAngle, uint16_t* requestedUnlockAngle) {
+  if (text == nullptr || requestedLockAngle == nullptr || requestedUnlockAngle == nullptr) {
+    return false;
+  }
+
+  const char* cursor = text;
+  while (*cursor == ' ' || *cursor == '\t') {
+    cursor++;
+  }
+
+  const char* lockStart = cursor;
+  while (*cursor >= '0' && *cursor <= '9') {
+    cursor++;
+  }
+  if (lockStart == cursor) {
+    return false;
+  }
+
+  uint64_t parsedLockAngle = 0;
+  if (!parseUnsigned64Range(lockStart, cursor, &parsedLockAngle)) {
+    return false;
+  }
+
+  const char* separatorStart = cursor;
+  while (*cursor == ' ' || *cursor == '\t') {
+    cursor++;
+  }
+
+  if (*cursor == ',') {
+    cursor++;
+  } else if (separatorStart == cursor) {
+    return false;
+  }
+
+  while (*cursor == ' ' || *cursor == '\t') {
+    cursor++;
+  }
+
+  const char* unlockStart = cursor;
+  while (*cursor >= '0' && *cursor <= '9') {
+    cursor++;
+  }
+  if (unlockStart == cursor) {
+    return false;
+  }
+
+  uint64_t parsedUnlockAngle = 0;
+  if (!parseUnsigned64Range(unlockStart, cursor, &parsedUnlockAngle)) {
+    return false;
+  }
+
+  while (*cursor == ' ' || *cursor == '\t') {
+    cursor++;
+  }
+  if (*cursor != 0 || !areValidServoAngles(parsedLockAngle, parsedUnlockAngle)) {
+    return false;
+  }
+
+  *requestedLockAngle = (uint16_t) parsedLockAngle;
+  *requestedUnlockAngle = (uint16_t) parsedUnlockAngle;
+  return true;
+}
+
+bool saveServoAngles() {
+  if (!ensureInternalFS()) {
+    return false;
+  }
+
+  if (InternalFS.exists(SERVO_ANGLES_FILENAME)) {
+    InternalFS.remove(SERVO_ANGLES_FILENAME);
+  }
+
+  File file(InternalFS);
+  if (!file.open(SERVO_ANGLES_FILENAME, FILE_O_WRITE)) {
+    return false;
+  }
+
+  char buffer[12] = {0};
+  snprintf(buffer, sizeof(buffer), "%u,%u", lockAngle, unlockAngle);
+  file.write((uint8_t*) buffer, strlen(buffer));
+  file.close();
+  return true;
+}
+
+void loadServoAngles() {
+  lockAngle = DEFAULT_LOCK_ANGLE;
+  unlockAngle = DEFAULT_UNLOCK_ANGLE;
+
+  if (!ensureInternalFS()) {
+    return;
+  }
+
+  File file(InternalFS);
+  if (!file.open(SERVO_ANGLES_FILENAME, FILE_O_READ)) {
+    return;
+  }
+
+  char buffer[16] = {0};
+  uint32_t readLen = file.read(buffer, sizeof(buffer) - 1);
+  file.close();
+  buffer[min<uint32_t>(readLen, sizeof(buffer) - 1)] = 0;
+
+  uint16_t storedLockAngle = 0;
+  uint16_t storedUnlockAngle = 0;
+  if (parseServoAnglesText(buffer, &storedLockAngle, &storedUnlockAngle)) {
+    lockAngle = (uint8_t) storedLockAngle;
+    unlockAngle = (uint8_t) storedUnlockAngle;
+  } else {
+    InternalFS.remove(SERVO_ANGLES_FILENAME);
+  }
+}
+
+bool setServoAngles(uint16_t requestedLockAngle, uint16_t requestedUnlockAngle) {
+  if (!areValidServoAngles(requestedLockAngle, requestedUnlockAngle)) {
+    return false;
+  }
+
+  uint8_t previousLockAngle = lockAngle;
+  uint8_t previousUnlockAngle = unlockAngle;
+  lockAngle = (uint8_t) requestedLockAngle;
+  unlockAngle = (uint8_t) requestedUnlockAngle;
+  if (!saveServoAngles()) {
+    lockAngle = previousLockAngle;
+    unlockAngle = previousUnlockAngle;
+    return false;
+  }
+
+  Serial.print("Servo angles set to rest=");
+  Serial.print(lockAngle);
+  Serial.print(" push=");
+  Serial.println(unlockAngle);
+  return true;
+}
+
+bool saveLastUnlockRecord() {
+  if (!ensureInternalFS()) {
+    return false;
+  }
+
+  if (InternalFS.exists(LAST_UNLOCK_FILENAME)) {
+    InternalFS.remove(LAST_UNLOCK_FILENAME);
+  }
+
+  File file(InternalFS);
+  if (!file.open(LAST_UNLOCK_FILENAME, FILE_O_WRITE)) {
+    return false;
+  }
+
+  char buffer[96] = {0};
+  if (lastUnlockDeviceFingerprint[0] != 0) {
+    snprintf(
+      buffer,
+      sizeof(buffer),
+      "%llu\n%s\n%s",
+      (unsigned long long) lastUnlockEpochSeconds,
+      lastUnlockDeviceFingerprint,
+      lastUnlockDeviceName
+    );
+  } else if (lastUnlockDeviceName[0] != 0) {
+    snprintf(
+      buffer,
+      sizeof(buffer),
+      "%llu\n%s",
+      (unsigned long long) lastUnlockEpochSeconds,
+      lastUnlockDeviceName
+    );
+  } else {
+    snprintf(buffer, sizeof(buffer), "%llu", (unsigned long long) lastUnlockEpochSeconds);
+  }
+  file.write((uint8_t*) buffer, strlen(buffer));
+  file.close();
+  return true;
+}
+
+void loadLastUnlockRecord() {
+  lastUnlockEpochSeconds = 0;
+  memset(lastUnlockDeviceFingerprint, 0, sizeof(lastUnlockDeviceFingerprint));
+  memset(lastUnlockDeviceName, 0, sizeof(lastUnlockDeviceName));
+
+  if (!ensureInternalFS()) {
+    return;
+  }
+
+  File file(InternalFS);
+  if (!file.open(LAST_UNLOCK_FILENAME, FILE_O_READ)) {
+    return;
+  }
+
+  char buffer[96] = {0};
+  uint32_t readLen = file.read(buffer, sizeof(buffer) - 1);
+  file.close();
+  buffer[min<uint32_t>(readLen, sizeof(buffer) - 1)] = 0;
+
+  char* secondLine = strchr(buffer, '\n');
+  if (secondLine != nullptr) {
+    *secondLine = 0;
+    secondLine++;
+  }
+
+  char* carriageReturn = strchr(buffer, '\r');
+  if (carriageReturn != nullptr) {
+    *carriageReturn = 0;
+  }
+
+  uint64_t storedEpochSeconds = 0;
+  if (parseUnsigned64Text(buffer, &storedEpochSeconds)) {
+    lastUnlockEpochSeconds = storedEpochSeconds;
+    if (secondLine != nullptr) {
+      char* thirdLine = strchr(secondLine, '\n');
+      if (thirdLine != nullptr) {
+        *thirdLine = 0;
+        thirdLine++;
+      }
+
+      char* secondLineCarriageReturn = strchr(secondLine, '\r');
+      if (secondLineCarriageReturn != nullptr) {
+        *secondLineCarriageReturn = 0;
+      }
+
+      if (isFingerprintText(secondLine)) {
+        strncpy(lastUnlockDeviceFingerprint, secondLine, sizeof(lastUnlockDeviceFingerprint) - 1);
+        lastUnlockDeviceFingerprint[sizeof(lastUnlockDeviceFingerprint) - 1] = 0;
+        if (thirdLine != nullptr) {
+          copyDeviceName(thirdLine, lastUnlockDeviceName, sizeof(lastUnlockDeviceName));
+        }
+      } else {
+        copyDeviceName(secondLine, lastUnlockDeviceName, sizeof(lastUnlockDeviceName));
+      }
+    }
+  } else {
+    InternalFS.remove(LAST_UNLOCK_FILENAME);
+  }
+}
+
+bool setLastUnlockRecord(uint64_t epochSeconds, const char* deviceFingerprint, const char* deviceName) {
+  if (epochSeconds == 0) {
+    return true;
+  }
+
+  uint64_t previousEpochSeconds = lastUnlockEpochSeconds;
+  char previousDeviceFingerprint[PAIRING_FINGERPRINT_LEN + 1] = {0};
+  char previousDeviceName[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
+  strncpy(previousDeviceFingerprint, lastUnlockDeviceFingerprint, sizeof(previousDeviceFingerprint) - 1);
+  copyDeviceName(lastUnlockDeviceName, previousDeviceName, sizeof(previousDeviceName));
+
+  lastUnlockEpochSeconds = epochSeconds;
+  memset(lastUnlockDeviceFingerprint, 0, sizeof(lastUnlockDeviceFingerprint));
+  if (isFingerprintText(deviceFingerprint)) {
+    strncpy(lastUnlockDeviceFingerprint, deviceFingerprint, sizeof(lastUnlockDeviceFingerprint) - 1);
+    lastUnlockDeviceFingerprint[sizeof(lastUnlockDeviceFingerprint) - 1] = 0;
+  }
+  copyDeviceName(deviceName, lastUnlockDeviceName, sizeof(lastUnlockDeviceName));
+  if (!saveLastUnlockRecord()) {
+    lastUnlockEpochSeconds = previousEpochSeconds;
+    strncpy(lastUnlockDeviceFingerprint, previousDeviceFingerprint, sizeof(lastUnlockDeviceFingerprint) - 1);
+    lastUnlockDeviceFingerprint[sizeof(lastUnlockDeviceFingerprint) - 1] = 0;
+    copyDeviceName(previousDeviceName, lastUnlockDeviceName, sizeof(lastUnlockDeviceName));
+    return false;
+  }
+
+  Serial.print("Last unlock epoch set to ");
+  printUnsigned64(lastUnlockEpochSeconds);
+  char resolvedDeviceName[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
+  copyResolvedLastUnlockDeviceName(resolvedDeviceName, sizeof(resolvedDeviceName));
+  if (resolvedDeviceName[0] != 0) {
+    Serial.print(" by ");
+    Serial.print(resolvedDeviceName);
+  }
+  Serial.println();
+  return true;
+}
+
 void clearPendingPairing() {
   pendingPairingExists = false;
+  pendingPairingConnHandle = BLE_CONN_HANDLE_INVALID;
   memset(pendingPairingPublicKey, 0, sizeof(pendingPairingPublicKey));
   memset(pendingPairingDeviceName, 0, sizeof(pendingPairingDeviceName));
 }
@@ -796,6 +1309,24 @@ int8_t hexNibble(char value) {
   return -1;
 }
 
+char hexDigit(uint8_t value) {
+  value &= 0x0f;
+  return value < 10 ? (char) ('0' + value) : (char) ('a' + value - 10);
+}
+
+bool bytesToHex(const uint8_t* bytes, size_t byteLen, char* output, size_t outputLen) {
+  if (bytes == nullptr || output == nullptr || outputLen < (byteLen * 2) + 1) {
+    return false;
+  }
+
+  for (size_t index = 0; index < byteLen; index++) {
+    output[index * 2] = hexDigit(bytes[index] >> 4);
+    output[index * 2 + 1] = hexDigit(bytes[index]);
+  }
+  output[byteLen * 2] = 0;
+  return true;
+}
+
 bool hexToBytes(const char* hex, uint8_t* bytes, size_t byteLen) {
   if (strlen(hex) != byteLen * 2) {
     return false;
@@ -813,32 +1344,15 @@ bool hexToBytes(const char* hex, uint8_t* bytes, size_t byteLen) {
   return true;
 }
 
-int8_t verifySignedPayload(const char* payload, const uint8_t* signature) {
-  if (pairedPublicKeyCount == 0) {
+int8_t pairedPublicKeyIndexForFingerprintBytes(const uint8_t* fingerprint) {
+  if (fingerprint == nullptr) {
     return -1;
   }
 
   for (uint8_t index = 0; index < pairedPublicKeyCount; index++) {
-    CRYS_ECPKI_UserPublKey_t publicKey;
-    memset(&publicKey, 0, sizeof(publicKey));
-    if (!buildPublicKeyFromRaw(pairedPublicKeys[index], &publicKey)) {
-      continue;
-    }
-
-    static CRYS_ECDSA_VerifyUserContext_t verifyContext;
-    memset(&verifyContext, 0, sizeof(verifyContext));
-
-    uint32_t err = CRYS_ECDSA_Verify(
-      &verifyContext,
-      &publicKey,
-      CRYS_ECPKI_HASH_SHA256_mode,
-      (uint8_t*) signature,
-      P256_SIGNATURE_LEN,
-      (uint8_t*) payload,
-      strlen(payload)
-    );
-
-    if (err == CRYS_OK) {
+    uint8_t pairedFingerprint[V3_KEY_FINGERPRINT_LEN] = {0};
+    if (keyFingerprintBytes(pairedPublicKeys[index], pairedFingerprint, sizeof(pairedFingerprint))
+        && memcmp(pairedFingerprint, fingerprint, V3_KEY_FINGERPRINT_LEN) == 0) {
       return index;
     }
   }
@@ -846,41 +1360,62 @@ int8_t verifySignedPayload(const char* payload, const uint8_t* signature) {
   return -1;
 }
 
-bool isKnownCommand(const char* command) {
-  return strcmp(command, "UNLOCK") == 0
-    || strcmp(command, "LOCK") == 0
-    || strncmp(command, "SET_TIMEOUT:", 12) == 0
-    || strncmp(command, "SET_NAME:", 9) == 0;
+bool verifySignatureForPairedDevice(uint8_t pairingIndex, const uint8_t* message, size_t messageLen, const uint8_t* signature) {
+  if (pairingIndex >= pairedPublicKeyCount || message == nullptr || messageLen == 0 || signature == nullptr) {
+    return false;
+  }
+
+  CRYS_ECPKI_UserPublKey_t publicKey;
+  memset(&publicKey, 0, sizeof(publicKey));
+  if (!buildPublicKeyFromRaw(pairedPublicKeys[pairingIndex], &publicKey)) {
+    return false;
+  }
+
+  static CRYS_ECDSA_VerifyUserContext_t verifyContext;
+  memset(&verifyContext, 0, sizeof(verifyContext));
+
+  uint32_t err = CRYS_ECDSA_Verify(
+    &verifyContext,
+    &publicKey,
+    CRYS_ECPKI_HASH_SHA256_mode,
+    (uint8_t*) signature,
+    P256_SIGNATURE_LEN,
+    (uint8_t*) message,
+    messageLen
+  );
+
+  return err == CRYS_OK;
 }
 
-bool parseSetTimeoutCommand(const char* command, uint16_t* seconds) {
-  static const char prefix[] = "SET_TIMEOUT:";
-  if (command == nullptr || seconds == nullptr || strncmp(command, prefix, strlen(prefix)) != 0) {
+bool buildV3CommandSignatureMessage(const uint8_t* packet, uint16_t packetLen, uint8_t* output, size_t outputLen, size_t* messageLen) {
+  if (packet == nullptr || output == nullptr || messageLen == nullptr) {
     return false;
   }
 
-  uint64_t parsedSeconds = 0;
-  if (!parseUnsigned64Text(command + strlen(prefix), &parsedSeconds)) {
+  if (packetLen < V3_COMMAND_MIN_PACKET_LEN || packet[0] != V3_COMMAND_VERSION) {
     return false;
   }
 
-  if (!isValidUnlockHoldTimeout(parsedSeconds)) {
+  uint8_t payloadLen = packet[V3_COMMAND_HEADER_LEN - 1];
+  if (payloadLen > V3_COMMAND_MAX_PAYLOAD_LEN) {
     return false;
   }
 
-  *seconds = (uint16_t) parsedSeconds;
+  const size_t unsignedLen = V3_COMMAND_HEADER_LEN + payloadLen;
+  if (packetLen != unsignedLen + P256_SIGNATURE_LEN) {
+    return false;
+  }
+
+  const size_t domainLen = strlen(V3_COMMAND_SIGNATURE_DOMAIN);
+  const size_t requiredLen = domainLen + unsignedLen;
+  if (outputLen < requiredLen) {
+    return false;
+  }
+
+  memcpy(output, V3_COMMAND_SIGNATURE_DOMAIN, domainLen);
+  memcpy(output + domainLen, packet, unsignedLen);
+  *messageLen = requiredLen;
   return true;
-}
-
-bool parseSetNameCommand(const char* command, char* deviceName, size_t deviceNameLen) {
-  static const char prefix[] = "SET_NAME:";
-  if (command == nullptr || deviceName == nullptr || deviceNameLen == 0 || strncmp(command, prefix, strlen(prefix)) != 0) {
-    return false;
-  }
-
-  const char* rawName = command + strlen(prefix);
-  sanitizeDeviceName((const uint8_t*) rawName, strlen(rawName), deviceName, deviceNameLen);
-  return deviceName[0] != 0;
 }
 
 bool setUnlockHoldTimeoutSeconds(uint16_t seconds) {
@@ -952,8 +1487,250 @@ void setupStatusLed() {
   updateStatusLed();
 }
 
+int8_t connectedDeviceSlotForHandle(uint16_t connHandle) {
+  for (uint8_t index = 0; index < MAX_BLE_CONNECTIONS; index++) {
+    if (connectedDeviceSlotsUsed[index] && connectedDeviceHandles[index] == connHandle) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+int8_t firstAvailableConnectedDeviceSlot() {
+  for (uint8_t index = 0; index < MAX_BLE_CONNECTIONS; index++) {
+    if (!connectedDeviceSlotsUsed[index]) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+void sanitizeConnectionPayloadName(const char* name, char* output, size_t outputLen) {
+  if (output == nullptr || outputLen == 0) {
+    return;
+  }
+
+  memset(output, 0, outputLen);
+  if (name == nullptr) {
+    return;
+  }
+
+  size_t writeIndex = 0;
+  bool previousWasSpace = false;
+  for (size_t readIndex = 0; name[readIndex] != 0 && writeIndex < outputLen - 1; readIndex++) {
+    char value = name[readIndex];
+    if (value == ':' || value == '|' || value == ',') {
+      value = ' ';
+    }
+    appendSanitizedDeviceNameChar(value, output, outputLen, writeIndex, previousWasSpace);
+  }
+
+  while (writeIndex > 0 && output[writeIndex - 1] == ' ') {
+    output[--writeIndex] = 0;
+  }
+}
+
+void setConnectedDeviceName(uint16_t connHandle, const char* name, bool trustedName) {
+  if (connHandle == BLE_CONN_HANDLE_INVALID || name == nullptr || name[0] == 0) {
+    return;
+  }
+
+  int8_t slot = connectedDeviceSlotForHandle(connHandle);
+  if (slot < 0) {
+    slot = firstAvailableConnectedDeviceSlot();
+  }
+  if (slot < 0) {
+    return;
+  }
+
+  if (connectedDeviceSlotsUsed[slot] && connectedDeviceTrusted[slot] && !trustedName) {
+    return;
+  }
+
+  connectedDeviceSlotsUsed[slot] = true;
+  connectedDeviceTrusted[slot] = trustedName;
+  connectedDeviceHandles[slot] = connHandle;
+  copyDeviceName(name, connectedDeviceNames[slot], sizeof(connectedDeviceNames[slot]));
+}
+
+void trackConnectedDevice(uint16_t connHandle, const char* centralName) {
+  if (connHandle == BLE_CONN_HANDLE_INVALID) {
+    return;
+  }
+
+  int8_t slot = connectedDeviceSlotForHandle(connHandle);
+  if (slot < 0) {
+    slot = firstAvailableConnectedDeviceSlot();
+  }
+  if (slot < 0) {
+    return;
+  }
+
+  connectedDeviceSlotsUsed[slot] = true;
+  connectedDeviceTrusted[slot] = false;
+  connectedDeviceHandles[slot] = connHandle;
+  copyDeviceName(centralName, connectedDeviceNames[slot], sizeof(connectedDeviceNames[slot]));
+}
+
+void clearConnectedDevice(uint16_t connHandle) {
+  int8_t slot = connectedDeviceSlotForHandle(connHandle);
+  if (slot < 0) {
+    return;
+  }
+
+  connectedDeviceSlotsUsed[slot] = false;
+  connectedDeviceTrusted[slot] = false;
+  connectedDeviceHandles[slot] = 0;
+  memset(connectedDeviceNames[slot], 0, sizeof(connectedDeviceNames[slot]));
+  connectedDeviceNonceValid[slot] = false;
+  memset(connectedDeviceNonces[slot], 0, sizeof(connectedDeviceNonces[slot]));
+}
+
+bool fillSecureRandomBytes(uint8_t* output, size_t outputLen) {
+  if (output == nullptr || outputLen == 0) {
+    return false;
+  }
+
+  size_t offset = 0;
+  uint8_t attempts = 0;
+  while (offset < outputLen && attempts < 100) {
+    uint8_t chunkLen = (uint8_t) min<size_t>(outputLen - offset, 8);
+    uint32_t err = sd_rand_application_vector_get(output + offset, chunkLen);
+    if (err == NRF_SUCCESS) {
+      offset += chunkLen;
+      attempts = 0;
+      continue;
+    }
+
+    attempts++;
+    delay(1);
+  }
+
+  return offset == outputLen;
+}
+
+void publishControlTo(uint16_t connHandle, const char* payload) {
+  if (connHandle == BLE_CONN_HANDLE_INVALID || payload == nullptr || !Bluefruit.connected(connHandle)) {
+    return;
+  }
+
+  if (controlCharacteristic.indicateEnabled(connHandle)) {
+    controlCharacteristic.indicate(connHandle, payload);
+  } else if (controlCharacteristic.notifyEnabled(connHandle)) {
+    controlCharacteristic.notify(connHandle, payload);
+  }
+}
+
+void publishControlRejectTo(uint16_t connHandle, const char* reason) {
+  char payload[STATE_PAYLOAD_MAX_LEN] = {0};
+  snprintf(payload, sizeof(payload), "reject:v3:%s", reason == nullptr ? "rejected" : reason);
+  publishControlTo(connHandle, payload);
+  Serial.print("Control: ");
+  Serial.println(payload);
+}
+
+bool issueV3NonceTo(uint16_t connHandle) {
+  int8_t slot = connectedDeviceSlotForHandle(connHandle);
+  if (slot < 0 || !Bluefruit.connected(connHandle)) {
+    return false;
+  }
+
+  if (!fillSecureRandomBytes(connectedDeviceNonces[slot], V3_NONCE_LEN)) {
+    connectedDeviceNonceValid[slot] = false;
+    publishControlRejectTo(connHandle, "nonce_unavailable");
+    return false;
+  }
+
+  connectedDeviceNonceValid[slot] = true;
+
+  char nonceHex[V3_NONCE_LEN * 2 + 1] = {0};
+  char payload[STATE_PAYLOAD_MAX_LEN] = {0};
+  if (!bytesToHex(connectedDeviceNonces[slot], V3_NONCE_LEN, nonceHex, sizeof(nonceHex))) {
+    return false;
+  }
+  snprintf(payload, sizeof(payload), "nonce:v3:%s", nonceHex);
+  publishControlTo(connHandle, payload);
+  Serial.print("Control: ");
+  Serial.println(payload);
+  return true;
+}
+
+void notifyStateSubscribers(const char* payload) {
+  if (payload == nullptr || !Bluefruit.connected()) {
+    return;
+  }
+
+  uint16_t handles[MAX_BLE_CONNECTIONS] = {0};
+  uint8_t connectedCount = Bluefruit.getConnectedHandles(handles, MAX_BLE_CONNECTIONS);
+  for (uint8_t index = 0; index < connectedCount; index++) {
+    stateCharacteristic.notify(handles[index], payload);
+  }
+}
+
+void notifyStateSubscriber(uint16_t connHandle, const char* payload) {
+  if (payload == nullptr || !Bluefruit.connected()) {
+    return;
+  }
+
+  if (connHandle == BLE_CONN_HANDLE_INVALID || !Bluefruit.connected(connHandle)) {
+    notifyStateSubscribers(payload);
+    return;
+  }
+
+  if (!stateCharacteristic.notifyEnabled(connHandle)) {
+    return;
+  }
+
+  stateCharacteristic.notify(connHandle, payload);
+}
+
+void writeAndNotifyStatePayload(const char* payload) {
+  stateCharacteristic.write(payload);
+  notifyStateSubscribers(payload);
+}
+
+void publishConnectionsState() {
+  char payload[STATE_PAYLOAD_MAX_LEN] = {0};
+  uint8_t connectedCount = Bluefruit.connected();
+  int written = snprintf(payload, sizeof(payload), "connections:%u/%u:", connectedCount, MAX_BLE_CONNECTIONS);
+  if (written < 0) {
+    return;
+  }
+
+  size_t offset = min<size_t>((size_t) written, sizeof(payload) - 1);
+  bool hasName = false;
+  for (uint8_t index = 0; index < MAX_BLE_CONNECTIONS && offset < sizeof(payload) - 1; index++) {
+    if (!connectedDeviceSlotsUsed[index] || !Bluefruit.connected(connectedDeviceHandles[index])) {
+      continue;
+    }
+
+    char name[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
+    sanitizeConnectionPayloadName(connectedDeviceNames[index], name, sizeof(name));
+    if (name[0] == 0) {
+      snprintf(name, sizeof(name), "Device %u", index + 1);
+    }
+
+    int nextWritten = snprintf(
+      payload + offset,
+      sizeof(payload) - offset,
+      "%s%s",
+      hasName ? "|" : "",
+      name
+    );
+    if (nextWritten < 0) {
+      break;
+    }
+    offset += min<size_t>((size_t) nextWritten, sizeof(payload) - 1 - offset);
+    hasName = true;
+  }
+
+  notifyStateSubscribers(payload);
+  Serial.print("State: ");
+  Serial.println(payload);
+}
+
 void publishState(const char* state) {
-  char payload[32] = {0};
+  char payload[STATE_PAYLOAD_MAX_LEN] = {0};
   if (strcmp(state, "unlocked") == 0) {
     uint16_t remainingSeconds = unlockHoldRemainingSeconds();
     snprintf(payload, sizeof(payload), "unlocked:%u", remainingSeconds);
@@ -963,27 +1740,138 @@ void publishState(const char* state) {
     lastPublishedUnlockRemainingSeconds = 0xFFFF;
   }
 
-  stateCharacteristic.write(payload);
-  if (Bluefruit.connected()) {
-    stateCharacteristic.notify(payload);
+  writeAndNotifyStatePayload(payload);
+  Serial.print("State: ");
+  Serial.println(payload);
+}
+
+void publishStateTo(uint16_t connHandle, const char* state) {
+  char payload[STATE_PAYLOAD_MAX_LEN] = {0};
+  if (strcmp(state, "unlocked") == 0) {
+    uint16_t remainingSeconds = unlockHoldRemainingSeconds();
+    snprintf(payload, sizeof(payload), "unlocked:%u", remainingSeconds);
+  } else {
+    snprintf(payload, sizeof(payload), "%s", state);
   }
+
+  notifyStateSubscriber(connHandle, payload);
   Serial.print("State: ");
   Serial.println(payload);
 }
 
 void publishTimeoutSetState() {
-  char payload[32] = {0};
+  char payload[STATE_PAYLOAD_MAX_LEN] = {0};
   snprintf(payload, sizeof(payload), "timeout_set:%u", unlockHoldTimeoutSeconds);
-  stateCharacteristic.write(payload);
-  if (Bluefruit.connected()) {
-    stateCharacteristic.notify(payload);
+  writeAndNotifyStatePayload(payload);
+  Serial.print("State: ");
+  Serial.println(payload);
+}
+
+bool currentSettingApplyingPayload(char* output, size_t outputLen) {
+  if (output == nullptr || outputLen == 0 || !settingApplyStatusActive) {
+    return false;
   }
+
+  uint32_t elapsedMs = millis() - settingApplyStatusStartedMs;
+  if (elapsedMs > SETTING_APPLY_STATUS_MS) {
+    settingApplyStatusActive = false;
+    activeSettingApplyKind[0] = 0;
+    activeSettingApplyValue[0] = 0;
+    return false;
+  }
+
+  if (activeSettingApplyValue[0] != 0) {
+    snprintf(output, outputLen, "%s:%s", activeSettingApplyKind, activeSettingApplyValue);
+  } else {
+    strncpy(output, activeSettingApplyKind, outputLen - 1);
+  }
+  output[outputLen - 1] = 0;
+  return output[0] != 0;
+}
+
+void publishSettingApplyingState(const char* kind, const char* value) {
+  strncpy(activeSettingApplyKind, kind, sizeof(activeSettingApplyKind) - 1);
+  activeSettingApplyKind[sizeof(activeSettingApplyKind) - 1] = 0;
+  if (value == nullptr) {
+    activeSettingApplyValue[0] = 0;
+  } else {
+    strncpy(activeSettingApplyValue, value, sizeof(activeSettingApplyValue) - 1);
+    activeSettingApplyValue[sizeof(activeSettingApplyValue) - 1] = 0;
+  }
+  settingApplyStatusStartedMs = millis();
+  settingApplyStatusActive = activeSettingApplyKind[0] != 0;
+
+  char payload[STATE_PAYLOAD_MAX_LEN] = {0};
+  if (activeSettingApplyValue[0] != 0) {
+    snprintf(payload, sizeof(payload), "setting_applying:%s:%s", activeSettingApplyKind, activeSettingApplyValue);
+  } else {
+    snprintf(payload, sizeof(payload), "setting_applying:%s", activeSettingApplyKind);
+  }
+  writeAndNotifyStatePayload(payload);
+  Serial.print("State: ");
+  Serial.println(payload);
+}
+
+void publishSettingApplyingState(const char* kind) {
+  publishSettingApplyingState(kind, nullptr);
+}
+
+void publishLockNameState() {
+  char payload[STATE_PAYLOAD_MAX_LEN] = {0};
+  snprintf(payload, sizeof(payload), "lock_name:%s", controllerLockName);
+  writeAndNotifyStatePayload(payload);
+  Serial.print("State: ");
+  Serial.println(payload);
+}
+
+void publishServoAnglesState() {
+  char payload[STATE_PAYLOAD_MAX_LEN] = {0};
+  snprintf(payload, sizeof(payload), "servo_angles:%u,%u", lockAngle, unlockAngle);
+  writeAndNotifyStatePayload(payload);
+  Serial.print("State: ");
+  Serial.println(payload);
+}
+
+void publishLastUnlockState() {
+  char payload[STATE_PAYLOAD_MAX_LEN] = {0};
+  char resolvedDeviceName[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
+  copyResolvedLastUnlockDeviceName(resolvedDeviceName, sizeof(resolvedDeviceName));
+
+  if (lastUnlockDeviceFingerprint[0] != 0 && resolvedDeviceName[0] != 0) {
+    snprintf(
+      payload,
+      sizeof(payload),
+      "last_unlock:%llu:%s:%s",
+      (unsigned long long) lastUnlockEpochSeconds,
+      lastUnlockDeviceFingerprint,
+      resolvedDeviceName
+    );
+  } else if (lastUnlockDeviceFingerprint[0] != 0) {
+    snprintf(
+      payload,
+      sizeof(payload),
+      "last_unlock:%llu:%s",
+      (unsigned long long) lastUnlockEpochSeconds,
+      lastUnlockDeviceFingerprint
+    );
+  } else if (resolvedDeviceName[0] != 0) {
+    snprintf(
+      payload,
+      sizeof(payload),
+      "last_unlock:%llu:%s",
+      (unsigned long long) lastUnlockEpochSeconds,
+      resolvedDeviceName
+    );
+  } else {
+    snprintf(payload, sizeof(payload), "last_unlock:%llu", (unsigned long long) lastUnlockEpochSeconds);
+  }
+  writeAndNotifyStatePayload(payload);
   Serial.print("State: ");
   Serial.println(payload);
 }
 
 void writeCurrentStateCharacteristic() {
-  char payload[32] = {0};
+  char payload[STATE_PAYLOAD_MAX_LEN] = {0};
   const char* state = currentStateText();
   if (strcmp(state, "unlocked") == 0) {
     uint16_t remainingSeconds = unlockHoldRemainingSeconds();
@@ -1008,36 +1896,39 @@ void refreshUnlockCountdownValueIfChanged() {
     return;
   }
 
-  char payload[32] = {0};
+  char payload[STATE_PAYLOAD_MAX_LEN] = {0};
   snprintf(payload, sizeof(payload), "unlocked:%u", remainingSeconds);
   lastPublishedUnlockRemainingSeconds = remainingSeconds;
-  stateCharacteristic.write(payload);
+  writeAndNotifyStatePayload(payload);
+}
+
+void rejectCommandFor(uint16_t connHandle, const char* reason) {
+  Serial.print("Rejected command: ");
+  Serial.println(reason);
+  publishStateTo(connHandle, "rejected");
+  delay(250);
+  publishStateTo(connHandle, currentStateText());
 }
 
 void rejectCommand(const char* reason) {
-  Serial.print("Rejected command: ");
-  Serial.println(reason);
-  publishState("rejected");
-  delay(250);
-  publishState(currentStateText());
+  rejectCommandFor(BLE_CONN_HANDLE_INVALID, reason);
 }
 
 void attachServoIfNeeded() {
   if (!handleServo.attached()) {
     handleServo.attach(SERVO_SIGNAL_PIN);
-    delay(40);
+    delay(SERVO_ATTACH_SETTLE_MS);
   }
 }
 
 void moveServoTo(int targetAngle) {
-  targetAngle = constrain(targetAngle, 0, 180);
+  targetAngle = constrain(targetAngle, MIN_SAFE_SERVO_ANGLE, MAX_SAFE_SERVO_ANGLE);
   attachServoIfNeeded();
 
-  int step = targetAngle >= currentAngle ? 1 : -1;
-  while (currentAngle != targetAngle) {
-    currentAngle += step;
-    handleServo.write(currentAngle);
-    delay(SERVO_STEP_DELAY_MS);
+  if (currentAngle != targetAngle) {
+    handleServo.write(targetAngle);
+    currentAngle = targetAngle;
+    delay(SERVO_MOVE_SETTLE_MS);
   }
 }
 
@@ -1051,25 +1942,41 @@ void lockRest() {
   servoMoving = true;
   updateStatusLed();
   publishState("locking");
-  moveServoTo(LOCK_ANGLE);
-  releaseServoPower();
+  moveServoTo(lockAngle);
   unlocked = false;
   servoMoving = false;
   publishState("locked");
   updateStatusLed();
+  releaseServoPower();
 }
 
-void unlockHold() {
+void unlockHold(uint64_t epochSeconds = 0, const char* deviceFingerprint = nullptr, const char* deviceName = nullptr) {
   servoMoving = true;
   updateStatusLed();
   publishState("unlocking");
-  moveServoTo(UNLOCK_ANGLE);
+  moveServoTo(unlockAngle);
   unlockAutoLockStartedMs = millis();
   unlockAutoLockActive = true;
   unlocked = true;
   servoMoving = false;
   publishState("unlocked");
   updateStatusLed();
+  releaseServoPower();
+
+  bool didStoreLastUnlock = false;
+  if (epochSeconds > 0) {
+    didStoreLastUnlock = setLastUnlockRecord(epochSeconds, deviceFingerprint, deviceName);
+    if (!didStoreLastUnlock) {
+      Serial.println("Last unlock timestamp save failed; continuing unlock.");
+    }
+  }
+
+  if (didStoreLastUnlock) {
+    delay(LAST_UNLOCK_NOTIFY_GAP_MS);
+    publishLastUnlockState();
+    delay(LAST_UNLOCK_NOTIFY_GAP_MS);
+    publishState(currentStateText());
+  }
   Serial.print("Auto-lock scheduled in ");
   Serial.print(unlockHoldTimeoutSeconds);
   Serial.println(" seconds.");
@@ -1088,108 +1995,196 @@ void handleUnlockTimeout() {
   lockRest();
 }
 
-bool authenticateCommand(char* payload, uint64_t* acceptedCounter, const char** acceptedCommand, uint8_t* acceptedPairingIndex) {
-  if (pairedPublicKeyCount == 0) {
-    rejectCommand("device not paired");
-    return false;
-  }
-
-  char* signatureSeparator = strrchr(payload, '|');
-  if (signatureSeparator == nullptr) {
-    rejectCommand("missing signature");
-    return false;
-  }
-
-  *signatureSeparator = 0;
-  const char* signatureText = signatureSeparator + 1;
-
-  if (strncmp(payload, "v2|", 3) != 0) {
-    rejectCommand("bad protocol version");
-    return false;
-  }
-
-  char* firstSeparator = strchr(payload, '|');
-  char* secondSeparator = firstSeparator == nullptr ? nullptr : strchr(firstSeparator + 1, '|');
-  if (firstSeparator == nullptr || secondSeparator == nullptr) {
-    rejectCommand("malformed command");
-    return false;
-  }
-
-  const char* command = secondSeparator + 1;
-  if (!isKnownCommand(command)) {
-    rejectCommand("unknown command");
-    return false;
-  }
-
-  uint64_t counter = 0;
-  if (!parseUnsigned64Range(firstSeparator + 1, secondSeparator, &counter)) {
-    rejectCommand("bad counter");
-    return false;
-  }
-
-  uint8_t signature[P256_SIGNATURE_LEN] = {0};
-  if (!hexToBytes(signatureText, signature, sizeof(signature))) {
-    rejectCommand("bad signature encoding");
-    return false;
-  }
-
-  int8_t matchedIndex = verifySignedPayload(payload, signature);
-  if (matchedIndex < 0) {
-    rejectCommand("signature mismatch");
-    return false;
-  }
-
-  if (counter <= pairedCounters[matchedIndex]) {
-    rejectCommand("replayed counter");
-    return false;
-  }
-
-  *acceptedCounter = counter;
-  *acceptedCommand = command;
-  *acceptedPairingIndex = matchedIndex;
-  return true;
+void finishV3Command(uint16_t connHandle) {
+  issueV3NonceTo(connHandle);
 }
 
-void handleCommand(char* payload) {
-  uint64_t commandCounter = 0;
-  const char* command = nullptr;
-  uint8_t pairingIndex = 0;
-  if (!authenticateCommand(payload, &commandCounter, &command, &pairingIndex)) {
+void rejectV3CommandFor(uint16_t connHandle, const char* reason, bool issueFreshNonce = true) {
+  publishControlRejectTo(connHandle, reason);
+  if (issueFreshNonce) {
+    issueV3NonceTo(connHandle);
+  }
+}
+
+void handleV3Command(const uint8_t* packet, uint16_t packetLen, uint16_t connHandle) {
+  if (packet == nullptr || packetLen < V3_COMMAND_MIN_PACKET_LEN || packet[0] != V3_COMMAND_VERSION) {
+    publishControlRejectTo(connHandle, "bad_packet");
     return;
   }
 
-  uint64_t previousCounter = pairedCounters[pairingIndex];
-  pairedCounters[pairingIndex] = commandCounter;
-  if (!savePairings()) {
-    pairedCounters[pairingIndex] = previousCounter;
-    rejectCommand("counter save failed");
+  uint8_t op = packet[1];
+  uint8_t payloadLen = packet[V3_COMMAND_HEADER_LEN - 1];
+  if (payloadLen > V3_COMMAND_MAX_PAYLOAD_LEN || packetLen != V3_COMMAND_HEADER_LEN + payloadLen + P256_SIGNATURE_LEN) {
+    publishControlRejectTo(connHandle, "bad_packet");
     return;
   }
 
-  Serial.print("Accepted secure command from device ");
+  int8_t pairingIndex = pairedPublicKeyIndexForFingerprintBytes(packet + 2);
+  if (pairingIndex < 0) {
+    publishControlRejectTo(connHandle, "unpaired");
+    return;
+  }
+
+  int8_t slot = connectedDeviceSlotForHandle(connHandle);
+  if (slot < 0 || !connectedDeviceNonceValid[slot]) {
+    publishControlRejectTo(connHandle, "missing_nonce");
+    issueV3NonceTo(connHandle);
+    return;
+  }
+
+  const uint8_t* nonce = packet + 2 + V3_KEY_FINGERPRINT_LEN;
+  if (memcmp(connectedDeviceNonces[slot], nonce, V3_NONCE_LEN) != 0) {
+    publishControlRejectTo(connHandle, "bad_nonce");
+    issueV3NonceTo(connHandle);
+    return;
+  }
+
+  uint8_t signatureMessage[sizeof(V3_COMMAND_SIGNATURE_DOMAIN) - 1 + V3_COMMAND_HEADER_LEN + V3_COMMAND_MAX_PAYLOAD_LEN] = {0};
+  size_t signatureMessageLen = 0;
+  if (!buildV3CommandSignatureMessage(packet, packetLen, signatureMessage, sizeof(signatureMessage), &signatureMessageLen)) {
+    publishControlRejectTo(connHandle, "bad_packet");
+    return;
+  }
+
+  const uint8_t* signature = packet + V3_COMMAND_HEADER_LEN + payloadLen;
+  if (!verifySignatureForPairedDevice((uint8_t) pairingIndex, signatureMessage, signatureMessageLen, signature)) {
+    connectedDeviceNonceValid[slot] = false;
+    memset(connectedDeviceNonces[slot], 0, sizeof(connectedDeviceNonces[slot]));
+    publishControlRejectTo(connHandle, "bad_signature");
+    issueV3NonceTo(connHandle);
+    return;
+  }
+
+  connectedDeviceNonceValid[slot] = false;
+  memset(connectedDeviceNonces[slot], 0, sizeof(connectedDeviceNonces[slot]));
+
+  const char* trustedDeviceName = pairedDeviceNames[pairingIndex][0] != 0 ? pairedDeviceNames[pairingIndex] : nullptr;
+  if (trustedDeviceName != nullptr) {
+    setConnectedDeviceName(connHandle, trustedDeviceName, true);
+    publishConnectionsState();
+  }
+
+  Serial.print("Accepted v3 secure command from device ");
   Serial.print(pairingIndex + 1);
-  Serial.print(" #");
-  printUnsigned64(commandCounter);
   Serial.print(": ");
-  Serial.println(command);
+  Serial.println(op);
 
-  if (strcmp(command, "UNLOCK") == 0) {
+  const uint8_t* payload = packet + V3_COMMAND_HEADER_LEN;
+
+  if (op == V3_OP_UNLOCK) {
+    if (payloadLen != 0) {
+      rejectV3CommandFor(connHandle, "bad_payload");
+      return;
+    }
     unlockHold();
-  } else if (strcmp(command, "LOCK") == 0) {
+    finishV3Command(connHandle);
+  } else if (op == V3_OP_LOCK) {
+    if (payloadLen != 0) {
+      rejectV3CommandFor(connHandle, "bad_payload");
+      return;
+    }
     lockRest();
-  } else if (strncmp(command, "SET_NAME:", 9) == 0) {
-    char deviceName[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
-    char previousName[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
-    if (!parseSetNameCommand(command, deviceName, sizeof(deviceName))) {
-      rejectCommand("bad device name");
+    finishV3Command(connHandle);
+  } else if (op == V3_OP_GET_LOCK_NAME) {
+    if (payloadLen != 0) {
+      rejectV3CommandFor(connHandle, "bad_payload");
+      return;
+    }
+    publishLockNameState();
+    delay(40);
+    publishState(currentStateText());
+    finishV3Command(connHandle);
+  } else if (op == V3_OP_GET_SERVO_ANGLES) {
+    if (payloadLen != 0) {
+      rejectV3CommandFor(connHandle, "bad_payload");
+      return;
+    }
+    publishServoAnglesState();
+    delay(40);
+    publishState(currentStateText());
+    finishV3Command(connHandle);
+  } else if (op == V3_OP_GET_LAST_UNLOCK) {
+    if (payloadLen != 0) {
+      rejectV3CommandFor(connHandle, "bad_payload");
+      return;
+    }
+    publishLastUnlockState();
+    delay(40);
+    publishState(currentStateText());
+    finishV3Command(connHandle);
+  } else if (op == V3_OP_SET_LOCK_NAME) {
+    char lockName[LOCK_NAME_STORAGE_LEN] = {0};
+    sanitizeDeviceName(payload, payloadLen, lockName, sizeof(lockName));
+    if (lockName[0] == 0) {
+      rejectV3CommandFor(connHandle, "bad lock name");
       return;
     }
 
+    publishSettingApplyingState("lock_name", lockName);
+    if (!setControllerLockName(lockName)) {
+      rejectV3CommandFor(connHandle, "lock name save failed");
+      return;
+    }
+
+    publishLockNameState();
+    delay(40);
+    publishState(currentStateText());
+    finishV3Command(connHandle);
+  } else if (op == V3_OP_SET_SERVO_ANGLES) {
+    if (payloadLen != 2) {
+      rejectV3CommandFor(connHandle, "bad servo angles");
+      return;
+    }
+
+    uint16_t requestedLockAngle = payload[0];
+    uint16_t requestedUnlockAngle = payload[1];
+    char angleText[16] = {0};
+    snprintf(angleText, sizeof(angleText), "%u,%u", requestedLockAngle, requestedUnlockAngle);
+    publishSettingApplyingState("servo_angles", angleText);
+    if (!setServoAngles(requestedLockAngle, requestedUnlockAngle)) {
+      rejectV3CommandFor(connHandle, "servo angle save failed");
+      return;
+    }
+
+    publishServoAnglesState();
+    delay(40);
+    publishState(currentStateText());
+    finishV3Command(connHandle);
+  } else if (op == V3_OP_SET_TIMEOUT) {
+    if (payloadLen != 2) {
+      rejectV3CommandFor(connHandle, "bad timeout");
+      return;
+    }
+
+    uint16_t requestedSeconds = (((uint16_t) payload[0]) << 8) | payload[1];
+    char timeoutText[8] = {0};
+    snprintf(timeoutText, sizeof(timeoutText), "%u", requestedSeconds);
+    publishSettingApplyingState("timeout", timeoutText);
+    if (!setUnlockHoldTimeoutSeconds(requestedSeconds)) {
+      rejectV3CommandFor(connHandle, "timeout save failed");
+      return;
+    }
+
+    publishTimeoutSetState();
+    delay(40);
+    publishState(currentStateText());
+    updateStatusLed();
+    finishV3Command(connHandle);
+  } else if (op == V3_OP_SET_DEVICE_NAME) {
+    char deviceName[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
+    char previousName[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
+    sanitizeDeviceName(payload, payloadLen, deviceName, sizeof(deviceName));
+    if (deviceName[0] == 0) {
+      rejectV3CommandFor(connHandle, "bad device name");
+      return;
+    }
+
+    publishSettingApplyingState("device_name", deviceName);
     copyDeviceName(pairedDeviceNames[pairingIndex], previousName, sizeof(previousName));
     copyDeviceName(deviceName, pairedDeviceNames[pairingIndex], PAIRED_DEVICE_NAME_STORAGE_LEN);
     if (!savePairings()) {
       copyDeviceName(previousName, pairedDeviceNames[pairingIndex], PAIRED_DEVICE_NAME_STORAGE_LEN);
-      rejectCommand("device name save failed");
+      rejectV3CommandFor(connHandle, "device name save failed");
       return;
     }
 
@@ -1197,49 +2192,128 @@ void handleCommand(char* payload) {
     Serial.print(pairingIndex + 1);
     Serial.print(" name set to ");
     Serial.println(pairedDeviceNames[pairingIndex]);
+    setConnectedDeviceName(connHandle, pairedDeviceNames[pairingIndex], true);
+    publishConnectionsState();
     publishState("paired");
-    delay(250);
+    delay(40);
     publishState(currentStateText());
+    finishV3Command(connHandle);
   } else {
-    uint16_t requestedSeconds = 0;
-    if (!parseSetTimeoutCommand(command, &requestedSeconds)) {
-      rejectCommand("bad timeout");
-      return;
-    }
-
-    if (!setUnlockHoldTimeoutSeconds(requestedSeconds)) {
-      rejectCommand("timeout save failed");
-      return;
-    }
-
-    publishTimeoutSetState();
-    delay(250);
-    publishState(currentStateText());
-    updateStatusLed();
+    rejectV3CommandFor(connHandle, "bad_op");
   }
 }
 
-void commandWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint8_t* data, uint16_t len) {
-  (void) connHandle;
-  (void) chr;
-
-  if (len > SECURE_COMMAND_MAX_LEN) {
-    rejectCommand("payload too long");
+void markBleCommandQueueOverflow(uint16_t connHandle) {
+  if (bleCommandQueueOverflowPending) {
     return;
   }
 
-  char buffer[SECURE_COMMAND_MAX_LEN + 1] = {0};
-  uint16_t copyLen = min<uint16_t>(len, SECURE_COMMAND_MAX_LEN);
-  memcpy(buffer, data, copyLen);
-  handleCommand(buffer);
+  bleCommandQueueOverflowConnHandle = connHandle;
+  bleCommandQueueOverflowPending = true;
+}
+
+bool enqueueBleCommandJob(uint16_t connHandle, const uint8_t* data, uint16_t len, bool isReject, const char* rejectReason = nullptr) {
+  if (bleCommandQueueCount >= BLE_COMMAND_QUEUE_CAPACITY) {
+    markBleCommandQueueOverflow(connHandle);
+    return false;
+  }
+
+  uint8_t index = bleCommandQueueHead;
+  BleCommandJob& job = bleCommandQueue[index];
+  job.isReject = isReject;
+  job.connHandle = connHandle;
+  job.payloadLen = 0;
+  memset(job.payload, 0, sizeof(job.payload));
+  memset(job.rejectReason, 0, sizeof(job.rejectReason));
+
+  if (isReject) {
+    strncpy(job.rejectReason, rejectReason == nullptr ? "controller busy" : rejectReason, sizeof(job.rejectReason) - 1);
+  } else {
+    uint16_t copyLen = min<uint16_t>(len, SECURE_COMMAND_MAX_LEN);
+    if (data != nullptr && copyLen > 0) {
+      memcpy(job.payload, data, copyLen);
+    }
+    job.payloadLen = copyLen;
+  }
+
+  bleCommandQueueHead = (bleCommandQueueHead + 1) % BLE_COMMAND_QUEUE_CAPACITY;
+  bleCommandQueueCount++;
+  return true;
+}
+
+bool enqueueBleReject(uint16_t connHandle, const char* reason) {
+  return enqueueBleCommandJob(connHandle, nullptr, 0, true, reason);
+}
+
+bool enqueueBleSecureCommand(uint16_t connHandle, const uint8_t* data, uint16_t len) {
+  return enqueueBleCommandJob(connHandle, data, len, false);
+}
+
+bool popBleCommandJob(BleCommandJob* output) {
+  if (output == nullptr || bleCommandQueueCount == 0) {
+    return false;
+  }
+
+  uint8_t index = bleCommandQueueTail;
+  *output = bleCommandQueue[index];
+  bleCommandQueueTail = (bleCommandQueueTail + 1) % BLE_COMMAND_QUEUE_CAPACITY;
+  bleCommandQueueCount--;
+  return true;
+}
+
+void commandWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint8_t* data, uint16_t len) {
+  (void) chr;
+
+  if (len > SECURE_COMMAND_MAX_LEN) {
+    enqueueBleReject(connHandle, "payload too long");
+    return;
+  }
+
+  enqueueBleSecureCommand(connHandle, data, len);
+}
+
+void controlCccdWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint16_t value) {
+  (void) chr;
+
+  if (value == 0 || connHandle == BLE_CONN_HANDLE_INVALID || !Bluefruit.connected(connHandle)) {
+    return;
+  }
+
+  issueV3NonceTo(connHandle);
+}
+
+void processPendingBleCommand() {
+  if (bleCommandQueueOverflowPending) {
+    uint16_t connHandle = bleCommandQueueOverflowConnHandle;
+    bleCommandQueueOverflowConnHandle = BLE_CONN_HANDLE_INVALID;
+    bleCommandQueueOverflowPending = false;
+    rejectCommandFor(connHandle, "controller busy");
+    return;
+  }
+
+  BleCommandJob job;
+  if (!popBleCommandJob(&job)) {
+    return;
+  }
+
+  if (job.isReject) {
+    rejectCommandFor(job.connHandle, job.rejectReason);
+    return;
+  }
+
+  if (job.payloadLen > 0 && job.payload[0] == V3_COMMAND_VERSION) {
+    handleV3Command(job.payload, job.payloadLen, job.connHandle);
+    return;
+  }
+
+  publishControlRejectTo(job.connHandle, "bad_protocol");
 }
 
 void pairingWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint8_t* data, uint16_t len) {
-  (void) connHandle;
   (void) chr;
 
   if (!pairingModeEnabled) {
-    rejectCommand("pairing mode locked");
+    rejectCommandFor(connHandle, "pairing mode locked");
     return;
   }
 
@@ -1254,12 +2328,12 @@ void pairingWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint8_t
     size_t nameLen = len - 1 - P256_PUBLIC_KEY_LEN;
     sanitizeDeviceName(data + 1 + P256_PUBLIC_KEY_LEN, nameLen, deviceName, sizeof(deviceName));
   } else if (len != P256_PUBLIC_KEY_LEN) {
-    rejectCommand("bad pairing key length");
+    rejectCommandFor(connHandle, "bad pairing key length");
     return;
   }
 
   if (!isValidPublicKey(rawKey)) {
-    rejectCommand("invalid pairing key");
+    rejectCommandFor(connHandle, "invalid pairing key");
     return;
   }
 
@@ -1269,9 +2343,11 @@ void pairingWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint8_t
       copyDeviceName(deviceName, pairedDeviceNames[existingIndex], PAIRED_DEVICE_NAME_STORAGE_LEN);
       savePairings();
     }
+    setConnectedDeviceName(connHandle, pairedDeviceNames[existingIndex], true);
     pairingModeEnabled = false;
     clearPendingPairing();
     Serial.println("Device key was already paired; pairing mode disabled");
+    publishConnectionsState();
     publishState("paired");
     delay(250);
     publishState(currentStateText());
@@ -1282,7 +2358,7 @@ void pairingWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint8_t
   if (pairedPublicKeyCount >= MAX_PAIRED_PHONES) {
     pairingModeEnabled = false;
     clearPendingPairing();
-    rejectCommand("paired device table full");
+    rejectCommandFor(connHandle, "paired device table full");
     updateStatusLed();
     return;
   }
@@ -1295,16 +2371,19 @@ void pairingWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint8_t
       return;
     }
 
-    rejectCommand("pairing request already pending");
+    rejectCommandFor(connHandle, "pairing request already pending");
     updateStatusLed();
     return;
   }
 
   memcpy(pendingPairingPublicKey, rawKey, P256_PUBLIC_KEY_LEN);
   copyDeviceName(deviceName, pendingPairingDeviceName, sizeof(pendingPairingDeviceName));
+  pendingPairingConnHandle = connHandle;
+  setConnectedDeviceName(connHandle, pendingPairingDeviceName, false);
   pendingPairingExists = true;
   Serial.println("Device pairing request received over BLE.");
   printPendingPairingRequest();
+  publishConnectionsState();
   publishState(currentStateText());
   updateStatusLed();
 }
@@ -1337,9 +2416,14 @@ bool approvePendingPairing(const char* approvalCode) {
   }
 
   if (pairedPublicKeyExists(pendingPairingPublicKey)) {
+    int8_t existingIndex = pairedPublicKeyIndex(pendingPairingPublicKey);
+    if (existingIndex >= 0) {
+      setConnectedDeviceName(pendingPairingConnHandle, pairedDeviceNames[existingIndex], true);
+    }
     pairingModeEnabled = false;
     clearPendingPairing();
     Serial.println("Device key was already paired; pairing mode disabled.");
+    publishConnectionsState();
     publishState("paired");
     delay(250);
     publishState(currentStateText());
@@ -1348,24 +2432,29 @@ bool approvePendingPairing(const char* approvalCode) {
   }
 
   if (pairedPublicKeyCount >= MAX_PAIRED_PHONES) {
+    uint16_t connHandle = pendingPairingConnHandle;
     pairingModeEnabled = false;
     clearPendingPairing();
-    rejectCommand("paired device table full");
+    rejectCommandFor(connHandle, "paired device table full");
     updateStatusLed();
     return false;
   }
 
   if (!appendPairedPublicKey(pendingPairingPublicKey, pendingPairingDeviceName)) {
-    rejectCommand("pairing save failed");
+    rejectCommandFor(pendingPairingConnHandle, "pairing save failed");
     updateStatusLed();
     return false;
   }
 
   pairingModeEnabled = false;
+  uint16_t approvedConnHandle = pendingPairingConnHandle;
+  setConnectedDeviceName(approvedConnHandle, pendingPairingDeviceName, true);
   clearPendingPairing();
   Serial.print("Approved and stored device public key: ");
   Serial.println(fingerprint);
+  publishConnectionsState();
   publishState("paired");
+  issueV3NonceTo(approvedConnHandle);
   delay(250);
   publishState(currentStateText());
   updateStatusLed();
@@ -1567,6 +2656,8 @@ void printAppStatus() {
   Serial.println("protocol=1");
   Serial.print("model=");
   Serial.println(CONTROLLER_MODEL_NAME);
+  Serial.print("lock_name=");
+  Serial.println(controllerLockName);
   Serial.print("pairing_mode=");
   Serial.println(pairingModeEnabled ? "enabled" : "locked");
   Serial.print("paired_count=");
@@ -1588,12 +2679,56 @@ void printAppStatus() {
   }
   Serial.print("ble_state=");
   Serial.println(currentStateText());
+  char settingPayload[STATE_PAYLOAD_MAX_LEN] = {0};
+  if (currentSettingApplyingPayload(settingPayload, sizeof(settingPayload))) {
+    Serial.print("setting_applying=");
+    Serial.println(settingPayload);
+  }
+  Serial.print("ble_connected_count=");
+  Serial.println(Bluefruit.connected());
+  Serial.print("ble_max_connections=");
+  Serial.println(MAX_BLE_CONNECTIONS);
+  for (uint8_t index = 0; index < MAX_BLE_CONNECTIONS; index++) {
+    if (!connectedDeviceSlotsUsed[index] || !Bluefruit.connected(connectedDeviceHandles[index])) {
+      continue;
+    }
+
+    char name[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
+    sanitizeConnectionPayloadName(connectedDeviceNames[index], name, sizeof(name));
+    Serial.print("connected_device=index=");
+    Serial.print(index + 1);
+    Serial.print(" handle=");
+    Serial.print(connectedDeviceHandles[index]);
+    Serial.print(" trusted=");
+    Serial.print(connectedDeviceTrusted[index] ? "yes" : "no");
+    Serial.print(" name=");
+    Serial.println(name);
+  }
   Serial.print("unlocked=");
   Serial.println(unlocked ? "yes" : "no");
   Serial.print("auto_lock_seconds=");
   Serial.println(unlockHoldTimeoutSeconds);
   Serial.print("auto_lock_remaining_seconds=");
   Serial.println(unlockHoldRemainingSeconds());
+  Serial.print("lock_angle=");
+  Serial.println(lockAngle);
+  Serial.print("unlock_angle=");
+  Serial.println(unlockAngle);
+  Serial.print("last_unlock_epoch=");
+  printUnsigned64(lastUnlockEpochSeconds);
+  Serial.println();
+  Serial.print("last_unlock_device_id=");
+  Serial.println(lastUnlockDeviceFingerprint);
+  char resolvedLastUnlockDeviceName[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
+  copyResolvedLastUnlockDeviceName(resolvedLastUnlockDeviceName, sizeof(resolvedLastUnlockDeviceName));
+  Serial.print("last_unlock_device=");
+  Serial.println(resolvedLastUnlockDeviceName);
+  Serial.print("servo_min_angle=");
+  Serial.println(MIN_SAFE_SERVO_ANGLE);
+  Serial.print("servo_max_angle=");
+  Serial.println(MAX_SAFE_SERVO_ANGLE);
+  Serial.print("servo_min_angle_gap=");
+  Serial.println(MIN_SERVO_ANGLE_GAP);
   Serial.println("APP_STATUS_END");
 }
 
@@ -1699,33 +2834,106 @@ bool handleAppCommand(char* command) {
     char* tokenAndName = trimSerialCommand(subcommand + strlen("rename"));
     renamePairedDeviceFromUSB(tokenAndName);
     printAppStatus();
+  } else if (serialCommandStartsWith(subcommand, "name") || serialCommandStartsWith(subcommand, "lock name")) {
+    bool lockNameCommand = serialCommandStartsWith(subcommand, "lock name");
+    char* rawName = subcommand + (lockNameCommand ? strlen("lock name") : strlen("name"));
+    rawName = trimSerialCommand(rawName);
+    if (*rawName == 0) {
+      printAppError("reason=missing_lock_name");
+    } else {
+      char lockName[LOCK_NAME_STORAGE_LEN] = {0};
+      copyLockName(rawName, lockName, sizeof(lockName));
+      publishSettingApplyingState("lock_name", lockName);
+      if (setControllerLockName(rawName)) {
+        publishLockNameState();
+        delay(250);
+        publishState(currentStateText());
+        printAppOk("lock_name_set=yes");
+      } else {
+        printAppError("reason=lock_name_save_failed");
+      }
+    }
+    printAppStatus();
+  } else if (serialCommandStartsWith(subcommand, "angles") || serialCommandStartsWith(subcommand, "servo angles")) {
+    char* rawAngles = subcommand + (serialCommandStartsWith(subcommand, "servo angles") ? strlen("servo angles") : strlen("angles"));
+    rawAngles = trimSerialCommand(rawAngles);
+    uint16_t requestedLockAngle = 0;
+    uint16_t requestedUnlockAngle = 0;
+    if (*rawAngles == 0 || !parseServoAnglesText(rawAngles, &requestedLockAngle, &requestedUnlockAngle)) {
+      printAppError("reason=bad_servo_angles");
+    } else {
+      char angleText[16] = {0};
+      snprintf(angleText, sizeof(angleText), "%u,%u", requestedLockAngle, requestedUnlockAngle);
+      publishSettingApplyingState("servo_angles", angleText);
+      if (setServoAngles(requestedLockAngle, requestedUnlockAngle)) {
+        publishServoAnglesState();
+        delay(250);
+        publishState(currentStateText());
+        printAppOk("angles_set=yes");
+      } else {
+        printAppError("reason=servo_angle_save_failed");
+      }
+    }
+    printAppStatus();
   } else if (serialCommandEquals(subcommand, "clear pairs") || serialCommandEquals(subcommand, "pairs clear")) {
     clearPairings();
     publishState(currentStateText());
     updateStatusLed();
     printAppOk("cleared=yes");
     printAppStatus();
-  } else if (serialCommandEquals(subcommand, "lock")) {
-    lockRest();
-    printAppOk("command=lock");
+  } else if (serialCommandEquals(subcommand, "bootloader") || serialCommandEquals(subcommand, "uf2")) {
+    printAppOk("bootloader=uf2");
+    Serial.flush();
+    delay(100);
+    enterUf2Dfu();
+  } else if (serialCommandStartsWith(subcommand, "lock")) {
+    char* epochText = trimSerialCommand(subcommand + strlen("lock"));
+    uint64_t lockEpochSeconds = 0;
+    if (*epochText != 0 && !parseUnsigned64Text(epochText, &lockEpochSeconds)) {
+      printAppError("reason=bad_lock_time");
+    } else {
+      lockRest();
+      printAppOk("command=lock");
+    }
     printAppStatus();
-  } else if (serialCommandEquals(subcommand, "unlock")) {
-    unlockHold();
-    printAppOk("command=unlock");
+  } else if (serialCommandStartsWith(subcommand, "unlock")) {
+    char* epochText = trimSerialCommand(subcommand + strlen("unlock"));
+    char* deviceNameText = epochText;
+    while (*deviceNameText != 0 && *deviceNameText != ' ' && *deviceNameText != '\t') {
+      deviceNameText++;
+    }
+    if (*deviceNameText != 0) {
+      *deviceNameText = 0;
+      deviceNameText++;
+    }
+    deviceNameText = trimSerialCommand(deviceNameText);
+
+    uint64_t unlockEpochSeconds = 0;
+    if (*epochText != 0 && !parseUnsigned64Text(epochText, &unlockEpochSeconds)) {
+      printAppError("reason=bad_last_unlock_time");
+    } else {
+      unlockHold(unlockEpochSeconds, nullptr, *deviceNameText == 0 ? nullptr : deviceNameText);
+      printAppOk("command=unlock");
+    }
     printAppStatus();
   } else if (serialCommandStartsWith(subcommand, "timeout")) {
     char* secondsText = trimSerialCommand(subcommand + strlen("timeout"));
     uint64_t parsedSeconds = 0;
     if (*secondsText == 0 || !parseUnsigned64Text(secondsText, &parsedSeconds) || !isValidUnlockHoldTimeout(parsedSeconds)) {
       printAppError("reason=bad_timeout");
-    } else if (setUnlockHoldTimeoutSeconds((uint16_t) parsedSeconds)) {
-      publishTimeoutSetState();
-      delay(250);
-      publishState(currentStateText());
-      updateStatusLed();
-      printAppOk("timeout_set=yes");
     } else {
-      printAppError("reason=timeout_save_failed");
+      char timeoutText[8] = {0};
+      snprintf(timeoutText, sizeof(timeoutText), "%u", (uint16_t) parsedSeconds);
+      publishSettingApplyingState("timeout", timeoutText);
+      if (setUnlockHoldTimeoutSeconds((uint16_t) parsedSeconds)) {
+        publishTimeoutSetState();
+        delay(250);
+        publishState(currentStateText());
+        updateStatusLed();
+        printAppOk("timeout_set=yes");
+      } else {
+        printAppError("reason=timeout_save_failed");
+      }
     }
     printAppStatus();
   } else {
@@ -1750,6 +2958,14 @@ void printPairingHelp() {
   Serial.println("                 Rename a trusted device by slot or fingerprint");
   Serial.println("  pairs clear    Remove all paired devices");
   Serial.println("  app status     Print machine-readable controller status for the Mac app");
+  Serial.println("  app lock [EPOCH_SECONDS]");
+  Serial.println("                 Lock with an optional command timestamp");
+  Serial.println("  app unlock [EPOCH_SECONDS]");
+  Serial.println("                 Unlock and optionally store the last-unlock timestamp");
+  Serial.println("  app angles REST PUSH");
+  Serial.println("                 Set safe persisted servo angles, e.g. app angles 20 95");
+  Serial.println("  app bootloader");
+  Serial.println("                 Reboot into UF2 bootloader mode for firmware updates");
   Serial.println("  app pair usb HEX");
   Serial.println("                 Trust a Mac app key sent over USB-C");
 }
@@ -1873,50 +3089,88 @@ void processSerialCommands() {
   }
 }
 
+void restartAdvertisingIfConnectionSlotAvailable() {
+  if (Bluefruit.connected() < MAX_BLE_CONNECTIONS) {
+    Bluefruit.Advertising.start(0);
+  }
+}
+
+void applyBleIdentity() {
+  ble_gap_addr_t address = {};
+  address.addr_type = BLE_GAP_ADDR_TYPE_RANDOM_STATIC;
+  memcpy(address.addr, CONTROLLER_BLE_STATIC_ADDRESS, sizeof(address.addr));
+  address.addr[5] |= 0xC0;
+  Bluefruit.setAddr(&address);
+}
+
 void connectCallback(uint16_t connHandle) {
   BLEConnection* connection = Bluefruit.Connection(connHandle);
   char centralName[32] = {0};
-  connection->getPeerName(centralName, sizeof(centralName));
-  connection->requestDataLengthUpdate();
-  connection->requestMtuExchange(247);
-  if (!connection->bonded()) {
-    connection->requestPairing();
+  if (connection != nullptr) {
+    connection->getPeerName(centralName, sizeof(centralName));
+    connection->requestDataLengthUpdate();
+    connection->requestMtuExchange(247);
+    connection->requestConnectionParameter(FAST_CONN_INTERVAL_REQUEST);
   }
 
   Serial.print("Connected to ");
-  Serial.println(centralName);
+  Serial.print(centralName[0] == 0 ? "central" : centralName);
+  Serial.print(" (");
+  Serial.print(Bluefruit.connected());
+  Serial.print("/");
+  Serial.print(MAX_BLE_CONNECTIONS);
+  Serial.println(")");
+  trackConnectedDevice(connHandle, centralName);
+  publishConnectionsState();
   publishState(currentStateText());
+  if (controlCharacteristic.notifyEnabled(connHandle) || controlCharacteristic.indicateEnabled(connHandle)) {
+    issueV3NonceTo(connHandle);
+  }
+  restartAdvertisingIfConnectionSlotAvailable();
   updateStatusLed();
 }
 
 void disconnectCallback(uint16_t connHandle, uint8_t reason) {
-  (void) connHandle;
   (void) reason;
   Serial.println("Disconnected; advertising");
-  Bluefruit.Advertising.start(0);
+  clearConnectedDevice(connHandle);
+  publishConnectionsState();
+  restartAdvertisingIfConnectionSlotAvailable();
   updateStatusLed();
 }
 
 void setupDoorService() {
   doorService.begin();
 
+  // Door commands are authenticated at the app layer with a trusted P-256 key,
+  // a signature, and a monotonic counter. Keeping these GATT writes open avoids
+  // macOS/iOS BLE bond churn while preserving command authorization.
   commandCharacteristic.setProperties(CHR_PROPS_WRITE | CHR_PROPS_WRITE_WO_RESP);
-  commandCharacteristic.setPermission(SECMODE_NO_ACCESS, SECMODE_ENC_NO_MITM);
+  commandCharacteristic.setPermission(SECMODE_NO_ACCESS, SECMODE_OPEN);
   commandCharacteristic.setMaxLen(SECURE_COMMAND_MAX_LEN);
   commandCharacteristic.setWriteCallback(commandWrittenCallback);
   commandCharacteristic.begin();
 
+  // Pairing still requires USB-C approval of the app-displayed code, so the BLE
+  // pairing request itself does not need fragile OS-level link encryption.
   pairingCharacteristic.setProperties(CHR_PROPS_WRITE);
-  pairingCharacteristic.setPermission(SECMODE_NO_ACCESS, SECMODE_ENC_NO_MITM);
+  pairingCharacteristic.setPermission(SECMODE_NO_ACCESS, SECMODE_OPEN);
   pairingCharacteristic.setMaxLen(PAIRING_MAX_LEN);
   pairingCharacteristic.setWriteCallback(pairingWrittenCallback);
   pairingCharacteristic.begin();
 
   stateCharacteristic.setProperties(CHR_PROPS_READ | CHR_PROPS_NOTIFY);
   stateCharacteristic.setPermission(SECMODE_OPEN, SECMODE_NO_ACCESS);
-  stateCharacteristic.setMaxLen(32);
+  stateCharacteristic.setMaxLen(STATE_PAYLOAD_MAX_LEN);
   stateCharacteristic.begin();
   writeCurrentStateCharacteristic();
+
+  controlCharacteristic.setProperties(CHR_PROPS_READ | CHR_PROPS_NOTIFY | CHR_PROPS_INDICATE);
+  controlCharacteristic.setPermission(SECMODE_OPEN, SECMODE_NO_ACCESS);
+  controlCharacteristic.setMaxLen(STATE_PAYLOAD_MAX_LEN);
+  controlCharacteristic.setCccdWriteCallback(controlCccdWrittenCallback);
+  controlCharacteristic.begin();
+  controlCharacteristic.write("control:ready");
 }
 
 void startAdvertising() {
@@ -1939,15 +3193,26 @@ void setup() {
   nRFCrypto.begin();
   loadPairings();
   loadUnlockHoldTimeout();
+  loadLockName();
+  loadServoAngles();
+  loadLastUnlockRecord();
   updateStatusLed();
 
   attachServoIfNeeded();
-  handleServo.write(LOCK_ANGLE);
-  currentAngle = LOCK_ANGLE;
+  handleServo.write(lockAngle);
+  currentAngle = lockAngle;
   releaseServoPower();
 
-  Bluefruit.configPrphBandwidth(BANDWIDTH_MAX);
-  Bluefruit.begin();
+  // BANDWIDTH_HIGH is the core's known-good 128-byte MTU / 6-event-length
+  // preset. It keeps the faster BLE path without the memory pressure of
+  // BANDWIDTH_MAX across four simultaneous connections.
+  Bluefruit.configPrphBandwidth(BANDWIDTH_HIGH);
+  Bluefruit.begin(MAX_BLE_CONNECTIONS, 0);
+  applyBleIdentity();
+  // App-approved P-256 keys are our trust source. Clear OS BLE bonds so stale
+  // macOS/iOS link-encryption keys cannot destabilize multi-device control.
+  Bluefruit.Periph.clearBonds();
+  Bluefruit.Periph.setConnInterval(FAST_CONN_INTERVAL_MIN, FAST_CONN_INTERVAL_MAX);
   Bluefruit.autoConnLed(false);
   Bluefruit.setTxPower(4);
   Bluefruit.setName(CONTROLLER_MODEL_NAME);
@@ -1970,13 +3235,20 @@ void setup() {
   Serial.print("Auto-lock timeout: ");
   Serial.print(unlockHoldTimeoutSeconds);
   Serial.println(" seconds");
+  Serial.print("BLE connections: 0/");
+  Serial.println(MAX_BLE_CONNECTIONS);
+  Serial.print("Servo angles: rest=");
+  Serial.print(lockAngle);
+  Serial.print(" push=");
+  Serial.println(unlockAngle);
   printPairingHelp();
 }
 
 void loop() {
   processSerialCommands();
+  processPendingBleCommand();
   handleUnlockTimeout();
   refreshUnlockCountdownValueIfChanged();
   updateStatusLed();
-  delay(250);
+  delay(MAIN_LOOP_IDLE_DELAY_MS);
 }

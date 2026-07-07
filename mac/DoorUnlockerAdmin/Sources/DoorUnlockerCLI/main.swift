@@ -61,6 +61,8 @@ enum DoorUnlockerCLI {
         var userInfo = [DoorLocalCommandBridge.commandKey: command[0]]
         if command[0] == "timeout", command.count >= 2 {
             userInfo[DoorLocalCommandBridge.argumentKey] = command[1]
+        } else if command[0] == "angles", command.count >= 3 {
+            userInfo[DoorLocalCommandBridge.argumentKey] = "\(command[1]) \(command[2])"
         }
 
         DistributedNotificationCenter.default().postNotificationName(
@@ -79,6 +81,8 @@ enum DoorUnlockerCLI {
             return true
         case "timeout":
             return command.count >= 2 && Int(command[1]) != nil
+        case "angles":
+            return command.count >= 3 && Int(command[1]) != nil && Int(command[2]) != nil
         default:
             return false
         }
@@ -104,16 +108,24 @@ enum DoorUnlockerCLI {
             let lines = try transact("app pairs", until: ["APP_PAIRS_END"], connection: connection)
             printPairs(DoorSerialParser.parsePairs(from: lines))
         case "lock":
-            try runStatusCommand("app lock", connection: connection)
+            try runStatusCommand(appLockCommandText(), connection: connection)
         case "unlock":
-            try runStatusCommand("app unlock", connection: connection)
+            try runStatusCommand(appUnlockCommandText(), connection: connection)
         case "toggle":
             let statusLines = try transact("app status", until: ["APP_STATUS_END"], connection: connection)
             let status = DoorSerialParser.parseStatus(from: statusLines)
-            try runStatusCommand(status.isUnlocked ? "app lock" : "app unlock", connection: connection)
+            try runStatusCommand(status.isUnlocked ? appLockCommandText() : appUnlockCommandText(), connection: connection)
         case "timeout":
             guard command.count >= 2, Int(command[1]) != nil else { throw CLIError.missingTimeout }
             try runStatusCommand("app timeout \(command[1])", connection: connection)
+        case "angles":
+            guard command.count >= 3, Int(command[1]) != nil, Int(command[2]) != nil else { throw CLIError.missingServoAngles }
+            try runStatusCommand("app angles \(command[1]) \(command[2])", connection: connection)
+        case "name":
+            guard command.count >= 2 else { throw CLIError.missingLockName }
+            let name = DoorDeviceNameNormalizer.normalized(command.dropFirst().joined(separator: " "), fallback: "")
+            guard !name.isEmpty else { throw CLIError.missingLockName }
+            try runStatusCommand("app lock name \(name)", connection: connection)
         case "pair-on":
             try runStatusCommand("app pair on", connection: connection)
         case "pair-off":
@@ -137,6 +149,8 @@ enum DoorUnlockerCLI {
             let deviceName = Host.current().localizedName ?? "Mac"
             let payloadHex = try DoorCommandAuthenticator.pairingPayloadHex(deviceName: deviceName)
             try runStatusCommand("app pair usb \(payloadHex)", connection: connection)
+        case "bootloader", "uf2":
+            try runBootloaderCommand(connection: connection)
         default:
             throw CLIError.unknownCommand(command[0])
         }
@@ -150,12 +164,22 @@ enum DoorUnlockerCLI {
         printStatus(DoorSerialParser.parseStatus(from: lines))
     }
 
+    private static func runBootloaderCommand(connection: SerialPortConnection) throws {
+        let lines = try transact("app bootloader", until: ["APP_OK bootloader=uf2"], connection: connection, timeout: 3)
+        if let response = DoorSerialParser.responseSummary(from: lines) {
+            print(response)
+        } else {
+            print("bootloader=uf2")
+        }
+    }
+
     private static func transact(
         _ command: String,
         until markers: Set<String>,
-        connection: SerialPortConnection
+        connection: SerialPortConnection,
+        timeout: TimeInterval = 10
     ) throws -> [String] {
-        let lines = try connection.transact(command, until: markers, timeout: 5)
+        let lines = try connection.transact(command, until: markers, timeout: timeout)
         if let errorLine = lines.first(where: { $0.hasPrefix("APP_ERROR") }) {
             throw CLIError.controllerError(errorLine)
         }
@@ -164,12 +188,29 @@ enum DoorUnlockerCLI {
 
     private static func printStatus(_ status: ControllerStatus) {
         print("model=\(status.modelTitle)")
+        print("lock_name=\(status.lockName)")
         print("state=\(status.bleState)")
         print("unlocked=\(status.isUnlocked ? "yes" : "no")")
         print("pairing_mode=\(status.pairingMode)")
         print("paired_count=\(status.pairedCount)")
         print("max_pairs=\(status.maxPairs)")
+        print("ble_connected_count=\(status.connectedCount)")
+        print("ble_max_connections=\(status.maxConnections)")
+        for device in status.connectedDevices {
+            print("ble_connected_device=\(device.slot)\t\(device.displayName)\ttrusted=\(device.isTrustedName ? "yes" : "no")")
+        }
         print("auto_lock_seconds=\(status.autoLockSeconds)")
+        print("lock_angle=\(status.lockAngle)")
+        print("unlock_angle=\(status.unlockAngle)")
+        print("servo_angle_range=\(status.servoMinAngle)-\(status.servoMaxAngle)")
+        print("servo_min_angle_gap=\(status.servoMinAngleGap)")
+        print("last_unlock=\(status.lastUnlockTitle)")
+        if let lastUnlockDeviceIdentifier = status.lastUnlockDeviceIdentifier {
+            print("last_unlock_device_id=\(lastUnlockDeviceIdentifier)")
+        }
+        if let lastUnlockDeviceName = status.lastUnlockDeviceName {
+            print("last_unlock_device=\(lastUnlockDeviceName)")
+        }
         if let remaining = status.autoLockRemainingSeconds {
             print("auto_lock_remaining_seconds=\(remaining)")
         }
@@ -189,6 +230,16 @@ enum DoorUnlockerCLI {
         }
     }
 
+    private static func appUnlockCommandText() -> String {
+        let epochSeconds = UInt64(max(0, Date().timeIntervalSince1970.rounded(.down)))
+        return "app unlock \(epochSeconds)"
+    }
+
+    private static func appLockCommandText() -> String {
+        let epochSeconds = UInt64(max(0, Date().timeIntervalSince1970.rounded(.down)))
+        return "app lock \(epochSeconds)"
+    }
+
     private static func printUsage() {
         print(
             """
@@ -198,6 +249,8 @@ enum DoorUnlockerCLI {
               status
               lock | unlock | toggle
               timeout SECONDS
+              angles REST_DEGREES PUSH_DEGREES
+              name LOCK_NAME
               pairs
               pair-on | pair-off
               approve CODE | reject
@@ -205,6 +258,7 @@ enum DoorUnlockerCLI {
               rename SLOT_OR_FINGERPRINT NAME
               clear
               trust-mac
+              bootloader | uf2
             """
         )
     }
@@ -217,6 +271,8 @@ enum CLIError: LocalizedError {
     case unknownCommand(String)
     case controllerError(String)
     case missingTimeout
+    case missingServoAngles
+    case missingLockName
     case missingApprovalCode
     case missingDeviceTarget
     case missingRenameArguments
@@ -235,6 +291,10 @@ enum CLIError: LocalizedError {
             return line
         case .missingTimeout:
             return "Usage: door-unlocker timeout SECONDS"
+        case .missingServoAngles:
+            return "Usage: door-unlocker angles REST_DEGREES PUSH_DEGREES"
+        case .missingLockName:
+            return "Usage: door-unlocker name LOCK_NAME"
         case .missingApprovalCode:
             return "Usage: door-unlocker approve CODE"
         case .missingDeviceTarget:

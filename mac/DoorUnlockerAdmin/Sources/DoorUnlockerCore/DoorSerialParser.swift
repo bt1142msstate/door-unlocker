@@ -10,6 +10,8 @@ public enum DoorSerialParser {
             switch key {
             case "model":
                 status.modelName = value
+            case "lock_name":
+                status.lockName = value
             case "protocol":
                 status.protocolVersion = value
             case "pairing_mode":
@@ -18,6 +20,21 @@ public enum DoorSerialParser {
                 status.pairedCount = Int(value) ?? status.pairedCount
             case "max_pairs":
                 status.maxPairs = Int(value) ?? status.maxPairs
+            case "ble_connected_count":
+                status.connectedCount = Int(value) ?? status.connectedCount
+            case "ble_max_connections":
+                status.maxConnections = Int(value) ?? status.maxConnections
+            case "connected_device":
+                let fields = keyValueFields(value)
+                let slot = Int(fields["index"] ?? "") ?? status.connectedDevices.count + 1
+                status.connectedDevices.append(
+                    ConnectedControllerDevice(
+                        slot: slot,
+                        handle: fields["handle"] ?? "",
+                        name: fields["name"] ?? "",
+                        isTrustedName: fields["trusted"] == "yes"
+                    )
+                )
             case "pending":
                 status.hasPendingRequest = value == "yes"
             case "pending_name":
@@ -26,12 +43,36 @@ public enum DoorSerialParser {
                 let payload = ControllerStatePayload.parse(value)
                 status.bleState = payload.state
                 status.autoLockRemainingSeconds = payload.remainingSeconds
+            case "setting_applying":
+                let applying = settingApplying(from: value)
+                status.settingApplyingKind = applying.kind
+                status.settingApplyingValue = applying.value
             case "unlocked":
                 status.isUnlocked = value == "yes"
             case "auto_lock_seconds":
                 status.autoLockSeconds = Int(value) ?? status.autoLockSeconds
             case "auto_lock_remaining_seconds":
                 status.autoLockRemainingSeconds = Int(value)
+            case "lock_angle":
+                status.lockAngle = Int(value) ?? status.lockAngle
+            case "unlock_angle":
+                status.unlockAngle = Int(value) ?? status.unlockAngle
+            case "servo_min_angle":
+                status.servoMinAngle = Int(value) ?? status.servoMinAngle
+            case "servo_max_angle":
+                status.servoMaxAngle = Int(value) ?? status.servoMaxAngle
+            case "servo_min_angle_gap":
+                status.servoMinAngleGap = Int(value) ?? status.servoMinAngleGap
+            case "last_unlock_epoch":
+                if let timestamp = TimeInterval(value), timestamp > 0 {
+                    status.lastUnlockAt = Date(timeIntervalSince1970: timestamp)
+                } else {
+                    status.lastUnlockAt = nil
+                }
+            case "last_unlock_device_id":
+                status.lastUnlockDeviceIdentifier = value.isEmpty ? nil : value
+            case "last_unlock_device":
+                status.lastUnlockDeviceName = value.isEmpty ? nil : value
             default:
                 continue
             }
@@ -66,6 +107,18 @@ public enum DoorSerialParser {
         lines.last { line in
             line.hasPrefix("APP_OK") || line.hasPrefix("APP_ERROR")
         }
+    }
+
+    private static func settingApplying(from value: String) -> (kind: String?, value: String?) {
+        let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedValue.isEmpty else { return (nil, nil) }
+
+        let parts = trimmedValue.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+        let kind = parts.first.map(String.init)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let settingValue = parts.count > 1 ? String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines) : nil
+
+        return (kind?.isEmpty == true ? nil : kind, settingValue?.isEmpty == true ? nil : settingValue)
     }
 
     private static func blockLines(_ lines: [String], begin: String, end: String) -> [String] {

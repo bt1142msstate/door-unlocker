@@ -239,6 +239,12 @@
       font-weight: 820 !important;
     }
 
+    .mode-warning {
+      margin-top: 6px !important;
+      color: var(--danger) !important;
+      font-weight: 900 !important;
+    }
+
     .legend {
       display: flex;
       flex-wrap: wrap;
@@ -571,7 +577,7 @@
 
     .usb-card {
       left: 560px;
-      top: 772px;
+      top: 812px;
       width: 250px;
       height: 48px;
       display: flex;
@@ -797,19 +803,27 @@
       font-size: 15px;
     }
 
+    [data-mode="usb"] [data-node="buck"],
     [data-mode="usb"] .buck-wire {
-      opacity: .35;
+      visibility: hidden;
+      opacity: 0;
+      pointer-events: none;
     }
 
-    [data-mode="usb"] .usb-wire {
+    [data-mode="usb"] .usb-wire,
+    [data-mode="usb"] .usb-ground-wire {
       opacity: 1;
+      stroke: currentColor;
       stroke-dasharray: 0;
+      filter: drop-shadow(0 4px 5px rgba(0,0,0,.32));
     }
 
-    [data-mode="buck"] .usb-wire {
-      opacity: .33;
-      stroke: #66736a;
-      stroke-dasharray: 12 12;
+    [data-mode="buck"] [data-node="usb"],
+    [data-mode="buck"] .usb-wire,
+    [data-mode="buck"] .usb-ground-wire {
+      visibility: hidden;
+      opacity: 0;
+      pointer-events: none;
       filter: none;
     }
 
@@ -971,6 +985,346 @@
       font-weight: 680;
     }
 
+    .roadmap {
+      margin-top: 18px;
+      padding: 18px;
+    }
+
+    .roadmap-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: start;
+      margin-bottom: 16px;
+    }
+
+    .roadmap-head h2 {
+      margin: 0 0 6px;
+      font-size: 24px;
+      line-height: 1.15;
+      letter-spacing: 0;
+    }
+
+    .roadmap-head p {
+      max-width: 760px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+      font-weight: 720;
+    }
+
+    .phase-tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 0 11px;
+      border: 1px solid rgba(117,217,159,.36);
+      border-radius: 999px;
+      background: var(--green-soft);
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 950;
+      white-space: nowrap;
+    }
+
+    .phase-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .phase-card {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(18, 23, 20, .86);
+      padding: 16px;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .phase-card.featured {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(360px, 440px);
+      gap: 18px;
+      border-color: rgba(117,217,159,.30);
+      background:
+        linear-gradient(135deg, rgba(117,217,159,.10), transparent 44%),
+        rgba(18, 23, 20, .92);
+    }
+
+    .phase-card.long-range {
+      background:
+        linear-gradient(135deg, rgba(94,184,255,.08), transparent 48%),
+        rgba(18, 23, 20, .86);
+    }
+
+    .phase-kicker {
+      margin-bottom: 8px;
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 950;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .phase-card h3 {
+      margin: 0 0 9px;
+      font-size: 19px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .phase-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.48;
+      font-weight: 680;
+    }
+
+    .phase-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .phase-card.featured .phase-list {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .phase-list > span,
+    .phase-stack > span {
+      display: flex;
+      gap: 9px;
+      align-items: start;
+      min-height: 46px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(32,39,32,.68);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+      font-weight: 720;
+    }
+
+    .phase-list > span > span,
+    .phase-stack > span > span {
+      min-width: 0;
+    }
+
+    .phase-list b,
+    .phase-stack b {
+      color: var(--ink);
+    }
+
+    .phase-list > span > i,
+    .phase-stack > span > i {
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--green-soft);
+      color: var(--green);
+      font-style: normal;
+      font-size: 12px;
+      font-weight: 950;
+    }
+
+    .phase-stack {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .housing-visual {
+      margin: 0;
+      position: relative;
+      aspect-ratio: 2 / 3;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0f1410;
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(243,247,241,.04), 0 18px 38px rgba(0,0,0,.28);
+    }
+
+    .housing-visual-wrap {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .housing-visual img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .visual-label {
+      position: absolute;
+      left: 14px;
+      top: 14px;
+      padding: 6px 8px;
+      border: 1px solid rgba(243,247,241,.12);
+      border-radius: 999px;
+      background: rgba(12,16,13,.66);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 950;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      backdrop-filter: blur(8px);
+    }
+
+    .visual-note {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.42;
+      font-weight: 760;
+    }
+
+    .cad-section {
+      margin-top: 18px;
+      padding: 18px;
+    }
+
+    .cad-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: start;
+      margin-bottom: 16px;
+    }
+
+    .cad-head h2 {
+      margin: 0 0 7px;
+      font-size: 24px;
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+
+    .cad-head p {
+      max-width: 820px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+      font-weight: 720;
+    }
+
+    .cad-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: end;
+    }
+
+    .cad-link {
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+      padding: 0 11px;
+      border: 1px solid rgba(117,217,159,.32);
+      border-radius: 999px;
+      background: rgba(117,217,159,.1);
+      color: var(--green);
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 950;
+      white-space: nowrap;
+    }
+
+    .cad-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(320px, .95fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .cad-preview {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: radial-gradient(circle at 30% 20%, rgba(117,217,159,.08), transparent 36%), rgba(14,18,15,.92);
+      overflow: hidden;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .cad-preview svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .cad-label {
+      fill: #f3f7f1;
+      font-size: 14px;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+
+    .cad-small-label {
+      fill: rgba(225,232,224,.82);
+      font-size: 11px;
+      font-weight: 860;
+      letter-spacing: 0;
+    }
+
+    .cad-measure {
+      stroke: rgba(225,232,224,.48);
+      stroke-width: 1.5;
+      stroke-dasharray: 5 5;
+    }
+
+    .cad-dim-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .cad-dim {
+      display: grid;
+      grid-template-columns: 12px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      padding: 11px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(32,39,32,.66);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+      font-weight: 730;
+    }
+
+    .cad-dot {
+      width: 12px;
+      height: 12px;
+      margin-top: 2px;
+      border-radius: 3px;
+      box-shadow: 0 0 0 1px rgba(243,247,241,.18) inset;
+    }
+
+    .cad-dim b {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 1.2;
+    }
+
+    .cad-dim code {
+      color: var(--green);
+      font-size: 11px;
+      font-weight: 900;
+    }
+
     dialog {
       width: min(720px, calc(100vw - 32px));
       border: 1px solid var(--line);
@@ -1119,6 +1473,10 @@
       .side {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
+
+      .cad-layout {
+        grid-template-columns: minmax(0, 1fr);
+      }
     }
 
     @media (max-width: 720px) {
@@ -1150,33 +1508,282 @@
       .side {
         grid-template-columns: minmax(0, 1fr);
       }
+
+      .roadmap-head,
+      .cad-head,
+      .phase-card.featured {
+        display: block;
+      }
+
+      .cad-links {
+        justify-content: start;
+        margin-top: 12px;
+      }
+
+      .phase-card.featured {
+        grid-column: auto;
+      }
+
+      .phase-grid,
+      .phase-list {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .housing-visual {
+        margin-top: 14px;
+      }
     }
 
     @media print {
+      @page {
+        size: Letter landscape;
+        margin: .28in;
+      }
+
+      *,
+      *::before,
+      *::after {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      html,
       body {
-        background: #fff;
+        max-width: none;
+        overflow: visible !important;
+        background: #0b0e0c !important;
+        color: var(--ink);
       }
 
       .page {
         width: 100%;
+        margin: 0;
         padding: 0;
       }
 
-      .controls {
+      .controls,
+      dialog,
+      .detail-button,
+      .card-actions {
         display: none;
       }
 
-      .hero,
-      .layout,
-      .metrics,
-      .side {
+      .hero {
         grid-template-columns: minmax(0, 1fr);
+        gap: 0;
+        margin-bottom: 10px;
+        break-inside: avoid;
       }
 
-      .panel,
+      h1 {
+        margin-bottom: 6px;
+        color: var(--ink);
+        font-size: 42px;
+        line-height: .94;
+      }
+
+      .lead {
+        max-width: 920px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.35;
+      }
+
+      .metrics {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+        margin-bottom: 12px;
+        break-inside: avoid;
+      }
+
       .metric {
+        min-height: 0;
+        padding: 10px 12px;
+        background: rgba(23, 28, 24, .96);
+        border-color: var(--line);
+        box-shadow: none;
+      }
+
+      .metric b {
+        margin-bottom: 5px;
+        color: var(--ink);
+        font-size: 16px;
+      }
+
+      .metric span {
+        color: var(--muted);
+        font-size: 10.5px;
+        line-height: 1.25;
+      }
+
+      .layout {
+        display: block;
+      }
+
+      .panel {
+        background: rgba(23, 28, 24, .96);
+        border-color: var(--line);
         box-shadow: none;
         break-inside: avoid;
+      }
+
+      .diagram-panel {
+        overflow: hidden;
+        break-before: page;
+        break-after: page;
+      }
+
+      .diagram-head {
+        padding: 10px 12px;
+        background: rgba(18, 23, 20, .92);
+      }
+
+      .diagram-head h2 {
+        font-size: 16px;
+      }
+
+      .diagram-head p {
+        font-size: 10.5px;
+      }
+
+      .mode-copy {
+        margin-top: 4px !important;
+      }
+
+      .legend {
+        gap: 6px;
+      }
+
+      .legend span {
+        min-height: 24px;
+        padding: 0 8px;
+        background: rgba(23, 28, 24, .96);
+        font-size: 10px;
+      }
+
+      .diagram-scroll {
+        height: 641px;
+        overflow: hidden;
+        background: #0d110f;
+      }
+
+      .stage {
+        width: 1120px;
+        height: 890px;
+        margin: 0;
+        transform: scale(.72);
+        transform-origin: top left;
+      }
+
+      .component,
+      .component:hover,
+      .component:focus-within,
+      .component.is-active {
+        transform: none;
+        box-shadow: var(--shadow-soft);
+      }
+
+      .card-top {
+        padding-right: 14px;
+      }
+
+      .wire {
+        filter: drop-shadow(0 3px 4px rgba(0,0,0,.30));
+      }
+
+      .side {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        break-after: page;
+      }
+
+      .side-card,
+      .phase-card,
+      .phase-list > span,
+      .phase-stack > span,
+      .housing-visual {
+        break-inside: avoid;
+      }
+
+      .side-card {
+        padding: 12px;
+      }
+
+      .side-card h2 {
+        font-size: 15px;
+      }
+
+      .steps li,
+      .rules,
+      .table,
+      .part-link {
+        font-size: 11px;
+      }
+
+      .roadmap {
+        padding: 12px;
+        break-before: page;
+      }
+
+      .roadmap-head {
+        margin-bottom: 10px;
+      }
+
+      .roadmap-head h2 {
+        font-size: 22px;
+      }
+
+      .roadmap-head p {
+        max-width: 760px;
+        font-size: 11.5px;
+        line-height: 1.32;
+      }
+
+      .phase-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .phase-card {
+        padding: 12px;
+      }
+
+      .phase-card.featured {
+        grid-template-columns: minmax(0, 1fr) 330px;
+        gap: 12px;
+      }
+
+      .phase-card h3 {
+        font-size: 16px;
+      }
+
+      .phase-card p {
+        font-size: 11px;
+        line-height: 1.34;
+      }
+
+      .phase-list,
+      .phase-stack {
+        gap: 7px;
+        margin-top: 10px;
+      }
+
+      .phase-list > span,
+      .phase-stack > span {
+        min-height: 0;
+        padding: 8px;
+        font-size: 10.2px;
+        line-height: 1.25;
+      }
+
+      .housing-visual {
+        box-shadow: none;
+      }
+
+      .footer-note {
+        color: var(--muted);
+        font-size: 10.5px;
       }
     }
   </style>
@@ -1207,8 +1814,8 @@
         <span>Servo red and ground stay on the battery/Wago path.</span>
       </article>
       <article class="metric">
-        <b>5.0V logic</b>
-        <span>Set the buck output before connecting it to the XIAO.</span>
+        <b>USB or 5.0V buck</b>
+        <span>Use one XIAO power source at a time. USB-first skips the buck; buck mode skips USB-C.</span>
       </article>
       <article class="metric">
         <b>$144.32+</b>
@@ -1222,7 +1829,8 @@
           <div>
             <h2>Clean bench wiring map</h2>
             <p>Wires use fixed lanes so nothing needs to sit on top of the parts.</p>
-            <p class="mode-copy" id="modeHint">Buck mode: battery powers the servo and the XIAO after the buck output is set to 5.0V.</p>
+            <p class="mode-copy" id="modeHint">Buck mode: battery powers the servo and the XIAO through the buck after the output is set to 5.0V.</p>
+            <p class="mode-warning" id="modeWarning">Do not plug USB-C into the XIAO while buck 5V is connected to 5V/VBUS.</p>
           </div>
           <div class="legend" aria-label="Wire legend">
             <span><i class="dot red"></i>Battery +</span>
@@ -1236,7 +1844,7 @@
           <div class="stage">
             <svg viewBox="0 0 1120 890" role="img" aria-labelledby="diagramTitle diagramDesc">
               <title id="diagramTitle">No-solder desk test wiring diagram</title>
-              <desc id="diagramDesc">The 2S battery connects to an XT30 pigtail, then to a Wago distribution pair. The Wagos feed the servo directly and the LM2596 buck converter. The buck feeds the breadboard and XIAO in buck mode. The XIAO sends PWM through a breadboard row to the servo signal wire. USB can power the XIAO for a first test.</desc>
+              <desc id="diagramDesc">The 2S battery connects to an XT30 pigtail, then to a Wago distribution pair. In buck mode, the Wagos feed the servo directly and the LM2596 buck converter, then the buck feeds the breadboard and XIAO while USB-C is unplugged. In USB-first mode, the buck is skipped, USB-C powers the XIAO, and the Wago ground still ties to XIAO ground through the breadboard. The XIAO sends PWM through a breadboard row to the servo signal wire.</desc>
 
               <path class="wire red" data-parts="battery xt30 wago" d="M238 152 H300" />
               <path class="wire ground" data-parts="battery xt30 wago" d="M238 246 H300" />
@@ -1245,21 +1853,21 @@
               <path class="wire red" data-parts="wago servo" d="M764 152 H872" />
               <path class="wire ground" data-parts="wago servo" d="M764 246 H872" />
 
-              <path class="wire red" data-parts="wago buck" d="M608 336 V382 H386 V462" />
-              <path class="wire ground" data-parts="wago buck" d="M690 336 V412 H426 V462" />
+              <path class="wire red buck-wire" data-parts="wago buck" d="M608 336 V382 H386 V462" />
+              <path class="wire ground buck-wire" data-parts="wago buck" d="M690 336 V412 H426 V462" />
 
-              <path class="wire logic buck-wire" data-parts="buck breadboards" d="M510 526 H568" />
-              <path class="wire ground buck-wire" data-parts="buck breadboards" d="M510 588 H568" />
+              <path class="wire logic buck-wire" data-parts="buck breadboards" d="M510 526 H596" />
+              <path class="wire ground buck-wire" data-parts="buck breadboards" d="M510 588 H596" />
               <path class="wire logic buck-wire" data-parts="breadboards xiao" d="M768 526 H872" />
-              <path class="wire ground buck-wire" data-parts="breadboards xiao" d="M768 588 H872" />
+              <path class="wire ground" data-parts="breadboards xiao" d="M768 588 H872" />
+              <path class="wire ground usb-ground-wire muted" data-parts="wago breadboards xiao" d="M690 336 H536 V632 H568" />
 
               <path class="wire signal" data-parts="xiao breadboards servo" d="M872 674 H768" />
-              <path class="wire signal" data-parts="xiao breadboards servo" d="M668 470 V426 H1086 V306 H1078" />
-              <path class="wire logic usb-wire muted" data-parts="xiao" d="M685 772 V754 H975 V702" />
+              <path class="wire signal" data-parts="breadboards servo" d="M768 626 H826 V426 H1086 V306 H1078" />
+              <path class="wire logic usb-wire muted" data-parts="usb xiao" d="M685 812 V782 H975 V702" />
             </svg>
 
             <div class="lane-label power">High-current path</div>
-            <div class="lane-label logic">Logic path</div>
 
             <article class="component battery-card power" data-node="battery" tabindex="0">
               <div class="card-top">
@@ -1415,7 +2023,7 @@
               </div>
             </article>
 
-            <div class="component usb-card">USB-C from computer</div>
+            <div class="component usb-card" data-node="usb" tabindex="0">USB-C from computer</div>
 
             <div class="safety-note">
               <b>!</b>
@@ -1431,10 +2039,10 @@
           <h2>Hookup Order</h2>
           <ol class="steps">
             <li><span class="num">1</span><span>Secure the loose XT30 pigtail leads in Wagos before plugging in the battery.</span></li>
-            <li><span class="num">2</span><span>Put pigtail red, servo red, and buck IN+ into the positive Wago.</span></li>
-            <li><span class="num">3</span><span>Put pigtail black, servo ground, and buck IN- into the negative Wago.</span></li>
-            <li><span class="num">4</span><span>Set buck OUT+ to OUT- at 5.0V before powering the XIAO from it.</span></li>
-            <li><span class="num">5</span><span>Patch XIAO PWM to a breadboard row, then jumper that row to the servo signal wire.</span></li>
+            <li><span class="num">2</span><span>USB-first: put pigtail red and servo red into the positive Wago. Add buck IN+ only when using buck mode.</span></li>
+            <li><span class="num">3</span><span>USB-first: put pigtail black and servo ground into the negative Wago, then jumper that ground to XIAO GND through the breadboard. Add buck IN- only in buck mode.</span></li>
+            <li><span class="num">4</span><span>Choose one XIAO power source: Mac USB-C or buck 5V. Never connect USB-C while buck OUT+ is feeding XIAO 5V/VBUS.</span></li>
+            <li><span class="num">5</span><span>Patch XIAO D2 to a breadboard row, then jumper that row to the servo signal wire. With USB-C at the top, D2 is the third pin down on the left.</span></li>
           </ol>
         </section>
 
@@ -1448,7 +2056,7 @@
               <tr><td><button class="part-link" type="button" data-part="servo">35kg servo</button></td><td><span class="pill good">Use</span></td></tr>
               <tr><td><button class="part-link" type="button" data-part="battery">2S battery</button></td><td><span class="pill good">Use</span></td></tr>
               <tr><td><button class="part-link" type="button" data-part="xiao">XIAO Sense</button></td><td><span class="pill good">Use</span></td></tr>
-              <tr><td><button class="part-link" type="button" data-part="buck">LM2596 buck</button></td><td><span class="pill good">Use</span></td></tr>
+              <tr><td><button class="part-link" type="button" data-part="buck">LM2596 buck</button></td><td><span class="pill warn">Skip in USB</span></td></tr>
               <tr><td><button class="part-link" type="button" data-part="wago">Wago 222-413</button></td><td><span class="pill good">Use</span></td></tr>
               <tr><td><button class="part-link" type="button" data-part="xt30">XT30 pigtail</button></td><td><span class="pill good">Use</span></td></tr>
               <tr><td><button class="part-link" type="button" data-part="breadboards">Mini breadboards</button></td><td><span class="pill warn">Logic only</span></td></tr>
@@ -1478,12 +2086,228 @@
           <h2>Hard Rules</h2>
           <div class="rules">
             <span><strong>No raw 2S into XIAO.</strong> Use USB-C or the buck converter set to 5.0V.</span>
+            <span><strong>No dual XIAO power.</strong> Do not plug in USB-C while buck 5V is connected to 5V/VBUS.</span>
             <span><strong>No servo power through breadboard.</strong> Servo red/black stay on the Wago battery path.</span>
             <span><strong>PWM through breadboard is OK.</strong> The orange/yellow signal wire is low-current control wiring.</span>
-            <span><strong>Grounds must meet.</strong> Servo ground, buck ground, and XIAO GND share the same reference.</span>
+            <span><strong>Grounds must meet.</strong> Servo/Wago ground and XIAO GND share the same reference; buck ground joins only in buck mode.</span>
+            <span><strong>XIAO pin positions.</strong> With USB-C at the top, D2 is third pin down on the left; GND is second pin down on the right.</span>
           </div>
         </section>
       </aside>
+    </section>
+
+    <section class="panel roadmap" aria-label="Next build phases">
+      <div class="roadmap-head">
+        <div>
+          <h2>Next Build Phases</h2>
+          <p>Phase 1 proves the wiring and software on the desk. Phase 1.5 adds a practical two-part removable mount, then the next phases move toward a cleaner enclosure, a more universal unlocker that supports different door hardware, and eventually a cheaper product-ready design.</p>
+        </div>
+        <span class="phase-tag">Roadmap</span>
+      </div>
+
+      <div class="phase-grid">
+        <article class="phase-card">
+          <div class="phase-kicker">Phase 1.5</div>
+          <h3>Two-part removable mount</h3>
+          <p>Before the full enclosure, build a simple 3D printed mounting system: a Command-strip back plate that stays on the door and a removable electronics/servo sled that slides onto it. The battery should be easy to disconnect or pull for charging, while the controller, wiring, Wagos, and servo stay firmly mounted.</p>
+
+          <div class="phase-stack">
+            <span><i>A</i><span><b>Door back plate.</b> Wide flat plate for large removable strips, sized to resist servo torque without peeling.</span></span>
+            <span><i>B</i><span><b>Fixed sled.</b> Controller, buck, Wagos, wiring, and servo mount stay secured to the module so repeated battery swaps do not disturb alignment.</span></span>
+            <span><i>C</i><span><b>Battery quick disconnect.</b> Add an XT30-accessible pocket, clip, or short pigtail so the battery can be unplugged and removed without opening up the rest of the build.</span></span>
+            <span><i>D</i><span><b>Dovetail rails.</b> Rails or a dovetail track keep the sled tight against the plate, with a clip or thumb screw to stop accidental release.</span></span>
+            <span><i>E</i><span><b>Adjustment slots.</b> Servo bracket and arm position should have small alignment slots before the door-mounted geometry is finalized.</span></span>
+          </div>
+        </article>
+
+        <article class="phase-card featured">
+          <div>
+            <div class="phase-kicker">Phase 2</div>
+            <h3>Integrated printed housing</h3>
+            <p>After the Phase 1.5 slide-on mount works, the next enclosure should merge the sled into a cleaner, mostly vertical housing. The goal is to stay thin off the door instead of stacking thickness: solar/status LED at the top, servo and arm near the handle, controller plus Wago/service bay below that, and the removable battery at the bottom. That vertical layout should also make servicing easier because parts are not buried behind each other depth-wise.</p>
+
+            <div class="phase-list">
+              <span><i>1</i><span><b>Thin vertical stack.</b> Lay parts out by height instead of depth: solar/status LED, then servo/arm, then controller plus Wago/service bay, then bottom battery. Nothing should be stacked depth-wise in a way that blocks service access.</span></span>
+              <span><i>2</i><span><b>Slide-out battery bay.</b> Battery should sit low, slot in, click or friction-fit, and pull out quickly from the side or bottom for charging or replacement.</span></span>
+              <span><i>3</i><span><b>Solar panel mount.</b> Housing should reserve a top/front face for the mini solar panel and route its charging leads internally.</span></span>
+              <span><i>4</i><span><b>Back-plate compatibility.</b> Keep the same slide-on mount pattern so the full enclosure can reuse the Phase 1.5 door plate.</span></span>
+              <span><i>5</i><span><b>Serviceable wiring.</b> Prefer connectors, sockets, Wagos, or small screw terminals so battery, servo, controller, and charger can be replaced.</span></span>
+              <span><i>6</i><span><b>Shielding-ready layout.</b> Leave room for foil, grounded shielding, ferrites, or cable routing changes around the controller and servo leads if EMI/RFI testing shows noise issues.</span></span>
+            </div>
+          </div>
+
+          <div class="housing-visual-wrap">
+            <figure class="housing-visual">
+              <span class="visual-label">Phase 2 enclosure concept</span>
+              <img src="assets/phase-2-enclosure-concept.png" alt="AI-generated 3D printed Phase 2 enclosure concept with rounded top, solar panel, bottom-inserting battery cartridge, service bay, connectors, and servo arm.">
+            </figure>
+            <p class="visual-note">AI-generated concept image. The real Phase 2 enclosure will likely be much sleeker and thinner; this is only a visual direction for the housing, battery slot, solar area, and service layout.</p>
+          </div>
+        </article>
+
+        <article class="phase-card">
+          <div class="phase-kicker">Phase 3</div>
+          <h3>Handle-attached mount</h3>
+          <p>After the simple Command strip mount works, the next mechanical upgrade is a bracket that attaches around the fixed part of the handle assembly. That should make the unit easier to move between doors and reduce reliance on adhesive strength.</p>
+
+          <div class="phase-stack">
+            <span><i>A</i><span><b>Around-handle bracket.</b> Clamp around the fixed rose/escutcheon area when the door hardware shape allows it.</span></span>
+            <span><i>B</i><span><b>Door-agnostic geometry.</b> Keep the servo position adjustable so future handle styles can be supported.</span></span>
+            <span><i>C</i><span><b>Solder only where it helps.</b> Permanent solder joints can improve reliability, but modular connectors may be better for upgrades and field repair.</span></span>
+          </div>
+        </article>
+
+        <article class="phase-card">
+          <div class="phase-kicker">Phase 4</div>
+          <h3>Universal door support</h3>
+          <p>This phase turns the project from a lever pusher into a more flexible unlocker. The bracket should still attach around a fixed part of the handle assembly, but the actuator side should support more than one unlock motion. A small vision system can help the unit understand handle/lock geometry, guide placement, and eventually make better inside/outside presence decisions for auto-unlock.</p>
+
+          <div class="phase-stack">
+            <span><i>A</i><span><b>Multiple actuator modes.</b> Push a lever down, rotate a thumbturn/turnpiece, press a privacy button, or drive a future handle-mounted module.</span></span>
+            <span><i>B</i><span><b>More universal geometry.</b> Adjustable arms, offsets, and contact tips should fit more door hardware without custom parts for every door.</span></span>
+            <span><i>C</i><span><b>Dual-camera vision setup.</b> Explore one forward-facing camera for handle/turnpiece/button geometry and one inward-facing room-side camera for inside approach context, so future versions can tell whether auto-unlock should happen when someone is actually near the door from inside.</span></span>
+            <span><i>D</i><span><b>Lower-cost BOM pass.</b> Keep the prototype flexible, but start replacing expensive one-off parts with cheaper equivalents where reliability is not hurt.</span></span>
+          </div>
+        </article>
+
+        <article class="phase-card">
+          <div class="phase-kicker">Phase 5</div>
+          <h3>Sellable product version</h3>
+          <p>Phase 5 is where the design moves from a project to something that could be sold. The focus shifts toward repeatable assembly, cheaper custom parts, reliability testing, tamper-resistant interior hardware, water-resistant construction, battery/fire safety, interference shielding, and a clean install experience.</p>
+
+          <div class="phase-stack">
+            <span><i>A</i><span><b>Custom low-cost parts.</b> Replace bulky prototype hardware with purpose-built brackets, actuator tips, and enclosure pieces.</span></span>
+            <span><i>B</i><span><b>Production electronics.</b> Move toward a cleaner board, smaller wiring harness, better battery monitoring, and fewer hand-assembled connections.</span></span>
+            <span><i>C</i><span><b>Ready-to-install package.</b> Include the mount, battery, charging path, setup flow, safety limits, and clear compatibility guidance.</span></span>
+            <span><i>D</i><span><b>Interior tamper resistance.</b> Cover wiring, add strain relief, hide casual-access fasteners, and enclose moving parts while keeping owner service access possible.</span></span>
+            <span><i>E</i><span><b>Water and thermal safety.</b> Add splash/humidity protection, drainage or sealing where needed, flame-retardant material choices, fusing, and protected battery charging.</span></span>
+            <span><i>F</i><span><b>Interference shielding validation.</b> Add EMI/RFI shielding, cleaner cable routing, filtered power paths, and real-world shielding validation so wireless control, sensors, and future accessories stay reliable in noisy apartments.</span></span>
+            <span><i>G</i><span><b>Vision setup hardening.</b> If the Phase 4 dual-camera setup works, refine privacy controls, lens placement, lighting tolerance, offline calibration, and failure recovery so vision helps installation and presence context without becoming a constant recording feature.</span></span>
+          </div>
+        </article>
+
+        <article class="phase-card long-range">
+          <div class="phase-kicker">Phase 6+</div>
+          <h3>Cost, quality, design, and R&amp;D</h3>
+          <p>Later phases are about owning more of the system, lowering cost, increasing quality, and polishing the parts that matter most: industrial design, thinness, power use, mechanical reliability, app experience, manufacturing, advanced batteries, high-efficiency solar, removable door swing add-ons, integrated door concepts, and future access-control integrations.</p>
+
+          <div class="phase-stack">
+            <span><i>A</i><span><b>Own the core modules.</b> Custom actuator, power, battery, charging, and enclosure systems can reduce cost, improve quality, and make the product thinner.</span></span>
+            <span><i>B</i><span><b>Reliability lab work.</b> Measure cycle life, battery drain, solar recovery, water ingress, thermal faults, stall behavior, adhesive/bracket load, and door-to-door compatibility.</span></span>
+            <span><i>C</i><span><b>Future integrations.</b> Explore deeper platform support such as Matter, HomeKit-style control, UWB-assisted presence, and richer diagnostics.</span></span>
+            <span><i>D</i><span><b>Industrial design polish.</b> Refine the look, reduce thickness, hide bulk, improve material finish, and make the mounted unit feel sleeker and more intentional.</span></span>
+            <span><i>E</i><span><b>Door swing add-on.</b> Design and build our own easily removable companion add-on that pairs with the unlocker to automatically open and close common doors using an innovative, quick-install mechanism such as controlled magnetic assist, with force limits, obstacle detection, and manual override.</span></span>
+            <span><i>F</i><span><b>Integrated door platform.</b> Explore a future installable door system with the unlocker and swing motion built in, using innovative hardware such as magnetic-hinge concepts to reduce noise, creaks, and visible bulk.</span></span>
+            <span><i>G</i><span><b>Advanced power stack.</b> Evaluate solid-state battery options, higher-efficiency solar cells, better charge management, and energy-harvesting layouts once the product design is mature enough to justify custom power hardware.</span></span>
+            <span><i>H</i><span><b>Exterior doorbell face-recognition add-on.</b> Explore a separate weather-resistant outside module with a doorbell button, camera, face recognition, privacy controls, and secure handoff to the interior unlocker.</span></span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel cad-section" aria-label="Phase 2 CAD fit model">
+      <div class="cad-head">
+        <div>
+          <h2>Phase 2 CAD Fit Model</h2>
+          <p>This is the first print-oriented pass: a parametric enclosure source plus a color-coded fit preview. The model lays parts out vertically so the shell stays thin and serviceable instead of hiding components behind each other depth-wise.</p>
+        </div>
+        <div class="cad-links" aria-label="CAD files">
+          <a class="cad-link" href="cad/phase2-enclosure.scad">OpenSCAD source</a>
+          <a class="cad-link" href="cad/phase2-dimensions.json">Dimensions JSON</a>
+        </div>
+      </div>
+
+      <div class="cad-layout">
+        <figure class="cad-preview">
+          <svg viewBox="0 0 760 980" role="img" aria-labelledby="cadTitle cadDesc">
+            <title id="cadTitle">Color-coded first-pass enclosure CAD layout</title>
+            <desc id="cadDesc">Isometric-style fit preview showing shell, back plate, solar panel, servo, controller, Wago connectors, buck converter, and bottom-inserting battery cartridge.</desc>
+            <defs>
+              <filter id="cadShadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#000" flood-opacity=".35" />
+              </filter>
+              <linearGradient id="shellFace" x1="0" x2="1">
+                <stop offset="0" stop-color="#242b26" />
+                <stop offset="1" stop-color="#141915" />
+              </linearGradient>
+              <linearGradient id="shellSide" x1="0" x2="1">
+                <stop offset="0" stop-color="#111511" />
+                <stop offset="1" stop-color="#2a302b" />
+              </linearGradient>
+            </defs>
+
+            <g filter="url(#cadShadow)">
+              <path d="M256 49 L455 29 Q485 29 493 58 L493 898 Q489 926 461 932 L260 953 Q232 948 229 919 L229 84 Q231 58 256 49 Z" fill="url(#shellSide)" opacity=".95" />
+              <rect x="210" y="58" width="238" height="884" rx="34" fill="url(#shellFace)" stroke="rgba(243,247,241,.2)" stroke-width="2" />
+              <rect x="198" y="36" width="270" height="928" rx="42" fill="none" stroke="#38413a" stroke-width="10" opacity=".75" />
+
+              <rect x="247" y="92" width="164" height="220" rx="14" fill="#2f6f9f" stroke="#93bfe0" stroke-width="3" />
+              <g stroke="rgba(243,247,241,.35)" stroke-width="1.5">
+                <line x1="286" y1="97" x2="286" y2="307" />
+                <line x1="326" y1="97" x2="326" y2="307" />
+                <line x1="368" y1="97" x2="368" y2="307" />
+                <line x1="252" y1="145" x2="407" y2="145" />
+                <line x1="252" y1="202" x2="407" y2="202" />
+                <line x1="252" y1="260" x2="407" y2="260" />
+              </g>
+              <rect x="300" y="333" width="62" height="12" rx="6" fill="#71f0a1" stroke="#b7ffd0" stroke-width="2" />
+
+              <rect x="239" y="381" width="181" height="158" rx="16" fill="#080b09" stroke="rgba(243,247,241,.2)" stroke-width="2" />
+              <rect x="278" y="414" width="85" height="94" rx="10" fill="#4a64d8" stroke="#9aa8ff" stroke-width="2" />
+              <circle cx="321" cy="461" r="27" fill="#111" stroke="#777" stroke-width="3" />
+              <rect x="320" y="449" width="158" height="18" rx="9" fill="#111" stroke="#333" stroke-width="2" />
+              <circle cx="450" cy="458" r="6" fill="#0b0e0c" stroke="#747a73" stroke-width="2" />
+              <path d="M358 504 C374 526 384 545 386 562" fill="none" stroke="#ef6c38" stroke-width="7" stroke-linecap="round" />
+
+              <rect x="239" y="565" width="181" height="214" rx="16" fill="#080b09" stroke="rgba(243,247,241,.2)" stroke-width="2" />
+              <rect x="264" y="595" width="54" height="78" rx="7" fill="#23a06f" stroke="#90f0c6" stroke-width="2" />
+              <rect x="278" y="603" width="26" height="18" rx="3" fill="#dfe6e1" />
+              <g fill="#dfe6e1">
+                <circle cx="269" cy="610" r="3" /><circle cx="269" cy="625" r="3" /><circle cx="269" cy="640" r="3" /><circle cx="269" cy="655" r="3" />
+                <circle cx="313" cy="610" r="3" /><circle cx="313" cy="625" r="3" /><circle cx="313" cy="640" r="3" /><circle cx="313" cy="655" r="3" />
+              </g>
+              <rect x="336" y="608" width="52" height="86" rx="7" fill="#c9d0cb" stroke="#fff" stroke-opacity=".5" stroke-width="2" />
+              <g fill="#f28b32">
+                <rect x="343" y="617" width="12" height="25" rx="3" />
+                <rect x="360" y="617" width="12" height="25" rx="3" />
+                <rect x="377" y="617" width="8" height="25" rx="3" />
+                <rect x="343" y="657" width="12" height="25" rx="3" />
+                <rect x="360" y="657" width="12" height="25" rx="3" />
+                <rect x="377" y="657" width="8" height="25" rx="3" />
+              </g>
+              <rect x="261" y="711" width="136" height="42" rx="7" fill="#d7b546" stroke="#fff2a8" stroke-opacity=".5" stroke-width="2" />
+              <path d="M289 675 C289 700 290 720 297 753" fill="none" stroke="#ef6c38" stroke-width="7" stroke-linecap="round" />
+              <path d="M306 675 C312 704 316 727 318 753" fill="none" stroke="#f5c545" stroke-width="7" stroke-linecap="round" />
+
+              <rect x="255" y="804" width="149" height="128" rx="15" fill="#101310" stroke="#ef6c38" stroke-width="3" />
+              <rect x="271" y="827" width="117" height="108" rx="13" fill="#ef6c38" opacity=".9" />
+              <rect x="295" y="933" width="68" height="10" rx="4" fill="#111" stroke="#777" stroke-width="1.5" />
+            </g>
+
+            <line class="cad-measure" x1="505" y1="58" x2="505" y2="942" />
+            <text class="cad-small-label" x="520" y="510" transform="rotate(90 520 510)">352 mm enclosure height</text>
+            <line class="cad-measure" x1="210" y1="955" x2="448" y2="955" />
+            <text class="cad-small-label" x="276" y="976">78 mm shell width</text>
+
+            <text class="cad-label" x="44" y="92">Color key</text>
+            <text class="cad-small-label" x="44" y="122">Blue: solar</text>
+            <text class="cad-small-label" x="44" y="146">Purple: servo</text>
+            <text class="cad-small-label" x="44" y="170">Green: XIAO</text>
+            <text class="cad-small-label" x="44" y="194">Orange: Wago/battery</text>
+            <text class="cad-small-label" x="44" y="218">Gold: buck bay</text>
+          </svg>
+        </figure>
+
+        <div class="cad-dim-grid" aria-label="CAD dimension assumptions">
+          <div class="cad-dim"><span class="cad-dot" style="background:#1e2420"></span><span><b>Shell envelope</b><code>78 W x 37 D x 352 H</code><br>First-pass tall housing with 3mm walls, rounded top/corners, service openings, and a separate back plate.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#2f6f9f"></span><span><b>Solar placeholder</b><code>50 W x 3 D x 80 H</code><br>Reserved top panel space. Exact solar panel can change before printing.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#4a64d8"></span><span><b>Servo bay</b><code>62 W x 31 D x 62 H</code><br>Holds the INJORA 35kg servo block, arm clearance, cable exit, and screw access.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#23a06f"></span><span><b>XIAO controller</b><code>17.8 W x 11 D x 21 H</code><br>Includes a Seeed XIAO nRF52840 Sense footprint plus pre-soldered header/USB-C clearance.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#f28b32"></span><span><b>Wago pair</b><code>2 x 17 W x 20.5 D x 14.5 H</code><br>Modeled as two accessible 222-413 connector blocks in the service bay.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#d7b546"></span><span><b>Current buck module</b><code>60 W x 12 D x 40 H</code><br>Bulky LM2596 prototype bay. This can shrink later with the low-quiescent regulator plan.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#ef6c38"></span><span><b>Battery cartridge</b><code>43 W x 22 D x 75 H</code><br>Vertical bottom-inserting pack, mostly inside the enclosure with only a small pull lip exposed.</span></div>
+        </div>
+      </div>
     </section>
 
     <p class="footer-note">Desk-test assumption: the servo can spike several amps during startup or stall. The XIAO provides only the control signal through the breadboard, so the high-current wiring stays on the XT30 pigtail and Wago connectors.</p>
@@ -1557,7 +2381,7 @@
         image: "assets/component-xiao-amazon-style.png",
         description: "Compact pre-soldered microcontroller board with header pins, so it can plug directly into the breadboard for no-solder testing.",
         role: "Microcontroller that sends the low-current PWM control signal through the breadboard to the servo.",
-        specs: ["nRF52840-based XIAO Sense board", "Pre-soldered male headers", "USB-C programming and power", "Use 5V/VBUS and GND only from USB or the buck output"],
+        specs: ["nRF52840-based XIAO Sense board", "Pre-soldered male headers", "USB-C programming and power", "Servo signal uses D2, third pin down on the left with USB-C at top", "Ground uses GND, second pin down on the right with USB-C at top", "Use 5V/VBUS and GND from either USB or the buck output, never both at the same time"],
         link: "https://www.amazon.com/dp/B0DRNTLCWC"
       },
       buck: {
@@ -1567,7 +2391,7 @@
         image: "assets/component-buck.png",
         description: "Adjustable step-down voltage regulator used to turn the 2S battery voltage into a safe 5.0V logic supply.",
         role: "Steps the 2S battery voltage down to 5.0V for the XIAO after adjustment.",
-        specs: ["LM2596 adjustable buck converter", "4.0-40V listed input range", "1.25-37V listed output range", "Set and verify 5.0V output before connecting the XIAO"],
+        specs: ["LM2596 adjustable buck converter", "4.0-40V listed input range", "1.25-37V listed output range", "Set and verify 5.0V output before connecting the XIAO", "Unplug XIAO USB-C before feeding buck 5V into 5V/VBUS"],
         link: "https://www.amazon.com/dp/B0DM946DHG"
       },
       wago: {
@@ -1636,6 +2460,7 @@
     const buckMode = document.getElementById("buckMode");
     const usbMode = document.getElementById("usbMode");
     const modeHint = document.getElementById("modeHint");
+    const modeWarning = document.getElementById("modeWarning");
     const partDialog = document.getElementById("partDialog");
     const partModalTitle = document.getElementById("partModalTitle");
     const partModalSubtitle = document.getElementById("partModalSubtitle");
@@ -1653,8 +2478,11 @@
       buckMode.setAttribute("aria-pressed", mode === "buck" ? "true" : "false");
       usbMode.setAttribute("aria-pressed", mode === "usb" ? "true" : "false");
       modeHint.textContent = mode === "buck"
-        ? "Buck mode: battery powers the servo and the XIAO after the buck output is set to 5.0V."
-        : "USB-first mode: USB-C powers the XIAO; the battery still powers the servo, and grounds still connect together.";
+        ? "Buck mode: battery powers the servo and the XIAO through the buck after the output is set to 5.0V."
+        : "USB-first mode: Mac USB-C powers the XIAO, the LM2596 buck is skipped, the battery still powers the servo, and Wago ground ties to XIAO GND.";
+      modeWarning.textContent = mode === "buck"
+        ? "Do not plug USB-C into the XIAO while buck 5V is connected to 5V/VBUS."
+        : "Do not connect buck OUT+ to XIAO 5V/VBUS while the XIAO is powered by USB-C.";
     }
 
     buckMode.addEventListener("click", () => setMode("buck"));
@@ -1682,8 +2510,12 @@
     }
 
     diagramNodes.forEach((node) => {
+      node.addEventListener("pointerenter", () => setActiveNode(node.dataset.node));
+      node.addEventListener("pointerleave", clearActiveNode);
       node.addEventListener("mouseenter", () => setActiveNode(node.dataset.node));
       node.addEventListener("mouseleave", clearActiveNode);
+      node.addEventListener("focus", () => setActiveNode(node.dataset.node));
+      node.addEventListener("blur", clearActiveNode);
       node.addEventListener("focusin", () => setActiveNode(node.dataset.node));
       node.addEventListener("focusout", (event) => {
         if (!node.contains(event.relatedTarget)) {
