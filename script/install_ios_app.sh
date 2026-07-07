@@ -55,12 +55,13 @@ while [[ $# -gt 0 ]]; do
 done
 
 detect_device_udid() {
-  xcrun xctrace list devices 2>/dev/null |
-    sed '/^== Simulators ==/,$d' |
+  { xcrun xctrace list devices 2>/dev/null || true; } |
+    sed -n '/^== Devices ==/,/^== Devices Offline ==/p' |
+    sed '/^== Devices Offline ==/,$d' |
     grep -E 'iPhone|iPad' |
     grep -v 'Simulator' |
     sed -E 's/.*\(([0-9A-Fa-f-]{20,})\)$/\1/' |
-    head -n 1
+    head -n 1 || true
 }
 
 if [[ -z "$DEVICE_UDID" ]]; then

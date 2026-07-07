@@ -220,6 +220,14 @@ For iPhone OTA testing, bundle the current DFU package at:
 ios/DoorUnlockerApp/DoorUnlocker/Firmware/DoorUnlockerXiao-dfu.zip
 ```
 
+Then run the repeatable physical-device verifier:
+
+```sh
+./script/verify_ios_ota.sh
+```
+
+The verifier installs the iPhone app, launches `doorunlocker://debug-install-bundled-firmware`, and polls the USB-C CLI until the controller reports the target firmware version. It intentionally fails if the controller is already on that exact target version unless `--allow-current` is passed, so a timing run cannot be mistaken for a real OTA proof after the firmware has already been installed.
+
 For Mac OTA testing, build the package and send it through the admin app/CLI flow:
 
 ```sh
