@@ -4,7 +4,7 @@ Open-source desk-test prototype for a BLE-controlled servo actuator. The project
 
 This is a bench prototype and wiring reference, not a certified door lock, access-control system, or life-safety device.
 
-Current release: `v0.1.0-beta.1`, the first usable beta. The authenticated wireless command path is in place, but the hardware, multi-device behavior, battery setup, and enclosure still need longer real-world testing before a stable release.
+Current release: `v0.1.0-beta.2`, the current usable beta. The authenticated wireless command path is in place, but the hardware, multi-device behavior, battery setup, and enclosure still need longer real-world testing before a stable release.
 
 [View the Phase 1 wiring diagram](https://bt1142msstate.github.io/door-unlocker/)
 

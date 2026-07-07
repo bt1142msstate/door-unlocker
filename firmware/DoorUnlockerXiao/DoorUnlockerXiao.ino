@@ -2280,6 +2280,7 @@ void controlCccdWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uin
   }
 
   issueV3NonceTo(connHandle);
+  publishConnectionsState();
 }
 
 void processPendingBleCommand() {

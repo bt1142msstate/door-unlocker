@@ -67,6 +67,13 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         let deviceName: String?
     }
 
+    private struct PendingFreshNonceDoorCommand {
+        let command: Command
+        let attempt: Int
+        let previousServoState: String?
+        let origin: DoorCommandOrigin
+    }
+
     struct ConnectedControllerDevice: Identifiable, Equatable {
         let slot: Int
         let name: String
@@ -199,7 +206,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     private static let currentPeripheralIdentityVersion = "v4-control-characteristic"
     private static let knownPairedControllerKey = "DoorUnlockerKnownPairedController"
     private static let centralRestorationIdentifier = "com.brandontemple.DoorUnlocker.central"
-    private static let knownPeripheralFreshScanFallbackDelay: TimeInterval = 2
+    private static let knownPeripheralFreshScanFallbackDelay: TimeInterval = 0.6
     private static let maximumDeviceDisplayNameLength = 24
     private static let widgetKind = "DoorUnlockerWidget"
     private let serviceUUID = CBUUID(string: "7A5A2000-2B8D-4C3E-94E7-0B3C0DDAAF10")
@@ -223,6 +230,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     private var optimisticDoorCommandAttempt = 0
     private var optimisticDoorPreviousServoState: String?
     private var doorCommandRecoveryTask: Task<Void, Never>?
+    private var pendingFreshNonceDoorCommand: PendingFreshNonceDoorCommand?
     private var fastCommandNonce: Data?
     private var preparedFastDoorCommandPayloads: [Command: DoorCommandAuthenticator.SignedFastCommandPayload] = [:]
     private var preparedFastDoorCommandTask: Task<Void, Never>?
@@ -1789,6 +1797,9 @@ final class DoorUnlockerController: NSObject, ObservableObject {
                 self.preparedFastDoorCommandPayloads = payloads
                 self.preparedFastDoorCommandTask = nil
                 self.stopSecureLinkWatchdog()
+                if self.sendPendingFreshNonceDoorCommandIfReady() {
+                    return
+                }
                 self.sendPendingSystemCommandIfReady()
                 _ = self.runProximityUnlockIfReady()
                 guard self.fastCommandNonce == nonce else { return }
@@ -2338,6 +2349,21 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     private func handleFastCommandReject(reason: String) {
         invalidatePreparedFastDoorCommandPayloads(clearNonce: true)
 
+        if (reason == "bad_nonce" || reason == "missing_nonce"),
+           let command = optimisticDoorCommand,
+           optimisticDoorCommandAttempt < 2 {
+            pendingFreshNonceDoorCommand = PendingFreshNonceDoorCommand(
+                command: command,
+                attempt: optimisticDoorCommandAttempt + 1,
+                previousServoState: optimisticDoorPreviousServoState,
+                origin: optimisticDoorCommandOrigin ?? .manual
+            )
+            lastError = nil
+            _ = readControlIfPermitted()
+            startSecureLinkWatchdogIfNeeded()
+            return
+        }
+
         if let optimisticDoorCommand {
             let origin = optimisticDoorCommandOrigin
             let restoredState = stableRestoredDoorState()
@@ -2367,6 +2393,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     }
 
     private func clearOptimisticDoorCommand() {
+        pendingFreshNonceDoorCommand = nil
         optimisticDoorCommand = nil
         optimisticDoorCommandOrigin = nil
         optimisticDoorCommandSentAt = nil
@@ -2374,6 +2401,27 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         optimisticDoorPreviousServoState = nil
         doorCommandRecoveryTask?.cancel()
         doorCommandRecoveryTask = nil
+    }
+
+    @discardableResult
+    private func sendPendingFreshNonceDoorCommandIfReady() -> Bool {
+        guard let pendingFreshNonceDoorCommand,
+              !preparedFastDoorCommandPayloads.isEmpty else {
+            return false
+        }
+
+        let retry = pendingFreshNonceDoorCommand
+        self.pendingFreshNonceDoorCommand = nil
+        let didSend = sendDoorCommandAttempt(
+            pendingFreshNonceDoorCommand.command,
+            attempt: pendingFreshNonceDoorCommand.attempt,
+            previousServoState: pendingFreshNonceDoorCommand.previousServoState,
+            origin: pendingFreshNonceDoorCommand.origin
+        )
+        if !didSend {
+            self.pendingFreshNonceDoorCommand = retry
+        }
+        return didSend
     }
 
     private func scheduleDeviceDisplayNameRetry() {
@@ -3018,9 +3066,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
             return false
         }
 
-        if knownPeripheral.state == .connecting || knownPeripheral.state == .disconnecting {
-            central.cancelPeripheralConnection(knownPeripheral)
-            UserDefaults.standard.removeObject(forKey: Self.knownPeripheralIdentifierKey)
+        if knownPeripheral.state == .disconnecting {
             return false
         }
 
@@ -3193,6 +3239,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         connectionState = "Ready"
         startRSSIMonitoringIfNeeded()
         startSecureLinkWatchdogIfNeeded()
+        _ = promoteKnownControllerPairingIfNeeded()
         readStateIfPermitted()
         scheduleKnownPairingFallbackIfNeeded()
         if runProximityUnlockIfReady() {
@@ -4403,8 +4450,10 @@ extension DoorUnlockerController: CBPeripheralDelegate {
             }
 
             if characteristic.isNotifying {
-                peripheral.readRSSI()
                 _ = readControlIfPermitted()
+                if proximityUnlockArmedAt != nil || lockZoneBluetoothRSSI == nil {
+                    peripheral.readRSSI()
+                }
             }
 
             if isReady, !isDoorCommandReady {
