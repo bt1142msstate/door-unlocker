@@ -4,13 +4,13 @@ Open-source desk-test prototype for a BLE-controlled servo actuator. The project
 
 This is a bench prototype and wiring reference, not a certified door lock, access-control system, or life-safety device.
 
-Current release: `v0.1.0-beta.2`, the current usable beta. The authenticated wireless command path is in place, but the hardware, multi-device behavior, battery setup, and enclosure still need longer real-world testing before a stable release.
+Current release: `v0.1.0-beta.3`, the current usable beta. The authenticated wireless command path is in place, but the hardware, multi-device behavior, battery setup, and enclosure still need longer real-world testing before a stable release.
 
-Latest beta firmware: `0.1.0-beta.ota13`.
+Latest beta firmware: `0.1.0-beta.ota18`.
 
 ## Latest Beta Validation
 
-The `v0.1.0-beta.2` cut was tested on 2026-07-07 against the bench XIAO controller and the iPhone/Mac apps.
+The `v0.1.0-beta.3` cut was tested on 2026-07-07 against the bench XIAO controller and the iPhone/Mac apps.
 
 Observed iPhone startup timing from `script/benchmark_ios_startup.sh`:
 
@@ -24,13 +24,19 @@ Observed iPhone startup timing from `script/benchmark_ios_startup.sh`:
 
 Validation run:
 
-- iPhone app installed through `script/install_ios_app.sh`, which builds for `generic/platform=iOS` and installs with `devicectl`.
+- iPhone install path remains `script/install_ios_app.sh`, which builds for `generic/platform=iOS` and installs with `devicectl`.
 - iOS generic device build passed with `CODE_SIGNING_ALLOWED=NO`.
 - Mac admin package tests passed: 6 tests.
 - Mac admin build/run verification passed with `script/build_and_run.sh --verify`.
-- Controller status verified over USB-C after OTA: `model=DoorUnlocker-XIAO-v4`, `firmware_version=0.1.0-beta.ota13`.
-- Mac OTA path verified by updating to `0.1.0-beta.ota12`.
-- iPhone OTA path verified by updating to `0.1.0-beta.ota13`.
+- Controller status verified over USB-C after OTA: `model=DoorUnlocker-XIAO-v4`, `firmware_version=0.1.0-beta.ota18`.
+- Mac OTA path verified by updating to `0.1.0-beta.ota18`.
+- iOS app generic build passed with the bundled `0.1.0-beta.ota18` DFU package. Physical iPhone install/OTA was not rerun during the OTA speed pass because Xcode reported the iPhone as offline.
+- Final Mac OTA timing: `172.887s` end to end from CLI command to USB-C status verification. App-side DFU time was `166.1s`, with `1051 B/s` average upload speed at completion.
+- OTA tuning test results:
+  - PRN `8`, object prep delay `0.4s`: best measured reliable result, kept as the default.
+  - PRN `0`, object prep delay `0.3s`: completed but was slower at `239.4s` app-side DFU time.
+  - PRN `20`, object prep delay `0.4s`: exceeded the extended poll window and was slower than baseline.
+  - PRN `12`, object prep delay `0.4s`: exceeded the extended poll window and was slower than baseline.
 
 [View the Phase 1 wiring diagram](https://bt1142msstate.github.io/door-unlocker/)
 
@@ -203,6 +209,10 @@ For USB-C recovery or first-time flashing, use:
 When the installed firmware supports `app bootloader`, the script asks the running controller to reboot into UF2 bootloader mode, then copies the UF2 to `/Volumes/XIAO-SENSE`. If the installed firmware is too old to enter UF2 mode from USB-C, the script pauses for a one-time reset-button double press. The script uses `cp -X` when copying the UF2 so macOS does not add metadata files to the XIAO bootloader volume.
 
 For app-driven OTA updates, the controller must already trust the app issuing the update command. The trusted app sends the signed `ENTER_OTA_DFU` command, the controller enters BLE DFU mode, the app uploads `DoorUnlockerXiao-dfu.zip`, then the controller reboots and the app verifies the reported firmware version. USB-C remains the recovery fallback if an OTA attempt is interrupted.
+
+Expected OTA timing for the current 166 KB DFU package is about 3 minutes end to end on the bench XIAO. The measured `0.1.0-beta.ota18` Mac update took `172.887s` from CLI command to USB-C status verification, with `166.1s` spent inside the Nordic DFU upload. The app logs DFU package size, PRN setting, object prep delay, progress buckets, upload speed, and total/upload elapsed time under the `FirmwareUpdate` log category.
+
+The current DFU tuning is intentionally conservative: packet receipt notification parameter `8` and data object preparation delay `0.4s`. [Nordic's iOS DFU library](https://github.com/NordicSemiconductor/IOS-DFU-Library/blob/main/Library/Classes/Implementation/DFUServiceInitiator.swift) documents that PRNs can be disabled on modern iOS/macOS for speed, but also warns that devices with slower flash handling can fail or become very slow; its documented safe object-prep delay range for SDK 15-17 style bootloaders is `0.3s` to `0.4s`. On this XIAO/Adafruit DFU bootloader, PRN `8` was the fastest measured reliable setting; PRN `0`, `12`, and `20` were slower in real OTA tests.
 
 For iPhone OTA testing, bundle the current DFU package at:
 

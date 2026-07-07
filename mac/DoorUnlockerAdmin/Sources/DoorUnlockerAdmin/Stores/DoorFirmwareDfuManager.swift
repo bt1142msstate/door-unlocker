@@ -16,6 +16,8 @@ final class DoorFirmwareDfuManager: NSObject {
     private let dfuNameFragments = ["dfu", "adadfu", "dfutarg"]
     private let dfuQueue = DispatchQueue(label: "io.github.bt1142msstate.DoorUnlockerAdmin.dfu")
     private let log = Logger(subsystem: "io.github.bt1142msstate.DoorUnlockerAdmin", category: "FirmwareUpdate")
+    private let packetReceiptNotificationParameter: UInt16 = 8
+    private let dataObjectPreparationDelay: TimeInterval = 0.4
     private weak var delegate: DoorFirmwareDfuManagerDelegate?
     private var central: CBCentralManager?
     private var packageURL: URL?
@@ -23,6 +25,9 @@ final class DoorFirmwareDfuManager: NSObject {
     private var dfuInitiator: DFUServiceInitiator?
     private var dfuController: DFUServiceController?
     private var isActive = false
+    private var updateStartedAt: Date?
+    private var uploadStartedAt: Date?
+    private var lastLoggedProgressBucket: Int?
 
     init(delegate: DoorFirmwareDfuManagerDelegate) {
         self.delegate = delegate
@@ -33,6 +38,11 @@ final class DoorFirmwareDfuManager: NSObject {
         cancel()
         isActive = true
         self.packageURL = packageURL
+        updateStartedAt = Date()
+        uploadStartedAt = nil
+        lastLoggedProgressBucket = nil
+        let packageBytes = (try? packageURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        log.info("DFU scan started packageBytes=\(packageBytes, privacy: .public) prn=\(self.packetReceiptNotificationParameter, privacy: .public) objectDelay=\(self.dataObjectPreparationDelay, privacy: .public)")
         notify(status: "Looking for firmware update mode", progress: nil)
         central = CBCentralManager(delegate: self, queue: .main)
         scanTimeoutTask = Task { @MainActor [weak self] in
@@ -56,6 +66,9 @@ final class DoorFirmwareDfuManager: NSObject {
         dfuController = nil
         dfuInitiator = nil
         packageURL = nil
+        updateStartedAt = nil
+        uploadStartedAt = nil
+        lastLoggedProgressBucket = nil
     }
 
     private func beginScanIfReady() {
@@ -99,6 +112,8 @@ final class DoorFirmwareDfuManager: NSObject {
         central?.delegate = nil
         scanTimeoutTask?.cancel()
         scanTimeoutTask = nil
+        uploadStartedAt = Date()
+        log.info("DFU bootloader selected after \(self.elapsedText(since: self.updateStartedAt), privacy: .public)")
         notify(status: "Starting firmware upload", progress: 0)
 
         do {
@@ -108,9 +123,9 @@ final class DoorFirmwareDfuManager: NSObject {
             initiator.progressDelegate = self
             initiator.logger = self
             initiator.connectionTimeout = 20
-            initiator.dataObjectPreparationDelay = 0.4
+            initiator.dataObjectPreparationDelay = dataObjectPreparationDelay
             initiator.forceDfu = true
-            initiator.packetReceiptNotificationParameter = 8
+            initiator.packetReceiptNotificationParameter = packetReceiptNotificationParameter
             initiator.forceScanningForNewAddressInLegacyDfu = true
             dfuInitiator = initiator
             dfuController = initiator.with(firmware: firmware).start(target: peripheral)
@@ -140,6 +155,12 @@ final class DoorFirmwareDfuManager: NSObject {
         dfuController = nil
         dfuInitiator = nil
         packageURL = nil
+        let totalElapsed = elapsedText(since: updateStartedAt)
+        let uploadElapsed = elapsedText(since: uploadStartedAt)
+        log.info("DFU completed total=\(totalElapsed, privacy: .public) upload=\(uploadElapsed, privacy: .public)")
+        updateStartedAt = nil
+        uploadStartedAt = nil
+        lastLoggedProgressBucket = nil
         Task { @MainActor [weak self] in
             self?.delegate?.firmwareDfuManagerDidFinish()
         }
@@ -156,9 +177,18 @@ final class DoorFirmwareDfuManager: NSObject {
         dfuController = nil
         dfuInitiator = nil
         packageURL = nil
+        log.error("DFU failed after \(self.elapsedText(since: self.updateStartedAt), privacy: .public): \(message, privacy: .public)")
+        updateStartedAt = nil
+        uploadStartedAt = nil
+        lastLoggedProgressBucket = nil
         Task { @MainActor [weak self] in
             self?.delegate?.firmwareDfuManagerDidFail(message)
         }
+    }
+
+    private func elapsedText(since start: Date?) -> String {
+        guard let start else { return "n/a" }
+        return String(format: "%.1fs", Date().timeIntervalSince(start))
     }
 }
 
@@ -214,7 +244,14 @@ extension DoorFirmwareDfuManager: DFUServiceDelegate, DFUProgressDelegate, Logge
     ) {
         guard isActive else { return }
         let status = totalParts > 1 ? "Uploading firmware part \(part) of \(totalParts)" : "Uploading firmware"
-        notify(status: status, progress: progress)
+        let averageKBs = max(0, avgSpeedBytesPerSecond / 1024)
+        notify(status: "\(status) - \(Int(averageKBs.rounded())) KB/s", progress: progress)
+
+        let bucket = min(100, (progress / 10) * 10)
+        if bucket >= 10, bucket != lastLoggedProgressBucket {
+            lastLoggedProgressBucket = bucket
+            log.info("DFU progress \(progress, privacy: .public)% currentBps=\(currentSpeedBytesPerSecond, privacy: .public) avgBps=\(avgSpeedBytesPerSecond, privacy: .public) uploadElapsed=\(self.elapsedText(since: self.uploadStartedAt), privacy: .public)")
+        }
     }
 
     func logWith(_ level: LogLevel, message: String) {
