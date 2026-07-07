@@ -10,6 +10,8 @@ public enum DoorSerialParser {
             switch key {
             case "model":
                 status.modelName = value
+            case "firmware_version":
+                status.firmwareVersion = value.isEmpty ? status.firmwareVersion : value
             case "lock_name":
                 status.lockName = value
             case "protocol":

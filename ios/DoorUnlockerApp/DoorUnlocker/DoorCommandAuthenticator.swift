@@ -59,6 +59,7 @@ enum DoorCommandAuthenticator {
     private final class AuthCache: @unchecked Sendable {
         let lock = NSLock()
         var identity: SigningIdentity?
+        var keyFingerprint: Data?
     }
 
     private static let keychainService = "DoorUnlocker.SigningIdentity"
@@ -76,6 +77,7 @@ enum DoorCommandAuthenticator {
     private static let fastCommandSetServoAnglesOp: UInt8 = 0x21
     private static let fastCommandSetTimeoutOp: UInt8 = 0x22
     private static let fastCommandSetDeviceNameOp: UInt8 = 0x23
+    private static let fastCommandEnterOtaDfuOp: UInt8 = 0x30
     private static let fastCommandNonceLength = 16
     private static let fastCommandKeyFingerprintLength = 8
     private static let fastCommandMaxPayloadLength = 129
@@ -83,7 +85,9 @@ enum DoorCommandAuthenticator {
     private static let cache = AuthCache()
 
     static func prewarm() {
-        _ = try? identity()
+        guard let identity = try? identity() else { return }
+        _ = try? fastCommandKeyFingerprint(for: identity)
+        _ = try? identity.signature(for: fastCommandSignatureDomain)
     }
 
     static func publicKeyForPairing() throws -> Data {
@@ -106,13 +110,6 @@ enum DoorCommandAuthenticator {
         return try v3CommandPayload(op: op, payload: Data(), nonce: nonce)
     }
 
-    static func fastCommandPayloads(nonce: Data) throws -> [DoorUnlockerController.Command: SignedFastCommandPayload] {
-        [
-            .unlock: try fastCommandPayload(for: .unlock, nonce: nonce),
-            .lock: try fastCommandPayload(for: .lock, nonce: nonce)
-        ]
-    }
-
     static func secureCommandPayload(for commandText: String, nonce: Data) throws -> SignedFastCommandPayload {
         let encodedCommand = try v3CommandEncoding(for: commandText)
         return try v3CommandPayload(op: encodedCommand.op, payload: encodedCommand.payload, nonce: nonce)
@@ -124,7 +121,8 @@ enum DoorCommandAuthenticator {
             throw AuthError.signingKeyUnavailable
         }
 
-        let fingerprint = try fastCommandKeyFingerprint()
+        let identity = try identity()
+        let fingerprint = try fastCommandKeyFingerprint(for: identity)
         var unsignedPacket = Data([fastCommandVersion, op])
         unsignedPacket.append(fingerprint)
         unsignedPacket.append(nonce)
@@ -133,7 +131,7 @@ enum DoorCommandAuthenticator {
 
         var signedMessage = fastCommandSignatureDomain
         signedMessage.append(unsignedPacket)
-        let signature = try identity().signature(for: signedMessage)
+        let signature = try identity.signature(for: signedMessage)
 
         var packet = unsignedPacket
         packet.append(signature)
@@ -149,6 +147,9 @@ enum DoorCommandAuthenticator {
         }
         if commandText == "GET_LAST_UNLOCK" {
             return (fastCommandGetLastUnlockOp, Data())
+        }
+        if commandText == "ENTER_OTA_DFU" {
+            return (fastCommandEnterOtaDfuOp, Data())
         }
         if let name = payloadValue(in: commandText, prefix: "SET_LOCK_NAME:") {
             return (fastCommandSetLockNameOp, sanitizedDeviceNameData(name))
@@ -178,8 +179,25 @@ enum DoorCommandAuthenticator {
     }
 
     private static func fastCommandKeyFingerprint() throws -> Data {
-        let digest = SHA256.hash(data: try publicKeyForPairing())
-        return Data(digest.prefix(fastCommandKeyFingerprintLength))
+        try fastCommandKeyFingerprint(for: identity())
+    }
+
+    private static func fastCommandKeyFingerprint(for identity: SigningIdentity) throws -> Data {
+        cache.lock.lock()
+        if let keyFingerprint = cache.keyFingerprint {
+            cache.lock.unlock()
+            return keyFingerprint
+        }
+        cache.lock.unlock()
+
+        let digest = SHA256.hash(data: identity.publicKeyX963Representation)
+        let fingerprint = Data(digest.prefix(fastCommandKeyFingerprintLength))
+
+        cache.lock.lock()
+        cache.keyFingerprint = fingerprint
+        cache.lock.unlock()
+
+        return fingerprint
     }
 
     private static func approvalCode(for publicKey: Data) -> String {

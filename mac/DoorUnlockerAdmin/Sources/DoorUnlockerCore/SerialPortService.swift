@@ -108,7 +108,7 @@ public final class SerialPortConnection: @unchecked Sendable {
                     }
                 }
             } else if count == 0 || errno == EAGAIN || errno == EWOULDBLOCK {
-                usleep(50_000)
+                usleep(2_000)
             } else {
                 throw SerialPortError.readFailed
             }
@@ -136,6 +136,7 @@ public final class SerialPortConnection: @unchecked Sendable {
     }
 
     private func writeLine(_ command: String) throws {
+        tcflush(fileDescriptor, TCIFLUSH)
         let bytes = Array((command + "\n").utf8)
         let written = bytes.withUnsafeBufferPointer { pointer in
             Darwin.write(fileDescriptor, pointer.baseAddress, bytes.count)

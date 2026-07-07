@@ -63,6 +63,13 @@ enum DoorUnlockerCLI {
             userInfo[DoorLocalCommandBridge.argumentKey] = command[1]
         } else if command[0] == "angles", command.count >= 3 {
             userInfo[DoorLocalCommandBridge.argumentKey] = "\(command[1]) \(command[2])"
+        } else if (command[0] == "firmware" || command[0] == "firmware-recover"), command.count >= 2 {
+            let rawPath = command.dropFirst().joined(separator: " ")
+            let absolutePath = URL(
+                fileURLWithPath: rawPath,
+                relativeTo: URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            ).standardizedFileURL.path
+            userInfo[DoorLocalCommandBridge.argumentKey] = absolutePath
         }
 
         DistributedNotificationCenter.default().postNotificationName(
@@ -83,6 +90,10 @@ enum DoorUnlockerCLI {
             return command.count >= 2 && Int(command[1]) != nil
         case "angles":
             return command.count >= 3 && Int(command[1]) != nil && Int(command[2]) != nil
+        case "firmware":
+            return command.count >= 2
+        case "firmware-recover":
+            return command.count >= 2
         default:
             return false
         }
@@ -151,6 +162,8 @@ enum DoorUnlockerCLI {
             try runStatusCommand("app pair usb \(payloadHex)", connection: connection)
         case "bootloader", "uf2":
             try runBootloaderCommand(connection: connection)
+        case "firmware":
+            throw CLIError.firmwareRequiresRunningApp
         default:
             throw CLIError.unknownCommand(command[0])
         }
@@ -187,13 +200,30 @@ enum DoorUnlockerCLI {
     }
 
     private static func printStatus(_ status: ControllerStatus) {
+        let localUSBDeviceHandle = "usb-c-this-mac"
+        let localUSBDeviceName = DoorDeviceNameNormalizer.normalized(Host.current().localizedName ?? "Mac", fallback: "Mac") + " (USB-C)"
+        let localUSBDevice = ConnectedControllerDevice(
+            slot: 0,
+            handle: localUSBDeviceHandle,
+            name: localUSBDeviceName,
+            isTrustedName: true
+        )
+        let unifiedStatus = status.includingLocalConnection(localUSBDevice)
+
         print("model=\(status.modelTitle)")
+        print("firmware_version=\(status.firmwareVersion)")
         print("lock_name=\(status.lockName)")
         print("state=\(status.bleState)")
         print("unlocked=\(status.isUnlocked ? "yes" : "no")")
         print("pairing_mode=\(status.pairingMode)")
         print("paired_count=\(status.pairedCount)")
         print("max_pairs=\(status.maxPairs)")
+        print("connected_count=\(unifiedStatus.connectedCount)")
+        print("max_connections=\(unifiedStatus.maxConnections)")
+        for device in unifiedStatus.connectedDevices {
+            let transport = device.handle == localUSBDeviceHandle ? "usb-c" : "bluetooth"
+            print("connected_device=\(device.slot)\t\(device.displayName)\ttransport=\(transport)\ttrusted=\(device.isTrustedName ? "yes" : "no")")
+        }
         print("ble_connected_count=\(status.connectedCount)")
         print("ble_max_connections=\(status.maxConnections)")
         for device in status.connectedDevices {
@@ -259,6 +289,8 @@ enum DoorUnlockerCLI {
               clear
               trust-mac
               bootloader | uf2
+              firmware ZIP_PATH
+              firmware-recover ZIP_PATH
             """
         )
     }
@@ -276,6 +308,7 @@ enum CLIError: LocalizedError {
     case missingApprovalCode
     case missingDeviceTarget
     case missingRenameArguments
+    case firmwareRequiresRunningApp
 
     var errorDescription: String? {
         switch self {
@@ -301,6 +334,8 @@ enum CLIError: LocalizedError {
             return "Usage: door-unlocker remove SLOT_OR_FINGERPRINT"
         case .missingRenameArguments:
             return "Usage: door-unlocker rename SLOT_OR_FINGERPRINT NAME"
+        case .firmwareRequiresRunningApp:
+            return "Firmware updates must be started from the running Mac app so it can upload the DFU package over Bluetooth."
         }
     }
 }

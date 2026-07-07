@@ -11,6 +11,10 @@ settings:
     SDKROOT: iphoneos
     CURRENT_PROJECT_VERSION: "1"
     MARKETING_VERSION: "0.1.0"
+packages:
+  NordicDFU:
+    url: https://github.com/NordicSemiconductor/IOS-DFU-Library
+    from: 4.16.0
 targets:
   DoorUnlocker:
     type: application
@@ -55,6 +59,8 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_ENTITLEMENTS: DoorUnlocker/DoorUnlocker.entitlements
     dependencies:
+      - package: NordicDFU
+        product: NordicDFU
       - target: DoorUnlockerWidget
         embed: true
         codeSign: true
@@ -64,6 +70,7 @@ targets:
     sources:
       - path: DoorUnlockerWidget
       - path: Shared
+      - path: DoorUnlocker/DoorCommandStore.swift
     info:
       path: DoorUnlockerWidget/Info.plist
       properties:

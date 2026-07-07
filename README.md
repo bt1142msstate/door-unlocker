@@ -6,6 +6,32 @@ This is a bench prototype and wiring reference, not a certified door lock, acces
 
 Current release: `v0.1.0-beta.2`, the current usable beta. The authenticated wireless command path is in place, but the hardware, multi-device behavior, battery setup, and enclosure still need longer real-world testing before a stable release.
 
+Latest beta firmware: `0.1.0-beta.ota13`.
+
+## Latest Beta Validation
+
+The `v0.1.0-beta.2` cut was tested on 2026-07-07 against the bench XIAO controller and the iPhone/Mac apps.
+
+Observed iPhone startup timing from `script/benchmark_ios_startup.sh`:
+
+- `controller_init`: 1 ms
+- `central_created`: 4 ms
+- `central_restored`: 76 ms
+- `gatt_ready`: 76 ms
+- `secure_nonce_received`: 134 ms
+- `door_command_usable nonce_ready`: 134 ms
+- `first_fast_payload_ready UNLOCK`: 141 ms
+
+Validation run:
+
+- iPhone app installed through `script/install_ios_app.sh`, which builds for `generic/platform=iOS` and installs with `devicectl`.
+- iOS generic device build passed with `CODE_SIGNING_ALLOWED=NO`.
+- Mac admin package tests passed: 6 tests.
+- Mac admin build/run verification passed with `script/build_and_run.sh --verify`.
+- Controller status verified over USB-C after OTA: `model=DoorUnlocker-XIAO-v4`, `firmware_version=0.1.0-beta.ota13`.
+- Mac OTA path verified by updating to `0.1.0-beta.ota12`.
+- iPhone OTA path verified by updating to `0.1.0-beta.ota13`.
+
 [View the Phase 1 wiring diagram](https://bt1142msstate.github.io/door-unlocker/)
 
 ![Phase 1 desk-test wiring diagram](screenshots/phase-1-desktop-dark.png)
@@ -161,13 +187,39 @@ swift run door-unlocker unlock
 swift run door-unlocker bootloader
 ```
 
-After firmware that supports `app bootloader` is installed, future firmware updates can use:
+## Firmware Update Process
+
+`script/flash_xiao_uf2.sh --build-only` compiles the Arduino firmware and creates both update formats:
+
+- `dist/DoorUnlockerXiao.uf2` for USB-C UF2 recovery flashing.
+- `dist/DoorUnlockerXiao-dfu.zip` for BLE OTA DFU from the iPhone or Mac app.
+
+For USB-C recovery or first-time flashing, use:
 
 ```sh
 ./script/flash_xiao_uf2.sh --port /dev/cu.usbmodem3101
 ```
 
-If the installed firmware is too old to enter UF2 mode from USB-C, the script will pause and ask for a one-time reset-button double press. The script uses `cp -X` when copying the UF2 so macOS does not add metadata files to the XIAO bootloader volume.
+When the installed firmware supports `app bootloader`, the script asks the running controller to reboot into UF2 bootloader mode, then copies the UF2 to `/Volumes/XIAO-SENSE`. If the installed firmware is too old to enter UF2 mode from USB-C, the script pauses for a one-time reset-button double press. The script uses `cp -X` when copying the UF2 so macOS does not add metadata files to the XIAO bootloader volume.
+
+For app-driven OTA updates, the controller must already trust the app issuing the update command. The trusted app sends the signed `ENTER_OTA_DFU` command, the controller enters BLE DFU mode, the app uploads `DoorUnlockerXiao-dfu.zip`, then the controller reboots and the app verifies the reported firmware version. USB-C remains the recovery fallback if an OTA attempt is interrupted.
+
+For iPhone OTA testing, bundle the current DFU package at:
+
+```text
+ios/DoorUnlockerApp/DoorUnlocker/Firmware/DoorUnlockerXiao-dfu.zip
+```
+
+For Mac OTA testing, build the package and send it through the admin app/CLI flow:
+
+```sh
+./script/flash_xiao_uf2.sh --build-only
+mac/DoorUnlockerAdmin/.build/debug/door-unlocker firmware dist/DoorUnlockerXiao-dfu.zip
+```
+
+The XIAO UF2 bootloader is separate from Door Unlocker firmware. Normal updates should use the signed Door Unlocker DFU/UF2 app firmware packages and should not rewrite the bootloader. Bootloader maintenance is a recovery-only task: verify the currently installed bootloader from the XIAO bootloader volume before changing it, and only flash a board-specific Seeed/Adafruit nRF52 bootloader build when there is a real compatibility or recovery reason.
+
+As of 2026-07-07, the latest upstream Adafruit nRF52 bootloader release is `0.11.0`, and CircuitPython documents that nRF UF2 bootloader `0.6.1` or newer is enough for current nRF UF2 firmware loading. Door Unlocker does not require a bootloader update when the controller already responds to `app status`, USB-C UF2 flashing works, and BLE OTA DFU works.
 
 That build also creates `dist/door-unlocker`, a USB-C command-line tool:
 

@@ -37,6 +37,7 @@ static const uint16_t MIN_UNLOCK_HOLD_TIMEOUT_SECONDS = 5;
 static const uint16_t MAX_UNLOCK_HOLD_TIMEOUT_SECONDS = 120;
 static const char DEFAULT_LOCK_NAME[] = "My Lock";
 static const char CONTROLLER_MODEL_NAME[] = "DoorUnlocker-XIAO-v4";
+static const char CONTROLLER_FIRMWARE_VERSION[] = "0.1.0-beta.ota13";
 // Fresh random-static BLE identity for the app-layer-security firmware. This
 // avoids stale iOS/macOS OS-level bond records from the earlier encrypted-GATT
 // builds while preserving trusted app keys in LittleFS.
@@ -77,6 +78,7 @@ static const uint8_t V3_OP_SET_LOCK_NAME = 0x20;
 static const uint8_t V3_OP_SET_SERVO_ANGLES = 0x21;
 static const uint8_t V3_OP_SET_TIMEOUT = 0x22;
 static const uint8_t V3_OP_SET_DEVICE_NAME = 0x23;
+static const uint8_t V3_OP_ENTER_OTA_DFU = 0x30;
 static const char V3_COMMAND_SIGNATURE_DOMAIN[] = "DoorUnlocker:v3:command";
 static const size_t P256_PUBLIC_KEY_LEN = 65;   // X9.63 uncompressed: 0x04 || X || Y
 static const size_t P256_SIGNATURE_LEN = 64;    // Raw ECDSA: R || S
@@ -94,6 +96,7 @@ static const size_t LEGACY_PAIRING_RECORD_LEN = P256_PUBLIC_KEY_LEN + sizeof(uin
 static const size_t PAIRING_RECORD_LEN = LEGACY_PAIRING_RECORD_LEN + PAIRED_DEVICE_NAME_STORAGE_LEN;
 static const size_t PAIRING_APPROVAL_CODE_LEN = 4;
 static const size_t PAIRING_FINGERPRINT_LEN = 19; // 8-byte SHA-256 prefix as XXXX-XXXX-XXXX-XXXX
+static const uint32_t V3_NONCE_RETRY_INTERVAL_MS = 500;
 
 BLEService doorService = BLEService(DOOR_SERVICE_UUID);
 BLECharacteristic commandCharacteristic = BLECharacteristic(COMMAND_CHAR_UUID);
@@ -136,6 +139,7 @@ uint16_t connectedDeviceHandles[MAX_BLE_CONNECTIONS] = {0};
 char connectedDeviceNames[MAX_BLE_CONNECTIONS][PAIRED_DEVICE_NAME_STORAGE_LEN] = {{0}};
 bool connectedDeviceNonceValid[MAX_BLE_CONNECTIONS] = {false};
 uint8_t connectedDeviceNonces[MAX_BLE_CONNECTIONS][V3_NONCE_LEN] = {{0}};
+uint32_t lastNonceRetryMs = 0;
 
 struct BleCommandJob {
   bool isReject;
@@ -1609,21 +1613,24 @@ bool fillSecureRandomBytes(uint8_t* output, size_t outputLen) {
   return offset == outputLen;
 }
 
-void publishControlTo(uint16_t connHandle, const char* payload) {
+bool publishControlTo(uint16_t connHandle, const char* payload) {
   if (connHandle == BLE_CONN_HANDLE_INVALID || payload == nullptr || !Bluefruit.connected(connHandle)) {
-    return;
+    return false;
   }
 
-  if (controlCharacteristic.indicateEnabled(connHandle)) {
-    controlCharacteristic.indicate(connHandle, payload);
-  } else if (controlCharacteristic.notifyEnabled(connHandle)) {
-    controlCharacteristic.notify(connHandle, payload);
+  if (controlCharacteristic.notifyEnabled(connHandle)) {
+    return controlCharacteristic.notify(connHandle, payload);
+  } else if (controlCharacteristic.indicateEnabled(connHandle)) {
+    return controlCharacteristic.indicate(connHandle, payload);
   }
+
+  return false;
 }
 
 void publishControlRejectTo(uint16_t connHandle, const char* reason) {
   char payload[STATE_PAYLOAD_MAX_LEN] = {0};
   snprintf(payload, sizeof(payload), "reject:v3:%s", reason == nullptr ? "rejected" : reason);
+  controlCharacteristic.write(payload);
   publishControlTo(connHandle, payload);
   Serial.print("Control: ");
   Serial.println(payload);
@@ -1635,13 +1642,13 @@ bool issueV3NonceTo(uint16_t connHandle) {
     return false;
   }
 
-  if (!fillSecureRandomBytes(connectedDeviceNonces[slot], V3_NONCE_LEN)) {
-    connectedDeviceNonceValid[slot] = false;
-    publishControlRejectTo(connHandle, "nonce_unavailable");
-    return false;
+  if (!connectedDeviceNonceValid[slot]) {
+    if (!fillSecureRandomBytes(connectedDeviceNonces[slot], V3_NONCE_LEN)) {
+      connectedDeviceNonceValid[slot] = false;
+      publishControlRejectTo(connHandle, "nonce_unavailable");
+      return false;
+    }
   }
-
-  connectedDeviceNonceValid[slot] = true;
 
   char nonceHex[V3_NONCE_LEN * 2 + 1] = {0};
   char payload[STATE_PAYLOAD_MAX_LEN] = {0};
@@ -1649,10 +1656,49 @@ bool issueV3NonceTo(uint16_t connHandle) {
     return false;
   }
   snprintf(payload, sizeof(payload), "nonce:v3:%s", nonceHex);
-  publishControlTo(connHandle, payload);
+  bool wroteReadableNonce = controlCharacteristic.write(payload);
+  bool pushedNonce = publishControlTo(connHandle, payload);
+  if (!wroteReadableNonce && !pushedNonce) {
+    memset(connectedDeviceNonces[slot], 0, sizeof(connectedDeviceNonces[slot]));
+    connectedDeviceNonceValid[slot] = false;
+    return false;
+  }
+
+  connectedDeviceNonceValid[slot] = true;
   Serial.print("Control: ");
   Serial.println(payload);
+
+  if (buildConnectionsStatePayload(payload, sizeof(payload))) {
+    delay(8);
+    publishControlTo(connHandle, payload);
+    Serial.print("Control: ");
+    Serial.println(payload);
+  }
   return true;
+}
+
+void retryMissingV3Nonces() {
+  uint32_t now = millis();
+  if ((uint32_t)(now - lastNonceRetryMs) < V3_NONCE_RETRY_INTERVAL_MS) {
+    return;
+  }
+  lastNonceRetryMs = now;
+
+  for (uint8_t index = 0; index < MAX_BLE_CONNECTIONS; index++) {
+    if (!connectedDeviceSlotsUsed[index] || connectedDeviceNonceValid[index]) {
+      continue;
+    }
+
+    uint16_t connHandle = connectedDeviceHandles[index];
+    if (connHandle == BLE_CONN_HANDLE_INVALID || !Bluefruit.connected(connHandle)) {
+      continue;
+    }
+
+    if (controlCharacteristic.notifyEnabled(connHandle) || controlCharacteristic.indicateEnabled(connHandle)) {
+      issueV3NonceTo(connHandle);
+      delay(2);
+    }
+  }
 }
 
 void notifyStateSubscribers(const char* payload) {
@@ -1689,17 +1735,20 @@ void writeAndNotifyStatePayload(const char* payload) {
   notifyStateSubscribers(payload);
 }
 
-void publishConnectionsState() {
-  char payload[STATE_PAYLOAD_MAX_LEN] = {0};
-  uint8_t connectedCount = Bluefruit.connected();
-  int written = snprintf(payload, sizeof(payload), "connections:%u/%u:", connectedCount, MAX_BLE_CONNECTIONS);
-  if (written < 0) {
-    return;
+bool buildConnectionsStatePayload(char* payload, size_t payloadLen) {
+  if (payload == nullptr || payloadLen == 0) {
+    return false;
   }
 
-  size_t offset = min<size_t>((size_t) written, sizeof(payload) - 1);
+  uint8_t connectedCount = Bluefruit.connected();
+  int written = snprintf(payload, payloadLen, "connections:%u/%u:", connectedCount, MAX_BLE_CONNECTIONS);
+  if (written < 0) {
+    return false;
+  }
+
+  size_t offset = min<size_t>((size_t) written, payloadLen - 1);
   bool hasName = false;
-  for (uint8_t index = 0; index < MAX_BLE_CONNECTIONS && offset < sizeof(payload) - 1; index++) {
+  for (uint8_t index = 0; index < MAX_BLE_CONNECTIONS && offset < payloadLen - 1; index++) {
     if (!connectedDeviceSlotsUsed[index] || !Bluefruit.connected(connectedDeviceHandles[index])) {
       continue;
     }
@@ -1712,7 +1761,7 @@ void publishConnectionsState() {
 
     int nextWritten = snprintf(
       payload + offset,
-      sizeof(payload) - offset,
+      payloadLen - offset,
       "%s%s",
       hasName ? "|" : "",
       name
@@ -1720,8 +1769,28 @@ void publishConnectionsState() {
     if (nextWritten < 0) {
       break;
     }
-    offset += min<size_t>((size_t) nextWritten, sizeof(payload) - 1 - offset);
+    offset += min<size_t>((size_t) nextWritten, payloadLen - 1 - offset);
     hasName = true;
+  }
+
+  return true;
+}
+
+void publishConnectionsStateTo(uint16_t connHandle) {
+  char payload[STATE_PAYLOAD_MAX_LEN] = {0};
+  if (!buildConnectionsStatePayload(payload, sizeof(payload))) {
+    return;
+  }
+
+  notifyStateSubscriber(connHandle, payload);
+  Serial.print("State: ");
+  Serial.println(payload);
+}
+
+void publishConnectionsState() {
+  char payload[STATE_PAYLOAD_MAX_LEN] = {0};
+  if (!buildConnectionsStatePayload(payload, sizeof(payload))) {
+    return;
   }
 
   notifyStateSubscribers(payload);
@@ -1755,6 +1824,35 @@ void publishStateTo(uint16_t connHandle, const char* state) {
   }
 
   notifyStateSubscriber(connHandle, payload);
+  Serial.print("State: ");
+  Serial.println(payload);
+}
+
+void publishStartupSnapshotTo(uint16_t connHandle) {
+  publishConnectionsStateTo(connHandle);
+  publishStateTo(connHandle, currentStateText());
+
+  char payload[STATE_PAYLOAD_MAX_LEN] = {0};
+  snprintf(payload, sizeof(payload), "firmware_version:%s", CONTROLLER_FIRMWARE_VERSION);
+  notifyStateSubscriber(connHandle, payload);
+  Serial.print("State: ");
+  Serial.println(payload);
+
+  snprintf(payload, sizeof(payload), "lock_name:%s", controllerLockName);
+  notifyStateSubscriber(connHandle, payload);
+  Serial.print("State: ");
+  Serial.println(payload);
+
+  snprintf(payload, sizeof(payload), "servo_angles:%u,%u", lockAngle, unlockAngle);
+  notifyStateSubscriber(connHandle, payload);
+  Serial.print("State: ");
+  Serial.println(payload);
+}
+
+void publishFirmwareUpdateState(const char* state) {
+  char payload[STATE_PAYLOAD_MAX_LEN] = {0};
+  snprintf(payload, sizeof(payload), "firmware_update:%s", state);
+  writeAndNotifyStatePayload(payload);
   Serial.print("State: ");
   Serial.println(payload);
 }
@@ -2198,6 +2296,17 @@ void handleV3Command(const uint8_t* packet, uint16_t packetLen, uint16_t connHan
     delay(40);
     publishState(currentStateText());
     finishV3Command(connHandle);
+  } else if (op == V3_OP_ENTER_OTA_DFU) {
+    if (payloadLen != 0) {
+      rejectV3CommandFor(connHandle, "bad_payload");
+      return;
+    }
+
+    publishFirmwareUpdateState("ota_dfu");
+    finishV3Command(connHandle);
+    Serial.flush();
+    delay(180);
+    enterOTADfu();
   } else {
     rejectV3CommandFor(connHandle, "bad_op");
   }
@@ -2272,6 +2381,16 @@ void commandWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint8_t
   enqueueBleSecureCommand(connHandle, data, len);
 }
 
+void stateCccdWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint16_t value) {
+  (void) chr;
+
+  if (value == 0 || connHandle == BLE_CONN_HANDLE_INVALID || !Bluefruit.connected(connHandle)) {
+    return;
+  }
+
+  publishStartupSnapshotTo(connHandle);
+}
+
 void controlCccdWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint16_t value) {
   (void) chr;
 
@@ -2280,7 +2399,6 @@ void controlCccdWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uin
   }
 
   issueV3NonceTo(connHandle);
-  publishConnectionsState();
 }
 
 void processPendingBleCommand() {
@@ -2304,6 +2422,11 @@ void processPendingBleCommand() {
 
   if (job.payloadLen > 0 && job.payload[0] == V3_COMMAND_VERSION) {
     handleV3Command(job.payload, job.payloadLen, job.connHandle);
+    return;
+  }
+
+  if (job.payloadLen == 5 && memcmp(job.payload, "nonce", 5) == 0) {
+    issueV3NonceTo(job.connHandle);
     return;
   }
 
@@ -2657,6 +2780,8 @@ void printAppStatus() {
   Serial.println("protocol=1");
   Serial.print("model=");
   Serial.println(CONTROLLER_MODEL_NAME);
+  Serial.print("firmware_version=");
+  Serial.println(CONTROLLER_FIRMWARE_VERSION);
   Serial.print("lock_name=");
   Serial.println(controllerLockName);
   Serial.print("pairing_mode=");
@@ -2887,6 +3012,12 @@ bool handleAppCommand(char* command) {
     Serial.flush();
     delay(100);
     enterUf2Dfu();
+  } else if (serialCommandEquals(subcommand, "ota") || serialCommandEquals(subcommand, "ota-dfu")) {
+    printAppOk("firmware_update=ota_dfu");
+    publishFirmwareUpdateState("ota_dfu");
+    Serial.flush();
+    delay(180);
+    enterOTADfu();
   } else if (serialCommandStartsWith(subcommand, "lock")) {
     char* epochText = trimSerialCommand(subcommand + strlen("lock"));
     uint64_t lockEpochSeconds = 0;
@@ -2967,6 +3098,8 @@ void printPairingHelp() {
   Serial.println("                 Set safe persisted servo angles, e.g. app angles 20 95");
   Serial.println("  app bootloader");
   Serial.println("                 Reboot into UF2 bootloader mode for firmware updates");
+  Serial.println("  app ota");
+  Serial.println("                 Reboot into BLE OTA DFU mode for app-driven firmware updates");
   Serial.println("  app pair usb HEX");
   Serial.println("                 Trust a Mac app key sent over USB-C");
 }
@@ -3163,6 +3296,7 @@ void setupDoorService() {
   stateCharacteristic.setProperties(CHR_PROPS_READ | CHR_PROPS_NOTIFY);
   stateCharacteristic.setPermission(SECMODE_OPEN, SECMODE_NO_ACCESS);
   stateCharacteristic.setMaxLen(STATE_PAYLOAD_MAX_LEN);
+  stateCharacteristic.setCccdWriteCallback(stateCccdWrittenCallback);
   stateCharacteristic.begin();
   writeCurrentStateCharacteristic();
 
@@ -3248,6 +3382,7 @@ void setup() {
 void loop() {
   processSerialCommands();
   processPendingBleCommand();
+  retryMissingV3Nonces();
   handleUnlockTimeout();
   refreshUnlockCountdownValueIfChanged();
   updateStatusLed();

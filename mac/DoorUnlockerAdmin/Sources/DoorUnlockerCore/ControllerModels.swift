@@ -26,6 +26,7 @@ public struct ControllerStatus: Equatable {
     public static let defaultServoMinAngleGap = 10
 
     public var modelName = "DoorUnlocker-XIAO-v4"
+    public var firmwareVersion = "Unknown"
     public var lockName = "My Lock"
     public var protocolVersion = "unknown"
     public var pairingMode = "unknown"
@@ -54,6 +55,7 @@ public struct ControllerStatus: Equatable {
 
     public init(
         modelName: String = "DoorUnlocker-XIAO-v4",
+        firmwareVersion: String = "Unknown",
         lockName: String = "My Lock",
         protocolVersion: String = "unknown",
         pairingMode: String = "unknown",
@@ -81,6 +83,7 @@ public struct ControllerStatus: Equatable {
         lastUnlockDeviceName: String? = nil
     ) {
         self.modelName = modelName
+        self.firmwareVersion = firmwareVersion
         self.lockName = lockName
         self.protocolVersion = protocolVersion
         self.pairingMode = pairingMode
@@ -145,6 +148,10 @@ public struct ControllerStatus: Equatable {
         "\(connectedCount)/\(max(maxConnections, 4)) connected"
     }
 
+    public var unidentifiedConnectedDeviceCount: Int {
+        max(0, connectedCount - connectedDevices.count)
+    }
+
     public var autoLockCountdownText: String? {
         guard isUnlocked, let autoLockRemainingSeconds else { return nil }
         guard autoLockRemainingSeconds > 0 else { return "Auto-locking now" }
@@ -178,6 +185,25 @@ public struct ControllerStatus: Equatable {
             return nil
         }
         return lastUnlockDeviceName
+    }
+
+    public func includingLocalConnection(_ device: ConnectedControllerDevice, minimumMaxConnections: Int = 4) -> ControllerStatus {
+        var nextStatus = removingConnection(handle: device.handle)
+        nextStatus.connectedDevices.insert(device, at: 0)
+        nextStatus.connectedCount = max(nextStatus.connectedCount + 1, nextStatus.connectedDevices.count)
+        nextStatus.maxConnections = max(nextStatus.maxConnections, nextStatus.connectedCount, minimumMaxConnections)
+        return nextStatus
+    }
+
+    public func removingConnection(handle: String) -> ControllerStatus {
+        var nextStatus = self
+        let previousDeviceCount = nextStatus.connectedDevices.count
+        nextStatus.connectedDevices.removeAll { $0.handle == handle }
+        let removedDeviceCount = previousDeviceCount - nextStatus.connectedDevices.count
+        if removedDeviceCount > 0 {
+            nextStatus.connectedCount = max(nextStatus.connectedDevices.count, max(0, nextStatus.connectedCount - removedDeviceCount))
+        }
+        return nextStatus
     }
 }
 

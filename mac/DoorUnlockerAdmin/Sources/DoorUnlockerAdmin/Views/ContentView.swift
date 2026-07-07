@@ -1,5 +1,6 @@
 import DoorUnlockerCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @ObservedObject var store: DoorAdminStore
@@ -39,11 +40,11 @@ private struct SidebarView: View {
             Section("Controller") {
                 SidebarMetric(title: "Status", value: store.controllerStatusTitle, symbol: store.controllerStatusSymbol)
                 SidebarMetric(title: "Model", value: store.status.modelTitle, symbol: "rectangle.connected.to.line.below")
-                SidebarMetric(title: "Connected", value: "\(store.status.connectedCount)/\(max(store.status.maxConnections, 4))", symbol: "point.3.connected.trianglepath.dotted")
-                SidebarMetric(title: "Trusted", value: "\(store.status.pairedCount)/\(max(store.status.maxPairs, 4))", symbol: "iphone.gen3")
+                SidebarMetric(title: "Connected", value: store.connectedDevicesCountText, symbol: "point.3.connected.trianglepath.dotted")
+                SidebarMetric(title: "Trusted", value: store.trustedDevicesCountText, symbol: "iphone.gen3")
             }
 
-            if let error = store.lastError {
+            if let error = store.visibleLastError {
                 Section("Issue") {
                     Text(error)
                         .foregroundStyle(.red)
@@ -78,6 +79,7 @@ private struct SidebarMetric: View {
 
 private struct DetailView: View {
     @ObservedObject var store: DoorAdminStore
+    @State private var isFirmwareImporterPresented = false
 
     var body: some View {
         ScrollView {
@@ -86,12 +88,24 @@ private struct DetailView: View {
                 HeroControl(store: store)
                 ConnectionPanel(store: store)
                 LockSettingsPanel(store: store)
+                FirmwarePanel(store: store, isImporterPresented: $isFirmwareImporterPresented)
                 PairingPanel(store: store)
                 DevicesPanel(store: store)
             }
             .padding(26)
         }
         .background(.background)
+        .fileImporter(
+            isPresented: $isFirmwareImporterPresented,
+            allowedContentTypes: [.zip],
+            allowsMultipleSelection: false
+        ) { result in
+            guard case .success(let urls) = result,
+                  let url = urls.first else {
+                return
+            }
+            store.startFirmwareUpdate(from: url)
+        }
     }
 }
 
@@ -158,10 +172,11 @@ private struct HeroControl: View {
             return store.controllerSettingApplyTitle
         }
 
+        if let queuedTitle = store.queuedDoorCommandActionTitle {
+            return queuedTitle
+        }
+
         guard store.canSendDoorCommand else {
-            if store.isWirelessReady && !store.isWirelessDoorCommandReady {
-                return "Securing link..."
-            }
             return "Connect first"
         }
 
@@ -238,7 +253,7 @@ private struct HeroControl: View {
                         .lineLimit(2)
                 }
 
-                if let error = store.lastError {
+                if let error = store.visibleLastError {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
                         .font(.callout.weight(.medium))
                         .foregroundStyle(.yellow)
@@ -299,10 +314,11 @@ private struct HeroControl: View {
                 .contentShape(Circle())
             }
             .buttonStyle(.plain)
-            .disabled(!store.canSendDoorCommand || store.isBusy || store.isApplyingControllerSetting)
+            .disabled(!store.canSendDoorCommand || store.isBusy || store.isApplyingControllerSetting || store.isDoorCommandQueued)
             .onHover { isHovering = $0 }
         }
         .animation(.spring(response: 0.26, dampingFraction: 0.78), value: store.isApplyingControllerSetting)
+        .animation(.spring(response: 0.26, dampingFraction: 0.78), value: store.isDoorCommandQueued)
         .onAppear {
             displayedIconIsUnlocked = targetIconIsUnlocked
         }
@@ -482,18 +498,76 @@ private struct ConnectionPanel: View {
 
                     ConnectionModeRow(
                         title: "Wireless",
-                        value: store.wirelessConnectionState,
-                        symbol: store.isConnected ? "pause.circle.fill" : (store.isWirelessReady ? "checkmark.circle.fill" : "antenna.radiowaves.left.and.right"),
-                        tint: store.isWirelessReady ? .green : .secondary,
+                        value: store.wirelessConnectionDisplayValue,
+                        symbol: store.wirelessConnectionDisplaySymbol,
+                        tint: store.isWirelessConnectionDisplayReady ? .green : .secondary,
                         detail: store.isConnected
-                            ? "Paused while USB-C is active."
+                            ? "Mac wireless is paused; Bluetooth peers still report below."
                             : "Connects on demand for lock commands."
                     )
                 }
 
                 Divider()
 
-                ConnectedDevicesList(status: store.status)
+                ConnectedDevicesList(
+                    status: store.displayedStatus,
+                    countText: store.connectedDevicesCountText,
+                    emptyMessage: store.connectedDevicesEmptyMessage
+                )
+
+                PerformanceTraceView(entries: store.runtimeTelemetryEntries)
+            }
+        }
+    }
+}
+
+private struct PerformanceTraceView: View {
+    let entries: [DoorAdminStore.RuntimeTelemetryEntry]
+
+    var body: some View {
+        DisclosureGroup {
+            if entries.isEmpty {
+                Text("No launch timing captured yet.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 2)
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(entries) { entry in
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            Text(entry.timeText)
+                                .font(.caption.monospacedDigit().weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 58, alignment: .trailing)
+
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(entry.title)
+                                    .font(.caption.weight(.semibold))
+                                    .lineLimit(1)
+
+                                if let details = entry.details, !details.isEmpty {
+                                    Text(details)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                            }
+
+                            Spacer(minLength: 0)
+                        }
+                    }
+                }
+                .padding(.top, 2)
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Label("Launch Timing", systemImage: "speedometer")
+                    .font(.callout.weight(.semibold))
+                Spacer()
+                Text("\(entries.count) events")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -501,6 +575,8 @@ private struct ConnectionPanel: View {
 
 private struct ConnectedDevicesList: View {
     let status: ControllerStatus
+    let countText: String
+    let emptyMessage: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -508,13 +584,13 @@ private struct ConnectedDevicesList: View {
                 Label("Connected Devices", systemImage: "point.3.connected.trianglepath.dotted")
                     .font(.callout.weight(.semibold))
                 Spacer()
-                Text("\(status.connectedCount)/\(max(status.maxConnections, 4))")
+                Text(countText)
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.secondary)
             }
 
             if status.connectedDevices.isEmpty {
-                Text(status.connectedCount > 0 ? "Connected devices are identifying." : "No wireless devices are connected.")
+                Text(emptyMessage)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
@@ -538,9 +614,33 @@ private struct ConnectedDevicesList: View {
                         .padding(8)
                         .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
+
+                    if status.unidentifiedConnectedDeviceCount > 0 {
+                        HStack(spacing: 10) {
+                            Image(systemName: "antenna.radiowaves.left.and.right")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 20)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(Self.unidentifiedDeviceTitle(count: status.unidentifiedConnectedDeviceCount))
+                                    .font(.caption.weight(.semibold))
+                                    .lineLimit(1)
+                                Text("Identifying over Bluetooth")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .padding(8)
+                        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
                 }
             }
         }
+    }
+
+    private static func unidentifiedDeviceTitle(count: Int) -> String {
+        count == 1 ? "1 Bluetooth device" : "\(count) Bluetooth devices"
     }
 }
 
@@ -799,6 +899,55 @@ private struct SettingsApplyIcon: View {
                     rotation = 360
                 }
             }
+    }
+}
+
+private struct FirmwarePanel: View {
+    @ObservedObject var store: DoorAdminStore
+    @Binding var isImporterPresented: Bool
+
+    private var accent: Color {
+        store.status.isUnlocked ? Color(red: 0.35, green: 0.86, blue: 0.58) : Color(red: 0.35, green: 0.72, blue: 1.0)
+    }
+
+    var body: some View {
+        PanelSurface {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .firstTextBaseline) {
+                    Label("Firmware", systemImage: "arrow.triangle.2.circlepath")
+                        .font(.headline)
+                    Spacer()
+                    Text(store.status.firmwareVersion)
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(store.firmwareUpdateStatus)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+
+                    if let progress = store.firmwareUpdateProgress {
+                        ProgressView(value: Double(progress), total: 100)
+                            .tint(accent)
+                    }
+                }
+
+                Button {
+                    isImporterPresented = true
+                } label: {
+                    Label("Install Firmware ZIP", systemImage: "doc.zipper")
+                        .frame(maxWidth: 260)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .tint(accent)
+                .disabled(store.isFirmwareUpdateRunning || store.isBusy)
+            }
+        }
     }
 }
 

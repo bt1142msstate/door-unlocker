@@ -1,5 +1,6 @@
 import MapKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 private enum DoorAppTheme: String, CaseIterable, Identifiable {
     case original
@@ -142,6 +143,8 @@ struct ContentView: View {
     @State private var unlockHoldTask: Task<Void, Never>?
     @State private var lockZoneMapPosition: MapCameraPosition = .automatic
     @State private var isLockZoneMapExpanded = false
+    @State private var isFirmwareImporterPresented = false
+    @State private var lastForegroundControllerRefreshAt = Date.distantPast
     @FocusState private var isLockNameFocused: Bool
     @FocusState private var isDeviceDisplayNameFocused: Bool
 
@@ -174,7 +177,15 @@ struct ContentView: View {
             return controller.controllerSettingApplyTitle
         }
 
-        if controller.isReady && !controller.isDoorCommandReady {
+        if controller.isDoorCommandQueuedForSecureLink {
+            return controller.queuedDoorCommandActionTitle
+        }
+
+        if controller.isPreparingKnownController && !controller.canAcceptDoorCommand {
+            return "Preparing controller..."
+        }
+
+        if controller.isReady && !controller.canAcceptDoorCommand && !controller.isDoorCommandReady {
             return controller.secureLinkActionTitle
         }
 
@@ -186,7 +197,11 @@ struct ContentView: View {
     }
 
     private var shouldShowLockControl: Bool {
-        controller.isReady || controller.isChangingState || controller.isAuthenticatingUnlock || isApplyingSettingsOnly
+        controller.canAcceptDoorCommand ||
+            controller.isDoorCommandQueuedForSecureLink ||
+            controller.isChangingState ||
+            controller.isAuthenticatingUnlock ||
+            isApplyingSettingsOnly
     }
 
     private var primaryPanelTitle: String {
@@ -218,7 +233,7 @@ struct ContentView: View {
     }
 
     private var isPrimaryActionEnabled: Bool {
-        controller.isDoorCommandReady && !controller.isBusy && !controller.isApplyingControllerSetting
+        controller.canAcceptDoorCommand && !controller.isBusy && !controller.isApplyingControllerSetting
     }
 
     var body: some View {
@@ -256,8 +271,7 @@ struct ContentView: View {
             displayedIconIsUnlocked = controller.isUnlocked
             lockNameDraft = controller.lockName
             deviceDisplayNameDraft = controller.deviceDisplayName
-            controller.refreshStateFromController()
-            controller.performPendingSystemCommand()
+            refreshForegroundController()
         }
         .onChange(of: controller.lockName) { _, name in
             if !isLockNameFocused {
@@ -270,6 +284,12 @@ struct ContentView: View {
             }
         }
         .onOpenURL { url in
+#if DEBUG
+            if url.scheme == "doorunlocker", url.host == "debug-install-bundled-firmware" {
+                controller.startBundledFirmwareUpdateForTesting()
+                return
+            }
+#endif
             DoorCommandStore.request(from: url)
             controller.performPendingSystemCommand()
         }
@@ -279,12 +299,22 @@ struct ContentView: View {
         .fullScreenCover(isPresented: $isLockZoneMapExpanded) {
             LockZoneExpandedMapView(controller: controller, accent: accent)
         }
+        .fileImporter(
+            isPresented: $isFirmwareImporterPresented,
+            allowedContentTypes: [.zip],
+            allowsMultipleSelection: false
+        ) { result in
+            guard case .success(let urls) = result,
+                  let url = urls.first else {
+                return
+            }
+            controller.startFirmwareUpdate(fromExternalPackageURL: url)
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 controller.cancelForceQuitReliabilityWarning()
+                refreshForegroundController()
                 controller.refreshNotificationSettings()
-                controller.refreshStateFromController()
-                controller.performPendingSystemCommand()
             } else if phase == .background {
                 isLockZoneMapExpanded = false
                 controller.prepareForceQuitReliabilityWarningIfNeeded()
@@ -310,6 +340,15 @@ struct ContentView: View {
         .onChange(of: controller.unlockHoldDurationSeconds) { _, _ in
             cancelUnlockHold()
         }
+    }
+
+    private func refreshForegroundController() {
+        let now = Date()
+        if now.timeIntervalSince(lastForegroundControllerRefreshAt) >= 0.5 {
+            lastForegroundControllerRefreshAt = now
+            controller.refreshStateFromController()
+        }
+        controller.performPendingSystemCommand()
     }
 
     private var mainContent: some View {
@@ -418,7 +457,7 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
             }
 
-            if let error = controller.lastError {
+            if let error = controller.visibleLastError {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
                     .font(.footnote.weight(.medium))
                     .foregroundStyle(.yellow)
@@ -469,7 +508,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private var connectedDevicesSummary: some View {
-        if controller.connectedDeviceCount > 0 || controller.isReady {
+        if controller.shouldShowConnectedDevicesSummary {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     Image(systemName: "point.3.connected.trianglepath.dotted")
@@ -501,7 +540,7 @@ struct ContentView: View {
     }
 
     private var controllerStatusIcon: String {
-        if controller.isReady {
+        if controller.canAcceptDoorCommand {
             return "checkmark.circle.fill"
         }
 
@@ -517,6 +556,14 @@ struct ContentView: View {
     }
 
     private var controllerStatusIsSearching: Bool {
+        if controller.canAcceptDoorCommand {
+            return false
+        }
+
+        if controller.isPreparingKnownController {
+            return true
+        }
+
         switch controller.connectionState {
         case "Scanning", "Connecting", "Discovering", "Reconnecting", "Restoring", "Starting", "Known controller":
             return controller.bluetoothState == "On"
@@ -526,8 +573,16 @@ struct ContentView: View {
     }
 
     private var controllerStatusTitle: String {
+        if controller.canAcceptDoorCommand {
+            return controller.isReady ? "Controller is ready." : "Ready for your tap."
+        }
+
         if controller.isReady {
-            return controller.isDoorCommandReady ? "Controller is ready." : controller.secureLinkStatusTitle
+            return controller.secureLinkStatusTitle
+        }
+
+        if controller.isPreparingKnownController {
+            return "Opening secure link."
         }
 
         if controller.bluetoothState != "On" {
@@ -583,10 +638,18 @@ struct ContentView: View {
     }
 
     private var controllerStatusDetail: String {
-        if controller.isReady {
-            return controller.isDoorCommandReady
+        if controller.canAcceptDoorCommand {
+            return controller.isReady
                 ? "Bluetooth is on. This iPhone is paired with the lock."
-                : controller.secureLinkStatusDetail
+                : "The app will send securely as soon as the trusted Bluetooth link opens."
+        }
+
+        if controller.isReady {
+            return controller.secureLinkStatusDetail
+        }
+
+        if controller.isPreparingKnownController {
+            return "The app is opening the saved controller and preparing encrypted control."
         }
 
         if controller.bluetoothState != "On" {
@@ -985,6 +1048,8 @@ struct ContentView: View {
                 deviceDisplayNameControl
                 autoLockTimeoutControl
                 servoAnglesControl
+                firmwareUpdateControl
+                startupTelemetryControl
             }
             .padding(.top, 10)
         } label: {
@@ -1000,6 +1065,57 @@ struct ContentView: View {
             }
         }
         .tint(accent)
+        .padding(12)
+        .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private var startupTelemetryControl: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "waveform.path.ecg")
+                    .foregroundStyle(accent)
+                Text("Startup Trace")
+                    .font(.caption.weight(.bold))
+                Spacer(minLength: 8)
+                Text("\(controller.startupTelemetryEntries.count) events")
+                    .font(.caption2.monospacedDigit().weight(.bold))
+                    .foregroundStyle(.secondary)
+            }
+
+            if controller.startupTelemetryEntries.isEmpty {
+                Text("No startup events recorded yet.")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(controller.startupTelemetryEntries) { entry in
+                        HStack(alignment: .top, spacing: 10) {
+                            Text(entry.timeText)
+                                .font(.caption2.monospacedDigit().weight(.bold))
+                                .foregroundStyle(accent)
+                                .frame(width: 58, alignment: .trailing)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(entry.title)
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(.primary)
+
+                                if let details = entry.details {
+                                    Text(details)
+                                        .font(.caption2.monospaced().weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(2)
+                                        .minimumScaleFactor(0.72)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                }
+                .padding(10)
+                .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            }
+        }
         .padding(12)
         .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
@@ -1556,6 +1672,60 @@ struct ContentView: View {
                 .minimumScaleFactor(0.75)
         }
         .disabled(controller.isAuthenticatingSettings)
+        .padding(12)
+        .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private var firmwareUpdateControl: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .foregroundStyle(accent)
+                Text("Firmware")
+                    .font(.caption.weight(.bold))
+                Spacer(minLength: 8)
+                Text(controller.firmwareVersion)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+
+            if let progress = controller.firmwareUpdateProgress {
+                ProgressView(value: Double(progress), total: 100)
+                    .tint(accent)
+            }
+
+            Text(controller.firmwareUpdateStatus)
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .minimumScaleFactor(0.75)
+
+            HStack(spacing: 8) {
+                if controller.bundledFirmwarePackageURL != nil {
+                    Button {
+                        controller.startBundledFirmwareUpdate()
+                    } label: {
+                        Label("Install Bundled Update", systemImage: "shippingbox.fill")
+                            .frame(maxWidth: .infinity, minHeight: 38)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(accent)
+                }
+
+                Button {
+                    isFirmwareImporterPresented = true
+                } label: {
+                    Label("Choose ZIP", systemImage: "doc.zipper")
+                        .frame(maxWidth: .infinity, minHeight: 38)
+                }
+                .buttonStyle(.bordered)
+                .tint(accent)
+            }
+            .font(.caption.weight(.bold))
+        }
+        .disabled(controller.isAuthenticatingSettings || controller.isFirmwareUpdateRunning)
         .padding(12)
         .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
