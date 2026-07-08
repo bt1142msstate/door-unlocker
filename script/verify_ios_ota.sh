@@ -13,6 +13,10 @@ POLL_SECONDS="${POLL_SECONDS:-420}"
 ALLOW_CURRENT="${ALLOW_CURRENT:-0}"
 WIRELESS_ONLY="${WIRELESS_ONLY:-0}"
 WIRELESS_WAIT_SECONDS="${WIRELESS_WAIT_SECONDS:-240}"
+DFU_PRN="${DFU_PRN:-}"
+DFU_OBJECT_PREP_DELAY="${DFU_OBJECT_PREP_DELAY:-}"
+DFU_SCAN_TIMEOUT="${DFU_SCAN_TIMEOUT:-}"
+DFU_CONNECTION_TIMEOUT="${DFU_CONNECTION_TIMEOUT:-}"
 RUN_ID="${RUN_ID:-$(date -u +"%Y%m%dT%H%M%SZ")}"
 OTA_TELEMETRY_DIR="${OTA_TELEMETRY_DIR:-$ROOT_DIR/docs/ota-telemetry}"
 OTA_REPORT_PATH="${OTA_REPORT_PATH:-$ROOT_DIR/docs/ota-last-run.json}"
@@ -38,6 +42,10 @@ Environment:
   ALLOW_CURRENT          Set to 1 only when checking an already-installed target.
   WIRELESS_ONLY          Set to 1 for --wireless-only behavior.
   WIRELESS_WAIT_SECONDS  Deprecated. Wireless-only now verifies over BLE.
+  DFU_PRN                Optional debug benchmark PRN override, clamped by app.
+  DFU_OBJECT_PREP_DELAY  Optional debug benchmark object-prep delay override.
+  DFU_SCAN_TIMEOUT       Optional debug benchmark DFU bootloader scan timeout.
+  DFU_CONNECTION_TIMEOUT Optional debug benchmark DFU connection timeout.
   RUN_ID                 Optional telemetry run id. Defaults to UTC timestamp.
   OTA_TELEMETRY_DIR      Defaults to docs/ota-telemetry.
   OTA_REPORT_PATH        Defaults to docs/ota-last-run.json.
@@ -169,6 +177,10 @@ write_ota_report() {
   DIST_HASH="$dist_hash" \
   BUNDLED_HASH="$bundled_hash" \
   PACKAGE_BYTES="$package_bytes" \
+  DFU_PRN="$DFU_PRN" \
+  DFU_OBJECT_PREP_DELAY="$DFU_OBJECT_PREP_DELAY" \
+  DFU_SCAN_TIMEOUT="$DFU_SCAN_TIMEOUT" \
+  DFU_CONNECTION_TIMEOUT="$DFU_CONNECTION_TIMEOUT" \
   VERIFIED_NOTIFICATION_NAME="${verified_notification_name:-}" \
   OBSERVER_LOG="${observer_log:-}" \
   OBSERVER_JSON="${observer_json:-}" \
@@ -188,6 +200,22 @@ def optional_existing_path(value):
         return None
     return value if Path(value).exists() else None
 
+def optional_int(value):
+    if not value:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+def optional_float(value):
+    if not value:
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
 report = {
     "runId": os.environ["RUN_ID"],
     "result": os.environ["RESULT"],
@@ -202,6 +230,12 @@ report = {
         "bytes": int(os.environ["PACKAGE_BYTES"]),
         "distSha256": os.environ["DIST_HASH"],
         "bundledSha256": os.environ["BUNDLED_HASH"],
+    },
+    "dfuTuningOverrides": {
+        "packetReceiptNotificationParameter": optional_int(os.environ["DFU_PRN"]),
+        "dataObjectPreparationDelay": optional_float(os.environ["DFU_OBJECT_PREP_DELAY"]),
+        "scanTimeout": optional_float(os.environ["DFU_SCAN_TIMEOUT"]),
+        "connectionTimeout": optional_float(os.environ["DFU_CONNECTION_TIMEOUT"]),
     },
     "verification": {
         "darwinNotification": optional_path(os.environ["VERIFIED_NOTIFICATION_NAME"]),
@@ -248,16 +282,33 @@ if [[ "$WIRELESS_ONLY" == "1" ]]; then
   sleep 1
 fi
 
+launch_args=(
+  "$BUNDLE_ID"
+  "$FIRMWARE_UPDATE_ARGUMENT"
+  "$FIRMWARE_EXPECTED_ARGUMENT"
+  "$TARGET_FIRMWARE"
+)
+
+if [[ -n "$DFU_PRN" ]]; then
+  launch_args+=("--debug-dfu-prn" "$DFU_PRN")
+fi
+if [[ -n "$DFU_OBJECT_PREP_DELAY" ]]; then
+  launch_args+=("--debug-dfu-object-delay" "$DFU_OBJECT_PREP_DELAY")
+fi
+if [[ -n "$DFU_SCAN_TIMEOUT" ]]; then
+  launch_args+=("--debug-dfu-scan-timeout" "$DFU_SCAN_TIMEOUT")
+fi
+if [[ -n "$DFU_CONNECTION_TIMEOUT" ]]; then
+  launch_args+=("--debug-dfu-connection-timeout" "$DFU_CONNECTION_TIMEOUT")
+fi
+
 xcrun devicectl device \
   --json-output "$launch_json" \
   --log-output "$launch_log" \
   process launch \
   --device "$DEVICE_UDID" \
   --terminate-existing \
-  "$BUNDLE_ID" \
-  "$FIRMWARE_UPDATE_ARGUMENT" \
-  "$FIRMWARE_EXPECTED_ARGUMENT" \
-  "$TARGET_FIRMWARE"
+  "${launch_args[@]}"
 
 start_epoch="$(date +%s)"
 if [[ "$WIRELESS_ONLY" == "1" ]]; then

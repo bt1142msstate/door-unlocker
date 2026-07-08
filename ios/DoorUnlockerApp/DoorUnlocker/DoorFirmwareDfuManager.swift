@@ -1,4 +1,5 @@
 import CoreBluetooth
+import DoorUnlockerShared
 import Foundation
 import NordicDFU
 import OSLog
@@ -16,8 +17,7 @@ final class DoorFirmwareDfuManager: NSObject {
     private let dfuNameFragments = ["dfu", "adadfu", "dfutarg"]
     private let dfuQueue = DispatchQueue(label: "io.github.bt1142msstate.DoorUnlocker.dfu")
     private let log = Logger(subsystem: "io.github.bt1142msstate.DoorUnlocker", category: "FirmwareUpdate")
-    private let packetReceiptNotificationParameter: UInt16 = 8
-    private let dataObjectPreparationDelay: TimeInterval = 0.4
+    private let tuning: DoorFirmwareDfuTuning
     private weak var delegate: DoorFirmwareDfuManagerDelegate?
     private var central: CBCentralManager?
     private var packageURL: URL?
@@ -29,8 +29,9 @@ final class DoorFirmwareDfuManager: NSObject {
     private var uploadStartedAt: Date?
     private var lastLoggedProgressBucket: Int?
 
-    init(delegate: DoorFirmwareDfuManagerDelegate) {
+    init(delegate: DoorFirmwareDfuManagerDelegate, tuning: DoorFirmwareDfuTuning = .fromProcessInfo()) {
         self.delegate = delegate
+        self.tuning = tuning
         super.init()
     }
 
@@ -42,16 +43,17 @@ final class DoorFirmwareDfuManager: NSObject {
         uploadStartedAt = nil
         lastLoggedProgressBucket = nil
         let packageBytes = (try? packageURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
-        let prn = packetReceiptNotificationParameter
-        let objectDelay = dataObjectPreparationDelay
+        let prn = tuning.packetReceiptNotificationParameter
+        let objectDelay = tuning.dataObjectPreparationDelay
+        let scanTimeout = tuning.scanTimeout
         log.info(
-            "DFU scan started packageBytes=\(packageBytes, privacy: .public) prn=\(prn, privacy: .public) objectDelay=\(objectDelay, privacy: .public)"
+            "DFU scan started packageBytes=\(packageBytes, privacy: .public) prn=\(prn, privacy: .public) objectDelay=\(objectDelay, privacy: .public) scanTimeout=\(scanTimeout, privacy: .public)"
         )
         notify(status: "Looking for firmware update mode", progress: nil)
         central = CBCentralManager(delegate: self, queue: .main)
         scanTimeoutTask = Task { @MainActor [weak self] in
             do {
-                try await Task.sleep(for: .seconds(18))
+                try await Task.sleep(nanoseconds: UInt64(max(0, scanTimeout) * 1_000_000_000))
             } catch {
                 return
             }
@@ -126,10 +128,10 @@ final class DoorFirmwareDfuManager: NSObject {
             initiator.delegate = self
             initiator.progressDelegate = self
             initiator.logger = self
-            initiator.connectionTimeout = 20
-            initiator.dataObjectPreparationDelay = dataObjectPreparationDelay
+            initiator.connectionTimeout = tuning.connectionTimeout
+            initiator.dataObjectPreparationDelay = tuning.dataObjectPreparationDelay
             initiator.forceDfu = true
-            initiator.packetReceiptNotificationParameter = packetReceiptNotificationParameter
+            initiator.packetReceiptNotificationParameter = tuning.packetReceiptNotificationParameter
             initiator.forceScanningForNewAddressInLegacyDfu = true
             dfuInitiator = initiator
             dfuController = initiator.with(firmware: firmware).start(target: peripheral)

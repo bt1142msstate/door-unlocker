@@ -1,5 +1,5 @@
 {
-  "durationSeconds": 9.32,
+  "durationSeconds": 3.72,
   "passed": true,
   "steps": [
     {
@@ -9,11 +9,11 @@
         "--threshold",
         "90.0"
       ],
-      "durationSeconds": 0.16,
+      "durationSeconds": 0.19,
       "exitCode": 0,
       "name": "Maintainability size/length gate",
       "status": "pass",
-      "summary": "Maintainability: 91.2/100"
+      "summary": "Maintainability: 91.0/100"
     },
     {
       "command": [
@@ -50,11 +50,11 @@
         "--package-path",
         "shared/DoorUnlockerShared"
       ],
-      "durationSeconds": 0.48,
+      "durationSeconds": 0.43,
       "exitCode": 0,
       "name": "Shared package independent tests",
       "status": "pass",
-      "summary": "Test Suite 'All tests' passed at 2026-07-07 23:02:04.938."
+      "summary": "Test Suite 'All tests' passed at 2026-07-07 23:35:22.162."
     },
     {
       "command": [
@@ -63,11 +63,11 @@
         "--package-path",
         "mac/DoorUnlockerAdmin"
       ],
-      "durationSeconds": 0.47,
+      "durationSeconds": 0.48,
       "exitCode": 0,
       "name": "Mac core/admin independent tests",
       "status": "pass",
-      "summary": "Test Suite 'All tests' passed at 2026-07-07 23:02:05.415."
+      "summary": "Test Suite 'All tests' passed at 2026-07-07 23:35:22.640."
     },
     {
       "command": [
@@ -83,7 +83,7 @@
         "CODE_SIGNING_ALLOWED=NO",
         "build"
       ],
-      "durationSeconds": 6.26,
+      "durationSeconds": 1.3,
       "exitCode": 0,
       "name": "iOS app generic build",
       "status": "pass",
@@ -94,7 +94,7 @@
         "./script/build_and_run.sh",
         "--verify"
       ],
-      "durationSeconds": 1.86,
+      "durationSeconds": 1.24,
       "exitCode": 0,
       "name": "Mac app build",
       "status": "pass",

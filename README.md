@@ -219,6 +219,24 @@ Expected OTA timing for the current 127 KB DFU zip, with a `129,360` byte applic
 
 The current DFU tuning is intentionally conservative: packet receipt notification parameter `8` and data object preparation delay `0.4s`. [Nordic's iOS DFU library](https://github.com/NordicSemiconductor/IOS-DFU-Library/blob/main/Library/Classes/Implementation/DFUServiceInitiator.swift) documents that PRNs can be disabled on modern iOS/macOS for speed, but also warns that devices with slower flash handling can fail or become very slow; its documented safe object-prep delay range for SDK 15-17 style bootloaders is `0.3s` to `0.4s`. On this XIAO/Adafruit DFU bootloader, PRN `8` was the fastest measured reliable setting; PRN `0`, `12`, and `20` were slower in real OTA tests.
 
+The speed research, bottleneck analysis, and next benchmark matrix live in [`docs/ota-speed-plan.md`](docs/ota-speed-plan.md). The stable apps share one DFU tuning model so iPhone and Mac updates use the same default path. For controlled iPhone benchmark runs, the verifier accepts debug-only launch overrides:
+
+```sh
+DFU_PRN=8 DFU_OBJECT_PREP_DELAY=0.3 ./script/verify_ios_ota.sh --wireless-only --target <new-version>
+```
+
+To compare the stable and candidate tuning paths repeatedly, run the matrix wrapper:
+
+```sh
+./script/benchmark_ios_ota_matrix.sh --target <new-version> --runs 3
+```
+
+If command-line iPhone signing needs your local Apple team, keep the repository settings blank and pass it only as an environment override:
+
+```sh
+DEVELOPMENT_TEAM=<team-id> ./script/benchmark_ios_ota_matrix.sh --target <new-version> --runs 3
+```
+
 For iPhone OTA testing, bundle the current DFU package at:
 
 ```text

@@ -28,6 +28,7 @@ Environment:
   CONFIGURATION      Defaults to Debug.
   BUILD_DESTINATION Defaults to generic/platform=iOS. Override only for diagnostics.
   CLEAN_DERIVED_DATA Set to 1 to delete DerivedData before building.
+  DEVELOPMENT_TEAM   Optional local Apple team id for device signing.
 USAGE
 }
 
@@ -79,6 +80,11 @@ if [[ "$CLEAN_DERIVED_DATA" == "1" ]]; then
 fi
 
 echo "Building $SCHEME for $BUILD_DESTINATION..."
+build_settings=()
+if [[ -n "${DEVELOPMENT_TEAM:-}" ]]; then
+  build_settings+=("DEVELOPMENT_TEAM=$DEVELOPMENT_TEAM")
+fi
+
 xcodebuild \
   -project "$PROJECT_PATH" \
   -scheme "$SCHEME" \
@@ -87,6 +93,7 @@ xcodebuild \
   -derivedDataPath "$DERIVED_DATA_PATH" \
   -allowProvisioningUpdates \
   -allowProvisioningDeviceRegistration \
+  "${build_settings[@]}" \
   build
 
 APP_PATH="$DERIVED_DATA_PATH/Build/Products/$CONFIGURATION-iphoneos/DoorUnlocker.app"

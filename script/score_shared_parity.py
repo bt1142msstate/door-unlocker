@@ -264,6 +264,59 @@ CONTRACTS = (
             SourceUse(MAC_CORE / "DoorDeviceNameNormalizer.swift", ("DoorNameNormalizer.normalized",)),
         ),
     ),
+    Contract(
+        name="firmware-dfu-tuning",
+        weight=0.12,
+        shared_files=(SHARED_SOURCES / "DoorFirmwareDfuTuning.swift",),
+        test_files=(SHARED_TESTS / "DoorFirmwareDfuTuningTests.swift",),
+        minimum_test_count=4,
+        ios_uses=(
+            SourceUse(
+                IOS_DOOR / "DoorFirmwareDfuManager.swift",
+                (
+                    "DoorFirmwareDfuTuning",
+                    "tuning.packetReceiptNotificationParameter",
+                    "tuning.dataObjectPreparationDelay",
+                ),
+            ),
+        ),
+        mac_uses=(
+            SourceUse(
+                MAC_ADMIN / "Stores" / "DoorFirmwareDfuManager.swift",
+                (
+                    "DoorFirmwareDfuTuning",
+                    "tuning.packetReceiptNotificationParameter",
+                    "tuning.dataObjectPreparationDelay",
+                ),
+            ),
+        ),
+        drift_checks=(
+            (
+                "iOS does not own DFU PRN constant",
+                IOS_DOOR / "DoorFirmwareDfuManager.swift",
+                r"private\s+let\s+packetReceiptNotificationParameter",
+                False,
+            ),
+            (
+                "Mac does not own DFU PRN constant",
+                MAC_ADMIN / "Stores" / "DoorFirmwareDfuManager.swift",
+                r"private\s+let\s+packetReceiptNotificationParameter",
+                False,
+            ),
+            (
+                "iOS does not own DFU object delay constant",
+                IOS_DOOR / "DoorFirmwareDfuManager.swift",
+                r"private\s+let\s+dataObjectPreparationDelay",
+                False,
+            ),
+            (
+                "Mac does not own DFU object delay constant",
+                MAC_ADMIN / "Stores" / "DoorFirmwareDfuManager.swift",
+                r"private\s+let\s+dataObjectPreparationDelay",
+                False,
+            ),
+        ),
+    ),
 )
 
 
