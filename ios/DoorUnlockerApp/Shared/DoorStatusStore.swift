@@ -8,19 +8,35 @@ struct DoorUnlockerActivityAttributes: ActivityAttributes {
         let autoLockDeadline: Date
         let lockAnimationStartedAt: Date?
         let lockAnimationPhase: Int?
+        let activityKind: String
+        let firmwareStatus: String?
+        let firmwareProgress: Int?
+        let firmwareVersion: String?
 
         init(
             state: String,
             autoLockStartedAt: Date? = nil,
             autoLockDeadline: Date,
             lockAnimationStartedAt: Date? = nil,
-            lockAnimationPhase: Int? = nil
+            lockAnimationPhase: Int? = nil,
+            activityKind: String = "door",
+            firmwareStatus: String? = nil,
+            firmwareProgress: Int? = nil,
+            firmwareVersion: String? = nil
         ) {
             self.state = state
             self.autoLockDeadline = autoLockDeadline
             self.autoLockStartedAt = autoLockStartedAt
             self.lockAnimationStartedAt = lockAnimationStartedAt
             self.lockAnimationPhase = lockAnimationPhase
+            self.activityKind = activityKind
+            self.firmwareStatus = firmwareStatus
+            self.firmwareProgress = firmwareProgress
+            self.firmwareVersion = firmwareVersion
+        }
+
+        var isFirmwareUpdate: Bool {
+            activityKind == "firmware"
         }
 
         var isUnlocked: Bool {

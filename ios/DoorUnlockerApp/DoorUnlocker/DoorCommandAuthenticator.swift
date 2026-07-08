@@ -1,4 +1,5 @@
 import CryptoKit
+import DoorUnlockerShared
 import Foundation
 import Security
 
@@ -65,29 +66,12 @@ enum DoorCommandAuthenticator {
     private static let keychainService = "DoorUnlocker.SigningIdentity"
     private static let secureEnclaveAccount = "secure-enclave-p256"
     private static let softwareAccount = "software-p256"
-    private static let pairingPayloadWithNameVersion: UInt8 = 0x01
-    private static let maximumPairingDeviceNameLength = 24
-    private static let fastCommandVersion: UInt8 = 0x03
-    private static let fastCommandUnlockOp: UInt8 = 0x01
-    private static let fastCommandLockOp: UInt8 = 0x02
-    private static let fastCommandGetLockNameOp: UInt8 = 0x10
-    private static let fastCommandGetServoAnglesOp: UInt8 = 0x11
-    private static let fastCommandGetLastUnlockOp: UInt8 = 0x12
-    private static let fastCommandSetLockNameOp: UInt8 = 0x20
-    private static let fastCommandSetServoAnglesOp: UInt8 = 0x21
-    private static let fastCommandSetTimeoutOp: UInt8 = 0x22
-    private static let fastCommandSetDeviceNameOp: UInt8 = 0x23
-    private static let fastCommandEnterOtaDfuOp: UInt8 = 0x30
-    private static let fastCommandNonceLength = 16
-    private static let fastCommandKeyFingerprintLength = 8
-    private static let fastCommandMaxPayloadLength = 129
-    private static let fastCommandSignatureDomain = Data("DoorUnlocker:v3:command".utf8)
     private static let cache = AuthCache()
 
     static func prewarm() {
         guard let identity = try? identity() else { return }
         _ = try? fastCommandKeyFingerprint(for: identity)
-        _ = try? identity.signature(for: fastCommandSignatureDomain)
+        _ = try? identity.signature(for: DoorSecureCommandCodec.signatureDomain)
     }
 
     static func publicKeyForPairing() throws -> Data {
@@ -95,87 +79,43 @@ enum DoorCommandAuthenticator {
     }
 
     static func pairingPayload(deviceName: String) throws -> Data {
-        var payload = Data([pairingPayloadWithNameVersion])
-        payload.append(try publicKeyForPairing())
-        payload.append(sanitizedDeviceNameData(deviceName))
-        return payload
+        try DoorSecureCommandCodec.pairingPayload(
+            publicKey: publicKeyForPairing(),
+            deviceName: deviceName,
+            fallbackName: "iPhone"
+        )
     }
 
     static func pairingApprovalCode() throws -> String {
-        try approvalCode(for: publicKeyForPairing())
+        try DoorSecureCommandCodec.approvalCode(publicKey: publicKeyForPairing())
     }
 
     static func fastCommandPayload(for command: DoorUnlockerController.Command, nonce: Data) throws -> SignedFastCommandPayload {
-        let op: UInt8 = command == .unlock ? fastCommandUnlockOp : fastCommandLockOp
-        return try v3CommandPayload(op: op, payload: Data(), nonce: nonce)
+        let secureCommand: DoorSecureCommandCodec.FastCommand = command == .unlock ? .unlock : .lock
+        let encodedCommand = DoorSecureCommandCodec.encodedFastCommand(secureCommand)
+        return try v3CommandPayload(encodedCommand, nonce: nonce)
     }
 
     static func secureCommandPayload(for commandText: String, nonce: Data) throws -> SignedFastCommandPayload {
-        let encodedCommand = try v3CommandEncoding(for: commandText)
-        return try v3CommandPayload(op: encodedCommand.op, payload: encodedCommand.payload, nonce: nonce)
+        let encodedCommand = try DoorSecureCommandCodec.encodedCommand(commandText: commandText)
+        return try v3CommandPayload(encodedCommand, nonce: nonce)
     }
 
-    private static func v3CommandPayload(op: UInt8, payload: Data, nonce: Data) throws -> SignedFastCommandPayload {
-        guard nonce.count == fastCommandNonceLength,
-              payload.count <= fastCommandMaxPayloadLength else {
-            throw AuthError.signingKeyUnavailable
-        }
-
+    private static func v3CommandPayload(_ encodedCommand: DoorSecureCommandCodec.EncodedCommand, nonce: Data) throws -> SignedFastCommandPayload {
         let identity = try identity()
         let fingerprint = try fastCommandKeyFingerprint(for: identity)
-        var unsignedPacket = Data([fastCommandVersion, op])
-        unsignedPacket.append(fingerprint)
-        unsignedPacket.append(nonce)
-        unsignedPacket.append(UInt8(payload.count))
-        unsignedPacket.append(payload)
-
-        var signedMessage = fastCommandSignatureDomain
-        signedMessage.append(unsignedPacket)
+        let unsignedPacket = try DoorSecureCommandCodec.unsignedPacket(
+            op: encodedCommand.op,
+            payload: encodedCommand.payload,
+            nonce: nonce,
+            keyFingerprint: fingerprint
+        )
+        let signedMessage = DoorSecureCommandCodec.messageToSign(unsignedPacket: unsignedPacket)
         let signature = try identity.signature(for: signedMessage)
 
-        var packet = unsignedPacket
-        packet.append(signature)
-        return SignedFastCommandPayload(data: packet)
-    }
-
-    private static func v3CommandEncoding(for commandText: String) throws -> (op: UInt8, payload: Data) {
-        if commandText == "GET_LOCK_NAME" {
-            return (fastCommandGetLockNameOp, Data())
-        }
-        if commandText == "GET_ANGLES" {
-            return (fastCommandGetServoAnglesOp, Data())
-        }
-        if commandText == "GET_LAST_UNLOCK" {
-            return (fastCommandGetLastUnlockOp, Data())
-        }
-        if commandText == "ENTER_OTA_DFU" {
-            return (fastCommandEnterOtaDfuOp, Data())
-        }
-        if let name = payloadValue(in: commandText, prefix: "SET_LOCK_NAME:") {
-            return (fastCommandSetLockNameOp, sanitizedDeviceNameData(name))
-        }
-        if let name = payloadValue(in: commandText, prefix: "SET_NAME:") {
-            return (fastCommandSetDeviceNameOp, sanitizedDeviceNameData(name))
-        }
-        if let value = payloadValue(in: commandText, prefix: "SET_TIMEOUT:"),
-           let seconds = UInt16(value) {
-            return (fastCommandSetTimeoutOp, Data([UInt8(seconds >> 8), UInt8(seconds & 0xff)]))
-        }
-        if let value = payloadValue(in: commandText, prefix: "SET_ANGLES:") {
-            let parts = value.split(separator: ",", maxSplits: 1, omittingEmptySubsequences: false)
-            if parts.count == 2,
-               let lockAngle = UInt8(parts[0]),
-               let unlockAngle = UInt8(parts[1]) {
-                return (fastCommandSetServoAnglesOp, Data([lockAngle, unlockAngle]))
-            }
-        }
-
-        throw AuthError.unsupportedCommand(commandText)
-    }
-
-    private static func payloadValue(in commandText: String, prefix: String) -> String? {
-        guard commandText.hasPrefix(prefix) else { return nil }
-        return String(commandText.dropFirst(prefix.count))
+        return SignedFastCommandPayload(
+            data: DoorSecureCommandCodec.signedPacket(unsignedPacket: unsignedPacket, signature: signature)
+        )
     }
 
     private static func fastCommandKeyFingerprint() throws -> Data {
@@ -190,48 +130,13 @@ enum DoorCommandAuthenticator {
         }
         cache.lock.unlock()
 
-        let digest = SHA256.hash(data: identity.publicKeyX963Representation)
-        let fingerprint = Data(digest.prefix(fastCommandKeyFingerprintLength))
+        let fingerprint = DoorSecureCommandCodec.keyFingerprint(publicKey: identity.publicKeyX963Representation)
 
         cache.lock.lock()
         cache.keyFingerprint = fingerprint
         cache.lock.unlock()
 
         return fingerprint
-    }
-
-    private static func approvalCode(for publicKey: Data) -> String {
-        let digest = SHA256.hash(data: publicKey)
-        let prefix = digest.prefix(2).reduce(UInt16(0)) { partialResult, byte in
-            (partialResult << 8) | UInt16(byte)
-        }
-        return String(format: "%04u", prefix % 10_000)
-    }
-
-    private static func sanitizedDeviceNameData(_ name: String) -> Data {
-        let normalized = name
-            .replacingOccurrences(of: "\u{2018}", with: "'")
-            .replacingOccurrences(of: "\u{2019}", with: "'")
-            .replacingOccurrences(of: "\u{201B}", with: "'")
-            .replacingOccurrences(of: "\u{2032}", with: "'")
-            .replacingOccurrences(of: "\u{201C}", with: "\"")
-            .replacingOccurrences(of: "\u{201D}", with: "\"")
-            .replacingOccurrences(of: "\u{201E}", with: "\"")
-            .replacingOccurrences(of: "\u{2033}", with: "\"")
-            .replacingOccurrences(of: "\u{2010}", with: "-")
-            .replacingOccurrences(of: "\u{2011}", with: "-")
-            .replacingOccurrences(of: "\u{2012}", with: "-")
-            .replacingOccurrences(of: "\u{2013}", with: "-")
-            .replacingOccurrences(of: "\u{2014}", with: "-")
-            .replacingOccurrences(of: "\u{2026}", with: "...")
-            .replacingOccurrences(of: "\n", with: " ")
-            .replacingOccurrences(of: "\r", with: " ")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let fallback = normalized.isEmpty ? "iPhone" : normalized
-        let ascii = fallback.unicodeScalars.compactMap { scalar -> UInt8? in
-            scalar.isASCII && scalar.value >= 32 && scalar.value <= 126 ? UInt8(scalar.value) : nil
-        }
-        return Data(ascii.prefix(maximumPairingDeviceNameLength))
     }
 
     private static func identity() throws -> SigningIdentity {

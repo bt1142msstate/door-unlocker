@@ -20,26 +20,22 @@ struct DoorUnlockerWidgetProvider: TimelineProvider {
     func getSnapshot(in context: Context, completion: @escaping (DoorUnlockerEntry) -> Void) {
         completion(DoorUnlockerEntry(date: .now, status: DoorStatusStore.load(), lockName: DoorStatusStore.loadLockName()))
     }
-
     func getTimeline(in context: Context, completion: @escaping (Timeline<DoorUnlockerEntry>) -> Void) {
         let now = Date()
         let status = DoorStatusStore.load()
         let lockName = DoorStatusStore.loadLockName()
         var entries = [DoorUnlockerEntry(date: now, status: status, lockName: lockName)]
-
         if status.isUnlocked, let deadline = status.autoLockDeadline, deadline > now {
             var refreshDate = now.addingTimeInterval(5)
             while refreshDate < deadline, entries.count < 12 {
                 entries.append(DoorUnlockerEntry(date: refreshDate, status: status, lockName: lockName))
                 refreshDate = refreshDate.addingTimeInterval(5)
             }
-
             let lockedStatus = DoorStatusStore.Snapshot(state: "locked", updatedAt: deadline, autoLockStartedAt: nil, autoLockDeadline: nil)
             entries.append(DoorUnlockerEntry(date: deadline, status: lockedStatus, lockName: lockName))
             completion(Timeline(entries: entries, policy: .after(deadline.addingTimeInterval(2))))
             return
         }
-
         completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(15))))
     }
 }
@@ -109,21 +105,17 @@ struct DoorUnlockerWidgetView: View {
                 .background(Color.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
     }
-
     private var statusColor: Color {
         entry.status.isUnlocked ? Color(red: 0.35, green: 0.86, blue: 0.58) : Color(red: 0.35, green: 0.72, blue: 1.0)
     }
-
     private var statusDetailText: String {
         if entry.status.isUnlocked, let deadline = entry.status.autoLockDeadline, deadline > entry.date {
             let seconds = max(0, Int(ceil(deadline.timeIntervalSince(entry.date))))
             return "Locks in \(seconds)s"
         }
-
         guard let updatedAt = entry.status.updatedAt else {
             return "Waiting for app"
         }
-
         return "Updated \(updatedAt.formatted(.relative(presentation: .named)))"
     }
 }
@@ -150,16 +142,24 @@ struct DoorUnlockerLiveActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    HStack(spacing: 6) {
-                        LockStateIcon(state: context.state, size: 16, color: context.state.activityColor)
-                        Text(context.state.activityTitle)
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(context.state.activityColor)
+                    if context.state.isFirmwareUpdate {
+                        FirmwareIslandHeader(state: context.state)
+                    } else {
+                        HStack(spacing: 6) {
+                            LockStateIcon(state: context.state, size: 16, color: context.state.activityColor)
+                            Text(context.state.activityTitle)
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(context.state.activityColor)
+                        }
                     }
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
-                    if context.state.isUnlocked {
+                    if context.state.isFirmwareUpdate {
+                        Text(context.state.firmwareProgressText)
+                            .font(.headline.monospacedDigit().weight(.bold))
+                            .foregroundStyle(context.state.activityColor)
+                    } else if context.state.isUnlocked {
                         Label("Auto-lock", systemImage: "timer")
                             .font(.caption.weight(.bold))
                             .foregroundStyle(context.state.activityColor)
@@ -171,7 +171,9 @@ struct DoorUnlockerLiveActivity: Widget {
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
-                    if context.state.isUnlocked {
+                    if context.state.isFirmwareUpdate {
+                        FirmwareIslandProgress(state: context.state)
+                    } else if context.state.isUnlocked {
                         ProgressView(timerInterval: context.state.autoLockTimerRange, countsDown: true) {
                             Text("Auto-lock")
                                 .font(.caption.weight(.semibold))
@@ -187,15 +189,25 @@ struct DoorUnlockerLiveActivity: Widget {
                     }
                 }
             } compactLeading: {
-                LockStateIcon(state: context.state, size: 13, color: context.state.activityColor)
+                if context.state.isFirmwareUpdate {
+                    FirmwareActivityIcon(state: context.state, size: 13)
+                } else {
+                    LockStateIcon(state: context.state, size: 13, color: context.state.activityColor)
+                }
             } compactTrailing: {
-                if context.state.isUnlocked {
+                if context.state.isFirmwareUpdate {
+                    CompactFirmwareProgressIcon(state: context.state)
+                } else if context.state.isUnlocked {
                     CompactCountdownIcon(timerRange: context.state.autoLockTimerRange, color: context.state.activityColor)
                 } else {
                     LockStateIcon(state: context.state, size: 11, color: context.state.activityColor)
                 }
             } minimal: {
-                LockStateIcon(state: context.state, size: 13, color: context.state.activityColor)
+                if context.state.isFirmwareUpdate {
+                    CompactFirmwareProgressIcon(state: context.state)
+                } else {
+                    LockStateIcon(state: context.state, size: 13, color: context.state.activityColor)
+                }
             }
         }
     }
@@ -283,7 +295,11 @@ private struct LiveActivityView: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(context.state.activityColor.opacity(0.18))
-                LockStateIcon(state: context.state, size: 24, color: context.state.activityColor)
+                if context.state.isFirmwareUpdate {
+                    FirmwareActivityIcon(state: context.state, size: 28)
+                } else {
+                    LockStateIcon(state: context.state, size: 24, color: context.state.activityColor)
+                }
             }
             .frame(width: 44, height: 44)
 
@@ -292,17 +308,28 @@ private struct LiveActivityView: View {
                     .font(.headline.weight(.bold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.78)
-                HStack(spacing: 4) {
-                    if context.state.isUnlocked {
-                        Text("Auto-locks in")
-                        LiveActivityTimerText(timerRange: context.state.autoLockTimerRange)
-                    } else {
-                        Text(context.state.lockStatusText)
-                        LockStateIcon(state: context.state, size: 13, color: context.state.activityColor)
+                if context.state.isFirmwareUpdate {
+                    Text(context.state.firmwareStatusText)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+
+                    ProgressView(value: context.state.firmwareProgressFraction, total: 1)
+                        .tint(context.state.activityColor)
+                } else {
+                    HStack(spacing: 4) {
+                        if context.state.isUnlocked {
+                            Text("Auto-locks in")
+                            LiveActivityTimerText(timerRange: context.state.autoLockTimerRange)
+                        } else {
+                            Text(context.state.lockStatusText)
+                            LockStateIcon(state: context.state, size: 13, color: context.state.activityColor)
+                        }
                     }
-                }
                     .font(.subheadline.monospacedDigit().weight(.semibold))
                     .foregroundStyle(.secondary)
+                }
             }
 
             Spacer(minLength: 8)
@@ -319,7 +346,7 @@ private struct LiveActivityTimerText: View {
     }
 }
 
-private extension DoorUnlockerActivityAttributes.ContentState {
+extension DoorUnlockerActivityAttributes.ContentState {
     var autoLockTimerRange: ClosedRange<Date> {
         let fallbackStartedAt = autoLockDeadline.addingTimeInterval(-30)
         let startedAt = min(autoLockStartedAt ?? fallbackStartedAt, autoLockDeadline.addingTimeInterval(-1))
@@ -348,23 +375,11 @@ private extension DoorUnlockerActivityAttributes.ContentState {
     }
 
     var activityColor: Color {
-        isUnlocked ? Color(red: 0.35, green: 0.86, blue: 0.58) : Color(red: 0.35, green: 0.72, blue: 1.0)
-    }
-}
-
-@available(iOSApplicationExtension 18.0, *)
-struct DoorUnlockerControl: ControlWidget {
-    let kind = "DoorUnlockerControl"
-
-    var body: some ControlWidgetConfiguration {
-        StaticControlConfiguration(kind: kind) {
-            ControlWidgetButton(action: ToggleDoorIntent()) {
-                Label("Toggle Lock", systemImage: "arrow.triangle.2.circlepath")
-            }
-            .tint(Color(red: 0.35, green: 0.86, blue: 0.58))
+        if isFirmwareUpdate {
+            return firmwareActivityColor
         }
-        .displayName("Toggle Lock")
-        .description("Toggle Door Unlocker from Controls and the Action Button.")
+
+        return isUnlocked ? Color(red: 0.35, green: 0.86, blue: 0.58) : Color(red: 0.35, green: 0.72, blue: 1.0)
     }
 }
 

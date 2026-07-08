@@ -37,7 +37,7 @@ static const uint16_t MIN_UNLOCK_HOLD_TIMEOUT_SECONDS = 5;
 static const uint16_t MAX_UNLOCK_HOLD_TIMEOUT_SECONDS = 120;
 static const char DEFAULT_LOCK_NAME[] = "My Lock";
 static const char CONTROLLER_MODEL_NAME[] = "DoorUnlocker-XIAO-v4";
-static const char CONTROLLER_FIRMWARE_VERSION[] = "0.1.0-beta.ota18";
+static const char CONTROLLER_FIRMWARE_VERSION[] = "0.1.0";
 // Fresh random-static BLE identity for the app-layer-security firmware. This
 // avoids stale iOS/macOS OS-level bond records from the earlier encrypted-GATT
 // builds while preserving trusted app keys in LittleFS.
@@ -78,6 +78,10 @@ static const uint8_t V3_OP_SET_LOCK_NAME = 0x20;
 static const uint8_t V3_OP_SET_SERVO_ANGLES = 0x21;
 static const uint8_t V3_OP_SET_TIMEOUT = 0x22;
 static const uint8_t V3_OP_SET_DEVICE_NAME = 0x23;
+static const uint8_t V3_OP_PAIRING_ENABLE = 0x24;
+static const uint8_t V3_OP_PAIRING_DISABLE = 0x25;
+static const uint8_t V3_OP_PAIRING_APPROVE = 0x26;
+static const uint8_t V3_OP_PAIRING_REJECT = 0x27;
 static const uint8_t V3_OP_ENTER_OTA_DFU = 0x30;
 static const char V3_COMMAND_SIGNATURE_DOMAIN[] = "DoorUnlocker:v3:command";
 static const size_t P256_PUBLIC_KEY_LEN = 65;   // X9.63 uncompressed: 0x04 || X || Y
@@ -97,6 +101,9 @@ static const size_t PAIRING_RECORD_LEN = LEGACY_PAIRING_RECORD_LEN + PAIRED_DEVI
 static const size_t PAIRING_APPROVAL_CODE_LEN = 4;
 static const size_t PAIRING_FINGERPRINT_LEN = 19; // 8-byte SHA-256 prefix as XXXX-XXXX-XXXX-XXXX
 static const uint32_t V3_NONCE_RETRY_INTERVAL_MS = 500;
+static const uint32_t UNTRUSTED_REJECT_DISCONNECT_DELAY_MS = 400;
+static const uint32_t UNTRUSTED_IDLE_DISCONNECT_MS = 8000;
+static const uint32_t UNTRUSTED_CLEANUP_INTERVAL_MS = 500;
 
 BLEService doorService = BLEService(DOOR_SERVICE_UUID);
 BLECharacteristic commandCharacteristic = BLECharacteristic(COMMAND_CHAR_UUID);
@@ -139,7 +146,10 @@ uint16_t connectedDeviceHandles[MAX_BLE_CONNECTIONS] = {0};
 char connectedDeviceNames[MAX_BLE_CONNECTIONS][PAIRED_DEVICE_NAME_STORAGE_LEN] = {{0}};
 bool connectedDeviceNonceValid[MAX_BLE_CONNECTIONS] = {false};
 uint8_t connectedDeviceNonces[MAX_BLE_CONNECTIONS][V3_NONCE_LEN] = {{0}};
+uint32_t connectedDeviceFirstSeenMs[MAX_BLE_CONNECTIONS] = {0};
+bool connectedDeviceRejected[MAX_BLE_CONNECTIONS] = {false};
 uint32_t lastNonceRetryMs = 0;
+uint32_t lastUntrustedCleanupMs = 0;
 
 struct BleCommandJob {
   bool isReject;
@@ -1554,6 +1564,12 @@ void setConnectedDeviceName(uint16_t connHandle, const char* name, bool trustedN
   connectedDeviceSlotsUsed[slot] = true;
   connectedDeviceTrusted[slot] = trustedName;
   connectedDeviceHandles[slot] = connHandle;
+  if (connectedDeviceFirstSeenMs[slot] == 0) {
+    connectedDeviceFirstSeenMs[slot] = millis();
+  }
+  if (trustedName) {
+    connectedDeviceRejected[slot] = false;
+  }
   copyDeviceName(name, connectedDeviceNames[slot], sizeof(connectedDeviceNames[slot]));
 }
 
@@ -1573,12 +1589,25 @@ void trackConnectedDevice(uint16_t connHandle, const char* centralName) {
   connectedDeviceSlotsUsed[slot] = true;
   connectedDeviceTrusted[slot] = false;
   connectedDeviceHandles[slot] = connHandle;
+  connectedDeviceFirstSeenMs[slot] = millis();
+  connectedDeviceRejected[slot] = false;
   copyDeviceName(centralName, connectedDeviceNames[slot], sizeof(connectedDeviceNames[slot]));
 }
 
-void clearConnectedDevice(uint16_t connHandle) {
+void markConnectedDeviceUntrusted(uint16_t connHandle, bool rejected = false) {
   int8_t slot = connectedDeviceSlotForHandle(connHandle);
   if (slot < 0) {
+    return;
+  }
+
+  connectedDeviceTrusted[slot] = false;
+  if (rejected) {
+    connectedDeviceRejected[slot] = true;
+  }
+}
+
+void clearConnectedDeviceSlot(uint8_t slot) {
+  if (slot >= MAX_BLE_CONNECTIONS) {
     return;
   }
 
@@ -1588,6 +1617,57 @@ void clearConnectedDevice(uint16_t connHandle) {
   memset(connectedDeviceNames[slot], 0, sizeof(connectedDeviceNames[slot]));
   connectedDeviceNonceValid[slot] = false;
   memset(connectedDeviceNonces[slot], 0, sizeof(connectedDeviceNonces[slot]));
+  connectedDeviceFirstSeenMs[slot] = 0;
+  connectedDeviceRejected[slot] = false;
+}
+
+void clearConnectedDevice(uint16_t connHandle) {
+  int8_t slot = connectedDeviceSlotForHandle(connHandle);
+  if (slot < 0) {
+    return;
+  }
+
+  clearConnectedDeviceSlot((uint8_t) slot);
+}
+
+uint8_t disconnectUntrustedLockedConnections(bool force = false) {
+  if (!force && (pairingModeEnabled || pendingPairingExists)) {
+    return 0;
+  }
+
+  uint32_t now = millis();
+  if (!force && (uint32_t)(now - lastUntrustedCleanupMs) < UNTRUSTED_CLEANUP_INTERVAL_MS) {
+    return 0;
+  }
+  lastUntrustedCleanupMs = now;
+
+  uint8_t disconnectedCount = 0;
+  for (uint8_t index = 0; index < MAX_BLE_CONNECTIONS; index++) {
+    if (!connectedDeviceSlotsUsed[index] || connectedDeviceTrusted[index]) {
+      continue;
+    }
+
+    uint16_t connHandle = connectedDeviceHandles[index];
+    if (connHandle == BLE_CONN_HANDLE_INVALID || !Bluefruit.connected(connHandle)) {
+      clearConnectedDeviceSlot(index);
+      continue;
+    }
+
+    uint32_t connectedForMs = connectedDeviceFirstSeenMs[index] == 0 ? 0 : (uint32_t)(now - connectedDeviceFirstSeenMs[index]);
+    bool shouldDisconnect = connectedDeviceRejected[index] && connectedForMs >= UNTRUSTED_REJECT_DISCONNECT_DELAY_MS;
+    shouldDisconnect = shouldDisconnect || force || connectedForMs >= UNTRUSTED_IDLE_DISCONNECT_MS;
+    if (!shouldDisconnect) {
+      continue;
+    }
+
+    Serial.print("Disconnecting untrusted BLE device: ");
+    Serial.println(connectedDeviceNames[index][0] == 0 ? "central" : connectedDeviceNames[index]);
+    if (Bluefruit.disconnect(connHandle)) {
+      disconnectedCount++;
+    }
+  }
+
+  return disconnectedCount;
 }
 
 bool fillSecureRandomBytes(uint8_t* output, size_t outputLen) {
@@ -2119,7 +2199,9 @@ void handleV3Command(const uint8_t* packet, uint16_t packetLen, uint16_t connHan
 
   int8_t pairingIndex = pairedPublicKeyIndexForFingerprintBytes(packet + 2);
   if (pairingIndex < 0) {
+    markConnectedDeviceUntrusted(connHandle, true);
     publishControlRejectTo(connHandle, "unpaired");
+    publishConnectionsState();
     return;
   }
 
@@ -2148,7 +2230,9 @@ void handleV3Command(const uint8_t* packet, uint16_t packetLen, uint16_t connHan
   if (!verifySignatureForPairedDevice((uint8_t) pairingIndex, signatureMessage, signatureMessageLen, signature)) {
     connectedDeviceNonceValid[slot] = false;
     memset(connectedDeviceNonces[slot], 0, sizeof(connectedDeviceNonces[slot]));
+    markConnectedDeviceUntrusted(connHandle, true);
     publishControlRejectTo(connHandle, "bad_signature");
+    publishConnectionsState();
     issueV3NonceTo(connHandle);
     return;
   }
@@ -2295,6 +2379,55 @@ void handleV3Command(const uint8_t* packet, uint16_t packetLen, uint16_t connHan
     publishState("paired");
     delay(40);
     publishState(currentStateText());
+    finishV3Command(connHandle);
+  } else if (op == V3_OP_PAIRING_ENABLE) {
+    if (payloadLen != 0) {
+      rejectV3CommandFor(connHandle, "bad_payload");
+      return;
+    }
+    if (pairedPublicKeyCount >= MAX_PAIRED_PHONES) {
+      rejectV3CommandFor(connHandle, "paired_table_full");
+      return;
+    }
+
+    pairingModeEnabled = true;
+    clearPendingPairing();
+    publishState(currentStateText());
+    updateStatusLed();
+    finishV3Command(connHandle);
+  } else if (op == V3_OP_PAIRING_DISABLE) {
+    if (payloadLen != 0) {
+      rejectV3CommandFor(connHandle, "bad_payload");
+      return;
+    }
+
+    pairingModeEnabled = false;
+    clearPendingPairing();
+    publishState(currentStateText());
+    updateStatusLed();
+    finishV3Command(connHandle);
+  } else if (op == V3_OP_PAIRING_APPROVE) {
+    if (payloadLen == 0 || payloadLen > PAIRING_FINGERPRINT_LEN) {
+      rejectV3CommandFor(connHandle, "bad_approval_code");
+      return;
+    }
+
+    char approvalCode[PAIRING_FINGERPRINT_LEN + 1] = {0};
+    memcpy(approvalCode, payload, payloadLen);
+    approvalCode[payloadLen] = 0;
+    if (!approvePendingPairing(approvalCode)) {
+      rejectV3CommandFor(connHandle, "approval_failed");
+      return;
+    }
+
+    finishV3Command(connHandle);
+  } else if (op == V3_OP_PAIRING_REJECT) {
+    if (payloadLen != 0) {
+      rejectV3CommandFor(connHandle, "bad_payload");
+      return;
+    }
+
+    rejectPendingPairing();
     finishV3Command(connHandle);
   } else if (op == V3_OP_ENTER_OTA_DFU) {
     if (payloadLen != 0) {
@@ -2827,6 +2960,10 @@ void printAppStatus() {
     Serial.print(connectedDeviceHandles[index]);
     Serial.print(" trusted=");
     Serial.print(connectedDeviceTrusted[index] ? "yes" : "no");
+    Serial.print(" rejected=");
+    Serial.print(connectedDeviceRejected[index] ? "yes" : "no");
+    Serial.print(" age_ms=");
+    Serial.print(connectedDeviceFirstSeenMs[index] == 0 ? 0 : (uint32_t)(millis() - connectedDeviceFirstSeenMs[index]));
     Serial.print(" name=");
     Serial.println(name);
   }
@@ -3007,6 +3144,12 @@ bool handleAppCommand(char* command) {
     updateStatusLed();
     printAppOk("cleared=yes");
     printAppStatus();
+  } else if (serialCommandEquals(subcommand, "cleanup untrusted") || serialCommandEquals(subcommand, "disconnect untrusted")) {
+    uint8_t disconnectedCount = disconnectUntrustedLockedConnections(true);
+    Serial.print("APP_OK untrusted_disconnected=");
+    Serial.println(disconnectedCount);
+    publishConnectionsState();
+    printAppStatus();
   } else if (serialCommandEquals(subcommand, "bootloader") || serialCommandEquals(subcommand, "uf2")) {
     printAppOk("bootloader=uf2");
     Serial.flush();
@@ -3102,6 +3245,8 @@ void printPairingHelp() {
   Serial.println("                 Reboot into BLE OTA DFU mode for app-driven firmware updates");
   Serial.println("  app pair usb HEX");
   Serial.println("                 Trust a Mac app key sent over USB-C");
+  Serial.println("  app cleanup untrusted");
+  Serial.println("                 Disconnect currently untrusted BLE links");
 }
 
 void printPairingStatus() {
@@ -3383,6 +3528,7 @@ void loop() {
   processSerialCommands();
   processPendingBleCommand();
   retryMissingV3Nonces();
+  disconnectUntrustedLockedConnections();
   handleUnlockTimeout();
   refreshUnlockCountdownValueIfChanged();
   updateStatusLed();

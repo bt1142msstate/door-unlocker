@@ -5,6 +5,8 @@ tmp/
 build/
 DerivedData/
 dist/
+docs/ota-last-run.json
+docs/ota-telemetry/
 
 # Xcode local state
 *.xcuserstate

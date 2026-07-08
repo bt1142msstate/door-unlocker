@@ -42,7 +42,11 @@ final class DoorFirmwareDfuManager: NSObject {
         uploadStartedAt = nil
         lastLoggedProgressBucket = nil
         let packageBytes = (try? packageURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
-        log.info("DFU scan started packageBytes=\(packageBytes, privacy: .public) prn=\(self.packetReceiptNotificationParameter, privacy: .public) objectDelay=\(self.dataObjectPreparationDelay, privacy: .public)")
+        let prn = packetReceiptNotificationParameter
+        let objectDelay = dataObjectPreparationDelay
+        log.info(
+            "DFU scan started packageBytes=\(packageBytes, privacy: .public) prn=\(prn, privacy: .public) objectDelay=\(objectDelay, privacy: .public)"
+        )
         notify(status: "Looking for firmware update mode", progress: nil)
         central = CBCentralManager(delegate: self, queue: .main)
         scanTimeoutTask = Task { @MainActor [weak self] in
@@ -211,7 +215,13 @@ extension DoorFirmwareDfuManager: CBCentralManagerDelegate {
         guard isActive else { return }
         let name = peripheral.name ?? advertisementData[CBAdvertisementDataLocalNameKey] as? String
         guard shouldUsePeripheral(name: name, advertisementData: advertisementData) else { return }
-        log.info("Selected DFU bootloader name=\(name ?? "unknown", privacy: .public) id=\(peripheral.identifier.uuidString, privacy: .public) rssi=\(RSSI.intValue, privacy: .public) services=\(self.serviceList(from: advertisementData), privacy: .public)")
+        let bootloaderName = name ?? "unknown"
+        let peripheralID = peripheral.identifier.uuidString
+        let rssi = RSSI.intValue
+        let advertisedServices = serviceList(from: advertisementData)
+        log.info(
+            "Selected DFU bootloader name=\(bootloaderName, privacy: .public) id=\(peripheralID, privacy: .public) rssi=\(rssi, privacy: .public) services=\(advertisedServices, privacy: .public)"
+        )
         startDfu(target: peripheral)
     }
 }
@@ -250,7 +260,12 @@ extension DoorFirmwareDfuManager: DFUServiceDelegate, DFUProgressDelegate, Logge
         let bucket = min(100, (progress / 10) * 10)
         if bucket >= 10, bucket != lastLoggedProgressBucket {
             lastLoggedProgressBucket = bucket
-            log.info("DFU progress \(progress, privacy: .public)% currentBps=\(currentSpeedBytesPerSecond, privacy: .public) avgBps=\(avgSpeedBytesPerSecond, privacy: .public) uploadElapsed=\(self.elapsedText(since: self.uploadStartedAt), privacy: .public)")
+            let uploadElapsed = elapsedText(since: uploadStartedAt)
+            let currentBps = currentSpeedBytesPerSecond
+            let averageBps = avgSpeedBytesPerSecond
+            log.info(
+                "DFU progress \(progress, privacy: .public)% currentBps=\(currentBps, privacy: .public) avgBps=\(averageBps, privacy: .public) uploadElapsed=\(uploadElapsed, privacy: .public)"
+            )
         }
     }
 

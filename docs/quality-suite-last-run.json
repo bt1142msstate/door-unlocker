@@ -1,0 +1,104 @@
+{
+  "durationSeconds": 9.32,
+  "passed": true,
+  "steps": [
+    {
+      "command": [
+        "python3",
+        "script/score_maintainability.py",
+        "--threshold",
+        "90.0"
+      ],
+      "durationSeconds": 0.16,
+      "exitCode": 0,
+      "name": "Maintainability size/length gate",
+      "status": "pass",
+      "summary": "Maintainability: 91.2/100"
+    },
+    {
+      "command": [
+        "python3",
+        "script/score_modularity.py",
+        "--threshold",
+        "95.0",
+        "--write-graph",
+        "docs/dependency-graph.md"
+      ],
+      "durationSeconds": 0.06,
+      "exitCode": 0,
+      "name": "Low coupling / high modularity / independence gate",
+      "status": "pass",
+      "summary": "iOS: 97.0/100 | Mac: 98.9/100"
+    },
+    {
+      "command": [
+        "python3",
+        "script/score_shared_parity.py",
+        "--threshold",
+        "95.0"
+      ],
+      "durationSeconds": 0.03,
+      "exitCode": 0,
+      "name": "iOS/Mac shared parity gate",
+      "status": "pass",
+      "summary": "  result: pass"
+    },
+    {
+      "command": [
+        "swift",
+        "test",
+        "--package-path",
+        "shared/DoorUnlockerShared"
+      ],
+      "durationSeconds": 0.48,
+      "exitCode": 0,
+      "name": "Shared package independent tests",
+      "status": "pass",
+      "summary": "Test Suite 'All tests' passed at 2026-07-07 23:02:04.938."
+    },
+    {
+      "command": [
+        "swift",
+        "test",
+        "--package-path",
+        "mac/DoorUnlockerAdmin"
+      ],
+      "durationSeconds": 0.47,
+      "exitCode": 0,
+      "name": "Mac core/admin independent tests",
+      "status": "pass",
+      "summary": "Test Suite 'All tests' passed at 2026-07-07 23:02:05.415."
+    },
+    {
+      "command": [
+        "xcodebuild",
+        "-project",
+        "ios/DoorUnlockerApp/DoorUnlocker.xcodeproj",
+        "-scheme",
+        "DoorUnlocker",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "generic/platform=iOS",
+        "CODE_SIGNING_ALLOWED=NO",
+        "build"
+      ],
+      "durationSeconds": 6.26,
+      "exitCode": 0,
+      "name": "iOS app generic build",
+      "status": "pass",
+      "summary": "** BUILD SUCCEEDED **"
+    },
+    {
+      "command": [
+        "./script/build_and_run.sh",
+        "--verify"
+      ],
+      "durationSeconds": 1.86,
+      "exitCode": 0,
+      "name": "Mac app build",
+      "status": "pass",
+      "summary": "/var/folders/1p/tcpfcxmx38z_3km79b8k_y9c0000gn/T//door-unlocker-admin-build/staging/DoorUnlockerAdmin.app: replacing existing signature"
+    }
+  ]
+}

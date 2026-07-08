@@ -11,7 +11,7 @@ enum DoorUnlockerCLI {
     static func main() {
         do {
             let options = try parseOptions(Array(CommandLine.arguments.dropFirst()))
-            if options.portPath == nil, sendToRunningAppIfAvailable(options.command) {
+            if options.portPath == nil, DoorUnlockerCLIAppBridge.sendToRunningAppIfAvailable(options.command) {
                 return
             }
 
@@ -52,53 +52,6 @@ enum DoorUnlockerCLI {
         return Options(portPath: portPath, command: command)
     }
 
-    private static func sendToRunningAppIfAvailable(_ command: [String]) -> Bool {
-        guard commandCanRunInApp(command),
-              !NSRunningApplication.runningApplications(withBundleIdentifier: DoorLocalCommandBridge.appBundleIdentifier).isEmpty else {
-            return false
-        }
-
-        var userInfo = [DoorLocalCommandBridge.commandKey: command[0]]
-        if command[0] == "timeout", command.count >= 2 {
-            userInfo[DoorLocalCommandBridge.argumentKey] = command[1]
-        } else if command[0] == "angles", command.count >= 3 {
-            userInfo[DoorLocalCommandBridge.argumentKey] = "\(command[1]) \(command[2])"
-        } else if (command[0] == "firmware" || command[0] == "firmware-recover"), command.count >= 2 {
-            let rawPath = command.dropFirst().joined(separator: " ")
-            let absolutePath = URL(
-                fileURLWithPath: rawPath,
-                relativeTo: URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-            ).standardizedFileURL.path
-            userInfo[DoorLocalCommandBridge.argumentKey] = absolutePath
-        }
-
-        DistributedNotificationCenter.default().postNotificationName(
-            DoorLocalCommandBridge.notificationName,
-            object: DoorLocalCommandBridge.sender,
-            userInfo: userInfo,
-            deliverImmediately: true
-        )
-        print("sent_to_app=\(command[0])")
-        return true
-    }
-
-    private static func commandCanRunInApp(_ command: [String]) -> Bool {
-        switch command.first {
-        case "lock", "unlock", "toggle":
-            return true
-        case "timeout":
-            return command.count >= 2 && Int(command[1]) != nil
-        case "angles":
-            return command.count >= 3 && Int(command[1]) != nil && Int(command[2]) != nil
-        case "firmware":
-            return command.count >= 2
-        case "firmware-recover":
-            return command.count >= 2
-        default:
-            return false
-        }
-    }
-
     private static func selectedPort(path: String?) throws -> SerialPortCandidate {
         if let path {
             return SerialPortCandidate(path: path)
@@ -114,10 +67,10 @@ enum DoorUnlockerCLI {
         switch command[0] {
         case "status":
             let lines = try transact("app status", until: ["APP_STATUS_END"], connection: connection)
-            printStatus(DoorSerialParser.parseStatus(from: lines))
+            DoorUnlockerCLIOutput.printStatus(DoorSerialParser.parseStatus(from: lines))
         case "pairs", "devices":
             let lines = try transact("app pairs", until: ["APP_PAIRS_END"], connection: connection)
-            printPairs(DoorSerialParser.parsePairs(from: lines))
+            DoorUnlockerCLIOutput.printPairs(DoorSerialParser.parsePairs(from: lines))
         case "lock":
             try runStatusCommand(appLockCommandText(), connection: connection)
         case "unlock":
@@ -164,6 +117,8 @@ enum DoorUnlockerCLI {
             try runBootloaderCommand(connection: connection)
         case "firmware":
             throw CLIError.firmwareRequiresRunningApp
+        case "firmware-proof":
+            throw CLIError.firmwareRequiresRunningApp
         default:
             throw CLIError.unknownCommand(command[0])
         }
@@ -174,7 +129,7 @@ enum DoorUnlockerCLI {
         if let response = DoorSerialParser.responseSummary(from: lines) {
             print(response)
         }
-        printStatus(DoorSerialParser.parseStatus(from: lines))
+        DoorUnlockerCLIOutput.printStatus(DoorSerialParser.parseStatus(from: lines))
     }
 
     private static func runBootloaderCommand(connection: SerialPortConnection) throws {
@@ -197,67 +152,6 @@ enum DoorUnlockerCLI {
             throw CLIError.controllerError(errorLine)
         }
         return lines
-    }
-
-    private static func printStatus(_ status: ControllerStatus) {
-        let localUSBDeviceHandle = "usb-c-this-mac"
-        let localUSBDeviceName = DoorDeviceNameNormalizer.normalized(Host.current().localizedName ?? "Mac", fallback: "Mac") + " (USB-C)"
-        let localUSBDevice = ConnectedControllerDevice(
-            slot: 0,
-            handle: localUSBDeviceHandle,
-            name: localUSBDeviceName,
-            isTrustedName: true
-        )
-        let unifiedStatus = status.includingLocalConnection(localUSBDevice)
-
-        print("model=\(status.modelTitle)")
-        print("firmware_version=\(status.firmwareVersion)")
-        print("lock_name=\(status.lockName)")
-        print("state=\(status.bleState)")
-        print("unlocked=\(status.isUnlocked ? "yes" : "no")")
-        print("pairing_mode=\(status.pairingMode)")
-        print("paired_count=\(status.pairedCount)")
-        print("max_pairs=\(status.maxPairs)")
-        print("connected_count=\(unifiedStatus.connectedCount)")
-        print("max_connections=\(unifiedStatus.maxConnections)")
-        for device in unifiedStatus.connectedDevices {
-            let transport = device.handle == localUSBDeviceHandle ? "usb-c" : "bluetooth"
-            print("connected_device=\(device.slot)\t\(device.displayName)\ttransport=\(transport)\ttrusted=\(device.isTrustedName ? "yes" : "no")")
-        }
-        print("ble_connected_count=\(status.connectedCount)")
-        print("ble_max_connections=\(status.maxConnections)")
-        for device in status.connectedDevices {
-            print("ble_connected_device=\(device.slot)\t\(device.displayName)\ttrusted=\(device.isTrustedName ? "yes" : "no")")
-        }
-        print("auto_lock_seconds=\(status.autoLockSeconds)")
-        print("lock_angle=\(status.lockAngle)")
-        print("unlock_angle=\(status.unlockAngle)")
-        print("servo_angle_range=\(status.servoMinAngle)-\(status.servoMaxAngle)")
-        print("servo_min_angle_gap=\(status.servoMinAngleGap)")
-        print("last_unlock=\(status.lastUnlockTitle)")
-        if let lastUnlockDeviceIdentifier = status.lastUnlockDeviceIdentifier {
-            print("last_unlock_device_id=\(lastUnlockDeviceIdentifier)")
-        }
-        if let lastUnlockDeviceName = status.lastUnlockDeviceName {
-            print("last_unlock_device=\(lastUnlockDeviceName)")
-        }
-        if let remaining = status.autoLockRemainingSeconds {
-            print("auto_lock_remaining_seconds=\(remaining)")
-        }
-        if let pendingName = status.pendingName {
-            print("pending_name=\(pendingName)")
-        }
-    }
-
-    private static func printPairs(_ pairs: [PairedDevice]) {
-        if pairs.isEmpty {
-            print("No trusted devices")
-            return
-        }
-
-        for pair in pairs {
-            print("\(pair.slot)\t\(pair.displayName)\t\(pair.fingerprint)")
-        }
     }
 
     private static func appUnlockCommandText() -> String {
@@ -291,6 +185,7 @@ enum DoorUnlockerCLI {
               bootloader | uf2
               firmware ZIP_PATH
               firmware-recover ZIP_PATH
+              firmware-proof ZIP_PATH VERSION
             """
         )
     }

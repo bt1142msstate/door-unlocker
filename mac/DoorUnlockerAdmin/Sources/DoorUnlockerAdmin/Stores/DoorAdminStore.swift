@@ -1,5 +1,6 @@
 import CoreBluetooth
 import DoorUnlockerCore
+import DoorUnlockerShared
 import Foundation
 import os
 
@@ -76,6 +77,12 @@ final class DoorAdminStore: NSObject, ObservableObject {
                 return "Secure nonce requested"
             case "secure_nonce_received":
                 return "Secure nonce received"
+            case "wireless_auth_probe_sent":
+                return "Wireless trust checked"
+            case "wireless_disconnect":
+                return "Wireless disconnected"
+            case "wireless_stop":
+                return "Wireless stopped"
             case "door_command_usable":
                 return "Door command usable"
             case "first_fast_payload_ready":
@@ -123,24 +130,20 @@ final class DoorAdminStore: NSObject, ObservableObject {
         }
     }
 
-    private enum WirelessCommandWriteIntent {
+    enum WirelessCommandWriteIntent {
         case doorCommand
         case autoLockTimeout(Int)
         case lockName(String)
         case servoAngles(ServoAngles)
         case firmwareUpdate(URL)
+        case linkAuthentication
+        case pairingAdmin
         case generic
     }
 
-    private struct LastUnlockRecord {
-        let unlockedAt: Date?
-        let deviceIdentifier: String?
-        let deviceName: String?
-    }
-
     static let defaultLockName = "My Lock"
-    static let minimumAutoLockSeconds = 5
-    static let maximumAutoLockSeconds = 120
+    static let minimumAutoLockSeconds = ControllerStatus.minimumAutoLockSeconds
+    static let maximumAutoLockSeconds = ControllerStatus.maximumAutoLockSeconds
     private static let lockNameKey = "DoorUnlockerAdminLockName"
     private static let cachedBleStateKey = "DoorUnlockerAdminCachedBleState"
     private static let cachedAutoLockSecondsKey = "DoorUnlockerAdminCachedAutoLockSeconds"
@@ -158,6 +161,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
     private static let wirelessReconnectDelays: [TimeInterval] = [0.15, 0.45, 0.9, 1.8, 3.5]
     private static let wirelessEncryptionRecoveryDelay: TimeInterval = 3
     private static let knownPeripheralDiscoveryRetryDelay: TimeInterval = 0.15
+    private static let wirelessControlNonceRequestMinimumInterval: TimeInterval = 0.22
     private static let usbStartupSyncGraceNanoseconds: UInt64 = 75_000_000
     private static let localUSBDeviceHandle = "usb-c-this-mac"
     private static let runtimeTraceWriter = DispatchQueue(label: "io.github.bt1142msstate.DoorUnlockerAdmin.runtimeTrace", qos: .utility)
@@ -202,7 +206,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
     @Published private(set) var runtimeTelemetryEntries: [RuntimeTelemetryEntry] = []
 
     var isChangingDoorState: Bool {
-        status.bleState == "locking" || status.bleState == "unlocking"
+        DoorControlPresentationPolicy.isChangingState(status.bleState)
     }
 
     var isDoorCommandQueued: Bool {
@@ -210,10 +214,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
     }
 
     var queuedDoorCommandActionTitle: String? {
-        guard let pendingWirelessPredictedCommand, !isChangingDoorState else {
-            return nil
-        }
-
+        guard let pendingWirelessPredictedCommand, !isChangingDoorState else { return nil }
         return pendingWirelessPredictedCommand == .unlock ? "Preparing unlock..." : "Preparing lock..."
     }
 
@@ -243,25 +244,28 @@ final class DoorAdminStore: NSObject, ObservableObject {
 
     var controllerSettingApplyTitle: String {
         if let localSettingApplyKind {
-            return Self.settingApplyTitle(for: localSettingApplyKind, value: settingApplyValue(for: localSettingApplyKind))
+            return ControllerSettingFormatter.title(for: localSettingApplyKind, value: settingApplyValue(for: localSettingApplyKind))
         }
 
         if let value = pendingLockName ?? inFlightLockName {
-            return Self.settingApplyTitle(for: "lock_name", value: Self.shortSettingValue(value))
+            return ControllerSettingFormatter.title(for: "lock_name", value: ControllerSettingFormatter.shortValue(value))
         }
 
         if servoAnglesApplyTask != nil || pendingServoAngles != nil || inFlightServoAngles != nil {
             let angles = pendingServoAngles ?? inFlightServoAngles ?? status.servoAngles
-            return Self.settingApplyTitle(for: "servo_angles", value: Self.settingApplyValue(for: angles))
+            return ControllerSettingFormatter.title(for: "servo_angles", value: ControllerSettingFormatter.servoAnglesValue(angles))
         }
 
         if autoLockApplyTask != nil || pendingAutoLockSeconds != nil || inFlightAutoLockSeconds != nil {
             let seconds = pendingAutoLockSeconds ?? inFlightAutoLockSeconds ?? status.autoLockSeconds
-            return Self.settingApplyTitle(for: "timeout", value: "\(seconds)s")
+            return ControllerSettingFormatter.title(for: "timeout", value: "\(seconds)s")
         }
 
         if let remoteSettingApplyKind {
-            return Self.settingApplyTitle(for: remoteSettingApplyKind, value: Self.displayValue(for: remoteSettingApplyKind, rawValue: remoteSettingApplyValue))
+            return ControllerSettingFormatter.title(
+                for: remoteSettingApplyKind,
+                value: ControllerSettingFormatter.displayValue(for: remoteSettingApplyKind, rawValue: remoteSettingApplyValue)
+            )
         }
 
         return "Updating controller"
@@ -270,65 +274,14 @@ final class DoorAdminStore: NSObject, ObservableObject {
     private func settingApplyValue(for kind: String) -> String? {
         switch kind {
         case "lock_name":
-            return Self.shortSettingValue(pendingLockName ?? inFlightLockName ?? lockName)
+            return ControllerSettingFormatter.shortValue(pendingLockName ?? inFlightLockName ?? lockName)
         case "servo_angles":
-            return Self.settingApplyValue(for: pendingServoAngles ?? inFlightServoAngles ?? status.servoAngles)
+            return ControllerSettingFormatter.servoAnglesValue(pendingServoAngles ?? inFlightServoAngles ?? status.servoAngles)
         case "timeout":
             return "\(pendingAutoLockSeconds ?? inFlightAutoLockSeconds ?? status.autoLockSeconds)s"
         default:
             return nil
         }
-    }
-
-    private static func settingApplyTitle(for kind: String, value: String? = nil) -> String {
-        switch kind {
-        case "lock_name":
-            return value.map { "Lock name to \($0)" } ?? "Saving lock name"
-        case "device_name":
-            return value.map { "Device name to \($0)" } ?? "Saving device name"
-        case "servo_angles":
-            return value.map { "Angles to \($0)" } ?? "Updating angles"
-        case "timeout":
-            return value.map { "Auto-lock to \($0)" } ?? "Updating auto-lock"
-        default:
-            return "Updating controller"
-        }
-    }
-
-    private static func settingApplyValue(for angles: ServoAngles) -> String {
-        "\(angles.lockAngle)° / \(angles.unlockAngle)°"
-    }
-
-    private static func displayValue(for kind: String, rawValue: String?) -> String? {
-        guard let rawValue else { return nil }
-
-        switch kind {
-        case "lock_name", "device_name":
-            return shortSettingValue(rawValue)
-        case "servo_angles":
-            let parts = rawValue.split(separator: ",", maxSplits: 1).map(String.init)
-            guard parts.count == 2,
-                  let lockAngle = Int(parts[0].trimmingCharacters(in: .whitespacesAndNewlines)),
-                  let unlockAngle = Int(parts[1].trimmingCharacters(in: .whitespacesAndNewlines)) else {
-                return shortSettingValue(rawValue)
-            }
-            return settingApplyValue(for: ServoAngles(lockAngle: lockAngle, unlockAngle: unlockAngle))
-        case "timeout":
-            let trimmedValue = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmedValue.isEmpty else { return nil }
-            return trimmedValue.hasSuffix("s") ? trimmedValue : "\(trimmedValue)s"
-        default:
-            return shortSettingValue(rawValue)
-        }
-    }
-
-    private static func shortSettingValue(_ value: String, maxLength: Int = 18) -> String? {
-        let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedValue.isEmpty else { return nil }
-        guard trimmedValue.count > maxLength else { return trimmedValue }
-
-        let endIndex = trimmedValue.index(trimmedValue.startIndex, offsetBy: maxLength)
-        return "\(trimmedValue[..<endIndex])..."
     }
 
     private static func isBluetoothEncryptionError(_ error: Error?) -> Bool {
@@ -343,9 +296,9 @@ final class DoorAdminStore: NSObject, ObservableObject {
     private let pairingUUID = CBUUID(string: "7A5A2003-2B8D-4C3E-94E7-0B3C0DDAAF10")
     private let controlUUID = CBUUID(string: "7A5A2004-2B8D-4C3E-94E7-0B3C0DDAAF10")
     private var central: CBCentralManager?
-    private var peripheral: CBPeripheral?
+    var peripheral: CBPeripheral?
     private var commandCharacteristic: CBCharacteristic?
-    private var stateCharacteristic: CBCharacteristic?
+    var stateCharacteristic: CBCharacteristic?
     private var pairingCharacteristic: CBCharacteristic?
     private var controlCharacteristic: CBCharacteristic?
     private let serialGate = SerialTransactionGate()
@@ -365,6 +318,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
     private var isUSBConnectInFlight = false
     private var hasConfirmedExpiredAutoLockDeadline = false
     private var hasTrustedMacController = UserDefaults.standard.bool(forKey: DoorAdminStore.trustedMacControllerKey)
+    private var hasRejectedCurrentSecurePairing = false
     private var lastUSBStatusSyncAt: Date?
     private var lastWirelessStateSyncAt: Date?
     private var lastPairedDevicesSyncAt: Date?
@@ -383,17 +337,25 @@ final class DoorAdminStore: NSObject, ObservableObject {
     private var wirelessIdleDisconnectTask: Task<Void, Never>?
     private var wirelessKnownPeripheralFallbackTask: Task<Void, Never>?
     private var wirelessStateSnapshotFallbackTask: Task<Void, Never>?
-    private var wirelessStateUpdateGeneration = 0
+    var wirelessFirmwareVersionSnapshotRetryTask: Task<Void, Never>?
+    var wirelessStateUpdateGeneration = 0
     private var wirelessControlNonceRecoveryTask: Task<Void, Never>?
     private var secureLinkWatchdogTask: Task<Void, Never>?
     private var wirelessControlUpdateGeneration = 0
+    private var lastWirelessControlNonceRequestUptime: TimeInterval = 0
+    private var hasAuthenticatedCurrentWirelessLink = false
+    private var wirelessLinkAuthenticationInFlight = false
     private var activeWirelessScanAllowsDuplicates: Bool?
     private var queuedWirelessCommandDuringCurrentSend = false
     private var pendingWirelessWriteIntents: [WirelessCommandWriteIntent] = []
     private var firmwareUpdateWatchdogTask: Task<Void, Never>?
+    private var firmwareDfuStartFallbackTask: Task<Void, Never>?
     private lazy var firmwareDfuManager = DoorFirmwareDfuManager(delegate: self)
     private var pendingFirmwareUpdatePackageURL: URL?
     private var firmwareUpdateEntryCommandSent = false
+    private var expectedFirmwareVerificationVersion: String?
+    private var isAwaitingPostDfuFirmwareVerification = false
+    private var didPostFirmwareVerificationNotification = false
     private var wirelessReconnectAttempt = 0
     private var isWirelessStateNotificationEnabled = false
     private let runtimeTelemetryStartedAt = ProcessInfo.processInfo.systemUptime
@@ -407,14 +369,6 @@ final class DoorAdminStore: NSObject, ObservableObject {
         pairedDevices.first { $0.id == selectedDeviceID }
     }
 
-    var autoLockRange: ClosedRange<Int> {
-        Self.minimumAutoLockSeconds ... Self.maximumAutoLockSeconds
-    }
-
-    var servoAngleRange: ClosedRange<Int> {
-        status.servoAngleRange
-    }
-
     var isWirelessConnected: Bool {
         peripheral?.state == .connected
     }
@@ -426,7 +380,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         return wirelessConnectionState == "Scanning"
     }
 
-    private var isWirelessGattReady: Bool {
+    var isWirelessGattReady: Bool {
         peripheral?.state == .connected
             && commandCharacteristic != nil
             && stateCharacteristic != nil
@@ -435,15 +389,19 @@ final class DoorAdminStore: NSObject, ObservableObject {
     }
 
     var isWirelessReady: Bool {
-        isWirelessGattReady && hasTrustedMacController
+        isWirelessGattReady && hasTrustedWirelessPairingForSecureCommand
     }
 
     var isWirelessDoorCommandReady: Bool {
         isWirelessReady && (fastCommandNonce != nil || !preparedFastDoorCommandPayloads.isEmpty)
     }
 
-    private var canUseWirelessFallback: Bool {
-        !isConnected && !isUSBConnectInFlight && hasTrustedMacController
+    var canUseWirelessFallback: Bool {
+        !isConnected && !isUSBConnectInFlight && hasTrustedWirelessPairingForSecureCommand
+    }
+
+    var hasTrustedWirelessPairingForSecureCommand: Bool {
+        hasTrustedMacController && !hasRejectedCurrentSecurePairing
     }
 
     private var hasKnownWirelessController: Bool {
@@ -453,7 +411,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
     private var canQueueWirelessCommandForKnownController: Bool {
         guard !isConnected,
               !isUSBConnectInFlight,
-              hasTrustedMacController else {
+              hasTrustedWirelessPairingForSecureCommand else {
             return false
         }
 
@@ -827,6 +785,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         wirelessIdleDisconnectTask?.cancel()
         wirelessKnownPeripheralFallbackTask?.cancel()
         wirelessStateSnapshotFallbackTask?.cancel()
+        wirelessFirmwareVersionSnapshotRetryTask?.cancel()
         wirelessControlNonceRecoveryTask?.cancel()
         secureLinkWatchdogTask?.cancel()
         firmwareUpdateWatchdogTask?.cancel()
@@ -884,6 +843,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         pairingCharacteristic = nil
             controlCharacteristic = nil
             isWirelessStateNotificationEnabled = false
+            resetWirelessLinkAuthentication()
             wirelessControlNonceRecoveryTask?.cancel()
             wirelessControlNonceRecoveryTask = nil
             stopSecureLinkWatchdog()
@@ -955,58 +915,6 @@ final class DoorAdminStore: NSObject, ObservableObject {
         Task { await run("Refreshing") { try await loadControllerState() } }
     }
 
-    func enablePairingMode() {
-        sendStatusCommand("app pair on", label: "Allow New Device", timeout: 4)
-    }
-
-    func disablePairingMode() {
-        sendStatusCommand("app pair off", label: "Stop Pairing", timeout: 4)
-    }
-
-    func approvePairing() {
-        let code = approvalCode.filter(\.isNumber)
-        guard code.count == 4 else {
-            lastError = "Enter the 4-digit code shown on the device."
-            return
-        }
-
-        sendStatusCommand("app approve \(code)", label: "Approve Device", timeout: 5) { [weak self] in
-            self?.approvalCode = ""
-        }
-    }
-
-    func rejectPairing() {
-        sendStatusCommand("app reject", label: "Reject Device", timeout: 4)
-    }
-
-    func removeSelectedDevice() {
-        guard let selectedDevice else {
-            lastError = DoorAdminError.noDeviceSelected.localizedDescription
-            return
-        }
-
-        sendStatusCommand("app remove \(selectedDevice.slot)", label: "Remove Device", timeout: 4)
-    }
-
-    func clearAllDevices() {
-        sendStatusCommand("app clear pairs", label: "Clear Devices", timeout: 4)
-    }
-
-    func renameSelectedDevice(to name: String) {
-        guard let selectedDevice else {
-            lastError = DoorAdminError.noDeviceSelected.localizedDescription
-            return
-        }
-
-        let deviceName = DoorDeviceNameNormalizer.normalized(name, fallback: "")
-        guard !deviceName.isEmpty else {
-            lastError = "Enter a device name."
-            return
-        }
-
-        sendStatusCommand("app rename \(selectedDevice.slot) \(deviceName)", label: "Rename Device", timeout: 4)
-    }
-
     private func beginLocalSettingApply(_ kind: String) {
         localSettingApplyKind = kind
     }
@@ -1018,7 +926,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
     }
 
     func updateAutoLockSeconds(_ seconds: Int) {
-        let clampedSeconds = min(max(seconds, Self.minimumAutoLockSeconds), Self.maximumAutoLockSeconds)
+        let clampedSeconds = ControllerStatus.clampedAutoLockSeconds(seconds)
         guard clampedSeconds != status.autoLockSeconds || pendingAutoLockSeconds != nil else { return }
 
         beginLocalSettingApply("timeout")
@@ -1060,8 +968,8 @@ final class DoorAdminStore: NSObject, ObservableObject {
     }
 
     private func updateServoAngles(_ requestedAngles: ServoAngles) {
-        let clampedAngles = clampedServoAngles(requestedAngles)
-        guard servoAnglesAreValid(clampedAngles) else {
+        let clampedAngles = status.clampedServoAngles(requestedAngles)
+        guard status.servoAnglesAreValid(clampedAngles) else {
             lastError = "Keep servo angles \(status.servoMinAngleGap) degrees apart and inside \(servoAngleRange.lowerBound)-\(servoAngleRange.upperBound) degrees."
             return
         }
@@ -1098,7 +1006,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         status.isUnlocked ? lock() : unlock()
     }
 
-    func startFirmwareUpdate(from packageURL: URL) {
+    func startFirmwareUpdate(from packageURL: URL, expectedVersion: String? = nil) {
         firmwareLog.info("Firmware update requested from \(packageURL.path, privacy: .public)")
         guard !isFirmwareUpdateRunning else {
             firmwareUpdateStatus = "Firmware update already running"
@@ -1113,8 +1021,14 @@ final class DoorAdminStore: NSObject, ObservableObject {
 
         do {
             let localPackageURL = try copyFirmwarePackageToTemporaryLocation(from: packageURL)
+            expectedFirmwareVerificationVersion = expectedVersion
+            isAwaitingPostDfuFirmwareVerification = false
+            didPostFirmwareVerificationNotification = false
             startFirmwareUpdate(packageURL: localPackageURL)
         } catch {
+            expectedFirmwareVerificationVersion = nil
+            isAwaitingPostDfuFirmwareVerification = false
+            didPostFirmwareVerificationNotification = false
             lastError = error.localizedDescription
             firmwareUpdateStatus = "Could not prepare firmware package"
             firmwareUpdateProgress = nil
@@ -1166,11 +1080,19 @@ final class DoorAdminStore: NSObject, ObservableObject {
     private func startFirmwareUpdate(packageURL: URL) {
         pendingFirmwareUpdatePackageURL = packageURL
         firmwareUpdateEntryCommandSent = false
+        firmwareDfuStartFallbackTask?.cancel()
+        firmwareDfuStartFallbackTask = nil
         firmwareUpdateStatus = "Preparing firmware update"
         firmwareUpdateProgress = nil
         isFirmwareUpdateRunning = true
         lastError = nil
-        firmwareLog.info("Start requested package=\(packageURL.path, privacy: .public) usb=\(self.isConnected, privacy: .public) wirelessReady=\(self.isWirelessReady, privacy: .public) canUseWireless=\(self.canUseWirelessFallback, privacy: .public)")
+        let packagePath = packageURL.path
+        let usbConnected = isConnected
+        let wirelessReady = isWirelessReady
+        let canUseWireless = canUseWirelessFallback
+        firmwareLog.info(
+            "Start requested package=\(packagePath, privacy: .public) usb=\(usbConnected, privacy: .public) wirelessReady=\(wirelessReady, privacy: .public) canUseWireless=\(canUseWireless, privacy: .public)"
+        )
         scheduleFirmwareUpdateCommandWatchdog()
 
         switchUSBToWirelessFirmwareUpdateIfNeeded()
@@ -1185,6 +1107,9 @@ final class DoorAdminStore: NSObject, ObservableObject {
             scanBluetooth()
         } else {
             pendingFirmwareUpdatePackageURL = nil
+            expectedFirmwareVerificationVersion = nil
+            isAwaitingPostDfuFirmwareVerification = false
+            didPostFirmwareVerificationNotification = false
             firmwareUpdateStatus = "Pair this Mac over USB-C first"
             firmwareUpdateProgress = nil
             isFirmwareUpdateRunning = false
@@ -1208,6 +1133,11 @@ final class DoorAdminStore: NSObject, ObservableObject {
                 self.firmwareLog.error("Firmware update timed out before controller entered DFU mode")
                 self.pendingFirmwareUpdatePackageURL = nil
                 self.firmwareUpdateEntryCommandSent = false
+                self.expectedFirmwareVerificationVersion = nil
+                self.isAwaitingPostDfuFirmwareVerification = false
+                self.didPostFirmwareVerificationNotification = false
+                self.firmwareDfuStartFallbackTask?.cancel()
+                self.firmwareDfuStartFallbackTask = nil
                 if case .firmwareUpdate = self.pendingWirelessCommandIntent {
                     self.pendingWirelessCommandText = nil
                     self.pendingWirelessPredictedCommand = nil
@@ -1293,6 +1223,9 @@ final class DoorAdminStore: NSObject, ObservableObject {
         firmwareUpdateProgress = nil
         isFirmwareUpdateRunning = false
         pendingFirmwareUpdatePackageURL = nil
+        expectedFirmwareVerificationVersion = nil
+        isAwaitingPostDfuFirmwareVerification = false
+        didPostFirmwareVerificationNotification = false
         firmwareUpdateEntryCommandSent = false
         firmwareLog.error("Secure OTA DFU entry command failed before write")
         return false
@@ -1303,23 +1236,38 @@ final class DoorAdminStore: NSObject, ObservableObject {
         firmwareUpdateProgress = nil
         firmwareUpdateWatchdogTask?.cancel()
         firmwareUpdateWatchdogTask = nil
+        firmwareDfuStartFallbackTask?.cancel()
+        firmwareDfuStartFallbackTask = nil
         firmwareLog.info("Starting Nordic DFU manager package=\(packageURL.path, privacy: .public)")
+        prepareWirelessSessionForFirmwareDfu()
         firmwareDfuManager.start(packageURL: packageURL)
     }
 
-    private static func settingApplying(from rawState: String) -> (kind: String, value: String?)? {
-        let prefix = "setting_applying:"
-        guard rawState.hasPrefix(prefix) else { return nil }
+    private func beginPendingFirmwareDfuUploadIfNeeded() {
+        guard let packageURL = pendingFirmwareUpdatePackageURL else { return }
+        pendingFirmwareUpdatePackageURL = nil
+        firmwareUpdateEntryCommandSent = false
+        beginFirmwareDfuUpload(after: packageURL)
+    }
 
-        let payload = String(rawState.dropFirst(prefix.count))
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let parts = payload.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
-        let kind = parts.first.map(String.init)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let value = parts.count > 1 ? String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines) : nil
-        let normalizedKind = kind.isEmpty ? "settings" : kind
-        let normalizedValue = value?.isEmpty == true ? nil : value
-        return (normalizedKind, normalizedValue)
+    private func scheduleFirmwareDfuStartFallback(after delay: TimeInterval = 0.8) {
+        guard pendingFirmwareUpdatePackageURL != nil else { return }
+
+        firmwareDfuStartFallbackTask?.cancel()
+        firmwareDfuStartFallbackTask = Task { [weak self] in
+            let nanoseconds = UInt64(max(0, delay) * 1_000_000_000)
+            try? await Task.sleep(nanoseconds: nanoseconds)
+            await MainActor.run {
+                guard let self,
+                      self.isFirmwareUpdateRunning,
+                      self.pendingFirmwareUpdatePackageURL != nil else {
+                    return
+                }
+
+                self.firmwareLog.info("Starting DFU from OTA entry write fallback")
+                self.beginPendingFirmwareDfuUploadIfNeeded()
+            }
+        }
     }
 
     private func applyRemoteSettingApplying(kind: String, value: String?) {
@@ -1340,6 +1288,29 @@ final class DoorAdminStore: NSObject, ObservableObject {
         remoteSettingApplyTask = nil
         remoteSettingApplyKind = nil
         remoteSettingApplyValue = nil
+    }
+
+    private func postFirmwareVerificationIfNeeded(_ version: String) {
+        guard isAwaitingPostDfuFirmwareVerification,
+              !didPostFirmwareVerificationNotification,
+              let expectedVersion = expectedFirmwareVerificationVersion else {
+            return
+        }
+
+        guard version == expectedVersion else {
+            firmwareLog.warning("Firmware verification mismatch expected=\(expectedVersion, privacy: .public) actual=\(version, privacy: .public)")
+            return
+        }
+
+        didPostFirmwareVerificationNotification = true
+        isAwaitingPostDfuFirmwareVerification = false
+        firmwareLog.info("Firmware wirelessly verified version=\(version, privacy: .public)")
+        DistributedNotificationCenter.default().postNotificationName(
+            DoorLocalCommandBridge.firmwareVerifiedNotificationName,
+            object: DoorLocalCommandBridge.appBundleIdentifier,
+            userInfo: [DoorLocalCommandBridge.firmwareVersionKey: version],
+            deliverImmediately: true
+        )
     }
 
     @objc private func handleLocalCommandNotification(_ notification: Notification) {
@@ -1363,7 +1334,8 @@ final class DoorAdminStore: NSObject, ObservableObject {
             updateServoAngles(ServoAngles(lockAngle: parts[0], unlockAngle: parts[1]))
         case "firmware":
             guard let rawPath = notification.userInfo?[DoorLocalCommandBridge.argumentKey] as? String else { return }
-            startFirmwareUpdate(from: URL(fileURLWithPath: rawPath))
+            let expectedVersion = notification.userInfo?[DoorLocalCommandBridge.expectedFirmwareVersionKey] as? String
+            startFirmwareUpdate(from: URL(fileURLWithPath: rawPath), expectedVersion: expectedVersion)
         case "firmware-recover":
             guard let rawPath = notification.userInfo?[DoorLocalCommandBridge.argumentKey] as? String else { return }
             recoverFirmwareUpdate(from: URL(fileURLWithPath: rawPath))
@@ -1373,6 +1345,11 @@ final class DoorAdminStore: NSObject, ObservableObject {
     }
 
     private func sendDoorCommand(_ command: Command) {
+        if DoorControlSurfacePolicy.shouldPreferWirelessDoorCommand(doorControlSurfaceSnapshot) {
+            sendWirelessCommandText(command.commandText, predictedDoorCommand: command, intent: .doorCommand)
+            return
+        }
+
         if isConnected {
             applyPredictedDoorCommand(command)
             switch command {
@@ -1399,6 +1376,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         saveCachedStatus(nextStatus)
         hasConfirmedExpiredAutoLockDeadline = false
         message = command == .unlock ? "Unlocking door" : "Locking door"
+        scheduleWirelessStateSnapshotFallbackRead(after: 0.25)
     }
 
     private func queueWirelessCommand(
@@ -1412,11 +1390,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         if !canQueueWirelessCommandForKnownController {
             wirelessConnectionState = "Connecting on demand"
         }
-        if let predictedDoorCommand {
-            message = predictedDoorCommand == .unlock ? "Preparing unlock" : "Preparing lock"
-        }
-
-        guard hasTrustedMacController else {
+        guard hasTrustedWirelessPairingForSecureCommand else {
             lastError = "Pair this Mac over USB-C before using wireless commands."
             wirelessPairingState = "USB-C trust needed"
             pendingWirelessCommandText = nil
@@ -1425,6 +1399,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
             return
         }
 
+        if let predictedDoorCommand { applyPredictedDoorCommand(predictedDoorCommand) }
         if isWirelessReady {
             sendQueuedWirelessCommand()
         } else {
@@ -1463,20 +1438,24 @@ final class DoorAdminStore: NSObject, ObservableObject {
             return "angles \(angles.lockAngle)/\(angles.unlockAngle)"
         case .firmwareUpdate:
             return "firmware update"
+        case .linkAuthentication:
+            return "link authentication"
+        case .pairingAdmin:
+            return "pairing admin"
         case .generic:
             return commandText
         }
     }
 
     @discardableResult
-    private func sendWirelessCommandText(
+    func sendWirelessCommandText(
         _ commandText: String,
         predictedDoorCommand: Command? = nil,
         intent: WirelessCommandWriteIntent = .generic
     ) -> Bool {
         queuedWirelessCommandDuringCurrentSend = false
         guard let peripheral, let commandCharacteristic else {
-            if hasTrustedMacController, canUseWirelessFallback {
+            if hasTrustedWirelessPairingForSecureCommand, canUseWirelessFallback {
                 queueWirelessCommandForConnectionReadiness(
                     commandText,
                     predictedDoorCommand: predictedDoorCommand,
@@ -1487,7 +1466,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
             lastError = "Not connected wirelessly."
             return false
         }
-        guard hasTrustedMacController else {
+        guard hasTrustedWirelessPairingForSecureCommand else {
             lastError = "Pair this Mac over USB-C before using wireless commands."
             wirelessPairingState = "USB-C trust needed"
             pendingWirelessCommandText = nil
@@ -1594,6 +1573,11 @@ final class DoorAdminStore: NSObject, ObservableObject {
                 if case .firmwareUpdate = intent {
                     firmwareLog.info("OTA DFU entry command written without response; waiting for controller update mode")
                     firmwareUpdateStatus = "Waiting for controller update mode"
+                    scheduleFirmwareDfuStartFallback()
+                } else if case .linkAuthentication = intent {
+                    wirelessLinkAuthenticationInFlight = false
+                    hasAuthenticatedCurrentWirelessLink = true
+                    scheduleWirelessIdleDisconnect()
                 } else {
                     scheduleWirelessIdleDisconnect()
                 }
@@ -1615,6 +1599,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         pendingWirelessCommandIntent = intent
         queuedWirelessCommandDuringCurrentSend = true
         lastError = nil
+        if let predictedDoorCommand { applyPredictedDoorCommand(predictedDoorCommand) }
 
         if let nonce = fastCommandNonce {
             if predictedDoorCommand != nil {
@@ -1640,6 +1625,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         pendingWirelessCommandIntent = intent
         queuedWirelessCommandDuringCurrentSend = true
         lastError = nil
+        if let predictedDoorCommand { applyPredictedDoorCommand(predictedDoorCommand) }
 
         guard canUseWirelessFallback else { return }
         if let peripheral, peripheral.state == .connected {
@@ -1678,19 +1664,6 @@ final class DoorAdminStore: NSObject, ObservableObject {
         } else {
             isDoorCommand = false
         }
-        let isFirmwareUpdate: Bool
-        if case .firmwareUpdate = intent {
-            isFirmwareUpdate = true
-        } else {
-            isFirmwareUpdate = false
-        }
-
-        if isFirmwareUpdate,
-           canWriteWithoutResponse,
-           payload.count <= peripheral.maximumWriteValueLength(for: .withoutResponse) {
-            return .withoutResponse
-        }
-
         if isDoorCommand,
            canWriteWithResponse,
            payload.count <= peripheral.maximumWriteValueLength(for: .withResponse) {
@@ -1879,6 +1852,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         hasTrustedMacController = isTrusted
         UserDefaults.standard.set(isTrusted, forKey: Self.trustedMacControllerKey)
         if isTrusted {
+            hasRejectedCurrentSecurePairing = false
             let cachedCount = UserDefaults.standard.object(forKey: Self.cachedPairedCountKey) == nil
                 ? 0
                 : UserDefaults.standard.integer(forKey: Self.cachedPairedCountKey)
@@ -1891,7 +1865,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         }
     }
 
-    private func sendStatusCommand(
+    func sendStatusCommand(
         _ command: String,
         label: String,
         timeout: TimeInterval,
@@ -2118,7 +2092,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
 
     private func reconcileAutoLockSeconds(in nextStatus: inout ControllerStatus) {
         clearRemoteSettingApplying()
-        let controllerSeconds = min(max(nextStatus.autoLockSeconds, Self.minimumAutoLockSeconds), Self.maximumAutoLockSeconds)
+        let controllerSeconds = ControllerStatus.clampedAutoLockSeconds(nextStatus.autoLockSeconds)
 
         if pendingAutoLockSeconds == controllerSeconds {
             pendingAutoLockSeconds = nil
@@ -2148,7 +2122,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
 
     private func reconcileServoAngles(in nextStatus: inout ControllerStatus) {
         clearRemoteSettingApplying()
-        let controllerAngles = clampedServoAngles(nextStatus.servoAngles, using: nextStatus)
+        let controllerAngles = nextStatus.clampedServoAngles(nextStatus.servoAngles)
 
         if pendingServoAngles == controllerAngles {
             pendingServoAngles = nil
@@ -2172,26 +2146,6 @@ final class DoorAdminStore: NSObject, ObservableObject {
         nextStatus.unlockAngle = controllerAngles.unlockAngle
         clearLocalSettingApply("servo_angles")
         servoAnglesStatus = "Controller set to \(controllerAngles.lockAngle)° / \(controllerAngles.unlockAngle)°"
-    }
-
-    private func clampedServoAngles(_ angles: ServoAngles, using status: ControllerStatus? = nil) -> ServoAngles {
-        let range = (status ?? self.status).servoAngleRange
-        return ServoAngles(
-            lockAngle: min(max(angles.lockAngle, range.lowerBound), range.upperBound),
-            unlockAngle: min(max(angles.unlockAngle, range.lowerBound), range.upperBound)
-        )
-    }
-
-    private func servoAnglesAreValid(_ angles: ServoAngles) -> Bool {
-        servoAnglesAreValid(angles, using: status)
-    }
-
-    private func servoAnglesAreValid(_ angles: ServoAngles, using status: ControllerStatus) -> Bool {
-        let range = status.servoAngleRange
-        let gap = abs(angles.lockAngle - angles.unlockAngle)
-        return range.contains(angles.lockAngle)
-            && range.contains(angles.unlockAngle)
-            && gap >= max(1, status.servoMinAngleGap)
     }
 
     private func autoLockDeadlineChanged(from oldDeadline: Date?, to newDeadline: Date?) -> Bool {
@@ -2272,6 +2226,10 @@ final class DoorAdminStore: NSObject, ObservableObject {
         let maxConnections = UserDefaults.standard.object(forKey: cachedMaxConnectionsKey) == nil
             ? ControllerStatus().maxConnections
             : UserDefaults.standard.integer(forKey: cachedMaxConnectionsKey)
+        let cachedAngles = ControllerStatus().clampedServoAngles(ServoAngles(
+            lockAngle: lockAngle,
+            unlockAngle: unlockAngle
+        ))
 
         return ControllerStatus(
             firmwareVersion: UserDefaults.standard.string(forKey: cachedFirmwareVersionKey) ?? ControllerStatus().firmwareVersion,
@@ -2281,9 +2239,9 @@ final class DoorAdminStore: NSObject, ObservableObject {
             maxConnections: max(4, maxConnections),
             bleState: state,
             isUnlocked: state == "unlocked",
-            autoLockSeconds: min(max(autoLockSeconds, minimumAutoLockSeconds), maximumAutoLockSeconds),
-            lockAngle: min(max(lockAngle, ControllerStatus.defaultServoMinAngle), ControllerStatus.defaultServoMaxAngle),
-            unlockAngle: min(max(unlockAngle, ControllerStatus.defaultServoMinAngle), ControllerStatus.defaultServoMaxAngle)
+            autoLockSeconds: ControllerStatus.clampedAutoLockSeconds(autoLockSeconds),
+            lockAngle: cachedAngles.lockAngle,
+            unlockAngle: cachedAngles.unlockAngle
         )
     }
 
@@ -2632,6 +2590,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         pairingCharacteristic = nil
         controlCharacteristic = nil
         isWirelessStateNotificationEnabled = false
+        resetWirelessLinkAuthentication()
         wirelessControlNonceRecoveryTask?.cancel()
         wirelessControlNonceRecoveryTask = nil
         invalidatePreparedFastDoorCommandPayloads(clearNonce: true)
@@ -2659,7 +2618,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         UserDefaults.standard.set(peripheral.identifier.uuidString, forKey: Self.knownPeripheralIdentifierKey)
     }
 
-    private func isCurrentPeripheral(_ peripheral: CBPeripheral) -> Bool {
+    func isCurrentPeripheral(_ peripheral: CBPeripheral) -> Bool {
         self.peripheral?.identifier == peripheral.identifier
     }
 
@@ -2692,6 +2651,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         saveKnownPeripheral(knownPeripheral)
         peripheral = knownPeripheral
         peripheral?.delegate = self
+        resetWirelessLinkAuthentication()
         wirelessConnectionState = knownPeripheral.state == .connected ? "Discovering" : "Reconnecting"
         stopWirelessScan()
 
@@ -2809,6 +2769,8 @@ final class DoorAdminStore: NSObject, ObservableObject {
         wirelessKnownPeripheralFallbackTask = nil
         wirelessStateSnapshotFallbackTask?.cancel()
         wirelessStateSnapshotFallbackTask = nil
+        wirelessFirmwareVersionSnapshotRetryTask?.cancel()
+        wirelessFirmwareVersionSnapshotRetryTask = nil
         wirelessControlNonceRecoveryTask?.cancel()
         wirelessControlNonceRecoveryTask = nil
         stopSecureLinkWatchdog()
@@ -2816,11 +2778,13 @@ final class DoorAdminStore: NSObject, ObservableObject {
         if let peripheral, peripheral.state == .connected || peripheral.state == .connecting {
             central?.cancelPeripheralConnection(peripheral)
         }
+        recordRuntimeTelemetry("wireless_stop", details: reason, once: false)
         pendingWirelessWriteIntents = []
         fastDoorCommandInFlight = nil
         invalidatePreparedFastDoorCommandPayloads(clearNonce: true)
         lastWirelessStateSyncAt = nil
         isWirelessStateNotificationEnabled = false
+        resetWirelessLinkAuthentication()
         peripheral = nil
         commandCharacteristic = nil
         stateCharacteristic = nil
@@ -2830,7 +2794,31 @@ final class DoorAdminStore: NSObject, ObservableObject {
         wirelessPairingState = isConnected ? "USB-C active" : "Unknown"
     }
 
-    private func readStateIfPossible() {
+    private func prepareWirelessSessionForFirmwareDfu() {
+        wirelessReconnectTask?.cancel()
+        wirelessReconnectTask = nil
+        wirelessIdleDisconnectTask?.cancel()
+        wirelessIdleDisconnectTask = nil
+        wirelessKnownPeripheralFallbackTask?.cancel()
+        wirelessKnownPeripheralFallbackTask = nil
+        wirelessStateSnapshotFallbackTask?.cancel()
+        wirelessStateSnapshotFallbackTask = nil
+        wirelessFirmwareVersionSnapshotRetryTask?.cancel()
+        wirelessFirmwareVersionSnapshotRetryTask = nil
+        wirelessControlNonceRecoveryTask?.cancel()
+        wirelessControlNonceRecoveryTask = nil
+        stopSecureLinkWatchdog()
+        stopWirelessScan()
+        pendingWirelessWriteIntents = []
+        fastDoorCommandInFlight = nil
+        invalidatePreparedFastDoorCommandPayloads(clearNonce: true)
+        pendingWirelessCommandText = nil
+        pendingWirelessPredictedCommand = nil
+        pendingWirelessCommandIntent = nil
+        wirelessConnectionState = "Updating firmware"
+    }
+
+    func readStateIfPossible() {
         guard let peripheral, let stateCharacteristic else { return }
         if stateCharacteristic.properties.contains(.read) {
             peripheral.readValue(for: stateCharacteristic)
@@ -2889,6 +2877,11 @@ final class DoorAdminStore: NSObject, ObservableObject {
             return
         }
 
+        guard canSendWirelessControlNonceRequest() else {
+            startSecureLinkWatchdogIfNeeded()
+            return
+        }
+
         recordRuntimeTelemetry("secure_nonce_requested", once: false)
         if (controlCharacteristic.properties.contains(.notify) || controlCharacteristic.properties.contains(.indicate)),
            !controlCharacteristic.isNotifying {
@@ -2901,6 +2894,16 @@ final class DoorAdminStore: NSObject, ObservableObject {
         }
         requestNonceViaCommandIfPossible()
         startSecureLinkWatchdogIfNeeded()
+    }
+
+    private func canSendWirelessControlNonceRequest() -> Bool {
+        let now = ProcessInfo.processInfo.systemUptime
+        guard now - lastWirelessControlNonceRequestUptime >= Self.wirelessControlNonceRequestMinimumInterval else {
+            return false
+        }
+
+        lastWirelessControlNonceRequestUptime = now
+        return true
     }
 
     private func requestNonceViaCommandIfPossible() {
@@ -2980,7 +2983,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
                     self.requestWirelessControlNonceWithoutWatchdog()
                 }
 
-                try? await Task.sleep(nanoseconds: 250_000_000)
+                try? await Task.sleep(nanoseconds: 500_000_000)
             }
 
             await MainActor.run {
@@ -2994,12 +2997,31 @@ final class DoorAdminStore: NSObject, ObservableObject {
             fastCommandNonce == nil &&
             ((pendingFirmwareUpdatePackageURL != nil && !firmwareUpdateEntryCommandSent) ||
                 pendingWirelessCommandText != nil ||
-                preparedFastDoorCommandPayloads.isEmpty)
+                needsWirelessLinkAuthentication ||
+                needsFastDoorCommandPreparation)
+    }
+
+    private var needsWirelessLinkAuthentication: Bool {
+        !hasAuthenticatedCurrentWirelessLink &&
+            !wirelessLinkAuthenticationInFlight &&
+            pendingWirelessCommandText == nil &&
+            pendingFirmwareUpdatePackageURL == nil
+    }
+
+    private var needsFastDoorCommandPreparation: Bool {
+        hasAuthenticatedCurrentWirelessLink &&
+            pendingWirelessCommandText == nil &&
+            pendingFirmwareUpdatePackageURL == nil &&
+            preparedFastDoorCommandPayloads.isEmpty
     }
 
     private func requestWirelessControlNonceWithoutWatchdog() {
         guard let peripheral,
               let controlCharacteristic else {
+            return
+        }
+
+        guard canSendWirelessControlNonceRequest() else {
             return
         }
 
@@ -3021,6 +3043,11 @@ final class DoorAdminStore: NSObject, ObservableObject {
         secureLinkWatchdogTask = nil
         wirelessControlNonceRecoveryTask?.cancel()
         wirelessControlNonceRecoveryTask = nil
+    }
+
+    private func resetWirelessLinkAuthentication() {
+        hasAuthenticatedCurrentWirelessLink = false
+        wirelessLinkAuthenticationInFlight = false
     }
 
     private func markWirelessConnectionObserved() {
@@ -3057,6 +3084,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
 
                         self.preparedFastDoorCommandTask = nil
                         self.fastCommandNonce = nil
+                        self.startSecureLinkWatchdogIfNeeded()
                     }
                     return
                 }
@@ -3065,7 +3093,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
                     guard let self,
                           self.preparedFastDoorCommandGeneration == generation,
                           self.fastCommandNonce == nonce,
-                          self.hasTrustedMacController else {
+                          self.hasTrustedWirelessPairingForSecureCommand else {
                         return false
                     }
 
@@ -3074,6 +3102,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
                         self.recordRuntimeTelemetry("first_fast_payload_ready", details: command.rawValue)
                         self.recordRuntimeTelemetry("door_command_usable", details: "fast_payload_ready")
                     }
+                    self.stopSecureLinkWatchdog()
                     self.sendQueuedWirelessCommand()
                     return self.preparedFastDoorCommandGeneration == generation &&
                         self.fastCommandNonce == nonce
@@ -3086,11 +3115,12 @@ final class DoorAdminStore: NSObject, ObservableObject {
                 guard let self,
                       self.preparedFastDoorCommandGeneration == generation,
                       self.fastCommandNonce == nonce,
-                      self.hasTrustedMacController else {
+                      self.hasTrustedWirelessPairingForSecureCommand else {
                     return
                 }
 
                 self.preparedFastDoorCommandTask = nil
+                self.stopSecureLinkWatchdog()
                 self.sendQueuedWirelessCommand()
             }
         }
@@ -3114,6 +3144,11 @@ final class DoorAdminStore: NSObject, ObservableObject {
 
     private func applyFastCommandNonce(_ nonce: Data) {
         firmwareLog.info("Secure nonce received pendingFirmware=\(self.pendingFirmwareUpdatePackageURL != nil, privacy: .public)")
+        if wirelessLinkAuthenticationInFlight {
+            wirelessLinkAuthenticationInFlight = false
+            hasAuthenticatedCurrentWirelessLink = true
+            recordRuntimeTelemetry("door_command_usable", details: "link_authenticated")
+        }
         stopSecureLinkWatchdog()
         fastCommandNonce = nonce
         recordRuntimeTelemetry("secure_nonce_received")
@@ -3124,7 +3159,28 @@ final class DoorAdminStore: NSObject, ObservableObject {
         if sendQueuedWirelessNonDoorCommandIfReady() {
             return
         }
+        if sendWirelessLinkAuthenticationProbeIfNeeded() {
+            return
+        }
         prepareFastDoorCommandPayloads(for: nonce)
+    }
+
+    @discardableResult
+    private func sendWirelessLinkAuthenticationProbeIfNeeded() -> Bool {
+        guard needsWirelessLinkAuthentication,
+              fastCommandNonce != nil,
+              isWirelessReady else {
+            return false
+        }
+
+        wirelessLinkAuthenticationInFlight = true
+        if sendWirelessCommandText("GET_LOCK_NAME", intent: .linkAuthentication) {
+            recordRuntimeTelemetry("wireless_auth_probe_sent", once: false)
+            return true
+        }
+
+        wirelessLinkAuthenticationInFlight = false
+        return false
     }
 
     @discardableResult
@@ -3148,19 +3204,19 @@ final class DoorAdminStore: NSObject, ObservableObject {
     }
 
     private func applyWirelessState(_ newState: String) {
-        if let applying = Self.settingApplying(from: newState) {
+        if let applying = ControllerStateParser.settingApplying(from: newState) {
             applyRemoteSettingApplying(kind: applying.kind, value: applying.value)
             updateWirelessPairingState(from: "paired")
             return
         }
 
-        if let controllerLockName = Self.lockName(from: newState) {
+        if let controllerLockName = ControllerStateParser.lockName(from: newState, fallback: Self.defaultLockName) {
             applyControllerLockName(controllerLockName)
             updateWirelessPairingState(from: "paired")
             return
         }
 
-        if let controllerAngles = Self.servoAngles(from: newState) {
+        if let controllerAngles = ControllerStateParser.servoAngles(from: newState) {
             var nextStatus = status
             nextStatus.lockAngle = controllerAngles.lockAngle
             nextStatus.unlockAngle = controllerAngles.unlockAngle
@@ -3171,7 +3227,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
             return
         }
 
-        if let lastUnlock = Self.lastUnlockRecord(from: newState) {
+        if let lastUnlock = ControllerStateParser.lastUnlockRecord(from: newState) {
             var nextStatus = status
             nextStatus.lastUnlockAt = lastUnlock.unlockedAt
             nextStatus.lastUnlockDeviceIdentifier = lastUnlock.deviceIdentifier
@@ -3182,11 +3238,14 @@ final class DoorAdminStore: NSObject, ObservableObject {
             return
         }
 
-        if let controllerFirmwareVersion = Self.firmwareVersion(from: newState) {
+        if let controllerFirmwareVersion = ControllerStateParser.firmwareVersion(from: newState) {
             var nextStatus = status
             nextStatus.firmwareVersion = controllerFirmwareVersion
             status = nextStatus
             saveCachedStatus(nextStatus)
+            wirelessFirmwareVersionSnapshotRetryTask?.cancel()
+            wirelessFirmwareVersionSnapshotRetryTask = nil
+            postFirmwareVerificationIfNeeded(controllerFirmwareVersion)
             if firmwareUpdateStatus == "Update complete. Verifying..." {
                 firmwareUpdateStatus = "Verified \(controllerFirmwareVersion)"
             }
@@ -3194,20 +3253,16 @@ final class DoorAdminStore: NSObject, ObservableObject {
             return
         }
 
-        if let updateState = Self.firmwareUpdateState(from: newState) {
+        if let updateState = ControllerStateParser.firmwareUpdateState(from: newState) {
             if updateState == "ota_dfu" {
                 firmwareUpdateStatus = "Controller entering update mode"
-                if let packageURL = pendingFirmwareUpdatePackageURL {
-                    pendingFirmwareUpdatePackageURL = nil
-                    firmwareUpdateEntryCommandSent = false
-                    beginFirmwareDfuUpload(after: packageURL)
-                }
+                beginPendingFirmwareDfuUploadIfNeeded()
             }
             updateWirelessPairingState(from: "paired")
             return
         }
 
-        if let connections = Self.connectedDevices(from: newState) {
+        if let connections = ControllerStateParser.connectedDevices(from: newState) {
             var nextStatus = status
             nextStatus.connectedCount = connections.count
             nextStatus.maxConnections = connections.max
@@ -3221,6 +3276,21 @@ final class DoorAdminStore: NSObject, ObservableObject {
         }
 
         let payload = ControllerStatePayload.parse(newState)
+        if payload.state == "pairing_enabled" || payload.state == "pairing_pending" || payload.state == "pairing_locked" {
+            var nextStatus = status
+            nextStatus.bleState = payload.state
+            nextStatus.pairingMode = payload.state == "pairing_enabled" || payload.state == "pairing_pending" ? "enabled" : "locked"
+            nextStatus.hasPendingRequest = payload.state == "pairing_pending"
+            if payload.state != "pairing_pending" {
+                nextStatus.pendingName = nil
+            }
+            status = statusIncludingLocalUSBConnection(nextStatus)
+            saveCachedStatus(status)
+            updateWirelessPairingState(from: payload.state)
+            message = statusMessage(for: status)
+            return
+        }
+
         if payload.state == "timeout_set" {
             if let seconds = payload.remainingSeconds {
                 var nextStatus = status
@@ -3240,6 +3310,13 @@ final class DoorAdminStore: NSObject, ObservableObject {
 
         if payload.state == "paired" {
             clearRemoteSettingApplying()
+            var nextStatus = status
+            nextStatus.bleState = payload.state
+            nextStatus.pairingMode = "locked"
+            nextStatus.hasPendingRequest = false
+            nextStatus.pendingName = nil
+            status = statusIncludingLocalUSBConnection(nextStatus)
+            saveCachedStatus(status)
             updateWirelessPairingState(from: payload.state)
             if isConnected, !isBusy {
                 Task { [weak self] in
@@ -3262,11 +3339,14 @@ final class DoorAdminStore: NSObject, ObservableObject {
         }
         status = nextStatus
         saveCachedStatus(nextStatus)
-        if payload.state == "locked" ||
-            payload.state == "unlocked" ||
-            payload.state == "locking" ||
-            payload.state == "unlocking" {
+        if DoorControlPresentationPolicy.isDoorState(payload.state) {
+            pendingWirelessCommandText = nil
+            pendingWirelessPredictedCommand = nil
+            pendingWirelessCommandIntent = nil
             fastDoorCommandInFlight = nil
+            if DoorControlPresentationPolicy.isChangingState(payload.state) {
+                scheduleWirelessStateSnapshotFallbackRead(after: 0.25)
+            }
         }
         hasConfirmedExpiredAutoLockDeadline = false
         message = statusMessage(for: status)
@@ -3275,6 +3355,48 @@ final class DoorAdminStore: NSObject, ObservableObject {
 
     private func handleFastCommandReject(reason: String) {
         invalidatePreparedFastDoorCommandPayloads(clearNonce: true)
+        if wirelessLinkAuthenticationInFlight {
+            wirelessLinkAuthenticationInFlight = false
+            hasAuthenticatedCurrentWirelessLink = false
+        }
+        let rejectedFirmwareUpdate = isFirmwareUpdateRunning
+
+        if reason == "bad_signature" || reason == "unpaired" {
+            hasRejectedCurrentSecurePairing = true
+            setTrustedMacController(false)
+        }
+
+        if rejectedFirmwareUpdate {
+            pendingFirmwareUpdatePackageURL = nil
+            firmwareUpdateEntryCommandSent = false
+            expectedFirmwareVerificationVersion = nil
+            isAwaitingPostDfuFirmwareVerification = false
+            didPostFirmwareVerificationNotification = false
+            firmwareUpdateWatchdogTask?.cancel()
+            firmwareUpdateWatchdogTask = nil
+            firmwareDfuStartFallbackTask?.cancel()
+            firmwareDfuStartFallbackTask = nil
+            firmwareDfuManager.cancel()
+            firmwareUpdateProgress = nil
+            isFirmwareUpdateRunning = false
+            switch reason {
+            case "unpaired", "bad_signature":
+                firmwareUpdateStatus = "Pair this Mac over USB-C before updating firmware"
+                lastError = "Pair this Mac over USB-C before updating firmware."
+            case "bad_nonce", "missing_nonce":
+                firmwareUpdateStatus = "Controller asked for a fresh secure command"
+                lastError = "Controller asked for a fresh secure command."
+            case "busy":
+                firmwareUpdateStatus = "Controller is busy"
+                lastError = "Controller is busy."
+            default:
+                firmwareUpdateStatus = "Firmware update rejected"
+                lastError = "Controller rejected firmware update."
+            }
+            fastDoorCommandInFlight = nil
+            readStateIfPossible()
+            return
+        }
 
         switch reason {
         case "busy":
@@ -3289,7 +3411,8 @@ final class DoorAdminStore: NSObject, ObservableObject {
             lastError = nil
             requestWirelessControlNonce()
         case "bad_signature", "unpaired":
-            lastError = "Controller rejected the command."
+            wirelessPairingState = "USB-C trust needed"
+            lastError = "Pair this Mac over USB-C before using wireless commands."
         default:
             lastError = "Controller rejected the command."
         }
@@ -3301,13 +3424,28 @@ final class DoorAdminStore: NSObject, ObservableObject {
     private func updateWirelessPairingState(from state: String) {
         switch state {
         case "pairing_enabled":
+            hasRejectedCurrentSecurePairing = false
             wirelessPairingState = "Pairing enabled"
         case "pairing_pending":
+            hasRejectedCurrentSecurePairing = false
             wirelessPairingState = "Pairing pending"
         case "pairing_locked", "unpaired":
+            if state == "unpaired" {
+                hasRejectedCurrentSecurePairing = true
+            }
             wirelessPairingState = "Pairing locked"
             setTrustedMacController(false)
-        case "paired", "locked", "unlocked", "locking", "unlocking", "timeout_set", "last_unlock":
+        case "paired":
+            guard !hasRejectedCurrentSecurePairing else {
+                wirelessPairingState = "USB-C trust needed"
+                break
+            }
+            wirelessPairingState = hasTrustedMacController ? "Ready" : "USB-C trust needed"
+        case "locked", "unlocked", "locking", "unlocking", "timeout_set", "last_unlock":
+            guard !hasRejectedCurrentSecurePairing else {
+                wirelessPairingState = "USB-C trust needed"
+                break
+            }
             wirelessPairingState = hasTrustedMacController ? "Ready" : "USB-C trust needed"
         case "rejected":
             wirelessPairingState = hasTrustedMacController ? "Ready" : "USB-C trust needed"
@@ -3315,147 +3453,6 @@ final class DoorAdminStore: NSObject, ObservableObject {
         default:
             break
         }
-    }
-
-    private static func lockName(from state: String) -> String? {
-        let prefix = "lock_name:"
-        guard state.hasPrefix(prefix) else { return nil }
-
-        let rawName = String(state.dropFirst(prefix.count))
-        let sanitizedName = sanitizedLockName(rawName)
-        return sanitizedName.isEmpty ? nil : sanitizedName
-    }
-
-    private static func firmwareVersion(from state: String) -> String? {
-        let prefix = "firmware_version:"
-        guard state.hasPrefix(prefix) else { return nil }
-
-        let value = String(state.dropFirst(prefix.count))
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return value.isEmpty ? nil : value
-    }
-
-    private static func firmwareUpdateState(from state: String) -> String? {
-        let prefix = "firmware_update:"
-        guard state.hasPrefix(prefix) else { return nil }
-
-        let value = String(state.dropFirst(prefix.count))
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return value.isEmpty ? nil : value
-    }
-
-    private static func fastCommandNonce(from state: String) -> Data? {
-        let prefix = "nonce:v3:"
-        guard state.hasPrefix(prefix) else { return nil }
-
-        let hex = String(state.dropFirst(prefix.count))
-        return dataFromHex(hex, expectedByteCount: 16)
-    }
-
-    private static func fastCommandRejectReason(from state: String) -> String? {
-        let prefix = "reject:v3:"
-        guard state.hasPrefix(prefix) else { return nil }
-
-        let reason = String(state.dropFirst(prefix.count))
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return reason.isEmpty ? "rejected" : reason
-    }
-
-    private static func dataFromHex(_ hex: String, expectedByteCount: Int) -> Data? {
-        guard hex.count == expectedByteCount * 2 else { return nil }
-
-        var bytes: [UInt8] = []
-        bytes.reserveCapacity(expectedByteCount)
-        var index = hex.startIndex
-        while index < hex.endIndex {
-            let nextIndex = hex.index(index, offsetBy: 2)
-            guard nextIndex <= hex.endIndex,
-                  let byte = UInt8(hex[index..<nextIndex], radix: 16) else {
-                return nil
-            }
-            bytes.append(byte)
-            index = nextIndex
-        }
-
-        return bytes.count == expectedByteCount ? Data(bytes) : nil
-    }
-
-    private static func servoAngles(from state: String) -> ServoAngles? {
-        let prefix = "servo_angles:"
-        guard state.hasPrefix(prefix) else { return nil }
-
-        let values = state.dropFirst(prefix.count)
-            .split(separator: ",", maxSplits: 1)
-            .compactMap { Int(String($0).trimmingCharacters(in: .whitespacesAndNewlines)) }
-        guard values.count == 2 else { return nil }
-        return ServoAngles(lockAngle: values[0], unlockAngle: values[1])
-    }
-
-    private static func lastUnlockRecord(from state: String) -> LastUnlockRecord? {
-        let prefix = "last_unlock:"
-        guard state.hasPrefix(prefix) else { return nil }
-
-        let payload = String(state.dropFirst(prefix.count))
-        let parts = payload.split(separator: ":", maxSplits: 2, omittingEmptySubsequences: false).map(String.init)
-        let rawTimestamp = parts.first ?? ""
-        guard let timestamp = TimeInterval(rawTimestamp), timestamp > 0 else {
-            return LastUnlockRecord(unlockedAt: nil, deviceIdentifier: nil, deviceName: nil)
-        }
-
-        let secondValue = parts.count > 1 ? parts[1].trimmingCharacters(in: .whitespacesAndNewlines) : ""
-        let thirdValue = parts.count > 2 ? parts[2].trimmingCharacters(in: .whitespacesAndNewlines) : ""
-        let secondValueIsIdentifier = isTrustedDeviceIdentifier(secondValue)
-        let identifier = secondValueIsIdentifier ? secondValue : nil
-        let deviceName = secondValueIsIdentifier
-            ? thirdValue
-            : parts.dropFirst().joined(separator: ":").trimmingCharacters(in: .whitespacesAndNewlines)
-
-        return LastUnlockRecord(
-            unlockedAt: Date(timeIntervalSince1970: timestamp),
-            deviceIdentifier: identifier?.isEmpty == true ? nil : identifier,
-            deviceName: deviceName.isEmpty ? nil : deviceName
-        )
-    }
-
-    private static func connectedDevices(from state: String) -> (count: Int, max: Int, devices: [ConnectedControllerDevice])? {
-        let prefix = "connections:"
-        guard state.hasPrefix(prefix) else { return nil }
-
-        let payload = String(state.dropFirst(prefix.count))
-        let parts = payload.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
-        let countParts = (parts.first ?? "").split(separator: "/", maxSplits: 1).map(String.init)
-        let count = Int(countParts.first ?? "") ?? 0
-        let maxConnections = countParts.count > 1 ? (Int(countParts[1]) ?? max(count, 4)) : max(count, 4)
-        let names = parts.count > 1
-            ? parts[1].split(separator: "|", omittingEmptySubsequences: false).map(String.init)
-            : []
-        let devices = names.enumerated().compactMap { index, rawName -> ConnectedControllerDevice? in
-            let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !name.isEmpty else { return nil }
-            return ConnectedControllerDevice(
-                slot: index + 1,
-                handle: "wireless-\(index + 1)",
-                name: name,
-                isTrustedName: true
-            )
-        }
-
-        return (count, maxConnections, devices)
-    }
-
-    private static func isTrustedDeviceIdentifier(_ value: String) -> Bool {
-        let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmedValue.count == 19 else { return false }
-
-        for (index, character) in trimmedValue.enumerated() {
-            if index == 4 || index == 9 || index == 14 {
-                guard character == "-" else { return false }
-            } else {
-                guard character.isHexDigit else { return false }
-            }
-        }
-
-        return true
     }
 
 }
@@ -3471,10 +3468,16 @@ extension DoorAdminStore: DoorFirmwareDfuManagerDelegate {
         firmwareLog.info("DFU finished; verifying firmware version")
         firmwareUpdateWatchdogTask?.cancel()
         firmwareUpdateWatchdogTask = nil
+        firmwareDfuStartFallbackTask?.cancel()
+        firmwareDfuStartFallbackTask = nil
         firmwareUpdateEntryCommandSent = false
         firmwareUpdateStatus = "Update complete. Verifying..."
         firmwareUpdateProgress = 100
         isFirmwareUpdateRunning = false
+        if expectedFirmwareVerificationVersion != nil {
+            isAwaitingPostDfuFirmwareVerification = true
+            didPostFirmwareVerificationNotification = false
+        }
         wirelessIdleDisconnectTask?.cancel()
         wirelessIdleDisconnectTask = nil
         Task { [weak self] in
@@ -3494,8 +3497,13 @@ extension DoorAdminStore: DoorFirmwareDfuManagerDelegate {
         firmwareLog.error("DFU failed: \(message, privacy: .public)")
         firmwareUpdateWatchdogTask?.cancel()
         firmwareUpdateWatchdogTask = nil
+        firmwareDfuStartFallbackTask?.cancel()
+        firmwareDfuStartFallbackTask = nil
         pendingFirmwareUpdatePackageURL = nil
         firmwareUpdateEntryCommandSent = false
+        expectedFirmwareVerificationVersion = nil
+        isAwaitingPostDfuFirmwareVerification = false
+        didPostFirmwareVerificationNotification = false
         firmwareUpdateStatus = "Firmware update failed"
         firmwareUpdateProgress = nil
         isFirmwareUpdateRunning = false
@@ -3572,6 +3580,8 @@ extension DoorAdminStore: CBCentralManagerDelegate {
         Task { @MainActor in
             guard isCurrentPeripheral(peripheral) else { return }
 
+            let errorDescription = error?.localizedDescription ?? "none"
+            recordRuntimeTelemetry("wireless_disconnect", details: "error=\(errorDescription)", once: false)
             self.peripheral = nil
             wirelessConnectionState = "Idle"
             commandCharacteristic = nil
@@ -3579,11 +3589,12 @@ extension DoorAdminStore: CBCentralManagerDelegate {
             pairingCharacteristic = nil
             controlCharacteristic = nil
             isWirelessStateNotificationEnabled = false
-        wirelessControlNonceRecoveryTask?.cancel()
-        wirelessControlNonceRecoveryTask = nil
-        stopSecureLinkWatchdog()
-        invalidatePreparedFastDoorCommandPayloads(clearNonce: true)
-        wirelessPairingState = "Unknown"
+            resetWirelessLinkAuthentication()
+            wirelessControlNonceRecoveryTask?.cancel()
+            wirelessControlNonceRecoveryTask = nil
+            stopSecureLinkWatchdog()
+            invalidatePreparedFastDoorCommandPayloads(clearNonce: true)
+            wirelessPairingState = "Unknown"
             if isFirmwareUpdateRunning {
                 wirelessConnectionState = "Updating firmware"
                 return
@@ -3665,14 +3676,15 @@ extension DoorAdminStore: CBPeripheralDelegate {
                 wirelessKnownPeripheralFallbackTask?.cancel()
                 wirelessKnownPeripheralFallbackTask = nil
                 markWirelessConnectionObserved()
-                wirelessConnectionState = hasTrustedMacController ? "Ready" : "USB-C trust needed"
+                wirelessConnectionState = hasTrustedWirelessPairingForSecureCommand ? "Ready" : "USB-C trust needed"
                 wirelessReconnectAttempt = 0
-                message = hasTrustedMacController ? "Wireless ready" : "Connect USB-C to trust this Mac"
-                firmwareLog.info("Door GATT ready trusted=\(self.hasTrustedMacController, privacy: .public) pendingFirmware=\(self.pendingFirmwareUpdatePackageURL != nil, privacy: .public)")
+                message = hasTrustedWirelessPairingForSecureCommand ? "Wireless ready" : "Connect USB-C to trust this Mac"
+                firmwareLog.info("Door GATT ready trusted=\(self.hasTrustedWirelessPairingForSecureCommand, privacy: .public) pendingFirmware=\(self.pendingFirmwareUpdatePackageURL != nil, privacy: .public)")
                 recordRuntimeTelemetry("gatt_ready")
                 readStateIfPossible()
+                scheduleWirelessFirmwareVersionSnapshotRetry()
                 enableWirelessControlNotificationsIfPossible(on: peripheral)
-                guard hasTrustedMacController else {
+                guard hasTrustedWirelessPairingForSecureCommand else {
                     scheduleWirelessIdleDisconnect(after: 0.5)
                     return
                 }
@@ -3704,6 +3716,7 @@ extension DoorAdminStore: CBPeripheralDelegate {
                     recordRuntimeTelemetry("state_notify_enabled")
                     enableWirelessControlNotificationsIfPossible(on: peripheral)
                     scheduleWirelessStateSnapshotFallbackRead()
+                    scheduleWirelessFirmwareVersionSnapshotRetry()
                 } else if let error {
                     lastError = error.localizedDescription
                 }
@@ -3748,19 +3761,17 @@ extension DoorAdminStore: CBPeripheralDelegate {
                 wirelessControlNonceRecoveryTask?.cancel()
                 wirelessControlNonceRecoveryTask = nil
 
-                if let nonce = Self.fastCommandNonce(from: newState) {
+                if let nonce = ControllerStateParser.fastCommandNonce(from: newState) {
                     applyFastCommandNonce(nonce)
-                    updateWirelessPairingState(from: "paired")
                     return
                 }
 
-                if let rejectReason = Self.fastCommandRejectReason(from: newState) {
+                if let rejectReason = ControllerStateParser.fastCommandRejectReason(from: newState) {
                     handleFastCommandReject(reason: rejectReason)
-                    updateWirelessPairingState(from: rejectReason == "unpaired" ? "unpaired" : "paired")
                     return
                 }
 
-                if let connections = Self.connectedDevices(from: newState) {
+                if let connections = ControllerStateParser.connectedDevices(from: newState) {
                     var nextStatus = status
                     nextStatus.connectedCount = connections.count
                     nextStatus.maxConnections = connections.max
@@ -3825,9 +3836,18 @@ extension DoorAdminStore: CBPeripheralDelegate {
                 if case .firmwareUpdate = commandWriteIntent {
                     pendingFirmwareUpdatePackageURL = nil
                     firmwareUpdateEntryCommandSent = false
+                    firmwareDfuStartFallbackTask?.cancel()
+                    firmwareDfuStartFallbackTask = nil
                     firmwareUpdateStatus = "Firmware update request failed"
                     firmwareUpdateProgress = nil
                     isFirmwareUpdateRunning = false
+                }
+                if case .linkAuthentication = commandWriteIntent {
+                    wirelessLinkAuthenticationInFlight = false
+                    hasAuthenticatedCurrentWirelessLink = false
+                }
+                if case .pairingAdmin = commandWriteIntent {
+                    approvalCode = ""
                 }
                 if characteristic.uuid == pairingUUID {
                     wirelessPairingState = "Pairing locked"
@@ -3859,7 +3879,22 @@ extension DoorAdminStore: CBPeripheralDelegate {
                 if case .firmwareUpdate = commandWriteIntent {
                     firmwareLog.info("OTA DFU entry write acknowledged; waiting for controller update mode")
                     firmwareUpdateStatus = "Waiting for controller update mode"
+                    scheduleFirmwareDfuStartFallback()
                     return
+                }
+                if case .linkAuthentication = commandWriteIntent {
+                    wirelessLinkAuthenticationInFlight = false
+                    hasAuthenticatedCurrentWirelessLink = true
+                    recordRuntimeTelemetry("door_command_usable", details: "link_authenticated")
+                }
+                if case .pairingAdmin = commandWriteIntent {
+                    if !isWirelessStateNotificationEnabled {
+                        readStateIfPossible()
+                    }
+                    Task { [weak self] in
+                        try? await Task.sleep(for: .milliseconds(350))
+                        try? await self?.loadPairedDevices(timeout: 1)
+                    }
                 }
                 if !isWirelessStateNotificationEnabled {
                     readStateIfPossible()

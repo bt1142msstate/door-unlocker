@@ -1,4 +1,5 @@
 import Foundation
+import DoorUnlockerShared
 
 public struct SerialPortCandidate: Identifiable, Hashable {
     public let path: String
@@ -19,11 +20,22 @@ public struct SerialPortCandidate: Identifiable, Hashable {
 }
 
 public struct ControllerStatus: Equatable {
-    public static let defaultLockAngle = 20
-    public static let defaultUnlockAngle = 95
-    public static let defaultServoMinAngle = 10
-    public static let defaultServoMaxAngle = 170
-    public static let defaultServoMinAngleGap = 10
+    public static let defaultAutoLockSeconds = DoorControllerPolicy.defaultAutoLockSeconds
+    public static let minimumAutoLockSeconds = DoorControllerPolicy.minimumAutoLockSeconds
+    public static let maximumAutoLockSeconds = DoorControllerPolicy.maximumAutoLockSeconds
+    public static let defaultLockAngle = DoorControllerPolicy.defaultServoLockAngle
+    public static let defaultUnlockAngle = DoorControllerPolicy.defaultServoUnlockAngle
+    public static let defaultServoMinAngle = DoorControllerPolicy.minimumServoAngle
+    public static let defaultServoMaxAngle = DoorControllerPolicy.maximumServoAngle
+    public static let defaultServoMinAngleGap = DoorControllerPolicy.minimumServoAngleGap
+
+    public static var autoLockRange: ClosedRange<Int> {
+        DoorControllerPolicy.autoLockRange
+    }
+
+    public static func clampedAutoLockSeconds(_ seconds: Int) -> Int {
+        DoorControllerPolicy.clampedAutoLockSeconds(seconds)
+    }
 
     public var modelName = "DoorUnlocker-XIAO-v4"
     public var firmwareVersion = "Unknown"
@@ -41,7 +53,7 @@ public struct ControllerStatus: Equatable {
     public var settingApplyingKind: String?
     public var settingApplyingValue: String?
     public var isUnlocked = false
-    public var autoLockSeconds = 30
+    public var autoLockSeconds = ControllerStatus.defaultAutoLockSeconds
     public var autoLockRemainingSeconds: Int?
     public var autoLockDeadline: Date?
     public var lockAngle = ControllerStatus.defaultLockAngle
@@ -70,7 +82,7 @@ public struct ControllerStatus: Equatable {
         settingApplyingKind: String? = nil,
         settingApplyingValue: String? = nil,
         isUnlocked: Bool = false,
-        autoLockSeconds: Int = 30,
+        autoLockSeconds: Int = ControllerStatus.defaultAutoLockSeconds,
         autoLockRemainingSeconds: Int? = nil,
         autoLockDeadline: Date? = nil,
         lockAngle: Int = ControllerStatus.defaultLockAngle,
@@ -168,6 +180,18 @@ public struct ControllerStatus: Equatable {
         ServoAngles(lockAngle: lockAngle, unlockAngle: unlockAngle)
     }
 
+    public func clampedServoAngles(_ angles: ServoAngles) -> ServoAngles {
+        DoorControllerPolicy.clampedServoAngles(angles, range: servoAngleRange)
+    }
+
+    public func servoAnglesAreValid(_ angles: ServoAngles) -> Bool {
+        DoorControllerPolicy.servoAnglesAreValid(
+            angles,
+            range: servoAngleRange,
+            minimumGap: servoMinAngleGap
+        )
+    }
+
     public var lastUnlockTitle: String {
         guard let lastUnlockAt else { return "No unlock recorded" }
         return lastUnlockAt.formatted(date: .abbreviated, time: .shortened)
@@ -233,15 +257,7 @@ public struct ConnectedControllerDevice: Identifiable, Equatable, Hashable {
     }
 }
 
-public struct ServoAngles: Equatable, Hashable {
-    public var lockAngle: Int
-    public var unlockAngle: Int
-
-    public init(lockAngle: Int, unlockAngle: Int) {
-        self.lockAngle = lockAngle
-        self.unlockAngle = unlockAngle
-    }
-}
+public typealias ServoAngles = DoorServoAngles
 
 public struct ControllerStatePayload {
     public let state: String

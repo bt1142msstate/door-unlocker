@@ -10,6 +10,7 @@ DIST_UF2_PATH="$ROOT_DIR/dist/DoorUnlockerXiao.uf2"
 DFU_ZIP_PATH="$TMP_BUILD/DoorUnlockerXiao.ino.zip"
 DIST_DFU_ZIP_PATH="$ROOT_DIR/dist/DoorUnlockerXiao-dfu.zip"
 FQBN="${XIAO_FQBN:-Seeeduino:nrf52:xiaonRF52840Sense}"
+XIAO_OPTIMIZATION_FLAG="${XIAO_OPTIMIZATION_FLAG:--Os}"
 UF2CONV="${UF2CONV:-$HOME/Library/Arduino15/packages/Seeeduino/hardware/nrf52/1.1.13/tools/uf2conv/uf2conv.py}"
 NRFUTIL="${NRFUTIL:-$HOME/Library/Arduino15/packages/Seeeduino/hardware/nrf52/1.1.13/tools/adafruit-nrfutil/macos/adafruit-nrfutil}"
 DFU_DEVICE_TYPE="${DFU_DEVICE_TYPE:-0x0052}"
@@ -39,6 +40,8 @@ double-press the XIAO reset button when prompted.
 
 Use --build-only to create dist/DoorUnlockerXiao.uf2 and
 dist/DoorUnlockerXiao-dfu.zip without trying to flash.
+
+Set XIAO_OPTIMIZATION_FLAG=-Ofast to reproduce the stock Seeed build size.
 USAGE
       exit 0
       ;;
@@ -95,7 +98,11 @@ mkdir -p "$TMP_SKETCH"
 rsync -a "$SKETCH_DIR/" "$TMP_SKETCH/"
 
 echo "Compiling XIAO firmware..."
-arduino-cli compile --fqbn "$FQBN" --build-path "$TMP_BUILD" "$TMP_SKETCH"
+arduino-cli compile \
+  --fqbn "$FQBN" \
+  --build-property "compiler.optimization_flag=$XIAO_OPTIMIZATION_FLAG" \
+  --build-path "$TMP_BUILD" \
+  "$TMP_SKETCH"
 
 echo "Creating UF2..."
 python3 "$UF2CONV" -f 0xADA52840 -c -o "$UF2_PATH" "$TMP_BUILD/DoorUnlockerXiao.ino.hex"

@@ -4,13 +4,13 @@ Open-source desk-test prototype for a BLE-controlled servo actuator. The project
 
 This is a bench prototype and wiring reference, not a certified door lock, access-control system, or life-safety device.
 
-Current release: `v0.1.0-beta.3`, the current usable beta. The authenticated wireless command path is in place, but the hardware, multi-device behavior, battery setup, and enclosure still need longer real-world testing before a stable release.
+Current release: `v0.1.0`, the first stable desk-test release. The authenticated wireless command path, trusted-device pairing admin flow, app-driven OTA update path, iPhone app, Mac app, and bench hardware workflow are in place. The project is still a prototype and is not a certified lock, access-control system, or life-safety device.
 
-Latest beta firmware: `0.1.0-beta.ota18`.
+Latest stable firmware: `0.1.0`.
 
-## Latest Beta Validation
+## Latest Stable Validation
 
-The `v0.1.0-beta.3` cut was tested on 2026-07-07 against the bench XIAO controller and the iPhone/Mac apps.
+The `v0.1.0` cut was tested on July 7-8, 2026 against the bench XIAO controller and the iPhone/Mac apps.
 
 Observed iPhone startup timing from `script/benchmark_ios_startup.sh`:
 
@@ -25,13 +25,13 @@ Observed iPhone startup timing from `script/benchmark_ios_startup.sh`:
 Validation run:
 
 - iPhone install path remains `script/install_ios_app.sh`, which builds for `generic/platform=iOS` and installs with `devicectl`.
-- iOS generic device build passed with `CODE_SIGNING_ALLOWED=NO`.
-- Mac admin package tests passed: 6 tests.
-- Mac admin build/run verification passed with `script/build_and_run.sh --verify`.
-- Controller status verified over USB-C after OTA: `model=DoorUnlocker-XIAO-v4`, `firmware_version=0.1.0-beta.ota18`.
-- Mac OTA path verified by updating to `0.1.0-beta.ota18`.
-- iOS app generic build passed with the bundled `0.1.0-beta.ota18` DFU package. Physical iPhone install/OTA was not rerun during the OTA speed pass because Xcode reported the iPhone as offline.
-- Final Mac OTA timing: `172.887s` end to end from CLI command to USB-C status verification. App-side DFU time was `166.1s`, with `1051 B/s` average upload speed at completion.
+- iPhone physical-device build/install passed with the bundled DFU package.
+- Mac admin package build passed with `swift build --package-path mac/DoorUnlockerAdmin`.
+- Mac admin build/run install path passed with `script/build_and_run.sh --install`.
+- iPhone OTA path verified without controller USB-C: the iPhone app updated/verified `0.1.0` over BLE in `94s`.
+- Mac OTA path can verify without controller USB-C; the latest proof run verified over BLE. Use the firmware update commands below for the current size-optimized `0.1.0` package.
+- The wireless verifier refuses the iPhone no-USB run if the controller USB-C serial port is visible, so the normal OTA proof does not depend on serial readback.
+- Earlier Mac OTA timing for `0.1.0-beta.ota24`: `184.8s` app-side DFU time, with `951 B/s` average upload speed at completion.
 - OTA tuning test results:
   - PRN `8`, object prep delay `0.4s`: best measured reliable result, kept as the default.
   - PRN `0`, object prep delay `0.3s`: completed but was slower at `239.4s` app-side DFU time.
@@ -91,11 +91,11 @@ index.html                       GitHub Pages entry point
 3. Open `ios/DoorUnlockerApp/DoorUnlocker.xcodeproj` in Xcode.
 4. Set your own Apple Developer Team, bundle identifiers, and App Group identifiers.
 5. Build and run the iPhone app on your device.
-6. Open the XIAO serial monitor over USB-C and send `pair on`.
+6. Open the XIAO serial monitor over USB-C and send `pair on`, or use an already trusted iPhone/Mac to allow a new device wirelessly.
 7. Connect to the XIAO from the iPhone app and tap **Pair This iPhone** while the app shows `Pairing Enabled`.
-8. Read the 4-digit code shown on the iPhone, then type that code into the Mac admin app or send `pair approve CODE` over USB serial.
+8. Read the 4-digit code shown on the new device, then approve it from an already trusted iPhone/Mac or send `pair approve CODE` over USB serial.
 9. Use the main toggle, Siri/App Shortcuts, widgets, iOS Controls, or the Mac admin app after pairing completes.
-10. To pair the Mac for wireless control, request Mac pairing from the Mac app, then approve it from a separate USB serial/admin flow. The Mac app intentionally does not display its own approval code.
+10. To pair the Mac for wireless control, request Mac pairing from the Mac app, then approve it from a trusted iPhone/Mac or USB serial/admin flow. The Mac app intentionally does not display its own approval code.
 
 The iPhone and Mac apps each generate their own P-256 signing key locally. They prefer Secure Enclave when available and fall back to a Keychain-stored software key when needed. The XIAO stores only trusted device public keys, so the repository does not contain a command secret.
 
@@ -123,7 +123,7 @@ USB serial commands:
 - `app pairs`: print machine-readable paired-device slots, fingerprints, counters, and names when known.
 - `app unlock [EPOCH_SECONDS]`: move the actuator and optionally save the controller-owned last-unlock timestamp.
 - `app angles REST PUSH`: set persisted servo rest and push angles, for example `app angles 20 95`.
-- `app pair on` / `app pair off`: enable or disable USB-gated pairing from the Mac admin app.
+- `app pair on` / `app pair off`: enable or disable USB-C pairing from the Mac admin app.
 - `app approve CODE` / `app reject`: approve or reject a pending device request from the Mac admin app.
 - `app remove N`: remove one paired device by slot number from the Mac admin app.
 - `app lock` / `app unlock`: move the actuator from the Mac admin app over trusted USB.
@@ -146,7 +146,8 @@ The app provides:
 
 - One main state toggle for Lock/Unlock.
 - BLE connection management.
-- USB-gated pairing that sends only the phone public key to the XIAO and requires typing the 4-digit code shown on the phone over USB-C or in the Mac admin app.
+- Trusted-device pairing that sends only the new phone public key to the XIAO and requires typing the 4-digit code shown on the new phone into an already trusted iPhone/Mac or USB-C admin flow.
+- Invite flow for adding a new iPhone: a trusted phone opens pairing mode, shares a non-secret `doorunlocker://pair` link, then approves the 4-digit code shown on the new device.
 - Optional Face ID/passcode confirmation before sending unlock commands.
 - Auto-lock timeout setting that is stored and enforced by the controller.
 - Servo rest/push angle calibration stored and enforced by the controller.
@@ -163,8 +164,8 @@ The Mac admin app is in `mac/DoorUnlockerAdmin`. It automatically connects to th
 
 - Show controller model, state, pairing mode, auto-lock timeout, live auto-lock countdown, and trusted-device count.
 - List trusted devices by friendly name when known, plus slot and public-key fingerprint.
-- Enable or disable pairing mode.
-- Approve or reject a pending iPhone pairing request by typing the 4-digit code shown on the phone.
+- Enable or disable pairing mode over trusted wireless control or USB-C.
+- Approve or reject a pending device pairing request by typing the 4-digit code shown on the new device.
 - Automatically trust the Mac over USB-C for wireless control.
 - Remove one trusted device, clear all trusted devices, or send lock/unlock over USB.
 - Set controller-owned auto-lock timeout and servo rest/push angles.
@@ -200,6 +201,8 @@ swift run door-unlocker bootloader
 - `dist/DoorUnlockerXiao.uf2` for USB-C UF2 recovery flashing.
 - `dist/DoorUnlockerXiao-dfu.zip` for BLE OTA DFU from the iPhone or Mac app.
 
+The build script compiles the controller with `-Os` by default to keep OTA packages small without changing firmware behavior. Set `XIAO_OPTIMIZATION_FLAG=-Ofast` when running the script if you need to reproduce the stock Seeed board-package optimization setting.
+
 For USB-C recovery or first-time flashing, use:
 
 ```sh
@@ -210,7 +213,9 @@ When the installed firmware supports `app bootloader`, the script asks the runni
 
 For app-driven OTA updates, the controller must already trust the app issuing the update command. The trusted app sends the signed `ENTER_OTA_DFU` command, the controller enters BLE DFU mode, the app uploads `DoorUnlockerXiao-dfu.zip`, then the controller reboots and the app verifies the reported firmware version. USB-C remains the recovery fallback if an OTA attempt is interrupted.
 
-Expected OTA timing for the current 166 KB DFU package is about 3 minutes end to end on the bench XIAO. The measured `0.1.0-beta.ota18` Mac update took `172.887s` from CLI command to USB-C status verification, with `166.1s` spent inside the Nordic DFU upload. The app logs DFU package size, PRN setting, object prep delay, progress buckets, upload speed, and total/upload elapsed time under the `FirmwareUpdate` log category.
+Normal firmware updates should preserve the controller's stored pairings, lock name, timeout, and servo angles. Do not run `pairs clear`, delete trusted devices, or re-pair the iPhone just because an OTA or UF2 update was performed. Re-pair only when the app key was actually lost, such as after deleting/reinstalling the app or replacing the phone.
+
+Expected OTA timing for the current 127 KB DFU zip, with a `129,360` byte application payload, should be proportionally lower than the previous 164 KB package. The latest measured iPhone wireless proof before the size-optimized build took `119s` to install `0.1.0-beta.ota27`; an earlier iPhone proof for the same firmware took `109s`, and the earlier measured `0.1.0-beta.ota24` Mac update took `184.8s` inside the Nordic DFU flow, including bootloader scan and upload. The app logs DFU package size, PRN setting, object prep delay, progress buckets, upload speed, and total/upload elapsed time under the `FirmwareUpdate` log category.
 
 The current DFU tuning is intentionally conservative: packet receipt notification parameter `8` and data object preparation delay `0.4s`. [Nordic's iOS DFU library](https://github.com/NordicSemiconductor/IOS-DFU-Library/blob/main/Library/Classes/Implementation/DFUServiceInitiator.swift) documents that PRNs can be disabled on modern iOS/macOS for speed, but also warns that devices with slower flash handling can fail or become very slow; its documented safe object-prep delay range for SDK 15-17 style bootloaders is `0.3s` to `0.4s`. On this XIAO/Adafruit DFU bootloader, PRN `8` was the fastest measured reliable setting; PRN `0`, `12`, and `20` were slower in real OTA tests.
 
@@ -223,17 +228,22 @@ ios/DoorUnlockerApp/DoorUnlocker/Firmware/DoorUnlockerXiao-dfu.zip
 Then run the repeatable physical-device verifier:
 
 ```sh
-./script/verify_ios_ota.sh
+./script/verify_ios_ota.sh --wireless-only --target 0.1.0
 ```
 
-The verifier installs the iPhone app, launches `doorunlocker://debug-install-bundled-firmware`, and polls the USB-C CLI until the controller reports the target firmware version. It intentionally fails if the controller is already on that exact target version unless `--allow-current` is passed, so a timing run cannot be mistaken for a real OTA proof after the firmware has already been installed.
+The wireless verifier installs the iPhone app, launches the bundled-firmware debug update flow, and waits for a version-specific iPhone Darwin notification that is posted only after the app receives `firmware_version:<target>` from the controller over BLE after DFU. With `--wireless-only`, the script refuses to start if the controller USB-C serial port is visible. The controller should not be plugged into USB-C for this proof; the iPhone can stay connected to the Mac for app installation and automation.
+
+Each verifier run writes a persistent telemetry summary to `docs/ota-last-run.json` and detailed launch/notification logs under `docs/ota-telemetry/`. The success report includes the target firmware, elapsed seconds, package byte count, package hashes, whether it was wireless-only, and the exact Darwin notification that proved the app saw the post-update firmware version over BLE.
 
 For Mac OTA testing, build the package and send it through the admin app/CLI flow:
 
 ```sh
 ./script/flash_xiao_uf2.sh --build-only
-mac/DoorUnlockerAdmin/.build/debug/door-unlocker firmware dist/DoorUnlockerXiao-dfu.zip
+./script/build_and_run.sh --install
+./dist/door-unlocker firmware-proof dist/DoorUnlockerXiao-dfu.zip 0.1.0
 ```
+
+`firmware-proof` sends the update request to the running Mac app, waits for the app to receive the expected `firmware_version` over BLE after DFU, then prints `verified_over=ble`. Use plain `firmware ZIP_PATH` for an interactive app-driven update when you do not need an automated proof.
 
 The XIAO UF2 bootloader is separate from Door Unlocker firmware. Normal updates should use the signed Door Unlocker DFU/UF2 app firmware packages and should not rewrite the bootloader. Bootloader maintenance is a recovery-only task: verify the currently installed bootloader from the XIAO bootloader volume before changing it, and only flash a board-specific Seeed/Adafruit nRF52 bootloader build when there is a real compatibility or recovery reason.
 
@@ -258,12 +268,13 @@ When the Mac app is already running, `lock`, `unlock`, `toggle`, `timeout`, and 
 ## Roadmap
 
 - Controller/app usage stats: track values such as daily unlock counts and recent lock/unlock history. Keep this local-first and privacy-preserving, with the controller as the source of truth where practical.
+- Per-device access roles: let owner/admin devices approve new devices wirelessly while standard trusted devices can only lock/unlock or use selected settings.
 
 ## Security And Safety
 
 This project intentionally avoids publishing a command secret. The iPhone and Mac apps sign each wireless command with a locally generated private key, and the XIAO verifies the signature with the paired public key.
 
-BLE pairing is locked unless USB-C serial pairing mode is enabled. A device can submit a pairing request only after `pair on`, and it is not trusted until the USB-side operator types `pair approve CODE` with the code shown in the app or approves the same code in the Mac admin app. Pairing mode turns itself off after approval. If an app is deleted, a device is replaced, or a signing key is lost, connect over USB-C, send `pair on`, and pair the replacement device. Use `pairs remove N`, `app remove N`, or `pairs clear` over USB-C if you need to remove trusted devices.
+BLE pairing is locked unless pairing mode is enabled by USB-C or by a signed command from an already trusted device. A new device can submit a pairing request only while pairing is open, and it is not trusted until an already trusted iPhone/Mac or USB-C operator approves the 4-digit code shown on the new device. Pairing mode turns itself off after approval. If every trusted app key is lost, connect over USB-C, send `pair on`, and pair a replacement device. Use `pairs remove N`, `app remove N`, or `pairs clear` over USB-C if you need to remove trusted devices. A future access-role model should separate owner/admin devices from standard lock/unlock-only devices.
 
 For anything beyond desk testing, review the mechanical mount, fail-safe behavior, battery handling, apartment rules, fire-safety requirements, and lock/egress requirements before use.
 

@@ -13,6 +13,11 @@ struct DoorUnlockerApp: App {
             ContentView()
                 .environmentObject(controller)
                 .preferredColorScheme(.dark)
+                .task {
+#if DEBUG
+                    controller.handleDebugLaunchArgumentsIfNeeded()
+#endif
+                }
         }
     }
 }

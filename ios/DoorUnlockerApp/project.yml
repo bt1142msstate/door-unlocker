@@ -15,6 +15,8 @@ packages:
   NordicDFU:
     url: https://github.com/NordicSemiconductor/IOS-DFU-Library
     from: 4.16.0
+  DoorUnlockerShared:
+    path: ../../shared/DoorUnlockerShared
 targets:
   DoorUnlocker:
     type: application
@@ -61,6 +63,8 @@ targets:
     dependencies:
       - package: NordicDFU
         product: NordicDFU
+      - package: DoorUnlockerShared
+        product: DoorUnlockerShared
       - target: DoorUnlockerWidget
         embed: true
         codeSign: true
@@ -87,6 +91,9 @@ targets:
         SKIP_INSTALL: YES
         APPLICATION_EXTENSION_API_ONLY: YES
         CODE_SIGN_ENTITLEMENTS: DoorUnlockerWidget/DoorUnlockerWidget.entitlements
+    dependencies:
+      - package: DoorUnlockerShared
+        product: DoorUnlockerShared
 schemes:
   DoorUnlocker:
     build:
