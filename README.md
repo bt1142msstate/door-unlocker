@@ -2,25 +2,13 @@
 
 Open-source desk-test prototype for a BLE-controlled servo actuator. The project uses a Seeed Studio XIAO nRF52840 Sense to drive a high-torque servo, plus SwiftUI iPhone and Mac apps for lock control, pairing, and controller administration.
 
+Current pre-release: [`v0.2.0-beta.1`](https://github.com/bt1142msstate/door-unlocker/releases/tag/v0.2.0-beta.1), with iPhone/Mac app version `0.2.0` and controller firmware `0.1.9`. Latest non-beta release: [`v0.1.0`](https://github.com/bt1142msstate/door-unlocker/releases/tag/v0.1.0).
+
 This is a bench prototype and wiring reference, not a certified door lock, access-control system, or life-safety device.
-
-Current pre-release: `v0.2.0-beta.1`. This beta expands the authenticated multi-device BLE path, automatic and resumable app-driven OTA updates, shared iPhone/Mac command contracts, release-quality gates, and Phase 2 enclosure documentation. The project is still a prototype and is not a certified lock, access-control system, or life-safety device.
-
-Latest non-beta release: `v0.1.0`. Latest beta controller firmware: `0.1.9`.
 
 ## Latest Beta Validation
 
-The `v0.2.0-beta.1` candidate was tested on July 10, 2026 against the bench XIAO controller and the iPhone/Mac apps.
-
-Observed iPhone startup timing from `script/benchmark_ios_startup.sh`:
-
-- `controller_init`: 1 ms
-- `central_created`: 4 ms
-- `central_restored`: 76 ms
-- `gatt_ready`: 76 ms
-- `secure_nonce_received`: 134 ms
-- `door_command_usable nonce_ready`: 134 ms
-- `first_fast_payload_ready UNLOCK`: 141 ms
+The `v0.2.0-beta.1` candidate was tested on July 10, 2026 against the bench XIAO controller and physical iPhone/Mac apps.
 
 Validation run:
 
@@ -30,15 +18,10 @@ Validation run:
 - Firmware `0.1.9` passed a cold-launch trusted-iPhone OTA proof on July 10, 2026: signed BLE entry command at `284 ms`, `82.38s` upload, bootloader validation, reboot, secure reconnection, and post-reboot BLE version verification.
 - Mac admin package build passed with `swift build --package-path mac/DoorUnlockerAdmin`.
 - Mac admin build/run install path passed with `script/build_and_run.sh --install`.
-- iPhone OTA entry, upload, reboot, and post-update firmware verification passed over BLE for firmware `0.1.9`.
-- Mac OTA uses the same shared DFU transport and tuning package as iOS.
-- The wireless verifier refuses the iPhone no-USB run if the controller USB-C serial port is visible, so the normal OTA proof does not depend on serial readback.
-- Earlier Mac OTA timing for `0.1.0-beta.ota24`: `184.8s` app-side DFU time, with `951 B/s` average upload speed at completion.
-- OTA tuning test results:
-  - PRN `8`, object prep delay `0.4s`: best measured reliable result, kept as the default.
-  - PRN `0`, object prep delay `0.3s`: completed but was slower at `239.4s` app-side DFU time.
-  - PRN `20`, object prep delay `0.4s`: exceeded the extended poll window and was slower than baseline.
-  - PRN `12`, object prep delay `0.4s`: exceeded the extended poll window and was slower than baseline.
+- Full release suite passed: 66 shared tests, 18 Mac tests, 5 iOS adapter tests, firmware compile/package verification, both app builds, and all wiring/CAD model gates.
+- Quality scores: maintainability `99.1/100`, shared parity `100/100`, iOS modularity `96.7/100`, and Mac modularity `98.4/100`.
+
+The machine-readable physical proof is in [docs/firmware-release-proof.json](docs/firmware-release-proof.json). Historical OTA tuning and benchmark details are kept in [docs/ota-speed-plan.md](docs/ota-speed-plan.md).
 
 [View the Phase 1 wiring diagram](https://bt1142msstate.github.io/door-unlocker/)
 
@@ -52,6 +35,7 @@ Validation run:
 - Siri/App Shortcuts, WidgetKit home widget, and Control Widget support for iPhone Action Button controls.
 - Interactive no-solder desk-test wiring diagram with hardware list, costs, and part details.
 - Hardware notes for a battery-powered 2S setup using XT30 pigtails, compact inline lever splitters, a buck converter, and a breadboard.
+- Phase 2 enclosure, mounting, fit, and force documentation in [`cad/`](cad/) and [`docs/`](docs/).
 - An optimal component direction document for the lower-power enclosure path: [docs/optimal-components.md](docs/optimal-components.md).
 - A documented, cross-platform low-latency control contract: [docs/fast-lock-command-path.md](docs/fast-lock-command-path.md).
 - A calibrated full quality suite with iOS/Mac adapter parity tests and explicit evidence limits: [docs/quality-suite.md](docs/quality-suite.md).
@@ -71,6 +55,8 @@ Current Phase 1 desk-test parts:
 
 The servo power should come directly from the battery-side power split. The XIAO should be powered through the buck converter. The servo signal line can go through the breadboard because it is only carrying PWM signal, not servo motor current.
 
+> **Power warning:** do not connect the XIAO's external buck-fed `5V` rail while USB-C is also powering the board. Disconnect USB-C before enabling the external controller rail, verify buck output with a meter first, and keep all grounds common.
+
 The current LM2596 and no-solder wiring are prototype-friendly, not the final low-power target. The optimized hardware direction is to use one protected 2S pack, a low-quiescent 2S-capable buck for the controller rail, a true high-side servo power switch, switched battery measurement or a multi-cell fuel gauge, and protected 2S solar charging. See [docs/optimal-components.md](docs/optimal-components.md) for the current preferred component direction and source links.
 
 With the XIAO component side facing up and the USB-C connector at the top:
@@ -87,6 +73,9 @@ firmware/DoorUnlockerXiao/       Arduino firmware for the XIAO nRF52840
 ios/DoorUnlockerApp/             SwiftUI iPhone app, widget, and control extension
 mac/DoorUnlockerAdmin/           SwiftUI Mac admin app for USB-C controller management
 shared/DoorUnlockerShared/       Cross-platform command, BLE policy, parser, signing, and DFU modules
+cad/                            Parametric Phase 2 enclosure and mounting models
+docs/                           Architecture, validation, power, fit, and force documentation
+script/                         Build, install, firmware, simulation, and quality-gate tooling
 screenshots/                     Project screenshots and visual references
 phase-1-desk-test-wiring.html    Interactive desk-test wiring diagram
 index.html                       GitHub Pages entry point
@@ -98,18 +87,20 @@ The iPhone and Mac apps share two Swift package products. `DoorUnlockerShared` o
 
 ## Quick Start
 
-1. Clone the repository.
-2. Flash the XIAO firmware from the Arduino IDE.
-3. Open `ios/DoorUnlockerApp/DoorUnlocker.xcodeproj` in Xcode.
-4. Set your own Apple Developer Team, bundle identifiers, and App Group identifiers.
-5. Build and run the iPhone app on your device.
-6. Open the XIAO serial monitor over USB-C and send `pair on`, or use an already trusted iPhone/Mac to allow a new device wirelessly.
-7. Connect to the XIAO from the iPhone app and tap **Pair This iPhone** while the app shows `Pairing Enabled`.
-8. Read the 4-digit code shown on the new device, then approve it from an already trusted iPhone/Mac or send `pair approve CODE` over USB serial.
-9. Use the main toggle, Siri/App Shortcuts, widgets, iOS Controls, or the Mac admin app after pairing completes.
-10. To pair the Mac for wireless control, request Mac pairing from the Mac app, then approve it from a trusted iPhone/Mac or USB serial/admin flow. The Mac app intentionally does not display its own approval code.
+Requirements: macOS with Xcode, `arduino-cli`, the Seeed nRF52 board package, a physical iPhone for BLE testing, and the hardware listed above.
 
-The iPhone and Mac apps each generate their own P-256 signing key locally. They prefer Secure Enclave when available and fall back to a Keychain-stored software key when needed. The XIAO stores only trusted device public keys, so the repository does not contain a command secret.
+1. Clone the repository and connect the XIAO over USB-C.
+2. Build and flash the controller with `./script/flash_xiao_uf2.sh`. Use `--build-only` when you only need release artifacts.
+3. Put your Apple team ID in the ignored file `ios/DoorUnlockerApp/development-team.local`, or export `DEVELOPMENT_TEAM=<team-id>`.
+4. Install the iPhone app with `./script/install_ios_app.sh`. Add `--wireless-only` after Xcode has enabled wireless device connectivity.
+5. Install the Mac app and CLI with `./script/build_and_run.sh --install`.
+6. Enable pairing from USB-C with `pair on`, or use an already trusted iPhone/Mac to open pairing wirelessly.
+7. Request pairing on the new device, read its 4-digit code, and approve that code from an already trusted device or with `pair approve CODE` over USB serial.
+8. Use the main toggle, Siri/App Shortcuts, widget, iOS Control, Action Button, Mac app, or local CLI after pairing completes.
+
+The checked-in Apple signing settings are intentionally blank. Change bundle and App Group identifiers if you are distributing your own fork. Core Bluetooth hardware behavior cannot be validated in the iOS Simulator.
+
+The iPhone and Mac apps each generate a separate P-256 signing identity. The iPhone prefers Secure Enclave and falls back to a Keychain-stored software key. The Mac stores its software key under Application Support with owner-only file permissions. The XIAO stores trusted public keys only, so the repository does not contain a shared command secret.
 
 ## Firmware Notes
 
@@ -117,9 +108,9 @@ The firmware advertises a BLE peripheral for the iPhone and Mac apps, stores up 
 
 Unlock commands hold the servo at the unlock angle for up to 30 seconds by default. The iPhone and Mac apps can set the controller timeout from 5-120 seconds, and the XIAO stores that value locally. After the configured timeout, the controller automatically returns to the locked/rest position to reduce battery drain and servo stress.
 
-The controller also stores the last unlock timestamp locally. The apps include their current epoch time when sending an unlock command, and the XIAO persists that value so the iPhone and Mac apps can display the controller's last recorded unlock time.
+The controller can store an optional command timestamp with lock/unlock activity for future local history features. The current apps intentionally do not present an unlock-history panel.
 
-Servo calibration is also controller-owned. The default rest angle is `95` degrees and the default push angle is `20` degrees for the current arm setup, so unlock rotates the arm to the right. Apps and USB commands can set both values, but the firmware rejects angles outside `10`-`170` degrees or angles closer than `10` degrees apart.
+Servo calibration is controller-owned. The default rest angle is `95` degrees and the default push angle is `20` degrees for the current arm setup, so unlock rotates the arm to the right. Apps and USB commands can set both values. Each angle is clamped to `10`-`170` degrees; equal or crossing values are allowed for calibration, although equal values produce no movement.
 
 USB serial commands:
 
@@ -133,13 +124,18 @@ USB serial commands:
 - `pairs clear`: remove all paired devices.
 - `app status`: print machine-readable model, state, pairing, timeout, servo-angle, and last-unlock status for the Mac admin app.
 - `app pairs`: print machine-readable paired-device slots, fingerprints, counters, and names when known.
-- `app unlock [EPOCH_SECONDS]`: move the actuator and optionally save the controller-owned last-unlock timestamp.
+- `app lock [EPOCH_SECONDS]` / `app unlock [EPOCH_SECONDS]`: move the actuator and optionally save a command timestamp.
 - `app angles REST PUSH`: set persisted servo rest and push angles, for example `app angles 95 20`.
+- `app timeout SECONDS`: set the persisted 5-120 second auto-lock timeout.
+- `app lock name NAME`: set the controller-owned lock name.
+- `app rename SLOT_OR_FINGERPRINT NAME`: rename a trusted device.
 - `app pair on` / `app pair off`: enable or disable USB-C pairing from the Mac admin app.
 - `app approve CODE` / `app reject`: approve or reject a pending device request from the Mac admin app.
 - `app remove N`: remove one paired device by slot number from the Mac admin app.
 - `app lock` / `app unlock`: move the actuator from the Mac admin app over trusted USB.
 - `app bootloader`: reboot the XIAO into UF2 bootloader mode for firmware updates.
+- `app ota`: reboot into BLE OTA DFU mode for recovery/testing.
+- `app cleanup untrusted`: disconnect currently untrusted BLE links.
 
 LED states:
 
@@ -163,12 +159,14 @@ The app provides:
 - Optional Face ID/passcode confirmation before sending unlock commands.
 - Auto-lock timeout setting that is stored and enforced by the controller.
 - Servo rest/push angle calibration stored and enforced by the controller.
+- Editable controller-owned lock name shared across trusted devices and widgets.
 - Editable iPhone display name that updates the trusted-device record without re-pairing.
+- Optional proximity unlock with a location-based arming zone, precise-location support, configurable BLE RSSI trigger, feet/meters display, and an expanded direction map.
 - Optional unlock notifications when the controller reports `unlocked` while the app is in the background.
 - Siri/App Intents for voice and shortcut automation.
-- A home screen widget.
+- A state-aware home screen widget and lock/unlock Live Activity with Dynamic Island presentation on supported iPhones.
 - A Control Widget so the project can appear in iOS Controls and be assigned to the Action Button on supported iPhones.
-- Alternate app icons for locked and unlocked states.
+- Original, monochrome, gold, aurora, pink, red, ember, and violet color themes.
 
 ## Mac Admin App Notes
 
@@ -182,9 +180,12 @@ The Mac admin app is in `mac/DoorUnlockerAdmin`. It automatically connects to th
 - Remove one trusted device, clear all trusted devices, or send lock/unlock over USB.
 - Set controller-owned auto-lock timeout and servo rest/push angles.
 - Auto-connect over Bluetooth when available and use the same Lock/Unlock toggle as the iPhone app.
+- Show controller firmware and connected-device state, and install the same BLE DFU package used by iPhone.
 - Provide a local CLI for scripts and automation.
 
 The Mac admin app does not display pending approval codes or pending public-key fingerprints. Device names are stored by the firmware for new pairings. Existing pairings made before this feature may show as `Device 1`, `Device 2`, and so on until that device is paired again.
+
+`./script/build_and_run.sh --install` replaces the canonical local bundle at `~/Applications/DoorUnlockerAdmin.app`; keep that one installed copy in the Dock rather than running staging copies from the repository or `/tmp`.
 
 iOS may hide the user-assigned system device name from apps, so the iPhone app keeps its own Door Unlocker display name. Updating that name sends an authenticated rename command to the controller; it does not require deleting or re-pairing the phone.
 
@@ -225,7 +226,7 @@ When the installed firmware supports `app bootloader`, the script asks the runni
 
 For app-driven OTA updates, the controller must already trust the app issuing the update command. The trusted app sends the signed `ENTER_OTA_DFU` command, the controller enters BLE DFU mode, the app uploads `DoorUnlockerXiao-dfu.zip`, then the controller reboots and the app verifies the reported firmware version. USB-C remains the recovery fallback if an OTA attempt is interrupted.
 
-Firmware may be promoted as stable only after `python3 script/quality_suite.py --firmware-release` passes. The release proof must match the exact DFU package hash and firmware version, enter OTA with a signed BLE command, avoid USB recovery commands, and verify the reported version over BLE after reboot. The structural contract gate also rejects a non-subscribable control characteristic and prevents the pre-DFU connection phase from being blocked as though DFU transport had already taken over.
+Firmware may be promoted to a release only after `python3 script/quality_suite.py --firmware-release` passes. The release proof must match the exact DFU payload and firmware version, enter OTA with a signed BLE command, avoid USB recovery commands, and verify the reported version over BLE after reboot. The structural contract gate also rejects a non-subscribable control characteristic and prevents the pre-DFU connection phase from being blocked as though DFU transport had already taken over.
 
 The iPhone app also carries a bundled controller firmware version in `DoorControllerFirmwareVersion`. When the app connects, reads a known controller firmware version, and sees that the bundled firmware is newer, it can start the same secure OTA path automatically without a manual update button press. The app intentionally does not auto-update when the controller version is `Unknown` and does not downgrade a controller that reports a newer version than the bundled package.
 
@@ -281,11 +282,9 @@ For Mac OTA testing, build the package and send it through the admin app/CLI flo
 
 `firmware-proof` sends the update request to the running Mac app, waits for the app to receive the expected `firmware_version` over BLE after DFU, then prints `verified_over=ble`. Use plain `firmware ZIP_PATH` for an interactive app-driven update when you do not need an automated proof.
 
-The XIAO UF2 bootloader is separate from Door Unlocker firmware. Normal updates should use the signed Door Unlocker DFU/UF2 app firmware packages and should not rewrite the bootloader. Bootloader maintenance is a recovery-only task: verify the currently installed bootloader from the XIAO bootloader volume before changing it, and only flash a board-specific Seeed/Adafruit nRF52 bootloader build when there is a real compatibility or recovery reason.
+The XIAO UF2 bootloader is separate from Door Unlocker firmware. Normal updates should use the generated Door Unlocker DFU/UF2 application packages and should not rewrite the bootloader. The trusted app command that enters OTA mode is signed; the current legacy DFU package itself is not cryptographically signed. Keep physical USB-C recovery available, and treat bootloader replacement as a separate, board-specific maintenance operation.
 
-As of 2026-07-07, the latest upstream Adafruit nRF52 bootloader release is `0.11.0`, and CircuitPython documents that nRF UF2 bootloader `0.6.1` or newer is enough for current nRF UF2 firmware loading. Door Unlocker does not require a bootloader update when the controller already responds to `app status`, USB-C UF2 flashing works, and BLE OTA DFU works.
-
-That build also creates `dist/door-unlocker`, a USB-C command-line tool:
+`./script/build_and_run.sh --install` also creates `dist/door-unlocker`, a local command-line tool:
 
 ```sh
 ./dist/door-unlocker status
@@ -306,10 +305,16 @@ When the Mac app is already running, `lock`, `unlock`, `toggle`, `timeout`, and 
 - Controller/app usage stats: track values such as daily unlock counts and recent lock/unlock history. Keep this local-first and privacy-preserving, with the controller as the source of truth where practical.
 - Per-device access roles: let owner/admin devices approve new devices wirelessly while standard trusted devices can only lock/unlock or use selected settings.
 - Power-optimized hardware pass: replace prototype power modules with the optimal component stack documented in [docs/optimal-components.md](docs/optimal-components.md), then remeasure idle current, servo hold current, charge recovery, and enclosure heat.
+- Matter/HomeKit evaluation after moving beyond the current BLE-only controller path.
+- Universal handle/turn-button actuator support, tamper/weather improvements, and later camera-assisted installation guidance.
+
+The complete phased hardware/product roadmap is maintained in the [interactive project page](https://bt1142msstate.github.io/door-unlocker/).
 
 ## Security And Safety
 
-This project intentionally avoids publishing a command secret. The iPhone and Mac apps sign each wireless command with a locally generated private key, and the XIAO verifies the signature with the paired public key.
+This project intentionally avoids publishing a command secret. The iPhone and Mac apps sign each wireless command with a locally generated private key, and the XIAO verifies the signature with the paired public key. Each accepted `v3` command also consumes a random, connection-private controller nonce, which prevents a captured command packet from being replayed.
+
+The application protocol authenticates commands; it does not claim end-to-end confidentiality for BLE advertisements or shared state notifications. The current firmware package is also unsigned, physical possession of the controller and USB-C remains a recovery/admin boundary, and this prototype has not received an external security audit.
 
 BLE pairing is locked unless pairing mode is enabled by USB-C or by a signed command from an already trusted device. A new device can submit a pairing request only while pairing is open, and it is not trusted until an already trusted iPhone/Mac or USB-C operator approves the 4-digit code shown on the new device. Pairing mode turns itself off after approval. If every trusted app key is lost, connect over USB-C, send `pair on`, and pair a replacement device. Use `pairs remove N`, `app remove N`, or `pairs clear` over USB-C if you need to remove trusted devices. A future access-role model should separate owner/admin devices from standard lock/unlock-only devices.
 
