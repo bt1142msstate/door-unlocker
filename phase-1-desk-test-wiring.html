@@ -374,11 +374,6 @@
     .wire.ground { stroke: var(--ground); color: var(--ground); }
     .wire.logic { stroke: var(--logic); color: var(--logic); }
     .wire.signal { stroke: var(--signal); color: var(--signal); }
-    .wire.xt30-mate {
-      stroke: #f5c542;
-      color: #f5c542;
-      stroke-width: 13;
-    }
     .wire.muted {
       stroke: #66736a;
       stroke-dasharray: 12 12;
@@ -443,23 +438,18 @@
     .component {
       position: absolute;
       z-index: 3;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: rgba(23, 28, 24, .96);
-      box-shadow: var(--shadow-soft);
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
       overflow: visible;
       transform-origin: center;
-      transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, opacity .18s ease;
+      transition: transform .18s ease, opacity .18s ease;
       isolation: isolate;
     }
 
     .component::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      z-index: -1;
-      border-radius: inherit;
-      background: rgba(23, 28, 24, .96);
+      display: none;
     }
 
     .stage.has-active .component:not(.is-active) {
@@ -471,24 +461,18 @@
     .component.is-active {
       z-index: 12;
       transform: translateY(-8px) scale(1.035);
-      border-color: var(--line-strong);
-      box-shadow: 0 28px 80px rgba(0,0,0,.54);
-    }
-
-    .component.power {
-      border-color: rgba(255,90,82,.34);
-    }
-
-    .component.logic {
-      border-color: rgba(94,184,255,.34);
     }
 
     .card-top {
-      display: flex;
-      align-items: start;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 14px 54px 10px 14px;
+      position: absolute;
+      z-index: 2;
+      width: 184px;
+      min-height: 58px;
+      padding: 12px 42px 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(23, 28, 24, .98);
+      box-shadow: var(--shadow-soft);
     }
 
     .card-top strong {
@@ -548,12 +532,25 @@
     }
 
     .card-body {
-      padding: 0 14px 14px;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
     }
 
-    .ports {
+    .stage .component .ports {
+      position: absolute;
+      z-index: 2;
+      width: 184px;
       display: grid;
-      gap: 8px;
+      gap: 2px;
+      padding: 6px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(23, 28, 24, .98);
+      box-shadow: var(--shadow-soft);
     }
 
     .port-row {
@@ -561,11 +558,11 @@
       align-items: center;
       justify-content: space-between;
       gap: 10px;
-      min-height: 30px;
-      padding: 0 10px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--paper-soft);
+      min-height: 28px;
+      padding: 0 7px;
+      border: 0;
+      border-radius: 4px;
+      background: rgba(255,255,255,.035);
       color: var(--muted);
       font-size: 12px;
       font-weight: 850;
@@ -621,6 +618,15 @@
       height: 294px;
     }
 
+    .servo-card .card-top,
+    .servo-card .ports {
+      left: auto;
+      right: calc(100% + 24px);
+    }
+
+    .servo-card .card-top { top: 12px; }
+    .servo-card .ports { top: 96px; }
+
     .buck-card {
       left: 575px;
       top: 820px;
@@ -628,11 +634,32 @@
       height: 318px;
     }
 
+    .buck-card .card-top,
+    .buck-card .ports {
+      left: calc(100% + 24px);
+      right: auto;
+    }
+
+    .buck-card .card-top { top: 14px; }
+    .buck-card .ports { top: 96px; }
+
     .controller-card {
       left: 462px;
       top: 490px;
       width: 436px;
       height: 300px;
+    }
+
+    .controller-card .card-top {
+      left: auto;
+      right: calc(100% + 16px);
+      top: 12px;
+    }
+
+    .battery-card .ports {
+      left: calc(100% + 16px);
+      right: auto;
+      top: 78px;
     }
 
     .usb-card {
@@ -669,7 +696,9 @@
     }
 
     .xt30-card .card-top {
-      padding: 10px 44px 6px 12px;
+      left: auto;
+      right: calc(100% + 24px);
+      top: 14px;
     }
 
     .xt30-card .card-top strong {
@@ -680,15 +709,13 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 0 12px 12px;
+      padding: 0;
     }
 
     .xt30-card .ports {
-      position: absolute;
-      left: calc(100% + 16px);
-      top: 58px;
-      width: 142px;
-      gap: 6px;
+      left: auto;
+      right: calc(100% + 24px);
+      top: 84px;
     }
 
     .xt30-card .port-row {
@@ -705,25 +732,23 @@
     }
 
     .battery-card .card-top {
-      position: absolute;
       left: calc(100% + 16px);
       top: 0;
-      width: 164px;
-      min-height: 58px;
-      padding: 12px 42px 10px 12px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: rgba(23, 28, 24, .98);
-      box-shadow: var(--shadow-soft);
+      right: auto;
     }
 
     .battery-card .card-body {
-      padding: 12px 14px 14px;
+      padding: 0;
     }
 
     .splitter-card .card-top {
-      min-height: 48px;
-      padding: 10px 30px 4px 9px;
+      left: 50%;
+      right: auto;
+      top: -28px;
+      width: 92px;
+      min-height: 0;
+      padding: 7px 28px 6px 8px;
+      transform: translateX(-50%);
     }
 
     .splitter-card .card-top strong {
@@ -747,8 +772,9 @@
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: center;
       gap: 9px;
-      padding: 0 8px 10px;
+      padding: 0;
     }
 
     .splitter-visual {
@@ -801,7 +827,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 0 12px 12px;
+      padding: 0;
     }
 
     .controller-assembly {
@@ -860,16 +886,16 @@
     .controller-ports {
       position: absolute;
       right: calc(100% + 16px);
-      top: 56px;
-      width: 162px;
+      top: 94px;
+      width: 184px;
       display: grid;
       grid-template-columns: minmax(0, 1fr);
       gap: 6px;
     }
 
     .controller-ports .port-row {
-      min-height: 34px;
-      padding: 0 9px;
+      min-height: 28px;
+      padding: 0 7px;
       font-size: 11px;
     }
 
@@ -2281,7 +2307,8 @@
               <path id="controllerGroundBridge" class="wire ground card-bridge" data-parts="buck splitter-ground controller" d="M732 780.7 V790" />
               <path id="xt30RedTopBridge" class="wire red card-bridge" data-parts="xt30 splitter-positive" d="M674 1522 V1522.6" />
               <path id="xt30GroundTopBridge" class="wire ground card-bridge" data-parts="xt30 splitter-ground" d="M689 1522 V1522.6" />
-              <path id="batteryXT30Mate" class="wire xt30-mate card-bridge" data-parts="battery xt30" d="M680 1610 V1694" />
+              <path id="batteryRedBridge" class="wire red card-bridge" data-parts="battery xt30" d="M674 1610 V1694" />
+              <path id="batteryGroundBridge" class="wire ground card-bridge" data-parts="battery xt30" d="M689 1610 V1694" />
               <path id="positiveSplitterOutputLeft" class="wire red card-bridge" data-parts="splitter-positive buck" d="M620 1218 V1220" />
               <path id="positiveSplitterOutputRight" class="wire red card-bridge" data-parts="splitter-positive servo" d="M640 1218 V1220" />
               <path id="positiveSplitterInput" class="wire red card-bridge" data-parts="xt30 splitter-positive" d="M630 1439 V1360" />
@@ -3178,7 +3205,8 @@
     const xt30GroundTopBridge = document.getElementById("xt30GroundTopBridge");
     const batteryCard = document.querySelector(".battery-card");
     const batteryImage = batteryCard.querySelector(".battery-visual");
-    const batteryXT30Mate = document.getElementById("batteryXT30Mate");
+    const batteryRedBridge = document.getElementById("batteryRedBridge");
+    const batteryGroundBridge = document.getElementById("batteryGroundBridge");
     const splitterBridgeConfigs = [
       {
         card: document.querySelector(".positive-splitter-card"),
@@ -3264,25 +3292,28 @@
     xt30Card.addEventListener("transitionrun", trackXT30Bridges);
     xt30Card.addEventListener("transitionend", updateXT30Bridges);
     xt30Card.addEventListener("transitionrun", trackBatteryBridges);
-    xt30Card.addEventListener("transitionend", updateBatteryXT30Mate);
+    xt30Card.addEventListener("transitionend", updateBatteryXT30Leads);
     window.addEventListener("resize", updateXT30Bridges);
     requestAnimationFrame(updateXT30Bridges);
 
-    function updateBatteryXT30Mate() {
+    function updateBatteryXT30Leads() {
       const stageRect = stage.getBoundingClientRect();
       const pigtailRect = xt30Image.getBoundingClientRect();
       const imageRect = batteryImage.getBoundingClientRect();
-      const pigtailMate = [
-        pigtailRect.left - stageRect.left + pigtailRect.width / 2,
-        pigtailRect.bottom - stageRect.top,
-      ];
-      const batteryMate = [
-        imageRect.left - stageRect.left + imageRect.width / 2,
-        imageRect.top - stageRect.top + 0.038 * imageRect.height,
-      ];
-      batteryXT30Mate.setAttribute(
+      const centerX = (rect) => rect.left - stageRect.left + rect.width / 2;
+      const pigtailY = pigtailRect.bottom - stageRect.top;
+      const batteryY = imageRect.top - stageRect.top + 0.038 * imageRect.height;
+      const pigtailRed = [centerX(pigtailRect) - 7, pigtailY];
+      const pigtailGround = [centerX(pigtailRect) + 7, pigtailY];
+      const batteryRed = [centerX(imageRect) - 7, batteryY];
+      const batteryGround = [centerX(imageRect) + 7, batteryY];
+      batteryRedBridge.setAttribute(
         "d",
-        `M${pigtailMate[0].toFixed(1)} ${pigtailMate[1].toFixed(1)} L${batteryMate[0].toFixed(1)} ${batteryMate[1].toFixed(1)}`,
+        `M${pigtailRed[0].toFixed(1)} ${pigtailRed[1].toFixed(1)} L${batteryRed[0].toFixed(1)} ${batteryRed[1].toFixed(1)}`,
+      );
+      batteryGroundBridge.setAttribute(
+        "d",
+        `M${pigtailGround[0].toFixed(1)} ${pigtailGround[1].toFixed(1)} L${batteryGround[0].toFixed(1)} ${batteryGround[1].toFixed(1)}`,
       );
     }
 
@@ -3291,7 +3322,7 @@
       cancelAnimationFrame(batteryBridgeFrame);
       const deadline = performance.now() + 260;
       function updateFrame(now) {
-        updateBatteryXT30Mate();
+        updateBatteryXT30Leads();
         if (now < deadline) {
           batteryBridgeFrame = requestAnimationFrame(updateFrame);
         }
@@ -3303,11 +3334,11 @@
       batteryCard.addEventListener(eventName, trackBatteryBridges);
     });
     batteryCard.addEventListener("transitionrun", trackBatteryBridges);
-    batteryCard.addEventListener("transitionend", updateBatteryXT30Mate);
-    batteryImage.addEventListener("load", updateBatteryXT30Mate);
-    xt30Image.addEventListener("load", updateBatteryXT30Mate);
-    window.addEventListener("resize", updateBatteryXT30Mate);
-    requestAnimationFrame(updateBatteryXT30Mate);
+    batteryCard.addEventListener("transitionend", updateBatteryXT30Leads);
+    batteryImage.addEventListener("load", updateBatteryXT30Leads);
+    xt30Image.addEventListener("load", updateBatteryXT30Leads);
+    window.addEventListener("resize", updateBatteryXT30Leads);
+    requestAnimationFrame(updateBatteryXT30Leads);
 
     function updateSplitterBridges() {
       const stageRect = stage.getBoundingClientRect();
