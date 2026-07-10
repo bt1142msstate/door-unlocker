@@ -374,6 +374,11 @@
     .wire.ground { stroke: var(--ground); color: var(--ground); }
     .wire.logic { stroke: var(--logic); color: var(--logic); }
     .wire.signal { stroke: var(--signal); color: var(--signal); }
+    .wire.xt30-mate {
+      stroke: #f5c542;
+      color: #f5c542;
+      stroke-width: 13;
+    }
     .wire.muted {
       stroke: #66736a;
       stroke-dasharray: 12 12;
@@ -649,6 +654,8 @@
       display: block;
       width: 100%;
       max-width: 100%;
+      margin-left: auto;
+      margin-right: auto;
       object-fit: contain;
       object-position: center;
     }
@@ -764,20 +771,19 @@
 
     .buck-visual {
       height: 86px;
-      margin: -8px 0 6px;
+      margin: -8px auto 6px;
     }
 
     .servo-visual {
       height: 134px;
-      margin: -22px 0 -12px;
+      margin: -22px auto -12px;
     }
 
     .controller-card .card-body {
       position: relative;
-      display: grid;
-      grid-template-columns: 180px minmax(0, 1fr);
+      display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: center;
       padding: 0 12px 12px;
     }
 
@@ -785,8 +791,7 @@
       position: relative;
       width: 168px;
       aspect-ratio: 168 / 237;
-      justify-self: start;
-      margin: -12px 0 0 -6px;
+      margin: -12px 0 0;
     }
 
     .controller-assembly .breadboard-layer {
@@ -836,6 +841,10 @@
     }
 
     .controller-ports {
+      position: absolute;
+      right: calc(100% + 16px);
+      top: 56px;
+      width: 162px;
       display: grid;
       grid-template-columns: minmax(0, 1fr);
       gap: 6px;
@@ -2232,8 +2241,6 @@
               <title id="diagramTitle">No-solder desk test wiring arranged like the planned enclosure</title>
               <desc id="diagramDesc">The physical layout forms one centered vertical chain: servo, XIAO on its breadboard, LM2596 buck, paired inline splitters, fixed XT30 dock, and slide-out battery. The battery mates directly upward into the XT30 dock, whose short positive and ground leads enter the splitters immediately above it. The splitters feed the servo through a dedicated right-side trunk and, in buck mode, feed the buck directly above them. The buck feeds the controller immediately above it while USB-C is unplugged. In USB-first mode, USB-C powers the XIAO, the buck is skipped, and splitter ground continues to the controller. PWM leaves the breadboard assembly on the left and travels upward to the servo.</desc>
 
-              <path class="wire red" data-parts="battery xt30" d="M674 1694 V1610" />
-              <path class="wire ground" data-parts="battery xt30" d="M689 1694 V1610" />
               <path class="wire red" data-parts="xt30 splitter-positive" d="M674 1460 V1439 H630" />
               <path class="wire ground" data-parts="xt30 splitter-ground" d="M689 1460 V1439 H730" />
 
@@ -2243,24 +2250,21 @@
               <path class="wire red buck-wire" data-parts="splitter-positive buck" d="M620 1218 V1138" />
               <path class="wire ground buck-wire" data-parts="splitter-ground buck" d="M720 1218 V1138" />
 
-              <path class="wire red buck-wire" data-parts="buck controller" d="M620 820 V790" />
-              <path class="wire ground buck-wire" data-parts="buck controller" d="M605 820 V790" />
+              <path class="wire red buck-wire" data-parts="buck controller" d="M747 820 V790" />
+              <path class="wire ground buck-wire" data-parts="buck controller" d="M732 820 V790" />
               <path class="wire ground usb-ground-wire muted" data-parts="splitter-ground controller" d="M720 1218 V1200 H550 V790 H605" />
 
-              <path class="wire signal" data-parts="controller servo" d="M471 550 V330 H790" />
-              <path class="wire logic usb-wire muted" data-parts="usb controller" d="M778 468 V478 H553 V490" />
+              <path class="wire signal" data-parts="controller servo" d="M598 550 V330 H790" />
+              <path class="wire logic usb-wire muted" data-parts="usb controller" d="M778 468 V478 H680 V490" />
             </svg>
 
             <svg class="card-wire-overlay" viewBox="0 0 1120 1900" aria-hidden="true">
-              <path id="controllerSignalBridge" class="wire signal card-bridge" data-parts="controller servo" d="M471 550 V543.7" />
-              <path id="controllerPowerBridge" class="wire red assembly-power card-bridge" data-parts="buck controller" d="M620 780.7 V790" />
-              <path id="controllerGroundBridge" class="wire ground card-bridge" data-parts="buck splitter-ground controller" d="M605 780.7 V790" />
+              <path id="controllerSignalBridge" class="wire signal card-bridge" data-parts="controller servo" d="M598 550 V543.7" />
+              <path id="controllerPowerBridge" class="wire red assembly-power card-bridge" data-parts="buck controller" d="M747 780.7 V790" />
+              <path id="controllerGroundBridge" class="wire ground card-bridge" data-parts="buck splitter-ground controller" d="M732 780.7 V790" />
               <path id="xt30RedTopBridge" class="wire red card-bridge" data-parts="xt30 splitter-positive" d="M674 1522 V1522.6" />
               <path id="xt30GroundTopBridge" class="wire ground card-bridge" data-parts="xt30 splitter-ground" d="M689 1522 V1522.6" />
-              <path id="xt30RedBottomBridge" class="wire red card-bridge" data-parts="battery xt30" d="M674 1610 V1610.6" />
-              <path id="xt30GroundBottomBridge" class="wire ground card-bridge" data-parts="battery xt30" d="M689 1610 V1610.6" />
-              <path id="batteryRedBridge" class="wire red card-bridge" data-parts="battery xt30" d="M674 1694 V1694" />
-              <path id="batteryGroundBridge" class="wire ground card-bridge" data-parts="battery xt30" d="M689 1694 V1694" />
+              <path id="batteryXT30Mate" class="wire xt30-mate card-bridge" data-parts="battery xt30" d="M680 1610 V1694" />
               <path id="positiveSplitterOutputLeft" class="wire red card-bridge" data-parts="splitter-positive buck" d="M620 1218 V1220" />
               <path id="positiveSplitterOutputRight" class="wire red card-bridge" data-parts="splitter-positive servo" d="M640 1218 V1220" />
               <path id="positiveSplitterInput" class="wire red card-bridge" data-parts="xt30 splitter-positive" d="M630 1439 V1360" />
@@ -3155,12 +3159,9 @@
     const xt30Image = xt30Card.querySelector(".xt30-visual");
     const xt30RedTopBridge = document.getElementById("xt30RedTopBridge");
     const xt30GroundTopBridge = document.getElementById("xt30GroundTopBridge");
-    const xt30RedBottomBridge = document.getElementById("xt30RedBottomBridge");
-    const xt30GroundBottomBridge = document.getElementById("xt30GroundBottomBridge");
     const batteryCard = document.querySelector(".battery-card");
     const batteryImage = batteryCard.querySelector(".battery-visual");
-    const batteryRedBridge = document.getElementById("batteryRedBridge");
-    const batteryGroundBridge = document.getElementById("batteryGroundBridge");
+    const batteryXT30Mate = document.getElementById("batteryXT30Mate");
     const splitterBridgeConfigs = [
       {
         card: document.querySelector(".positive-splitter-card"),
@@ -3189,9 +3190,9 @@
       );
       const top = assemblyRect.top - stageRect.top;
       const bottom = assemblyRect.bottom - stageRect.top;
-      controllerSignalBridge.setAttribute("d", `M471 550 L${assemblyX(2).toFixed(1)} ${top.toFixed(1)}`);
-      controllerPowerBridge.setAttribute("d", `M620 790 L${assemblyX(151).toFixed(1)} ${bottom.toFixed(1)}`);
-      controllerGroundBridge.setAttribute("d", `M605 790 L${assemblyX(136).toFixed(1)} ${bottom.toFixed(1)}`);
+      controllerSignalBridge.setAttribute("d", `M598 550 L${assemblyX(2).toFixed(1)} ${top.toFixed(1)}`);
+      controllerPowerBridge.setAttribute("d", `M747 790 L${assemblyX(151).toFixed(1)} ${bottom.toFixed(1)}`);
+      controllerGroundBridge.setAttribute("d", `M732 790 L${assemblyX(136).toFixed(1)} ${bottom.toFixed(1)}`);
     }
 
     let controllerBridgeFrame = 0;
@@ -3222,11 +3223,8 @@
       const redX = imageX(0.292);
       const groundX = imageX(0.689);
       const top = imageRect.top - stageRect.top;
-      const bottom = imageRect.bottom - stageRect.top;
       xt30RedTopBridge.setAttribute("d", `M674 1522 L${redX.toFixed(1)} ${top.toFixed(1)}`);
       xt30GroundTopBridge.setAttribute("d", `M689 1522 L${groundX.toFixed(1)} ${top.toFixed(1)}`);
-      xt30RedBottomBridge.setAttribute("d", `M674 1610 L${redX.toFixed(1)} ${bottom.toFixed(1)}`);
-      xt30GroundBottomBridge.setAttribute("d", `M689 1610 L${groundX.toFixed(1)} ${bottom.toFixed(1)}`);
     }
 
     let xt30BridgeFrame = 0;
@@ -3244,28 +3242,30 @@
 
     ["pointerenter", "pointerleave", "focusin", "focusout"].forEach((eventName) => {
       xt30Card.addEventListener(eventName, trackXT30Bridges);
+      xt30Card.addEventListener(eventName, trackBatteryBridges);
     });
     xt30Card.addEventListener("transitionrun", trackXT30Bridges);
     xt30Card.addEventListener("transitionend", updateXT30Bridges);
+    xt30Card.addEventListener("transitionrun", trackBatteryBridges);
+    xt30Card.addEventListener("transitionend", updateBatteryXT30Mate);
     window.addEventListener("resize", updateXT30Bridges);
     requestAnimationFrame(updateXT30Bridges);
 
-    function updateBatteryBridges() {
+    function updateBatteryXT30Mate() {
       const stageRect = stage.getBoundingClientRect();
+      const pigtailRect = xt30Image.getBoundingClientRect();
       const imageRect = batteryImage.getBoundingClientRect();
-      const connectorPoint = (xRatio) => [
-        imageRect.left - stageRect.left + xRatio * imageRect.width,
+      const pigtailMate = [
+        pigtailRect.left - stageRect.left + pigtailRect.width / 2,
+        pigtailRect.bottom - stageRect.top,
+      ];
+      const batteryMate = [
+        imageRect.left - stageRect.left + imageRect.width / 2,
         imageRect.top - stageRect.top + 0.038 * imageRect.height,
       ];
-      const redTerminal = connectorPoint(0.460);
-      const groundTerminal = connectorPoint(0.518);
-      batteryRedBridge.setAttribute(
+      batteryXT30Mate.setAttribute(
         "d",
-        `M674 1694 L${redTerminal[0].toFixed(1)} ${redTerminal[1].toFixed(1)}`,
-      );
-      batteryGroundBridge.setAttribute(
-        "d",
-        `M689 1694 L${groundTerminal[0].toFixed(1)} ${groundTerminal[1].toFixed(1)}`,
+        `M${pigtailMate[0].toFixed(1)} ${pigtailMate[1].toFixed(1)} L${batteryMate[0].toFixed(1)} ${batteryMate[1].toFixed(1)}`,
       );
     }
 
@@ -3274,7 +3274,7 @@
       cancelAnimationFrame(batteryBridgeFrame);
       const deadline = performance.now() + 260;
       function updateFrame(now) {
-        updateBatteryBridges();
+        updateBatteryXT30Mate();
         if (now < deadline) {
           batteryBridgeFrame = requestAnimationFrame(updateFrame);
         }
@@ -3286,10 +3286,11 @@
       batteryCard.addEventListener(eventName, trackBatteryBridges);
     });
     batteryCard.addEventListener("transitionrun", trackBatteryBridges);
-    batteryCard.addEventListener("transitionend", updateBatteryBridges);
-    batteryImage.addEventListener("load", updateBatteryBridges);
-    window.addEventListener("resize", updateBatteryBridges);
-    requestAnimationFrame(updateBatteryBridges);
+    batteryCard.addEventListener("transitionend", updateBatteryXT30Mate);
+    batteryImage.addEventListener("load", updateBatteryXT30Mate);
+    xt30Image.addEventListener("load", updateBatteryXT30Mate);
+    window.addEventListener("resize", updateBatteryXT30Mate);
+    requestAnimationFrame(updateBatteryXT30Mate);
 
     function updateSplitterBridges() {
       const stageRect = stage.getBoundingClientRect();
