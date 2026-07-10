@@ -561,19 +561,23 @@
     .port.ground { background: var(--ground); }
     .port.logic { background: var(--logic); }
     .port.signal { background: var(--signal); }
+    .port.unused {
+      background: #7f8a82;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.18);
+    }
 
     .servo-callout { left: 350px; top: 116px; }
     .controller-callout { left: 330px; top: 548px; width: 212px; }
     .buck-callout { left: 350px; top: 858px; width: 206px; }
     .splitters-callout { left: 810px; top: 1248px; width: 206px; }
-    .xt30-callout { left: 344px; top: 1480px; }
-    .battery-callout { left: 810px; top: 1690px; width: 206px; }
+    .xt30-callout { left: 810px; top: 1458px; }
+    .battery-callout { left: 810px; top: 1648px; width: 206px; }
 
     .battery-card {
       left: 570px;
-      top: 1640px;
+      top: 1530px;
       width: 220px;
-      height: 250px;
+      height: 350px;
     }
 
     .xt30-card {
@@ -655,9 +659,10 @@
 
     .battery-visual {
       width: auto;
-      height: 110px;
-      margin: -8px auto 6px;
+      height: 300px;
+      margin: 0 auto;
       object-fit: contain;
+      transform: translateX(7px);
     }
 
     .splitter-visual {
@@ -2120,10 +2125,8 @@
               <title id="diagramTitle">No-solder desk test wiring arranged like the planned enclosure</title>
               <desc id="diagramDesc">The physical layout forms one centered vertical chain: servo, XIAO on its breadboard, LM2596 buck, paired inline splitters, fixed XT30 dock, and slide-out battery. The battery mates directly upward into the XT30 dock, whose short positive and ground leads enter the splitters immediately above it. The splitters feed the servo through a dedicated right-side trunk and, in buck mode, feed the buck directly above them. The buck feeds the controller immediately above it while USB-C is unplugged. In USB-first mode, USB-C powers the XIAO, the buck is skipped, and splitter ground continues to the controller. PWM leaves the breadboard assembly on the left and travels upward to the servo.</desc>
 
-              <path id="batteryRedWire" class="wire red" data-parts="battery xt30" />
-              <path id="batteryGroundWire" class="wire ground" data-parts="battery xt30" />
-              <path id="xt30PositiveWire" class="wire red" data-parts="xt30 splitter-positive" />
-              <path id="xt30GroundWire" class="wire ground" data-parts="xt30 splitter-ground" />
+              <path id="xt30PositiveWire" class="wire red" data-parts="battery xt30 splitter-positive" />
+              <path id="xt30GroundWire" class="wire ground" data-parts="battery xt30 splitter-ground" />
               <path id="servoPositiveWire" class="wire red" data-parts="splitter-positive servo" />
               <path id="servoGroundWire" class="wire ground" data-parts="splitter-ground servo" />
               <path id="buckInputPositiveWire" class="wire red buck-wire" data-parts="splitter-positive buck" />
@@ -2139,7 +2142,7 @@
 
             <article class="component battery-card power" data-node="battery" tabindex="0" aria-label="2S battery">
               <div class="component-visual">
-                <img class="part-raster battery-visual" src="assets/component-battery-2s-vertical.png" alt="" aria-hidden="true" />
+                <img class="part-raster battery-visual" src="assets/component-battery-full-harness.png" alt="" aria-hidden="true" />
               </div>
             </article>
 
@@ -2257,12 +2260,14 @@
             <aside class="diagram-callout battery-callout" data-callout-for="battery">
               <div class="callout-head">
                 <strong>2S battery</strong>
-                <span>7.4V Li-ion pack with separate positive and ground conductors.</span>
+                <span>Full battery harness; only the yellow XT30 branch powers this build.</span>
                 <button class="detail-button" type="button" data-part="battery" title="Open battery details">i</button>
               </div>
               <div class="callout-ports">
-                <div class="port-row">positive output <i class="port red"></i></div>
-                <div class="port-row">battery ground <i class="port ground"></i></div>
+                <div class="port-row">XT30 main power <i class="port red"></i></div>
+                <div class="port-row">XT30 ground <i class="port ground"></i></div>
+                <div class="port-row">white auxiliary: unused <i class="port unused"></i></div>
+                <div class="port-row">red auxiliary: unused <i class="port unused"></i></div>
               </div>
             </aside>
 
@@ -2843,10 +2848,10 @@
         price: "$27.81",
         weight: "151 g",
         full: "sea jump 7.4V 5000mAh 2S Li-ion Battery with JST Plug and XT30 Plug with USB Charging Cable Suitable for TX16S, TX18S, RC4GS, RC6GS, TX12 RC Transmitter RC Car Truck Engineering Vehicle Battery",
-        image: "assets/component-battery-2s-vertical.png",
-        description: "Rechargeable 2S Li-ion pack that provides the main high-current supply for the servo side of the bench test.",
-        role: "Main 2S battery source. Use the XT30 side for the high-current servo path.",
-        specs: ["7.4V nominal 2S pack", "8.4V when fully charged", "5000mAh listed capacity", "XT30 output plus JST lead and USB charging cable"],
+        image: "assets/component-battery-full-harness.png",
+        description: "Rechargeable 2S Li-ion pack with its complete attached harness: the main XT30 branch plus the unused white and red auxiliary connectors.",
+        role: "Main 2S battery source. The yellow XT30 branch mates to the pigtail for this build; the auxiliary connectors remain disconnected.",
+        specs: ["7.4V nominal 2S pack", "8.4V when fully charged", "5000mAh listed capacity", "37.00Wh listed energy", "Main XT30 output branch", "White 2-pin and small red auxiliary connectors remain unused"],
         link: "https://www.amazon.com/dp/B0DPX3FXN9"
       },
       xiao: {
@@ -3005,12 +3010,9 @@
       positiveSplitter: document.querySelector(".positive-splitter-card .splitter-visual"),
       groundSplitter: document.querySelector(".ground-splitter-card .splitter-visual"),
       xt30: document.querySelector(".xt30-visual"),
-      battery: document.querySelector(".battery-visual"),
       usb: document.querySelector(".usb-card"),
     };
     const wiringPaths = {
-      batteryRed: document.getElementById("batteryRedWire"),
-      batteryGround: document.getElementById("batteryGroundWire"),
       xt30Positive: document.getElementById("xt30PositiveWire"),
       xt30Ground: document.getElementById("xt30GroundWire"),
       servoPositive: document.getElementById("servoPositiveWire"),
@@ -3047,15 +3049,7 @@
       const positiveSplitterRect = rectFor(wiringElements.positiveSplitter);
       const groundSplitterRect = rectFor(wiringElements.groundSplitter);
       const xt30Rect = rectFor(wiringElements.xt30);
-      const batteryRect = rectFor(wiringElements.battery);
       const usbRect = rectFor(wiringElements.usb);
-
-      const batteryRed = point(batteryRect, 0.44, 0.038);
-      const batteryGround = point(batteryRect, 0.56, 0.038);
-      const xt30BottomRed = point(xt30Rect, 0.44, 1);
-      const xt30BottomGround = point(xt30Rect, 0.56, 1);
-      wiringPaths.batteryRed.setAttribute("d", `M${pathPoint(xt30BottomRed)} L${pathPoint(batteryRed)}`);
-      wiringPaths.batteryGround.setAttribute("d", `M${pathPoint(xt30BottomGround)} L${pathPoint(batteryGround)}`);
 
       const xt30TopRed = point(xt30Rect, 0.292, 0);
       const xt30TopGround = point(xt30Rect, 0.689, 0);
