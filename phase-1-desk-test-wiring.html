@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
   <title>Door Unlocker - Phase 1 Desk Test Wiring</title>
   <style>
     :root {
@@ -357,15 +358,11 @@
       pointer-events: none;
     }
 
-    .stage > svg.card-wire-overlay {
-      z-index: 21;
-    }
-
     .wire {
       fill: none;
       stroke-linecap: round;
       stroke-linejoin: round;
-      stroke-width: 8;
+      stroke-width: 7;
       filter: drop-shadow(0 4px 5px rgba(0,0,0,.32));
       transition: opacity .18s ease, stroke-width .18s ease, filter .18s ease;
     }
@@ -379,6 +376,14 @@
       stroke-dasharray: 12 12;
       opacity: .58;
       filter: none;
+    }
+
+    .wire-bridge-underlay {
+      fill: none;
+      stroke: #101712;
+      stroke-width: 15;
+      stroke-linecap: round;
+      pointer-events: none;
     }
 
     .stage.has-active .wire {
@@ -463,94 +468,70 @@
       transform: translateY(-8px) scale(1.035);
     }
 
-    .card-top {
-      position: absolute;
-      z-index: 2;
-      width: 184px;
-      min-height: 58px;
-      padding: 12px 42px 10px 12px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: rgba(23, 28, 24, .98);
-      box-shadow: var(--shadow-soft);
-    }
-
-    .card-top strong {
-      display: block;
-      margin-bottom: 4px;
-      color: var(--ink);
-      font-size: 17px;
-      line-height: 1.1;
-      letter-spacing: 0;
-    }
-
-    .card-top span {
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.25;
-      font-weight: 760;
-    }
-
-    .icon {
-      display: grid;
-      place-items: center;
-      flex: 0 0 auto;
-      width: 38px;
-      height: 38px;
-      border-radius: 8px;
-      background: var(--paper-soft);
-      color: var(--ink);
-    }
-
-    .icon svg {
-      width: 22px;
-      height: 22px;
-      display: block;
-    }
-
-    .card-actions {
-      position: absolute;
-      top: 12px;
-      right: 12px;
-      z-index: 6;
-      display: block;
-    }
-
-    .card-actions .icon {
-      display: none;
-    }
-
-    .card-actions .detail-button {
-      position: static;
-    }
-
-    .card-top > .detail-button {
-      position: absolute;
-      top: 12px;
-      right: 12px;
-      z-index: 6;
-    }
-
-    .card-body {
+    .component-visual {
       width: 100%;
       height: 100%;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 0;
     }
 
-    .stage .component .ports {
+    .diagram-callout {
       position: absolute;
-      z-index: 2;
-      width: 184px;
-      display: grid;
-      gap: 2px;
-      padding: 6px;
+      z-index: 30;
+      width: 196px;
+      padding: 12px;
       border: 1px solid var(--line);
       border-radius: 8px;
       background: rgba(23, 28, 24, .98);
       box-shadow: var(--shadow-soft);
+      transition: opacity .18s ease, border-color .18s ease, transform .18s ease;
+    }
+
+    .diagram-callout.is-active {
+      border-color: var(--line-strong);
+      transform: translateY(-3px);
+    }
+
+    .stage.has-active .diagram-callout:not(.is-active) {
+      opacity: .58;
+    }
+
+    .callout-head {
+      position: relative;
+      min-height: 38px;
+      padding-right: 34px;
+    }
+
+    .callout-head strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--ink);
+      font-size: 16px;
+      line-height: 1.1;
+    }
+
+    .callout-head span {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.25;
+      font-weight: 760;
+    }
+
+    .callout-head .detail-button {
+      position: absolute;
+      top: 0;
+      right: 0;
+    }
+
+    .callout-ports {
+      display: grid;
+      gap: 2px;
+      margin-top: 8px;
+      padding: 6px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255,255,255,.025);
     }
 
     .port-row {
@@ -580,6 +561,13 @@
     .port.ground { background: var(--ground); }
     .port.logic { background: var(--logic); }
     .port.signal { background: var(--signal); }
+
+    .servo-callout { left: 350px; top: 116px; }
+    .controller-callout { left: 330px; top: 548px; width: 212px; }
+    .buck-callout { left: 350px; top: 858px; width: 206px; }
+    .splitters-callout { left: 810px; top: 1248px; width: 206px; }
+    .xt30-callout { left: 344px; top: 1480px; }
+    .battery-callout { left: 810px; top: 1690px; width: 206px; }
 
     .battery-card {
       left: 570px;
@@ -612,54 +600,24 @@
     }
 
     .servo-card {
-      left: 790px;
-      top: 80px;
-      width: 206px;
-      height: 294px;
+      left: 545px;
+      top: 52px;
+      width: 270px;
+      height: 390px;
     }
-
-    .servo-card .card-top,
-    .servo-card .ports {
-      left: auto;
-      right: calc(100% + 24px);
-    }
-
-    .servo-card .card-top { top: 12px; }
-    .servo-card .ports { top: 96px; }
 
     .buck-card {
       left: 575px;
-      top: 820px;
+      top: 806px;
       width: 210px;
-      height: 318px;
+      height: 345px;
     }
-
-    .buck-card .card-top,
-    .buck-card .ports {
-      left: calc(100% + 24px);
-      right: auto;
-    }
-
-    .buck-card .card-top { top: 14px; }
-    .buck-card .ports { top: 96px; }
 
     .controller-card {
       left: 462px;
       top: 490px;
       width: 436px;
       height: 300px;
-    }
-
-    .controller-card .card-top {
-      left: auto;
-      right: calc(100% + 16px);
-      top: 12px;
-    }
-
-    .battery-card .ports {
-      left: calc(100% + 16px);
-      right: auto;
-      top: 78px;
     }
 
     .usb-card {
@@ -695,86 +653,11 @@
       object-fit: contain;
     }
 
-    .xt30-card .card-top {
-      left: auto;
-      right: calc(100% + 24px);
-      top: 14px;
-    }
-
-    .xt30-card .card-top strong {
-      font-size: 16px;
-    }
-
-    .xt30-card .card-body {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-    }
-
-    .xt30-card .ports {
-      left: auto;
-      right: calc(100% + 24px);
-      top: 84px;
-    }
-
-    .xt30-card .port-row {
-      min-height: 27px;
-      padding: 0 7px;
-      font-size: 11px;
-    }
-
     .battery-visual {
       width: auto;
       height: 110px;
       margin: -8px auto 6px;
       object-fit: contain;
-    }
-
-    .battery-card .card-top {
-      left: calc(100% + 16px);
-      top: 0;
-      right: auto;
-    }
-
-    .battery-card .card-body {
-      padding: 0;
-    }
-
-    .splitter-card .card-top {
-      left: 50%;
-      right: auto;
-      top: -28px;
-      width: 92px;
-      min-height: 0;
-      padding: 7px 28px 6px 8px;
-      transform: translateX(-50%);
-    }
-
-    .splitter-card .card-top strong {
-      font-size: 12px;
-    }
-
-    .splitter-card .card-top span {
-      margin-top: 2px;
-      font-size: 8px;
-      line-height: 1.1;
-    }
-
-    .splitter-card .card-top > .detail-button {
-      top: 8px;
-      right: 8px;
-      width: 24px;
-      height: 24px;
-    }
-
-    .splitter-card .card-body {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 9px;
-      padding: 0;
     }
 
     .splitter-visual {
@@ -785,27 +668,6 @@
       filter: drop-shadow(0 8px 10px rgba(0,0,0,.28));
     }
 
-    .splitter-caption {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      min-height: 24px;
-      color: var(--muted);
-      font-size: 8px;
-      font-weight: 900;
-      text-align: center;
-    }
-
-    .splitter-caption i {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--ground);
-    }
-
-    .positive-splitter-card .splitter-caption i { background: var(--red); }
-
     .modal-media img[src*="component-inline-lever-splitter"] {
       width: min(100%, 520px);
       max-height: 300px;
@@ -813,21 +675,15 @@
     }
 
     .buck-visual {
-      height: 86px;
-      margin: -8px auto 6px;
+      width: auto;
+      height: 308px;
+      margin: 0 auto;
     }
 
     .servo-visual {
-      height: 134px;
-      margin: -22px auto -12px;
-    }
-
-    .controller-card .card-body {
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
+      width: auto;
+      height: 380px;
+      margin: 0 auto;
     }
 
     .controller-assembly {
@@ -883,22 +739,6 @@
       opacity: 0;
     }
 
-    .controller-ports {
-      position: absolute;
-      right: calc(100% + 16px);
-      top: 94px;
-      width: 184px;
-      display: grid;
-      grid-template-columns: minmax(0, 1fr);
-      gap: 6px;
-    }
-
-    .controller-ports .port-row {
-      min-height: 28px;
-      padding: 0 7px;
-      font-size: 11px;
-    }
-
     @media (prefers-reduced-motion: reduce) {
       .stage.has-active .wire.is-active,
       .component.is-active .bread-jumper {
@@ -945,6 +785,7 @@
     }
 
     [data-mode="usb"] [data-node="buck"],
+    [data-mode="usb"] .buck-callout,
     [data-mode="usb"] .buck-wire {
       visibility: hidden;
       opacity: 0;
@@ -1950,8 +1791,7 @@
 
       .controls,
       dialog,
-      .detail-button,
-      .card-actions {
+      .detail-button {
         display: none;
       }
 
@@ -2068,10 +1908,6 @@
       .component.is-active {
         transform: none;
         box-shadow: var(--shadow-soft);
-      }
-
-      .card-top {
-        padding-right: 14px;
       }
 
       .wire {
@@ -2260,7 +2096,7 @@
         <div class="diagram-head">
           <div>
             <h2>Clean bench wiring map</h2>
-            <p>Cards follow the planned enclosure stack, with the servo high, electronics in the service bay, and the removable battery low.</p>
+            <p>Unframed parts follow the planned enclosure stack; separate side callouts identify each component and connection.</p>
             <p class="mode-copy" id="modeHint">Buck mode: battery powers the servo and the XIAO through the buck after the output is set to 5.0V.</p>
             <p class="mode-warning" id="modeWarning">Do not plug USB-C into the XIAO while buck 5V is connected to 5V/VBUS.</p>
           </div>
@@ -2284,165 +2120,61 @@
               <title id="diagramTitle">No-solder desk test wiring arranged like the planned enclosure</title>
               <desc id="diagramDesc">The physical layout forms one centered vertical chain: servo, XIAO on its breadboard, LM2596 buck, paired inline splitters, fixed XT30 dock, and slide-out battery. The battery mates directly upward into the XT30 dock, whose short positive and ground leads enter the splitters immediately above it. The splitters feed the servo through a dedicated right-side trunk and, in buck mode, feed the buck directly above them. The buck feeds the controller immediately above it while USB-C is unplugged. In USB-first mode, USB-C powers the XIAO, the buck is skipped, and splitter ground continues to the controller. PWM leaves the breadboard assembly on the left and travels upward to the servo.</desc>
 
-              <path class="wire red" data-parts="xt30 splitter-positive" d="M674 1460 V1439 H630" />
-              <path class="wire ground" data-parts="xt30 splitter-ground" d="M689 1460 V1439 H730" />
-
-              <path class="wire red" data-parts="splitter-positive servo" d="M640 1218 H1010 V260 H996" />
-              <path class="wire ground" data-parts="splitter-ground servo" d="M740 1218 H1030 V292 H996" />
-
-              <path class="wire red buck-wire" data-parts="splitter-positive buck" d="M620 1218 V1138" />
-              <path class="wire ground buck-wire" data-parts="splitter-ground buck" d="M720 1218 V1138" />
-
-              <path class="wire red buck-wire" data-parts="buck controller" d="M747 820 V790" />
-              <path class="wire ground buck-wire" data-parts="buck controller" d="M732 820 V790" />
-              <path class="wire ground usb-ground-wire muted" data-parts="splitter-ground controller" d="M720 1218 V1200 H550 V790 H605" />
-
-              <path class="wire signal" data-parts="controller servo" d="M598 550 V330 H790" />
-              <path class="wire logic usb-wire muted" data-parts="usb controller" d="M778 468 V478 H680 V490" />
+              <path id="batteryRedWire" class="wire red" data-parts="battery xt30" />
+              <path id="batteryGroundWire" class="wire ground" data-parts="battery xt30" />
+              <path id="xt30PositiveWire" class="wire red" data-parts="xt30 splitter-positive" />
+              <path id="xt30GroundWire" class="wire ground" data-parts="xt30 splitter-ground" />
+              <path id="servoPositiveWire" class="wire red" data-parts="splitter-positive servo" />
+              <path id="servoGroundWire" class="wire ground" data-parts="splitter-ground servo" />
+              <path id="buckInputPositiveWire" class="wire red buck-wire" data-parts="splitter-positive buck" />
+              <path id="buckInputGroundWire" class="wire ground buck-wire" data-parts="splitter-ground buck" />
+              <path id="controllerPowerWire" class="wire red buck-wire assembly-power" data-parts="buck controller" />
+              <path id="controllerGroundWire" class="wire ground buck-wire" data-parts="buck controller" />
+              <path id="usbGroundWire" class="wire ground usb-ground-wire muted" data-parts="splitter-ground controller" />
+              <path id="controllerSignalWire" class="wire signal" data-parts="controller servo" />
+              <path id="usbControllerWire" class="wire logic usb-wire muted" data-parts="usb controller" />
+              <path class="wire-bridge-underlay" data-wire-bridge="servo-positive" aria-hidden="true" />
+              <path class="wire red wire-bridge" data-wire-bridge-color="servo-positive" data-parts="splitter-positive servo" aria-hidden="true" />
             </svg>
 
-            <svg class="card-wire-overlay" viewBox="0 0 1120 1900" aria-hidden="true">
-              <path id="controllerSignalBridge" class="wire signal card-bridge" data-parts="controller servo" d="M598 550 V543.7" />
-              <path id="controllerPowerBridge" class="wire red assembly-power card-bridge" data-parts="buck controller" d="M747 780.7 V790" />
-              <path id="controllerGroundBridge" class="wire ground card-bridge" data-parts="buck splitter-ground controller" d="M732 780.7 V790" />
-              <path id="xt30RedTopBridge" class="wire red card-bridge" data-parts="xt30 splitter-positive" d="M674 1522 V1522.6" />
-              <path id="xt30GroundTopBridge" class="wire ground card-bridge" data-parts="xt30 splitter-ground" d="M689 1522 V1522.6" />
-              <path id="batteryRedBridge" class="wire red card-bridge" data-parts="battery xt30" d="M674 1610 V1694" />
-              <path id="batteryGroundBridge" class="wire ground card-bridge" data-parts="battery xt30" d="M689 1610 V1694" />
-              <path id="positiveSplitterOutputLeft" class="wire red card-bridge" data-parts="splitter-positive buck" d="M620 1218 V1220" />
-              <path id="positiveSplitterOutputRight" class="wire red card-bridge" data-parts="splitter-positive servo" d="M640 1218 V1220" />
-              <path id="positiveSplitterInput" class="wire red card-bridge" data-parts="xt30 splitter-positive" d="M630 1439 V1360" />
-              <path id="groundSplitterOutputLeft" class="wire ground card-bridge" data-parts="splitter-ground buck" d="M720 1218 V1220" />
-              <path id="groundSplitterOutputRight" class="wire ground card-bridge" data-parts="splitter-ground servo" d="M740 1218 V1220" />
-              <path id="groundSplitterInput" class="wire ground card-bridge" data-parts="xt30 splitter-ground" d="M730 1439 V1360" />
-            </svg>
-
-            <article class="component battery-card power" data-node="battery" tabindex="0">
-              <div class="card-top">
-                <div>
-                  <strong>2S battery</strong>
-                  <span>7.4V Li-ion</span>
-                </div>
-                <div class="card-actions">
-                  <button class="detail-button" type="button" data-part="battery" title="Open battery details">i</button>
-                  <div class="icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none">
-                      <rect x="3" y="8" width="16" height="8" rx="2" stroke="currentColor" stroke-width="2" />
-                      <path d="M20 11v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                      <path d="M8 12h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-              <div class="card-body">
+            <article class="component battery-card power" data-node="battery" tabindex="0" aria-label="2S battery">
+              <div class="component-visual">
                 <img class="part-raster battery-visual" src="assets/component-battery-2s-vertical.png" alt="" aria-hidden="true" />
-                <div class="ports">
-                  <div class="port-row">XT30 output <i class="port red"></i></div>
-                  <div class="port-row">battery ground <i class="port ground"></i></div>
-                </div>
               </div>
             </article>
 
-            <article class="component xt30-card power" data-node="xt30" tabindex="0">
-              <div class="card-top">
-                <div>
-                  <strong>XT30 pigtail</strong>
-                  <span>16 AWG bare leads</span>
-                </div>
-                <button class="detail-button" type="button" data-part="xt30" title="Open XT30 pigtail details">i</button>
-              </div>
-              <div class="card-body">
+            <article class="component xt30-card power" data-node="xt30" tabindex="0" aria-label="XT30 pigtail">
+              <div class="component-visual">
                 <img class="part-raster xt30-visual" src="assets/component-xt30-pigtail-vertical.png" alt="" aria-hidden="true" />
-                <div class="ports">
-                  <div class="port-row">red lead <i class="port red"></i></div>
-                  <div class="port-row">black lead <i class="port ground"></i></div>
-                </div>
               </div>
             </article>
 
             <article class="component splitter-card positive-splitter-card" data-node="splitter-positive" tabindex="0" aria-label="Positive inline power splitter">
-              <div class="card-top">
-                <div>
-                  <strong>POS</strong>
-                  <span>positive</span>
-                </div>
-                <button class="detail-button" type="button" data-part="splitter" title="Open positive splitter details">i</button>
-              </div>
-              <div class="card-body">
+              <div class="component-visual">
                 <img class="splitter-visual" src="assets/component-inline-lever-splitter-straight.png" alt="" aria-hidden="true" />
-                <div class="splitter-caption"><i></i><span>1 in / 2 out</span></div>
               </div>
             </article>
 
             <article class="component splitter-card ground-splitter-card" data-node="splitter-ground" tabindex="0" aria-label="Ground inline power splitter">
-              <div class="card-top">
-                <div>
-                  <strong>GND</strong>
-                  <span>ground</span>
-                </div>
-                <button class="detail-button" type="button" data-part="splitter" title="Open ground splitter details">i</button>
-              </div>
-              <div class="card-body">
+              <div class="component-visual">
                 <img class="splitter-visual" src="assets/component-inline-lever-splitter-straight.png" alt="" aria-hidden="true" />
-                <div class="splitter-caption"><i></i><span>1 in / 2 out</span></div>
               </div>
             </article>
 
-            <article class="component servo-card power" data-node="servo" tabindex="0">
-              <div class="card-top">
-                <div>
-                  <strong>35kg servo</strong>
-                  <span>Direct battery power plus signal</span>
-                </div>
-                <div class="card-actions">
-                  <button class="detail-button" type="button" data-part="servo" title="Open servo details">i</button>
-                  <div class="icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none">
-                      <rect x="4" y="9" width="10" height="8" rx="2" stroke="currentColor" stroke-width="2" />
-                      <path d="M14 12h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                      <path d="M7 6h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-              <div class="card-body">
-                <img class="part-raster servo-visual" src="assets/injora-servo-regenerated-full.png" alt="" aria-hidden="true" />
-                <div class="ports">
-                  <div class="port-row">red power <i class="port red"></i></div>
-                  <div class="port-row">black/brown ground <i class="port ground"></i></div>
-                  <div class="port-row">orange/yellow signal <i class="port signal"></i></div>
-                </div>
+            <article class="component servo-card power" data-node="servo" tabindex="0" aria-label="35 kilogram servo">
+              <div class="component-visual">
+                <img class="part-raster servo-visual" src="assets/injora-servo-rear-connector.png" alt="" aria-hidden="true" />
               </div>
             </article>
 
-            <article class="component buck-card logic" data-node="buck" tabindex="0">
-              <div class="card-top">
-                <div>
-                  <strong>LM2596 buck</strong>
-                  <span>Adjust output to 5.0V first</span>
-                </div>
-                <button class="detail-button" type="button" data-part="buck" title="Open buck converter details">i</button>
-              </div>
-              <div class="card-body">
-                <img class="part-raster buck-visual" src="assets/component-buck.png" alt="" aria-hidden="true" />
-                <div class="ports">
-                  <div class="port-row">IN+ from splitter <i class="port red"></i></div>
-                  <div class="port-row">IN- from splitter <i class="port ground"></i></div>
-                  <div class="port-row">OUT+ 5V <i class="port logic"></i></div>
-                  <div class="port-row">OUT- ground <i class="port ground"></i></div>
-                </div>
+            <article class="component buck-card logic" data-node="buck" tabindex="0" aria-label="LM2596 buck converter">
+              <div class="component-visual">
+                <img class="part-raster buck-visual" src="assets/component-buck-vertical.png" alt="" aria-hidden="true" />
               </div>
             </article>
 
-            <article class="component controller-card logic" data-node="controller" tabindex="0">
-              <div class="card-top">
-                <div>
-                  <strong>XIAO + breadboard</strong>
-                  <span>Pre-soldered controller plugged into logic rows</span>
-                </div>
-                <button class="detail-button" type="button" data-part="xiao" title="Open XIAO details" aria-label="Open XIAO details">i</button>
-              </div>
-              <div class="card-body">
+            <article class="component controller-card logic" data-node="controller" tabindex="0" aria-label="XIAO controller on breadboard">
+              <div class="component-visual">
                 <div class="controller-assembly" aria-hidden="true">
                   <img class="breadboard-layer" src="assets/component-breadboard-red-layer.png" alt="" />
                   <svg class="assembly-wires" viewBox="0 0 168 237">
@@ -2455,13 +2187,84 @@
                   </svg>
                   <img class="xiao-layer" src="assets/component-xiao-top-down-layer.png" alt="" />
                 </div>
-                <div class="ports controller-ports">
-                  <div class="port-row">5V/VBUS row <i class="port red"></i></div>
-                  <div class="port-row">GND row <i class="port ground"></i></div>
-                  <div class="port-row">D2 PWM row <i class="port signal"></i></div>
-                </div>
               </div>
             </article>
+
+            <aside class="diagram-callout servo-callout" data-callout-for="servo">
+              <div class="callout-head">
+                <strong>35kg servo</strong>
+                <span>Centered actuator; battery power plus PWM signal.</span>
+                <button class="detail-button" type="button" data-part="servo" title="Open servo details">i</button>
+              </div>
+              <div class="callout-ports">
+                <div class="port-row">red power <i class="port red"></i></div>
+                <div class="port-row">black/brown ground <i class="port ground"></i></div>
+                <div class="port-row">orange/yellow signal <i class="port signal"></i></div>
+              </div>
+            </aside>
+
+            <aside class="diagram-callout controller-callout" data-callout-for="controller">
+              <div class="callout-head">
+                <strong>XIAO + breadboard</strong>
+                <span>Pre-soldered controller centered on the logic board.</span>
+                <button class="detail-button" type="button" data-part="xiao" title="Open XIAO details" aria-label="Open XIAO details">i</button>
+              </div>
+              <div class="callout-ports">
+                <div class="port-row">5V/VBUS row <i class="port red"></i></div>
+                <div class="port-row">GND row <i class="port ground"></i></div>
+                <div class="port-row">D2 PWM row <i class="port signal"></i></div>
+              </div>
+            </aside>
+
+            <aside class="diagram-callout buck-callout" data-callout-for="buck">
+              <div class="callout-head">
+                <strong>LM2596 buck</strong>
+                <span>Adjust output to 5.0V before connecting the XIAO.</span>
+                <button class="detail-button" type="button" data-part="buck" title="Open buck converter details">i</button>
+              </div>
+              <div class="callout-ports">
+                <div class="port-row">IN+ from splitter <i class="port red"></i></div>
+                <div class="port-row">IN- from splitter <i class="port ground"></i></div>
+                <div class="port-row">OUT+ 5V <i class="port logic"></i></div>
+                <div class="port-row">OUT- ground <i class="port ground"></i></div>
+              </div>
+            </aside>
+
+            <aside class="diagram-callout splitters-callout" data-callout-for="splitter-positive splitter-ground">
+              <div class="callout-head">
+                <strong>Inline power splitters</strong>
+                <span>Separate 1-in / 2-out blocks for positive and ground.</span>
+                <button class="detail-button" type="button" data-part="splitter" title="Open splitter details">i</button>
+              </div>
+              <div class="callout-ports">
+                <div class="port-row">POS splitter <i class="port red"></i></div>
+                <div class="port-row">GND splitter <i class="port ground"></i></div>
+              </div>
+            </aside>
+
+            <aside class="diagram-callout xt30-callout" data-callout-for="xt30">
+              <div class="callout-head">
+                <strong>XT30 pigtail</strong>
+                <span>16 AWG adapter between the battery and splitters.</span>
+                <button class="detail-button" type="button" data-part="xt30" title="Open XT30 pigtail details">i</button>
+              </div>
+              <div class="callout-ports">
+                <div class="port-row">red lead <i class="port red"></i></div>
+                <div class="port-row">black lead <i class="port ground"></i></div>
+              </div>
+            </aside>
+
+            <aside class="diagram-callout battery-callout" data-callout-for="battery">
+              <div class="callout-head">
+                <strong>2S battery</strong>
+                <span>7.4V Li-ion pack with separate positive and ground conductors.</span>
+                <button class="detail-button" type="button" data-part="battery" title="Open battery details">i</button>
+              </div>
+              <div class="callout-ports">
+                <div class="port-row">positive output <i class="port red"></i></div>
+                <div class="port-row">battery ground <i class="port ground"></i></div>
+              </div>
+            </aside>
 
             <div class="component usb-card" data-node="usb" tabindex="0">USB-C from computer</div>
 
@@ -2989,7 +2792,7 @@
     </div>
     <div class="modal-body">
       <div class="modal-media">
-        <img id="partModalImage" src="" alt="" />
+        <img id="partModalImage" alt="" />
       </div>
       <div class="modal-row">
         <strong>Price</strong>
@@ -3029,7 +2832,7 @@
         price: "$37.44",
         weight: "70 g servo body, about 79 g with long arm and rubber cap",
         full: "INJORA 35KG Brushless Waterproof High Voltage Servo Motor High Torque Digital Servo for RC Car Model",
-        image: "assets/injora-servo-regenerated-full.png",
+        image: "assets/injora-servo-rear-connector.png",
         description: "High-torque RC servo with the installed long 25T arm and glossy rubber sleeve cap shown for the handle-contact end.",
         role: "High-torque actuator that moves the door handle during the desk test.",
         specs: ["35kg-class high-torque digital servo", "Brushless waterproof RC servo body", "Use 16 AWG for servo red power and black/brown ground", "Runs from the direct 2S battery path, not through the breadboard", "PWM signal is low-current and can use 22 AWG or a breadboard jumper", "Uses three leads: power, ground, and PWM signal"],
@@ -3062,7 +2865,7 @@
         price: "$8.23",
         weight: "Estimated 23 g for the voltmeter module",
         full: "Seloky LM2596 Adjustable DC-DC Step-Down Buck Converter Module with LED Voltmeter Display, Voltage Regulator 4.0-40V Input to 1.25-37V Output Power Supply Module",
-        image: "assets/component-buck.png",
+        image: "assets/component-buck-vertical.png",
         description: "Adjustable step-down voltage regulator used to turn the 2S battery voltage into a safe 5.0V logic supply.",
         role: "Steps the 2S battery voltage down to 5.0V for the XIAO after adjustment.",
         specs: ["LM2596 adjustable buck converter", "Verified module envelope: 57 x 36 x 14mm", "4.0-40V listed input range", "1.25-37V listed output range", "Set and verify 5.0V output before connecting the XIAO", "Unplug XIAO USB-C before feeding buck 5V into 5V/VBUS"],
@@ -3193,216 +2996,159 @@
 
     const stage = document.querySelector(".stage");
     const diagramNodes = Array.from(document.querySelectorAll(".stage [data-node]"));
+    const diagramCallouts = Array.from(document.querySelectorAll(".stage [data-callout-for]"));
     const diagramWires = Array.from(document.querySelectorAll(".stage .wire[data-parts]"));
-    const controllerCard = document.querySelector(".controller-card");
-    const controllerAssembly = controllerCard.querySelector(".controller-assembly");
-    const controllerSignalBridge = document.getElementById("controllerSignalBridge");
-    const controllerPowerBridge = document.getElementById("controllerPowerBridge");
-    const controllerGroundBridge = document.getElementById("controllerGroundBridge");
-    const xt30Card = document.querySelector(".xt30-card");
-    const xt30Image = xt30Card.querySelector(".xt30-visual");
-    const xt30RedTopBridge = document.getElementById("xt30RedTopBridge");
-    const xt30GroundTopBridge = document.getElementById("xt30GroundTopBridge");
-    const batteryCard = document.querySelector(".battery-card");
-    const batteryImage = batteryCard.querySelector(".battery-visual");
-    const batteryRedBridge = document.getElementById("batteryRedBridge");
-    const batteryGroundBridge = document.getElementById("batteryGroundBridge");
-    const splitterBridgeConfigs = [
-      {
-        card: document.querySelector(".positive-splitter-card"),
-        outputLeft: document.getElementById("positiveSplitterOutputLeft"),
-        outputRight: document.getElementById("positiveSplitterOutputRight"),
-        input: document.getElementById("positiveSplitterInput"),
-        anchors: { outputLeft: [620, 1218], outputRight: [640, 1218], input: [630, 1439] },
-      },
-      {
-        card: document.querySelector(".ground-splitter-card"),
-        outputLeft: document.getElementById("groundSplitterOutputLeft"),
-        outputRight: document.getElementById("groundSplitterOutputRight"),
-        input: document.getElementById("groundSplitterInput"),
-        anchors: { outputLeft: [720, 1218], outputRight: [740, 1218], input: [730, 1439] },
-      },
-    ];
-    splitterBridgeConfigs.forEach((config) => {
-      config.image = config.card.querySelector(".splitter-visual");
-    });
+    const wiringElements = {
+      servo: document.querySelector(".servo-visual"),
+      controller: document.querySelector(".controller-assembly"),
+      buck: document.querySelector(".buck-visual"),
+      positiveSplitter: document.querySelector(".positive-splitter-card .splitter-visual"),
+      groundSplitter: document.querySelector(".ground-splitter-card .splitter-visual"),
+      xt30: document.querySelector(".xt30-visual"),
+      battery: document.querySelector(".battery-visual"),
+      usb: document.querySelector(".usb-card"),
+    };
+    const wiringPaths = {
+      batteryRed: document.getElementById("batteryRedWire"),
+      batteryGround: document.getElementById("batteryGroundWire"),
+      xt30Positive: document.getElementById("xt30PositiveWire"),
+      xt30Ground: document.getElementById("xt30GroundWire"),
+      servoPositive: document.getElementById("servoPositiveWire"),
+      servoPositiveBridgeUnderlay: document.querySelector('[data-wire-bridge="servo-positive"]'),
+      servoPositiveBridge: document.querySelector('[data-wire-bridge-color="servo-positive"]'),
+      servoGround: document.getElementById("servoGroundWire"),
+      buckInputPositive: document.getElementById("buckInputPositiveWire"),
+      buckInputGround: document.getElementById("buckInputGroundWire"),
+      controllerPower: document.getElementById("controllerPowerWire"),
+      controllerGround: document.getElementById("controllerGroundWire"),
+      usbGround: document.getElementById("usbGroundWire"),
+      controllerSignal: document.getElementById("controllerSignalWire"),
+      usbController: document.getElementById("usbControllerWire"),
+    };
 
-    function updateControllerBridges() {
+    function updateWiringGeometry() {
       const stageRect = stage.getBoundingClientRect();
-      const assemblyRect = controllerAssembly.getBoundingClientRect();
-      const assemblyX = (localX) => (
-        assemblyRect.left - stageRect.left + (localX / 168) * assemblyRect.width
-      );
-      const top = assemblyRect.top - stageRect.top;
-      const bottom = assemblyRect.bottom - stageRect.top;
-      controllerSignalBridge.setAttribute("d", `M598 550 L${assemblyX(2).toFixed(1)} ${top.toFixed(1)}`);
-      controllerPowerBridge.setAttribute("d", `M747 790 L${assemblyX(151).toFixed(1)} ${bottom.toFixed(1)}`);
-      controllerGroundBridge.setAttribute("d", `M732 790 L${assemblyX(136).toFixed(1)} ${bottom.toFixed(1)}`);
-    }
-
-    let controllerBridgeFrame = 0;
-    function trackControllerBridges() {
-      cancelAnimationFrame(controllerBridgeFrame);
-      const deadline = performance.now() + 260;
-      function updateFrame(now) {
-        updateControllerBridges();
-        if (now < deadline) {
-          controllerBridgeFrame = requestAnimationFrame(updateFrame);
-        }
-      }
-      controllerBridgeFrame = requestAnimationFrame(updateFrame);
-    }
-
-    ["pointerenter", "pointerleave", "focusin", "focusout"].forEach((eventName) => {
-      controllerCard.addEventListener(eventName, trackControllerBridges);
-    });
-    controllerCard.addEventListener("transitionrun", trackControllerBridges);
-    controllerCard.addEventListener("transitionend", updateControllerBridges);
-    window.addEventListener("resize", updateControllerBridges);
-    requestAnimationFrame(updateControllerBridges);
-
-    function updateXT30Bridges() {
-      const stageRect = stage.getBoundingClientRect();
-      const imageRect = xt30Image.getBoundingClientRect();
-      const imageX = (ratio) => imageRect.left - stageRect.left + ratio * imageRect.width;
-      const redX = imageX(0.292);
-      const groundX = imageX(0.689);
-      const top = imageRect.top - stageRect.top;
-      xt30RedTopBridge.setAttribute("d", `M674 1522 L${redX.toFixed(1)} ${top.toFixed(1)}`);
-      xt30GroundTopBridge.setAttribute("d", `M689 1522 L${groundX.toFixed(1)} ${top.toFixed(1)}`);
-    }
-
-    let xt30BridgeFrame = 0;
-    function trackXT30Bridges() {
-      cancelAnimationFrame(xt30BridgeFrame);
-      const deadline = performance.now() + 260;
-      function updateFrame(now) {
-        updateXT30Bridges();
-        if (now < deadline) {
-          xt30BridgeFrame = requestAnimationFrame(updateFrame);
-        }
-      }
-      xt30BridgeFrame = requestAnimationFrame(updateFrame);
-    }
-
-    ["pointerenter", "pointerleave", "focusin", "focusout"].forEach((eventName) => {
-      xt30Card.addEventListener(eventName, trackXT30Bridges);
-      xt30Card.addEventListener(eventName, trackBatteryBridges);
-    });
-    xt30Card.addEventListener("transitionrun", trackXT30Bridges);
-    xt30Card.addEventListener("transitionend", updateXT30Bridges);
-    xt30Card.addEventListener("transitionrun", trackBatteryBridges);
-    xt30Card.addEventListener("transitionend", updateBatteryXT30Leads);
-    window.addEventListener("resize", updateXT30Bridges);
-    requestAnimationFrame(updateXT30Bridges);
-
-    function updateBatteryXT30Leads() {
-      const stageRect = stage.getBoundingClientRect();
-      const pigtailRect = xt30Image.getBoundingClientRect();
-      const imageRect = batteryImage.getBoundingClientRect();
-      const centerX = (rect) => rect.left - stageRect.left + rect.width / 2;
-      const pigtailY = pigtailRect.bottom - stageRect.top;
-      const batteryY = imageRect.top - stageRect.top + 0.038 * imageRect.height;
-      const pigtailRed = [centerX(pigtailRect) - 7, pigtailY];
-      const pigtailGround = [centerX(pigtailRect) + 7, pigtailY];
-      const batteryRed = [centerX(imageRect) - 7, batteryY];
-      const batteryGround = [centerX(imageRect) + 7, batteryY];
-      batteryRedBridge.setAttribute(
-        "d",
-        `M${pigtailRed[0].toFixed(1)} ${pigtailRed[1].toFixed(1)} L${batteryRed[0].toFixed(1)} ${batteryRed[1].toFixed(1)}`,
-      );
-      batteryGroundBridge.setAttribute(
-        "d",
-        `M${pigtailGround[0].toFixed(1)} ${pigtailGround[1].toFixed(1)} L${batteryGround[0].toFixed(1)} ${batteryGround[1].toFixed(1)}`,
-      );
-    }
-
-    let batteryBridgeFrame = 0;
-    function trackBatteryBridges() {
-      cancelAnimationFrame(batteryBridgeFrame);
-      const deadline = performance.now() + 260;
-      function updateFrame(now) {
-        updateBatteryXT30Leads();
-        if (now < deadline) {
-          batteryBridgeFrame = requestAnimationFrame(updateFrame);
-        }
-      }
-      batteryBridgeFrame = requestAnimationFrame(updateFrame);
-    }
-
-    ["pointerenter", "pointerleave", "focusin", "focusout"].forEach((eventName) => {
-      batteryCard.addEventListener(eventName, trackBatteryBridges);
-    });
-    batteryCard.addEventListener("transitionrun", trackBatteryBridges);
-    batteryCard.addEventListener("transitionend", updateBatteryXT30Leads);
-    batteryImage.addEventListener("load", updateBatteryXT30Leads);
-    xt30Image.addEventListener("load", updateBatteryXT30Leads);
-    window.addEventListener("resize", updateBatteryXT30Leads);
-    requestAnimationFrame(updateBatteryXT30Leads);
-
-    function updateSplitterBridges() {
-      const stageRect = stage.getBoundingClientRect();
-      splitterBridgeConfigs.forEach((config) => {
-        const imageRect = config.image.getBoundingClientRect();
-        const point = (xRatio, yRatio) => [
-          imageRect.left - stageRect.left + xRatio * imageRect.width,
-          imageRect.top - stageRect.top + yRatio * imageRect.height,
+      const rectFor = (element) => element.getBoundingClientRect();
+      const point = (rect, xRatio, yRatio) => [
+        rect.left - stageRect.left + rect.width * xRatio,
+        rect.top - stageRect.top + rect.height * yRatio,
+      ];
+      const assemblyPoint = (localX, yRatio) => {
+        const rect = rectFor(wiringElements.controller);
+        return [
+          rect.left - stageRect.left + (localX / 168) * rect.width,
+          rect.top - stageRect.top + yRatio * rect.height,
         ];
-        const outputLeft = point(0.319, 0.061);
-        const outputRight = point(0.662, 0.061);
-        const input = point(0.504, 0.963);
-        config.outputLeft.setAttribute(
-          "d",
-          `M${config.anchors.outputLeft.join(" ")} L${outputLeft[0].toFixed(1)} ${outputLeft[1].toFixed(1)}`,
-        );
-        config.outputRight.setAttribute(
-          "d",
-          `M${config.anchors.outputRight.join(" ")} L${outputRight[0].toFixed(1)} ${outputRight[1].toFixed(1)}`,
-        );
-        config.input.setAttribute(
-          "d",
-          `M${config.anchors.input.join(" ")} L${input[0].toFixed(1)} ${input[1].toFixed(1)}`,
-        );
-      });
+      };
+      const pathPoint = ([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`;
+
+      const servoRect = rectFor(wiringElements.servo);
+      const buckRect = rectFor(wiringElements.buck);
+      const positiveSplitterRect = rectFor(wiringElements.positiveSplitter);
+      const groundSplitterRect = rectFor(wiringElements.groundSplitter);
+      const xt30Rect = rectFor(wiringElements.xt30);
+      const batteryRect = rectFor(wiringElements.battery);
+      const usbRect = rectFor(wiringElements.usb);
+
+      const batteryRed = point(batteryRect, 0.44, 0.038);
+      const batteryGround = point(batteryRect, 0.56, 0.038);
+      const xt30BottomRed = point(xt30Rect, 0.44, 1);
+      const xt30BottomGround = point(xt30Rect, 0.56, 1);
+      wiringPaths.batteryRed.setAttribute("d", `M${pathPoint(xt30BottomRed)} L${pathPoint(batteryRed)}`);
+      wiringPaths.batteryGround.setAttribute("d", `M${pathPoint(xt30BottomGround)} L${pathPoint(batteryGround)}`);
+
+      const xt30TopRed = point(xt30Rect, 0.292, 0);
+      const xt30TopGround = point(xt30Rect, 0.689, 0);
+      const positiveInput = point(positiveSplitterRect, 0.504, 0.963);
+      const groundInput = point(groundSplitterRect, 0.504, 0.963);
+      const xt30MidY = (xt30TopRed[1] + positiveInput[1]) / 2;
+      wiringPaths.xt30Positive.setAttribute("d", `M${pathPoint(xt30TopRed)} V${xt30MidY.toFixed(1)} H${positiveInput[0].toFixed(1)} V${positiveInput[1].toFixed(1)}`);
+      wiringPaths.xt30Ground.setAttribute("d", `M${pathPoint(xt30TopGround)} V${(xt30MidY - 18).toFixed(1)} H${groundInput[0].toFixed(1)} V${groundInput[1].toFixed(1)}`);
+
+      const positiveOutputBuck = point(positiveSplitterRect, 0.319, 0.061);
+      const positiveOutputServo = point(positiveSplitterRect, 0.662, 0.061);
+      const groundOutputBuck = point(groundSplitterRect, 0.319, 0.061);
+      const groundOutputServo = point(groundSplitterRect, 0.662, 0.061);
+      const buckInputPositive = point(buckRect, 0.46, 0.91);
+      const buckInputGround = point(buckRect, 0.55, 0.91);
+      wiringPaths.buckInputPositive.setAttribute("d", `M${pathPoint(positiveOutputBuck)} V1138 H${buckInputPositive[0].toFixed(1)} V${buckInputPositive[1].toFixed(1)}`);
+      wiringPaths.buckInputGround.setAttribute("d", `M${pathPoint(groundOutputBuck)} V1118 H${buckInputGround[0].toFixed(1)} V${buckInputGround[1].toFixed(1)}`);
+
+      const servoSignal = point(servoRect, 0.479, 0.895);
+      const servoRed = point(servoRect, 0.517, 0.895);
+      const servoGround = point(servoRect, 0.553, 0.895);
+      wiringPaths.servoPositive.setAttribute("d", `M${pathPoint(positiveOutputServo)} V1155 H1010 V470 L${pathPoint(servoRed)}`);
+      const servoBridge = `M${(groundOutputBuck[0] - 12).toFixed(1)} 1155 H${(groundOutputBuck[0] + 12).toFixed(1)}`;
+      wiringPaths.servoPositiveBridgeUnderlay.setAttribute("d", servoBridge);
+      wiringPaths.servoPositiveBridge.setAttribute("d", servoBridge);
+      wiringPaths.servoGround.setAttribute("d", `M${pathPoint(groundOutputServo)} V1208 H1030 V470 L${pathPoint(servoGround)}`);
+
+      const controllerPower = assemblyPoint(151, 1);
+      const controllerGround = assemblyPoint(136, 1);
+      const buckOutputGround = point(buckRect, 0.46, 0.09);
+      const buckOutputPower = point(buckRect, 0.55, 0.09);
+      wiringPaths.controllerPower.setAttribute("d", `M${pathPoint(buckOutputPower)} L${pathPoint(controllerPower)}`);
+      wiringPaths.controllerGround.setAttribute("d", `M${pathPoint(buckOutputGround)} L${pathPoint(controllerGround)}`);
+
+      const controllerSignal = assemblyPoint(2, 0);
+      wiringPaths.controllerSignal.setAttribute("d", `M${pathPoint(controllerSignal)} V460 H${servoSignal[0].toFixed(1)} V${servoSignal[1].toFixed(1)}`);
+
+      const usbSource = point(usbRect, 0.5, 1);
+      const controllerUsb = assemblyPoint(84, 0);
+      const usbMidY = (usbSource[1] + controllerUsb[1]) / 2;
+      wiringPaths.usbController.setAttribute("d", `M${pathPoint(usbSource)} V${usbMidY.toFixed(1)} H${controllerUsb[0].toFixed(1)} V${controllerUsb[1].toFixed(1)}`);
+
+      const usbGroundDropY = groundOutputBuck[1] + 34;
+      wiringPaths.usbGround.setAttribute("d", `M${pathPoint(groundOutputBuck)} V${usbGroundDropY.toFixed(1)} H560 V${(controllerGround[1] + 24).toFixed(1)} H${controllerGround[0].toFixed(1)} V${controllerGround[1].toFixed(1)}`);
     }
 
-    let splitterBridgeFrame = 0;
-    function trackSplitterBridges() {
-      cancelAnimationFrame(splitterBridgeFrame);
-      const deadline = performance.now() + 260;
+    let wiringGeometryFrame = 0;
+    function trackWiringGeometry() {
+      cancelAnimationFrame(wiringGeometryFrame);
+      const deadline = performance.now() + 280;
       function updateFrame(now) {
-        updateSplitterBridges();
+        updateWiringGeometry();
         if (now < deadline) {
-          splitterBridgeFrame = requestAnimationFrame(updateFrame);
+          wiringGeometryFrame = requestAnimationFrame(updateFrame);
         }
       }
-      splitterBridgeFrame = requestAnimationFrame(updateFrame);
+      wiringGeometryFrame = requestAnimationFrame(updateFrame);
     }
 
-    splitterBridgeConfigs.forEach((config) => {
-      ["pointerenter", "pointerleave", "focusin", "focusout"].forEach((eventName) => {
-        config.card.addEventListener(eventName, trackSplitterBridges);
+    diagramNodes.forEach((node) => {
+      ["pointerenter", "pointerleave", "focusin", "focusout", "transitionrun"].forEach((eventName) => {
+        node.addEventListener(eventName, trackWiringGeometry);
       });
-      config.card.addEventListener("transitionrun", trackSplitterBridges);
-      config.card.addEventListener("transitionend", updateSplitterBridges);
+      node.addEventListener("transitionend", updateWiringGeometry);
     });
-    window.addEventListener("resize", updateSplitterBridges);
-    requestAnimationFrame(updateSplitterBridges);
+    Object.values(wiringElements).forEach((element) => {
+      if (element instanceof HTMLImageElement) {
+        element.addEventListener("load", updateWiringGeometry);
+      }
+    });
+    window.addEventListener("resize", updateWiringGeometry);
+    requestAnimationFrame(updateWiringGeometry);
 
-    function setActiveNode(nodeId) {
+    function setActiveNode(nodeIds) {
+      const activeIds = Array.isArray(nodeIds) ? nodeIds : [nodeIds];
       stage.classList.add("has-active");
       diagramNodes.forEach((node) => {
-        node.classList.toggle("is-active", node.dataset.node === nodeId);
+        node.classList.toggle("is-active", activeIds.includes(node.dataset.node));
+      });
+      diagramCallouts.forEach((callout) => {
+        const relatedNodes = callout.dataset.calloutFor.split(" ");
+        callout.classList.toggle("is-active", relatedNodes.some((nodeId) => activeIds.includes(nodeId)));
       });
       diagramWires.forEach((wire) => {
         const relatedParts = wire.dataset.parts.split(" ");
-        wire.classList.toggle("is-active", relatedParts.includes(nodeId));
+        wire.classList.toggle("is-active", relatedParts.some((nodeId) => activeIds.includes(nodeId)));
       });
     }
 
     function clearActiveNode() {
       stage.classList.remove("has-active");
       diagramNodes.forEach((node) => node.classList.remove("is-active"));
+      diagramCallouts.forEach((callout) => callout.classList.remove("is-active"));
       diagramWires.forEach((wire) => wire.classList.remove("is-active"));
     }
 
@@ -3416,6 +3162,18 @@
       node.addEventListener("focusin", () => setActiveNode(node.dataset.node));
       node.addEventListener("focusout", (event) => {
         if (!node.contains(event.relatedTarget)) {
+          clearActiveNode();
+        }
+      });
+    });
+
+    diagramCallouts.forEach((callout) => {
+      const relatedNodes = callout.dataset.calloutFor.split(" ");
+      callout.addEventListener("pointerenter", () => setActiveNode(relatedNodes));
+      callout.addEventListener("pointerleave", clearActiveNode);
+      callout.addEventListener("focusin", () => setActiveNode(relatedNodes));
+      callout.addEventListener("focusout", (event) => {
+        if (!callout.contains(event.relatedTarget)) {
           clearActiveNode();
         }
       });
