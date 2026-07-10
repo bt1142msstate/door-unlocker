@@ -2,10 +2,7 @@ import CryptoKit
 import Foundation
 
 public enum DoorSecureCommandCodec {
-    public enum FastCommand {
-        case unlock
-        case lock
-    }
+    public typealias FastCommand = DoorCommand
 
     public struct EncodedCommand: Equatable {
         public let op: UInt8

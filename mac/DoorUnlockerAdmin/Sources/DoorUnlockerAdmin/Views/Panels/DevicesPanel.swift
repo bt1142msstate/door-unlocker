@@ -12,7 +12,7 @@ struct DevicesPanel: View {
                     Text("Trusted Devices")
                         .font(.headline)
                     Spacer()
-                    StatusPill(text: "\(store.pairedDevices.count)", symbol: "iphone.gen3", tint: .secondary)
+                    StatusPill(text: store.trustedDevicesCountText, symbol: "iphone.gen3", tint: .secondary)
                     Button(role: .destructive) {
                         store.clearAllDevices()
                     } label: {
@@ -22,8 +22,17 @@ struct DevicesPanel: View {
                 }
 
                 if store.pairedDevices.isEmpty {
-                    ContentUnavailableView("No trusted devices", systemImage: "iphone.slash")
+                    if store.trustedDeviceRosterSummary.trustedCount > 0 {
+                        ContentUnavailableView {
+                            Label(trustedDeviceTitle, systemImage: "iphone.gen3")
+                        } description: {
+                            Text(trustedDeviceDescription)
+                        }
                         .frame(maxWidth: .infinity, minHeight: 130)
+                    } else {
+                        ContentUnavailableView("No trusted devices", systemImage: "iphone.slash")
+                            .frame(maxWidth: .infinity, minHeight: 130)
+                    }
                 } else {
                     List(store.pairedDevices, selection: $store.selectedDeviceID) { device in
                         HStack(spacing: 12) {
@@ -78,5 +87,17 @@ struct DevicesPanel: View {
                 renameText = selectedDevice.displayName
             }
         }
+    }
+
+    private var trustedDeviceTitle: String {
+        let count = store.trustedDeviceRosterSummary.trustedCount
+        return count == 1 ? "1 trusted device" : "\(count) trusted devices"
+    }
+
+    private var trustedDeviceDescription: String {
+        if store.isConnected {
+            return "Loading trusted device details."
+        }
+        return "Connect USB-C to view and manage the complete trusted-device list."
     }
 }

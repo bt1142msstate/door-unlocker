@@ -3,19 +3,9 @@ import SwiftUI
 struct DoorHeaderView: View {
     let lockName: String
     let deviceName: String
-    let accent: Color
 
     var body: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(accent.opacity(0.16))
-                Image(systemName: "door.left.hand.closed")
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(accent)
-            }
-            .frame(width: 48, height: 48)
-
+        HStack {
             VStack(alignment: .leading, spacing: 3) {
                 Text(lockName)
                     .font(.title2.weight(.bold))

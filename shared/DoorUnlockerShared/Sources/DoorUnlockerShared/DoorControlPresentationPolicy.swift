@@ -106,6 +106,12 @@ public enum DoorControlPresentationPolicy {
         }
     }
 
+    public static func state(_ state: String, satisfiesUnlockedTarget targetIsUnlocked: Bool) -> Bool {
+        targetIsUnlocked
+            ? state == "unlocking" || state == "unlocked"
+            : state == "locking" || state == "locked"
+    }
+
     public static func presentation(for input: DoorControlPresentationInput) -> DoorControlPresentation {
         let isChangingState = isChangingState(input.servoState)
         let isApplyingSettingsOnly = input.isApplyingControllerSetting && !isChangingState
@@ -126,7 +132,9 @@ public enum DoorControlPresentationPolicy {
             isApplyingSettingsOnly
         let isPrimaryActionEnabled = input.canAcceptDoorCommand &&
             !input.isBusy &&
-            !input.isApplyingControllerSetting
+            !input.isApplyingControllerSetting &&
+            !input.isDoorCommandQueuedForSecureLink &&
+            !isChangingState
 
         return DoorControlPresentation(
             isApplyingSettingsOnly: isApplyingSettingsOnly,

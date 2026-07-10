@@ -3,8 +3,7 @@
 
 This gate follows SwiftLint's default metric thresholds as the external baseline:
 file_length warns at 400 and errors at 1000; type_body_length warns at 250 and
-errors at 350. Two current hardware/session owners are locked behind explicit
-ratchet budgets so they cannot grow while they are split down over time.
+errors at 350. The same limits apply to every source file and type.
 
 The gate also blocks line-count gaming: code that crosses the file/type
 thresholds should be split into smaller units, not compressed into very long
@@ -18,6 +17,8 @@ import json
 import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
+
+from quality_test_support import swift_structure_text
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,12 +38,6 @@ TYPE_ERROR_LINES = 350
 LINE_WARNING_CHARS = 160
 LINE_ERROR_CHARS = 220
 
-# Current oversized state owners. These are not allowed to grow.
-LEGACY_FILE_BUDGETS = {
-    "ios/DoorUnlockerApp/DoorUnlocker/DoorUnlockerController.swift": 5890,
-    "mac/DoorUnlockerAdmin/Sources/DoorUnlockerAdmin/Stores/DoorAdminStore.swift": 3907,
-}
-
 EXCLUDED_PATH_PARTS = {
     ".build",
     "DerivedData",
@@ -56,11 +51,6 @@ class SwiftFileMetric:
     lines: int
     warningLimit: int
     errorLimit: int
-    legacyBudget: int | None
-
-    @property
-    def is_legacy_budgeted(self) -> bool:
-        return self.legacyBudget is not None
 
     @property
     def warning(self) -> bool:
@@ -68,8 +58,6 @@ class SwiftFileMetric:
 
     @property
     def hard_violation(self) -> bool:
-        if self.legacyBudget is not None:
-            return self.lines > self.legacyBudget
         return self.lines > self.errorLimit
 
 
@@ -82,7 +70,6 @@ class SwiftTypeMetric:
     lines: int
     warningLimit: int
     errorLimit: int
-    legacyBudgetedFile: bool
 
     @property
     def warning(self) -> bool:
@@ -90,7 +77,7 @@ class SwiftTypeMetric:
 
     @property
     def hard_violation(self) -> bool:
-        return not self.legacyBudgetedFile and self.lines > self.errorLimit
+        return self.lines > self.errorLimit
 
 
 @dataclass(frozen=True)
@@ -139,7 +126,6 @@ def swift_file_metrics() -> list[SwiftFileMetric]:
                 lines=len(text.splitlines()),
                 warningLimit=FILE_WARNING_LINES,
                 errorLimit=FILE_ERROR_LINES,
-                legacyBudget=LEGACY_FILE_BUDGETS.get(relative_path),
             )
         )
     return metrics
@@ -154,17 +140,11 @@ TYPE_DECLARATION = re.compile(
 )
 
 
-def strip_line_comment(line: str) -> str:
-    if "//" not in line:
-        return line
-    return line.split("//", maxsplit=1)[0]
-
-
 def type_body_metrics() -> list[SwiftTypeMetric]:
     metrics: list[SwiftTypeMetric] = []
     for path in swift_paths():
         relative_path = rel(path)
-        lines = path.read_text(encoding="utf-8").splitlines()
+        lines = swift_structure_text(path.read_text(encoding="utf-8")).splitlines()
         for index, line in enumerate(lines):
             match = TYPE_DECLARATION.match(line)
             if not match:
@@ -174,7 +154,7 @@ def type_body_metrics() -> list[SwiftTypeMetric]:
             saw_opening_brace = False
             end_index = index
             for cursor in range(index, len(lines)):
-                code = strip_line_comment(lines[cursor])
+                code = lines[cursor]
                 if "{" in code:
                     saw_opening_brace = True
                 if saw_opening_brace:
@@ -196,7 +176,6 @@ def type_body_metrics() -> list[SwiftTypeMetric]:
                     lines=end_index - index + 1,
                     warningLimit=TYPE_WARNING_LINES,
                     errorLimit=TYPE_ERROR_LINES,
-                    legacyBudgetedFile=relative_path in LEGACY_FILE_BUDGETS,
                 )
             )
     return metrics
@@ -232,29 +211,21 @@ def score(
     types: list[SwiftTypeMetric],
     lines: list[SwiftLineMetric],
 ) -> float:
-    non_legacy_file_warnings = [metric for metric in files if metric.warning and not metric.is_legacy_budgeted]
-    non_legacy_type_warnings = [metric for metric in types if metric.warning and not metric.legacyBudgetedFile]
+    file_warnings = [metric for metric in files if metric.warning]
+    type_warnings = [metric for metric in types if metric.warning]
     line_warnings = [metric for metric in lines if metric.warning]
-    legacy_files = [metric for metric in files if metric.is_legacy_budgeted]
     hard_violations = hard_gate_violations(files, types, lines)
 
-    largest_non_legacy_file = max(
-        (metric.lines for metric in files if not metric.is_legacy_budgeted),
-        default=0,
-    )
-    largest_non_legacy_type = max(
-        (metric.lines for metric in types if not metric.legacyBudgetedFile),
-        default=0,
-    )
+    largest_file = max((metric.lines for metric in files), default=0)
+    largest_type = max((metric.lines for metric in types), default=0)
 
     penalty = 0.0
-    penalty += len(non_legacy_file_warnings) * 4.0
-    penalty += len(non_legacy_type_warnings) * 3.0
+    penalty += len(file_warnings) * 4.0
+    penalty += len(type_warnings) * 3.0
     penalty += len(line_warnings) * 0.1
-    penalty += len(legacy_files) * 3.5
     penalty += len(hard_violations) * 18.0
-    penalty += max(0, largest_non_legacy_file - FILE_WARNING_LINES) / 20
-    penalty += max(0, largest_non_legacy_type - TYPE_WARNING_LINES) / 18
+    penalty += max(0, largest_file - FILE_WARNING_LINES) / 20
+    penalty += max(0, largest_type - TYPE_WARNING_LINES) / 18
 
     return round(clamp(100 - penalty), 1)
 
@@ -268,14 +239,13 @@ def hard_gate_violations(
     for metric in files:
         if not metric.hard_violation:
             continue
-        limit = metric.legacyBudget if metric.legacyBudget is not None else metric.errorLimit
         violations.append(
             {
                 "kind": "file_length",
                 "path": metric.path,
                 "lines": metric.lines,
-                "limit": limit,
-                "reason": "legacy budget exceeded" if metric.legacyBudget is not None else "file exceeds hard limit",
+                "limit": metric.errorLimit,
+                "reason": "file exceeds hard limit",
             }
         )
 
@@ -323,6 +293,7 @@ def payload(threshold: float) -> dict[str, object]:
     warning_lines = [metric for metric in lines if metric.warning]
 
     return {
+        "scoreKind": "project-maintainability-heuristic",
         "score": maintainability_score,
         "threshold": threshold,
         "passed": maintainability_score >= threshold and not hard_violations,
@@ -340,14 +311,17 @@ def payload(threshold: float) -> dict[str, object]:
             "warningFiles": len(warning_files),
             "warningTypes": len(warning_types),
             "warningLines": len(warning_lines),
-            "legacyBudgetedFiles": len([metric for metric in files if metric.is_legacy_budgeted]),
             "hardViolations": len(hard_violations),
         },
         "hardViolations": hard_violations,
         "topFiles": [asdict(metric) for metric in sorted(files, key=lambda metric: metric.lines, reverse=True)[:12]],
         "topTypes": [asdict(metric) for metric in sorted(types, key=lambda metric: metric.lines, reverse=True)[:12]],
         "topLongLines": [asdict(metric) for metric in sorted(lines, key=lambda metric: metric.chars, reverse=True)[:12]],
-        "legacyBudgets": LEGACY_FILE_BUDGETS,
+        "limitations": [
+            "Thresholds are SwiftLint-derived baselines; the numeric score is project-specific.",
+            "File and type length indicate review pressure, not semantic correctness.",
+            "Runtime correctness is established by the executable test and build steps.",
+        ],
     }
 
 
@@ -374,17 +348,14 @@ def main() -> int:
             f"warningFiles={result['counts']['warningFiles']}, "
             f"warningTypes={result['counts']['warningTypes']}, "
             f"warningLines={result['counts']['warningLines']}, "
-            f"legacyBudgetedFiles={result['counts']['legacyBudgetedFiles']}, "
             f"hardViolations={result['counts']['hardViolations']}"
         )
         print("  top files:")
         for metric in result["topFiles"][:8]:
-            budget = f", budget={metric['legacyBudget']}" if metric["legacyBudget"] is not None else ""
-            print(f"    {metric['lines']:5}  {metric['path']}{budget}")
+            print(f"    {metric['lines']:5}  {metric['path']}")
         print("  top types:")
         for metric in result["topTypes"][:8]:
-            legacy = " legacy-budgeted-file" if metric["legacyBudgetedFile"] else ""
-            print(f"    {metric['lines']:5}  {metric['path']}:{metric['startLine']} {metric['name']}{legacy}")
+            print(f"    {metric['lines']:5}  {metric['path']}:{metric['startLine']} {metric['name']}")
         print("  top long lines:")
         for metric in result["topLongLines"][:8]:
             print(f"    {metric['chars']:5}  {metric['path']}:{metric['line']}")

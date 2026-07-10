@@ -6,7 +6,6 @@ struct ControllerStateCard: View {
     @Binding var appThemeRawValue: String
     @Binding var settingsExpanded: Bool
     @Binding var isLockZoneMapExpanded: Bool
-    @Binding var isFirmwareImporterPresented: Bool
     @State private var isInviteSheetPresented = false
 
     private var statusPresentation: ControllerStatusPresentation {
@@ -24,6 +23,7 @@ struct ControllerStateCard: View {
                     title: firmwareUpdateTitle,
                     status: controller.firmwareUpdateStatus,
                     progress: controller.firmwareUpdateProgress,
+                    etaText: controller.firmwareUpdateETAText,
                     accent: accent
                 )
             }
@@ -41,8 +41,7 @@ struct ControllerStateCard: View {
                 accent: accent,
                 appThemeRawValue: $appThemeRawValue,
                 settingsExpanded: $settingsExpanded,
-                isLockZoneMapExpanded: $isLockZoneMapExpanded,
-                isFirmwareImporterPresented: $isFirmwareImporterPresented
+                isLockZoneMapExpanded: $isLockZoneMapExpanded
             )
 
             PairingGuidanceView(

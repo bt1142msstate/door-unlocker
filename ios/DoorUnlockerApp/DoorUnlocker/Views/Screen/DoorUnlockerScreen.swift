@@ -1,5 +1,4 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct DoorUnlockerScreen: View {
     @EnvironmentObject private var controller: DoorUnlockerController
@@ -7,7 +6,6 @@ struct DoorUnlockerScreen: View {
     @AppStorage("DoorUnlockerAppTheme") private var appThemeRawValue = DoorAppTheme.original.rawValue
     @State private var settingsExpanded = false
     @State private var isLockZoneMapExpanded = false
-    @State private var isFirmwareImporterPresented = false
     @State private var lastForegroundControllerRefreshAt = Date.distantPast
 
     private var appTheme: DoorAppTheme {
@@ -29,8 +27,7 @@ struct DoorUnlockerScreen: View {
                         accent: accent,
                         appThemeRawValue: $appThemeRawValue,
                         settingsExpanded: $settingsExpanded,
-                        isLockZoneMapExpanded: $isLockZoneMapExpanded,
-                        isFirmwareImporterPresented: $isFirmwareImporterPresented
+                        isLockZoneMapExpanded: $isLockZoneMapExpanded
                     )
                     .frame(minHeight: proxy.size.height, alignment: .top)
                 }
@@ -46,12 +43,6 @@ struct DoorUnlockerScreen: View {
         .fullScreenCover(isPresented: $isLockZoneMapExpanded) {
             LockZoneExpandedMapView(controller: controller, accent: accent)
         }
-        .fileImporter(
-            isPresented: $isFirmwareImporterPresented,
-            allowedContentTypes: [.zip],
-            allowsMultipleSelection: false,
-            onCompletion: handleFirmwareImport
-        )
         .onChange(of: scenePhase, handleScenePhaseChange)
         .onChange(of: controller.areSettingsUnlocked) { _, isUnlocked in
             withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
@@ -70,6 +61,14 @@ struct DoorUnlockerScreen: View {
             controller.startBundledFirmwareUpdateForTesting()
             return
         }
+        if url.scheme == "doorunlocker", url.host == "debug-lock" {
+            _ = controller.send(.lock)
+            return
+        }
+        if url.scheme == "doorunlocker", url.host == "debug-unlock" {
+            _ = controller.send(.unlock)
+            return
+        }
 #endif
         if controller.handlePairingInviteURL(url) {
             settingsExpanded = false
@@ -78,15 +77,6 @@ struct DoorUnlockerScreen: View {
 
         DoorCommandStore.request(from: url)
         controller.performPendingSystemCommand()
-    }
-
-    private func handleFirmwareImport(_ result: Result<[URL], Error>) {
-        guard case .success(let urls) = result,
-              let url = urls.first else {
-            return
-        }
-
-        controller.startFirmwareUpdate(fromExternalPackageURL: url)
     }
 
     private func handleScenePhaseChange(_ oldPhase: ScenePhase, _ phase: ScenePhase) {
@@ -154,14 +144,12 @@ private struct DoorMainContentView: View {
     @Binding var appThemeRawValue: String
     @Binding var settingsExpanded: Bool
     @Binding var isLockZoneMapExpanded: Bool
-    @Binding var isFirmwareImporterPresented: Bool
 
     var body: some View {
         VStack(spacing: settingsExpanded ? 12 : 18) {
             DoorHeaderView(
                 lockName: controller.lockName,
-                deviceName: controller.deviceName,
-                accent: accent
+                deviceName: controller.deviceName
             )
             .padding(.top, 10)
 
@@ -170,8 +158,7 @@ private struct DoorMainContentView: View {
                 accent: accent,
                 appThemeRawValue: $appThemeRawValue,
                 settingsExpanded: $settingsExpanded,
-                isLockZoneMapExpanded: $isLockZoneMapExpanded,
-                isFirmwareImporterPresented: $isFirmwareImporterPresented
+                isLockZoneMapExpanded: $isLockZoneMapExpanded
             )
 
             if settingsExpanded {

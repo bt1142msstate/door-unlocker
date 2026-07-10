@@ -3,23 +3,8 @@ import DoorUnlockerShared
 
 typealias ServoAngles = DoorServoAngles
 typealias LastUnlockRecord = DoorLastUnlockRecord
-
-struct ConnectedControllerDevice: Identifiable, Equatable {
-    let slot: Int
-    let name: String
-
-    var id: Int { slot }
-
-    var displayName: String {
-        name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Connected Device \(slot)" : name
-    }
-}
-
-struct ControllerConnectionsPayload {
-    let count: Int
-    let max: Int
-    let devices: [ConnectedControllerDevice]
-}
+typealias ConnectedControllerDevice = DoorParsedConnectedDevice
+typealias ControllerConnectionsPayload = DoorParsedConnectionsPayload
 
 enum DoorControllerStateParser {
     static func lockName(from rawState: String) -> String? {
@@ -55,11 +40,7 @@ enum DoorControllerStateParser {
     }
 
     static func connectedDevices(from rawState: String) -> ControllerConnectionsPayload? {
-        guard let payload = DoorControllerStateParsing.connectedDevices(from: rawState) else { return nil }
-        let devices = payload.devices.map { device in
-            ConnectedControllerDevice(slot: device.slot, name: device.name)
-        }
-        return ControllerConnectionsPayload(count: payload.count, max: payload.max, devices: devices)
+        DoorControllerStateParsing.connectedDevices(from: rawState)
     }
 }
 

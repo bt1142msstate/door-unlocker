@@ -18,22 +18,7 @@ struct HeroControl: View {
     }
 
     private var controlPresentation: DoorControlPresentation {
-        DoorControlPresentationPolicy.presentation(
-            for: DoorControlPresentationInput(
-                servoState: store.status.bleState,
-                isUnlocked: store.status.isUnlocked,
-                canAcceptDoorCommand: store.canSendDoorCommand,
-                isBusy: store.isBusy,
-                isApplyingControllerSetting: store.isApplyingControllerSetting,
-                isFirmwareUpdateBlockingDoorControl: store.isFirmwareUpdateRunning,
-                isDoorCommandQueuedForSecureLink: store.isDoorCommandQueued,
-                isDoorCommandReady: store.isWirelessDoorCommandReady || store.isConnected,
-                activationVerb: .click,
-                controllerSettingApplyTitle: store.controllerSettingApplyTitle,
-                firmwareUpdateActionTitle: "Updating firmware...",
-                queuedDoorCommandActionTitle: store.queuedDoorCommandActionTitle
-            )
-        )
+        store.doorControlPresentation
     }
 
     private var actionTitle: String {
@@ -171,7 +156,7 @@ struct HeroControl: View {
                 .contentShape(Circle())
             }
             .buttonStyle(.plain)
-            .disabled(store.isDoorControlSurfaceDisabled)
+            .disabled(!controlPresentation.isPrimaryActionEnabled)
             .onHover { isHovering = $0 }
         }
         .animation(.spring(response: 0.26, dampingFraction: 0.78), value: store.isApplyingControllerSetting)

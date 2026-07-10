@@ -1,0 +1,191 @@
+#!/usr/bin/env python3
+"""Verify the cross-platform fast lock/unlock contract stays intact."""
+
+from __future__ import annotations
+
+import hashlib
+import plistlib
+import re
+import sys
+import zipfile
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def display_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
+def source_text(path: Path) -> str:
+    if path.is_dir():
+        return "\n".join(
+            candidate.read_text(encoding="utf-8")
+            for candidate in sorted(path.rglob("*.swift"))
+        )
+    return path.read_text(encoding="utf-8")
+
+
+def require(path: Path, snippets: list[str], failures: list[str]) -> None:
+    text = source_text(path)
+    for snippet in snippets:
+        if snippet not in text:
+            failures.append(f"{display_path(path)} is missing: {snippet}")
+
+
+def forbid(path: Path, snippets: list[str], failures: list[str]) -> None:
+    text = source_text(path)
+    for snippet in snippets:
+        if snippet in text:
+            failures.append(f"{display_path(path)} must not contain: {snippet}")
+
+
+def nonce_channel_is_dedicated(firmware_text: str) -> bool:
+    nonce_function = re.search(
+        r"bool issueV3NonceTo\(uint16_t connHandle\) \{(?P<body>.*?)\n\s*void retryMissingV3Nonces",
+        firmware_text,
+        re.S,
+    )
+    return nonce_function is not None and "buildConnectionsStatePayload" not in nonce_function.group("body")
+
+
+def sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def zip_payload_digests(path: Path) -> dict[str, str]:
+    with zipfile.ZipFile(path) as archive:
+        return {
+            info.filename: hashlib.sha256(archive.read(info.filename)).hexdigest()
+            for info in archive.infolist()
+            if not info.is_dir()
+        }
+
+
+def dfu_packages_match(first: Path, second: Path) -> bool:
+    if not first.exists() or not second.exists():
+        return False
+    try:
+        return zip_payload_digests(first) == zip_payload_digests(second)
+    except (OSError, zipfile.BadZipFile):
+        return False
+
+
+def main() -> int:
+    failures: list[str] = []
+    ios = ROOT / "ios/DoorUnlockerApp/DoorUnlocker"
+    ios_recovery = ROOT / "ios/DoorUnlockerApp/DoorUnlocker/DoorUnlockerController+FastDoorRecovery.swift"
+    ios_firmware = ROOT / "ios/DoorUnlockerApp/DoorUnlocker/Controller/System/DoorUnlockerController+FirmwareUpdate.swift"
+    ios_bluetooth = ROOT / "ios/DoorUnlockerApp/DoorUnlocker/Controller/Bluetooth"
+    mac = ROOT / "mac/DoorUnlockerAdmin/Sources/DoorUnlockerAdmin/Stores"
+    mac_format = ROOT / "mac/DoorUnlockerAdmin/Sources/DoorUnlockerAdmin/Stores/DoorAdminStore+WirelessCommandFormatting.swift"
+    mac_recovery = ROOT / "mac/DoorUnlockerAdmin/Sources/DoorUnlockerAdmin/Stores/DoorAdminStore+FastDoorRecovery.swift"
+    presentation = ROOT / "shared/DoorUnlockerShared/Sources/DoorUnlockerShared/DoorControlPresentationPolicy.swift"
+    firmware = ROOT / "firmware/DoorUnlockerXiao/DoorUnlockerXiao.ino"
+
+    require(ios, [
+        "DoorFastWritePolicy.action(",
+        "peripheral.canSendWriteWithoutResponse",
+        "peripheralIsReady(toSendWriteWithoutResponse",
+        "clearQueuedDoorCommandIfSatisfied(by:",
+        "if case .linkAuthentication = intent",
+    ], failures)
+    require(ios_recovery, [
+        "scheduleDoorCommandTransportRecovery()",
+        "recoverStalledQueuedDoorCommandLink()",
+        "DoorControlPresentationPolicy.state(",
+    ], failures)
+    require(ios_firmware, [
+        "var isFirmwareDfuTransportActive: Bool",
+        "firmwareUpdateEntryCommandSent || pendingFirmwareUpdatePackageURL == nil",
+    ], failures)
+    require(ios_bluetooth, [
+        "guard !isFirmwareDfuTransportActive",
+        "if isFirmwareDfuTransportActive",
+    ], failures)
+    require(mac, [
+        "fastDoorCommandWriteAction(",
+        "applyPredictedDoorCommand(predictedDoorCommand)",
+        "peripheralIsReady(toSendWriteWithoutResponse",
+        "reconcileWirelessDoorCommands(with:",
+        "scheduleWirelessDoorCommandConfirmation(",
+        "enum WirelessCommandDispatchResult",
+        "case sent",
+        "case queued",
+        "case failed",
+    ], failures)
+    require(mac_format, ["DoorFastWritePolicy.action("], failures)
+    require(mac_recovery, [
+        "scheduleWirelessDoorCommandTransportRecovery()",
+        "DoorControlPresentationPolicy.state(",
+        "DoorCommandPreparationRecoveryPolicy.action(",
+        "recoverStalledQueuedSecureCommandLink()",
+    ], failures)
+    require(firmware, [
+        "taskENTER_CRITICAL();",
+        "taskEXIT_CRITICAL();",
+        "popBleCommandQueueOverflow",
+        "commandCharacteristic.setWriteCallback(commandWrittenCallback)",
+        "controlCharacteristic.setProperties(CHR_PROPS_NOTIFY | CHR_PROPS_INDICATE)",
+        "controlCharacteristic.setPermission(SECMODE_OPEN, SECMODE_NO_ACCESS)",
+        "Bluefruit.configPrphConn(128, MULTI_LINK_EVENT_LENGTH, 2, 1)",
+        "Bluefruit.Periph.setConnSupervisionTimeoutMS(MULTI_LINK_SUPERVISION_TIMEOUT_MS)",
+    ], failures)
+    require(presentation, [
+        "!input.isDoorCommandQueuedForSecureLink",
+        "!isChangingState",
+    ], failures)
+    forbid(ios, [
+        "fastCommandMaterialMaxAge",
+        "readControlIfPermitted",
+        "if characteristic.uuid == controlUUID {\n                controlUpdateGeneration += 1",
+    ], failures)
+    forbid(ios_bluetooth, [
+        "guard !isFirmwareUpdateRunning",
+    ], failures)
+    forbid(mac, [
+        "fastCommandMaterialMaxAge",
+        "readAckIfPossible",
+        "queuedWirelessCommandDuringCurrentSend",
+        "if characteristic.uuid == controlUUID {\n                wirelessControlUpdateGeneration += 1",
+    ], failures)
+    forbid(firmware, [
+        "controlCharacteristic.write(",
+        "controlCharacteristic.setProperties(CHR_PROPS_READ",
+        "controlCharacteristic.setPermission(SECMODE_NO_ACCESS",
+        "requestConnectionParameter(",
+        "setConnectedDeviceName(connHandle, trustedDeviceName, true);\n    publishConnectionsState();",
+    ], failures)
+
+    firmware_text = firmware.read_text(encoding="utf-8")
+    if not nonce_channel_is_dedicated(firmware_text):
+        failures.append("issueV3NonceTo must keep the control characteristic dedicated to nonce traffic")
+
+    match = re.search(r'CONTROLLER_FIRMWARE_VERSION\[\] = "([^"]+)"', firmware_text)
+    firmware_version = match.group(1) if match else None
+    with (ROOT / "ios/DoorUnlockerApp/DoorUnlocker/Info.plist").open("rb") as handle:
+        bundled_version = plistlib.load(handle).get("DoorControllerFirmwareVersion")
+    if not firmware_version or firmware_version != bundled_version:
+        failures.append(f"firmware/app version mismatch: {firmware_version!r} != {bundled_version!r}")
+
+    dist_package = ROOT / "dist/DoorUnlockerXiao-dfu.zip"
+    bundled_package = ROOT / "ios/DoorUnlockerApp/DoorUnlocker/Firmware/DoorUnlockerXiao-dfu.zip"
+    if not dfu_packages_match(dist_package, bundled_package):
+        failures.append("bundled iOS DFU payload does not match dist/DoorUnlockerXiao-dfu.zip")
+
+    if failures:
+        print("Fast command contract: FAIL")
+        for failure in failures:
+            print(f"- {failure}")
+        return 1
+
+    print(f"Fast command contract: PASS (firmware {firmware_version})")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

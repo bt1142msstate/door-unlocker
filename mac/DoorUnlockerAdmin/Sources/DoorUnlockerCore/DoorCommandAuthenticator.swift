@@ -3,11 +3,6 @@ import DoorUnlockerShared
 import Foundation
 
 public enum DoorCommandAuthenticator {
-    public enum FastCommand {
-        case unlock
-        case lock
-    }
-
     public struct SignedFastCommandPayload {
         public let data: Data
     }
@@ -50,7 +45,7 @@ public enum DoorCommandAuthenticator {
     private final class AuthCache: @unchecked Sendable {
         let lock = NSLock()
         var identity: SigningIdentity?
-        var keyFingerprint: Data?
+        var signingContext: DoorSecureCommandSigningContext?
     }
 
     private static let signingKeyDirectoryName = "DoorUnlockerAdmin"
@@ -59,13 +54,13 @@ public enum DoorCommandAuthenticator {
 
     public static func prewarm() {
         guard let identity = try? identity() else { return }
-        _ = try? fastCommandKeyFingerprint(for: identity)
+        _ = signingContext(for: identity)
         _ = try? identity.signature(for: DoorSecureCommandCodec.signatureDomain)
     }
 
     public static func pairingPayload(deviceName: String) throws -> Data {
-        try DoorSecureCommandCodec.pairingPayload(
-            publicKey: identity().publicKeyX963Representation,
+        let identity = try identity()
+        return signingContext(for: identity).pairingPayload(
             deviceName: deviceName,
             fallbackName: "Mac"
         )
@@ -81,9 +76,8 @@ public enum DoorCommandAuthenticator {
         try identity().publicKeyX963Representation
     }
 
-    public static func fastCommandPayload(for command: FastCommand, nonce: Data) throws -> SignedFastCommandPayload {
-        let secureCommand: DoorSecureCommandCodec.FastCommand = command == .unlock ? .unlock : .lock
-        let encodedCommand = DoorSecureCommandCodec.encodedFastCommand(secureCommand)
+    public static func fastCommandPayload(for command: DoorCommand, nonce: Data) throws -> SignedFastCommandPayload {
+        let encodedCommand = DoorSecureCommandCodec.encodedFastCommand(command)
         return try v3CommandPayload(encodedCommand, nonce: nonce)
     }
 
@@ -94,40 +88,32 @@ public enum DoorCommandAuthenticator {
 
     private static func v3CommandPayload(_ encodedCommand: DoorSecureCommandCodec.EncodedCommand, nonce: Data) throws -> SignedFastCommandPayload {
         let identity = try identity()
-        let fingerprint = try fastCommandKeyFingerprint(for: identity)
-        let unsignedPacket = try DoorSecureCommandCodec.unsignedPacket(
-            op: encodedCommand.op,
-            payload: encodedCommand.payload,
-            nonce: nonce,
-            keyFingerprint: fingerprint
-        )
-        let signedMessage = DoorSecureCommandCodec.messageToSign(unsignedPacket: unsignedPacket)
-        let signature = try identity.signature(for: signedMessage)
-
         return SignedFastCommandPayload(
-            data: DoorSecureCommandCodec.signedPacket(unsignedPacket: unsignedPacket, signature: signature)
+            data: try signingContext(for: identity).signedPacket(
+                encodedCommand,
+                nonce: nonce,
+                signer: identity.signature
+            )
         )
     }
 
-    private static func fastCommandKeyFingerprint() throws -> Data {
-        try fastCommandKeyFingerprint(for: identity())
-    }
-
-    private static func fastCommandKeyFingerprint(for identity: SigningIdentity) throws -> Data {
+    private static func signingContext(for identity: SigningIdentity) -> DoorSecureCommandSigningContext {
         cache.lock.lock()
-        if let keyFingerprint = cache.keyFingerprint {
+        if let signingContext = cache.signingContext {
             cache.lock.unlock()
-            return keyFingerprint
+            return signingContext
         }
         cache.lock.unlock()
 
-        let fingerprint = DoorSecureCommandCodec.keyFingerprint(publicKey: identity.publicKeyX963Representation)
+        let signingContext = DoorSecureCommandSigningContext(
+            publicKey: identity.publicKeyX963Representation
+        )
 
         cache.lock.lock()
-        cache.keyFingerprint = fingerprint
+        cache.signingContext = signingContext
         cache.lock.unlock()
 
-        return fingerprint
+        return signingContext
     }
 
     private static func identity() throws -> SigningIdentity {
@@ -154,7 +140,7 @@ public enum DoorCommandAuthenticator {
         let identity = SigningIdentity.software(softwareKey)
         cache.lock.lock()
         cache.identity = identity
-        cache.keyFingerprint = nil
+        cache.signingContext = nil
         cache.lock.unlock()
         return identity
     }

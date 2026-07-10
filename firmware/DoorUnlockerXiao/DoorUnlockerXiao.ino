@@ -19,25 +19,29 @@ using namespace Adafruit_LittleFS_Namespace;
 static const int SERVO_SIGNAL_PIN = D2;
 
 // Tune these on the desk before putting the mechanism near the door.
-static const uint8_t DEFAULT_LOCK_ANGLE = 20;    // Rest/release position
-static const uint8_t DEFAULT_UNLOCK_ANGLE = 95;  // Handle-push position
+static const uint8_t DEFAULT_LOCK_ANGLE = 95;    // Rest/release position
+static const uint8_t DEFAULT_UNLOCK_ANGLE = 20;  // Handle-push position; lower angle turns the current arm setup right
 static const uint8_t MIN_SAFE_SERVO_ANGLE = 10;
 static const uint8_t MAX_SAFE_SERVO_ANGLE = 170;
-static const uint8_t MIN_SERVO_ANGLE_GAP = 10;
+static const uint8_t MIN_SERVO_ANGLE_GAP = 0;
 static const int SERVO_ATTACH_SETTLE_MS = 0;
 static const int SERVO_MOVE_SETTLE_MS = 180;
 static const int SERVO_DETACH_DELAY_MS = 40;
 static const int MAIN_LOOP_IDLE_DELAY_MS = 2;
 static const int LAST_UNLOCK_NOTIFY_GAP_MS = 40;
-static const uint16_t FAST_CONN_INTERVAL_MIN = 12;  // 15 ms
-static const uint16_t FAST_CONN_INTERVAL_MAX = 24;  // 30 ms
-static const uint16_t FAST_CONN_INTERVAL_REQUEST = FAST_CONN_INTERVAL_MIN;
+// Four simultaneous high-MTU links need scheduling headroom. Apple's ordinary
+// BLE accessory profile accepts a 30-45 ms preferred range and a 6 s
+// supervision timeout; the shorter 15 ms event schedule could starve a peer.
+static const uint16_t MULTI_LINK_CONN_INTERVAL_MIN = 24;  // 30 ms
+static const uint16_t MULTI_LINK_CONN_INTERVAL_MAX = 36;  // 45 ms
+static const uint16_t MULTI_LINK_SUPERVISION_TIMEOUT_MS = 6000;
+static const uint16_t MULTI_LINK_EVENT_LENGTH = 3;  // 3.75 ms
 static const uint16_t DEFAULT_UNLOCK_HOLD_TIMEOUT_SECONDS = 30;
 static const uint16_t MIN_UNLOCK_HOLD_TIMEOUT_SECONDS = 5;
 static const uint16_t MAX_UNLOCK_HOLD_TIMEOUT_SECONDS = 120;
 static const char DEFAULT_LOCK_NAME[] = "My Lock";
 static const char CONTROLLER_MODEL_NAME[] = "DoorUnlocker-XIAO-v4";
-static const char CONTROLLER_FIRMWARE_VERSION[] = "0.1.0";
+static const char CONTROLLER_FIRMWARE_VERSION[] = "0.1.9";
 // Fresh random-static BLE identity for the app-layer-security firmware. This
 // avoids stale iOS/macOS OS-level bond records from the earlier encrypted-GATT
 // builds while preserving trusted app keys in LittleFS.
@@ -53,8 +57,6 @@ static const char COMMAND_CHAR_UUID[] = "7A5A2001-2B8D-4C3E-94E7-0B3C0DDAAF10";
 static const char STATE_CHAR_UUID[]   = "7A5A2002-2B8D-4C3E-94E7-0B3C0DDAAF10";
 static const char PAIRING_CHAR_UUID[] = "7A5A2003-2B8D-4C3E-94E7-0B3C0DDAAF10";
 static const char CONTROL_CHAR_UUID[]     = "7A5A2004-2B8D-4C3E-94E7-0B3C0DDAAF10";
-static const char LEGACY_COUNTER_FILENAME[] = "/door-counter.txt";
-static const char LEGACY_PUBLIC_KEY_FILENAME[] = "/door-public-key.bin";
 static const char PAIRINGS_FILENAME[] = "/door-pairings.bin";
 static const char UNLOCK_TIMEOUT_FILENAME[] = "/unlock-timeout.txt";
 static const char LOCK_NAME_FILENAME[] = "/lock-name.txt";
@@ -65,7 +67,7 @@ static const uint16_t PAIRING_MAX_LEN = 100;
 static const uint16_t SERIAL_COMMAND_MAX_LEN = 260;
 static const uint8_t BLE_COMMAND_QUEUE_CAPACITY = 8;
 static const size_t BLE_REJECT_REASON_LEN = 40;
-static const size_t STATE_PAYLOAD_MAX_LEN = 96;
+static const size_t STATE_PAYLOAD_MAX_LEN = 124;
 static const size_t V3_KEY_FINGERPRINT_LEN = 8;
 static const size_t V3_NONCE_LEN = 16;
 static const uint8_t V3_COMMAND_VERSION = 0x03;
@@ -96,8 +98,7 @@ static const size_t PAIRED_DEVICE_NAME_LEN = 24;
 static const size_t PAIRED_DEVICE_NAME_STORAGE_LEN = PAIRED_DEVICE_NAME_LEN + 1;
 static const size_t LOCK_NAME_LEN = 24;
 static const size_t LOCK_NAME_STORAGE_LEN = LOCK_NAME_LEN + 1;
-static const size_t LEGACY_PAIRING_RECORD_LEN = P256_PUBLIC_KEY_LEN + sizeof(uint64_t);
-static const size_t PAIRING_RECORD_LEN = LEGACY_PAIRING_RECORD_LEN + PAIRED_DEVICE_NAME_STORAGE_LEN;
+static const size_t PAIRING_RECORD_LEN = P256_PUBLIC_KEY_LEN + sizeof(uint64_t) + PAIRED_DEVICE_NAME_STORAGE_LEN;
 static const size_t PAIRING_APPROVAL_CODE_LEN = 4;
 static const size_t PAIRING_FINGERPRINT_LEN = 19; // 8-byte SHA-256 prefix as XXXX-XXXX-XXXX-XXXX
 static const uint32_t V3_NONCE_RETRY_INTERVAL_MS = 500;
@@ -1031,23 +1032,6 @@ void loadUnlockHoldTimeout() {
   }
 }
 
-bool readLegacyCounter(uint64_t* counter) {
-  if (!ensureInternalFS()) {
-    return false;
-  }
-
-  File file(InternalFS);
-  if (!file.open(LEGACY_COUNTER_FILENAME, FILE_O_READ)) {
-    return false;
-  }
-
-  char buffer[32] = {0};
-  uint32_t readLen = file.read(buffer, sizeof(buffer) - 1);
-  file.close();
-  buffer[min<uint32_t>(readLen, sizeof(buffer) - 1)] = 0;
-  return parseUnsigned64Text(buffer, counter);
-}
-
 int8_t pairedPublicKeyIndex(const uint8_t* rawKey) {
   if (rawKey == nullptr) {
     return -1;
@@ -1140,14 +1124,8 @@ void loadPairings() {
   File file(InternalFS);
   if (file.open(PAIRINGS_FILENAME, FILE_O_READ)) {
     bool needsRepair = false;
-    bool usesNamedRecords = false;
-    bool usesLegacyRecords = false;
     uint32_t fileSize = file.size();
-    if (fileSize > 0 && fileSize % PAIRING_RECORD_LEN == 0) {
-      usesNamedRecords = true;
-    } else if (fileSize > 0 && fileSize % LEGACY_PAIRING_RECORD_LEN == 0) {
-      usesLegacyRecords = true;
-    } else if (fileSize > 0) {
+    if (fileSize > 0 && fileSize % PAIRING_RECORD_LEN != 0) {
       needsRepair = true;
     }
 
@@ -1170,17 +1148,12 @@ void loadPairings() {
         break;
       }
 
-      if (usesNamedRecords) {
-        uint32_t nameReadLen = file.read((uint8_t*) deviceName, PAIRED_DEVICE_NAME_STORAGE_LEN);
-        if (nameReadLen != PAIRED_DEVICE_NAME_STORAGE_LEN) {
-          needsRepair = true;
-          break;
-        }
-        deviceName[PAIRED_DEVICE_NAME_LEN] = 0;
-      } else if (!usesLegacyRecords) {
+      uint32_t nameReadLen = file.read((uint8_t*) deviceName, PAIRED_DEVICE_NAME_STORAGE_LEN);
+      if (nameReadLen != PAIRED_DEVICE_NAME_STORAGE_LEN) {
         needsRepair = true;
         break;
       }
+      deviceName[PAIRED_DEVICE_NAME_LEN] = 0;
 
       if (isValidPublicKey(rawKey) && !pairedPublicKeyExists(rawKey)) {
         memcpy(pairedPublicKeys[pairedPublicKeyCount], rawKey, P256_PUBLIC_KEY_LEN);
@@ -1193,9 +1166,9 @@ void loadPairings() {
     }
     file.close();
 
-    if (needsRepair || usesLegacyRecords) {
+    if (needsRepair) {
       savePairings();
-      Serial.println(usesLegacyRecords ? "Migrated paired device table names" : "Repaired paired device table");
+      Serial.println("Repaired paired device table");
     }
 
     Serial.print("Loaded paired devices: ");
@@ -1205,29 +1178,7 @@ void loadPairings() {
     return;
   }
 
-  File legacyFile(InternalFS);
-  if (!legacyFile.open(LEGACY_PUBLIC_KEY_FILENAME, FILE_O_READ)) {
-    Serial.println("No paired device keys yet");
-    return;
-  }
-
-  uint8_t legacyKey[P256_PUBLIC_KEY_LEN] = {0};
-  uint32_t readLen = legacyFile.read(legacyKey, sizeof(legacyKey));
-  legacyFile.close();
-
-  if (readLen == sizeof(legacyKey) && isValidPublicKey(legacyKey)) {
-    memcpy(pairedPublicKeys[0], legacyKey, P256_PUBLIC_KEY_LEN);
-    memset(pairedDeviceNames[0], 0, PAIRED_DEVICE_NAME_STORAGE_LEN);
-    pairedPublicKeyCount = 1;
-    readLegacyCounter(&pairedCounters[0]);
-    savePairings();
-    InternalFS.remove(LEGACY_PUBLIC_KEY_FILENAME);
-    InternalFS.remove(LEGACY_COUNTER_FILENAME);
-    Serial.println("Migrated legacy paired device key");
-  } else {
-    InternalFS.remove(LEGACY_PUBLIC_KEY_FILENAME);
-    Serial.println("Removed invalid legacy paired device key");
-  }
+  Serial.println("No paired device keys yet");
 }
 
 bool appendPairedPublicKey(const uint8_t* rawKey, const char* deviceName) {
@@ -1305,8 +1256,6 @@ void clearPairings() {
 
   if (ensureInternalFS()) {
     InternalFS.remove(PAIRINGS_FILENAME);
-    InternalFS.remove(LEGACY_PUBLIC_KEY_FILENAME);
-    InternalFS.remove(LEGACY_COUNTER_FILENAME);
   }
 }
 
@@ -1544,9 +1493,9 @@ void sanitizeConnectionPayloadName(const char* name, char* output, size_t output
   }
 }
 
-void setConnectedDeviceName(uint16_t connHandle, const char* name, bool trustedName) {
+bool setConnectedDeviceName(uint16_t connHandle, const char* name, bool trustedName) {
   if (connHandle == BLE_CONN_HANDLE_INVALID || name == nullptr || name[0] == 0) {
-    return;
+    return false;
   }
 
   int8_t slot = connectedDeviceSlotForHandle(connHandle);
@@ -1554,12 +1503,17 @@ void setConnectedDeviceName(uint16_t connHandle, const char* name, bool trustedN
     slot = firstAvailableConnectedDeviceSlot();
   }
   if (slot < 0) {
-    return;
+    return false;
   }
 
   if (connectedDeviceSlotsUsed[slot] && connectedDeviceTrusted[slot] && !trustedName) {
-    return;
+    return false;
   }
+
+  bool didChange = !connectedDeviceSlotsUsed[slot]
+    || connectedDeviceTrusted[slot] != trustedName
+    || connectedDeviceHandles[slot] != connHandle
+    || strcmp(connectedDeviceNames[slot], name) != 0;
 
   connectedDeviceSlotsUsed[slot] = true;
   connectedDeviceTrusted[slot] = trustedName;
@@ -1571,6 +1525,7 @@ void setConnectedDeviceName(uint16_t connHandle, const char* name, bool trustedN
     connectedDeviceRejected[slot] = false;
   }
   copyDeviceName(name, connectedDeviceNames[slot], sizeof(connectedDeviceNames[slot]));
+  return didChange;
 }
 
 void trackConnectedDevice(uint16_t connHandle, const char* centralName) {
@@ -1613,12 +1568,18 @@ void clearConnectedDeviceSlot(uint8_t slot) {
 
   connectedDeviceSlotsUsed[slot] = false;
   connectedDeviceTrusted[slot] = false;
-  connectedDeviceHandles[slot] = 0;
+  connectedDeviceHandles[slot] = BLE_CONN_HANDLE_INVALID;
   memset(connectedDeviceNames[slot], 0, sizeof(connectedDeviceNames[slot]));
   connectedDeviceNonceValid[slot] = false;
   memset(connectedDeviceNonces[slot], 0, sizeof(connectedDeviceNonces[slot]));
   connectedDeviceFirstSeenMs[slot] = 0;
   connectedDeviceRejected[slot] = false;
+}
+
+void initializeConnectedDeviceSlots() {
+  for (uint8_t index = 0; index < MAX_BLE_CONNECTIONS; index++) {
+    clearConnectedDeviceSlot(index);
+  }
 }
 
 void clearConnectedDevice(uint16_t connHandle) {
@@ -1710,7 +1671,6 @@ bool publishControlTo(uint16_t connHandle, const char* payload) {
 void publishControlRejectTo(uint16_t connHandle, const char* reason) {
   char payload[STATE_PAYLOAD_MAX_LEN] = {0};
   snprintf(payload, sizeof(payload), "reject:v3:%s", reason == nullptr ? "rejected" : reason);
-  controlCharacteristic.write(payload);
   publishControlTo(connHandle, payload);
   Serial.print("Control: ");
   Serial.println(payload);
@@ -1736,9 +1696,8 @@ bool issueV3NonceTo(uint16_t connHandle) {
     return false;
   }
   snprintf(payload, sizeof(payload), "nonce:v3:%s", nonceHex);
-  bool wroteReadableNonce = controlCharacteristic.write(payload);
   bool pushedNonce = publishControlTo(connHandle, payload);
-  if (!wroteReadableNonce && !pushedNonce) {
+  if (!pushedNonce) {
     memset(connectedDeviceNonces[slot], 0, sizeof(connectedDeviceNonces[slot]));
     connectedDeviceNonceValid[slot] = false;
     return false;
@@ -1748,12 +1707,6 @@ bool issueV3NonceTo(uint16_t connHandle) {
   Serial.print("Control: ");
   Serial.println(payload);
 
-  if (buildConnectionsStatePayload(payload, sizeof(payload))) {
-    delay(8);
-    publishControlTo(connHandle, payload);
-    Serial.print("Control: ");
-    Serial.println(payload);
-  }
   return true;
 }
 
@@ -1815,12 +1768,48 @@ void writeAndNotifyStatePayload(const char* payload) {
   notifyStateSubscribers(payload);
 }
 
+bool isTrackedConnectionSlotActive(uint8_t slot) {
+  if (slot >= MAX_BLE_CONNECTIONS || !connectedDeviceSlotsUsed[slot]) {
+    return false;
+  }
+
+  uint16_t connHandle = connectedDeviceHandles[slot];
+  return connHandle != BLE_CONN_HANDLE_INVALID && Bluefruit.connected(connHandle);
+}
+
+bool pruneDisconnectedTrackedConnections() {
+  bool didPrune = false;
+  for (uint8_t index = 0; index < MAX_BLE_CONNECTIONS; index++) {
+    if (!connectedDeviceSlotsUsed[index]) {
+      continue;
+    }
+
+    uint16_t connHandle = connectedDeviceHandles[index];
+    if (connHandle == BLE_CONN_HANDLE_INVALID || !Bluefruit.connected(connHandle)) {
+      clearConnectedDeviceSlot(index);
+      didPrune = true;
+    }
+  }
+  return didPrune;
+}
+
+uint8_t trackedConnectionCount() {
+  uint8_t count = 0;
+  for (uint8_t index = 0; index < MAX_BLE_CONNECTIONS; index++) {
+    if (isTrackedConnectionSlotActive(index)) {
+      count++;
+    }
+  }
+  return count;
+}
+
 bool buildConnectionsStatePayload(char* payload, size_t payloadLen) {
   if (payload == nullptr || payloadLen == 0) {
     return false;
   }
 
-  uint8_t connectedCount = Bluefruit.connected();
+  pruneDisconnectedTrackedConnections();
+  uint8_t connectedCount = trackedConnectionCount();
   int written = snprintf(payload, payloadLen, "connections:%u/%u:", connectedCount, MAX_BLE_CONNECTIONS);
   if (written < 0) {
     return false;
@@ -1829,7 +1818,7 @@ bool buildConnectionsStatePayload(char* payload, size_t payloadLen) {
   size_t offset = min<size_t>((size_t) written, payloadLen - 1);
   bool hasName = false;
   for (uint8_t index = 0; index < MAX_BLE_CONNECTIONS && offset < payloadLen - 1; index++) {
-    if (!connectedDeviceSlotsUsed[index] || !Bluefruit.connected(connectedDeviceHandles[index])) {
+    if (!isTrackedConnectionSlotActive(index)) {
       continue;
     }
 
@@ -2102,12 +2091,11 @@ void attachServoIfNeeded() {
 void moveServoTo(int targetAngle) {
   targetAngle = constrain(targetAngle, MIN_SAFE_SERVO_ANGLE, MAX_SAFE_SERVO_ANGLE);
   attachServoIfNeeded();
-
+  handleServo.write(targetAngle);
   if (currentAngle != targetAngle) {
-    handleServo.write(targetAngle);
-    currentAngle = targetAngle;
     delay(SERVO_MOVE_SETTLE_MS);
   }
+  currentAngle = targetAngle;
 }
 
 void releaseServoPower() {
@@ -2139,7 +2127,6 @@ void unlockHold(uint64_t epochSeconds = 0, const char* deviceFingerprint = nullp
   servoMoving = false;
   publishState("unlocked");
   updateStatusLed();
-  releaseServoPower();
 
   bool didStoreLastUnlock = false;
   if (epochSeconds > 0) {
@@ -2241,8 +2228,7 @@ void handleV3Command(const uint8_t* packet, uint16_t packetLen, uint16_t connHan
   memset(connectedDeviceNonces[slot], 0, sizeof(connectedDeviceNonces[slot]));
 
   const char* trustedDeviceName = pairedDeviceNames[pairingIndex][0] != 0 ? pairedDeviceNames[pairingIndex] : nullptr;
-  if (trustedDeviceName != nullptr) {
-    setConnectedDeviceName(connHandle, trustedDeviceName, true);
+  if (trustedDeviceName != nullptr && setConnectedDeviceName(connHandle, trustedDeviceName, true)) {
     publishConnectionsState();
   }
 
@@ -2445,18 +2431,14 @@ void handleV3Command(const uint8_t* packet, uint16_t packetLen, uint16_t connHan
   }
 }
 
-void markBleCommandQueueOverflow(uint16_t connHandle) {
-  if (bleCommandQueueOverflowPending) {
-    return;
-  }
-
-  bleCommandQueueOverflowConnHandle = connHandle;
-  bleCommandQueueOverflowPending = true;
-}
-
 bool enqueueBleCommandJob(uint16_t connHandle, const uint8_t* data, uint16_t len, bool isReject, const char* rejectReason = nullptr) {
+  taskENTER_CRITICAL();
   if (bleCommandQueueCount >= BLE_COMMAND_QUEUE_CAPACITY) {
-    markBleCommandQueueOverflow(connHandle);
+    if (!bleCommandQueueOverflowPending) {
+      bleCommandQueueOverflowConnHandle = connHandle;
+      bleCommandQueueOverflowPending = true;
+    }
+    taskEXIT_CRITICAL();
     return false;
   }
 
@@ -2480,6 +2462,7 @@ bool enqueueBleCommandJob(uint16_t connHandle, const uint8_t* data, uint16_t len
 
   bleCommandQueueHead = (bleCommandQueueHead + 1) % BLE_COMMAND_QUEUE_CAPACITY;
   bleCommandQueueCount++;
+  taskEXIT_CRITICAL();
   return true;
 }
 
@@ -2492,7 +2475,13 @@ bool enqueueBleSecureCommand(uint16_t connHandle, const uint8_t* data, uint16_t 
 }
 
 bool popBleCommandJob(BleCommandJob* output) {
-  if (output == nullptr || bleCommandQueueCount == 0) {
+  if (output == nullptr) {
+    return false;
+  }
+
+  taskENTER_CRITICAL();
+  if (bleCommandQueueCount == 0) {
+    taskEXIT_CRITICAL();
     return false;
   }
 
@@ -2500,6 +2489,25 @@ bool popBleCommandJob(BleCommandJob* output) {
   *output = bleCommandQueue[index];
   bleCommandQueueTail = (bleCommandQueueTail + 1) % BLE_COMMAND_QUEUE_CAPACITY;
   bleCommandQueueCount--;
+  taskEXIT_CRITICAL();
+  return true;
+}
+
+bool popBleCommandQueueOverflow(uint16_t* connHandle) {
+  if (connHandle == nullptr) {
+    return false;
+  }
+
+  taskENTER_CRITICAL();
+  if (!bleCommandQueueOverflowPending) {
+    taskEXIT_CRITICAL();
+    return false;
+  }
+
+  *connHandle = bleCommandQueueOverflowConnHandle;
+  bleCommandQueueOverflowConnHandle = BLE_CONN_HANDLE_INVALID;
+  bleCommandQueueOverflowPending = false;
+  taskEXIT_CRITICAL();
   return true;
 }
 
@@ -2535,10 +2543,8 @@ void controlCccdWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uin
 }
 
 void processPendingBleCommand() {
-  if (bleCommandQueueOverflowPending) {
-    uint16_t connHandle = bleCommandQueueOverflowConnHandle;
-    bleCommandQueueOverflowConnHandle = BLE_CONN_HANDLE_INVALID;
-    bleCommandQueueOverflowPending = false;
+  uint16_t connHandle = BLE_CONN_HANDLE_INVALID;
+  if (popBleCommandQueueOverflow(&connHandle)) {
     rejectCommandFor(connHandle, "controller busy");
     return;
   }
@@ -2944,11 +2950,11 @@ void printAppStatus() {
     Serial.println(settingPayload);
   }
   Serial.print("ble_connected_count=");
-  Serial.println(Bluefruit.connected());
+  Serial.println(trackedConnectionCount());
   Serial.print("ble_max_connections=");
   Serial.println(MAX_BLE_CONNECTIONS);
   for (uint8_t index = 0; index < MAX_BLE_CONNECTIONS; index++) {
-    if (!connectedDeviceSlotsUsed[index] || !Bluefruit.connected(connectedDeviceHandles[index])) {
+    if (!isTrackedConnectionSlotActive(index)) {
       continue;
     }
 
@@ -3238,7 +3244,7 @@ void printPairingHelp() {
   Serial.println("  app unlock [EPOCH_SECONDS]");
   Serial.println("                 Unlock and optionally store the last-unlock timestamp");
   Serial.println("  app angles REST PUSH");
-  Serial.println("                 Set safe persisted servo angles, e.g. app angles 20 95");
+  Serial.println("                 Set safe persisted servo angles, e.g. app angles 95 20");
   Serial.println("  app bootloader");
   Serial.println("                 Reboot into UF2 bootloader mode for firmware updates");
   Serial.println("  app ota");
@@ -3388,8 +3394,7 @@ void connectCallback(uint16_t connHandle) {
   if (connection != nullptr) {
     connection->getPeerName(centralName, sizeof(centralName));
     connection->requestDataLengthUpdate();
-    connection->requestMtuExchange(247);
-    connection->requestConnectionParameter(FAST_CONN_INTERVAL_REQUEST);
+    connection->requestMtuExchange(128);
   }
 
   Serial.print("Connected to ");
@@ -3422,7 +3427,7 @@ void setupDoorService() {
   doorService.begin();
 
   // Door commands are authenticated at the app layer with a trusted P-256 key,
-  // a signature, and a monotonic counter. Keeping these GATT writes open avoids
+  // a signature, and a controller-issued one-time nonce. Keeping GATT writes open avoids
   // macOS/iOS BLE bond churn while preserving command authorization.
   commandCharacteristic.setProperties(CHR_PROPS_WRITE | CHR_PROPS_WRITE_WO_RESP);
   commandCharacteristic.setPermission(SECMODE_NO_ACCESS, SECMODE_OPEN);
@@ -3445,12 +3450,14 @@ void setupDoorService() {
   stateCharacteristic.begin();
   writeCurrentStateCharacteristic();
 
-  controlCharacteristic.setProperties(CHR_PROPS_READ | CHR_PROPS_NOTIFY | CHR_PROPS_INDICATE);
+  // This characteristic carries connection-private nonce/reject traffic only.
+  // It has no Read property, so its value cannot be fetched. Bluefruit reuses
+  // the read permission for CCCD writes, so OPEN is required for subscribing.
+  controlCharacteristic.setProperties(CHR_PROPS_NOTIFY | CHR_PROPS_INDICATE);
   controlCharacteristic.setPermission(SECMODE_OPEN, SECMODE_NO_ACCESS);
   controlCharacteristic.setMaxLen(STATE_PAYLOAD_MAX_LEN);
   controlCharacteristic.setCccdWriteCallback(controlCccdWrittenCallback);
   controlCharacteristic.begin();
-  controlCharacteristic.write("control:ready");
 }
 
 void startAdvertising() {
@@ -3469,6 +3476,7 @@ void setup() {
   Serial.begin(115200);
   delay(300);
 
+  initializeConnectedDeviceSlots();
   setupStatusLed();
   nRFCrypto.begin();
   loadPairings();
@@ -3483,16 +3491,16 @@ void setup() {
   currentAngle = lockAngle;
   releaseServoPower();
 
-  // BANDWIDTH_HIGH is the core's known-good 128-byte MTU / 6-event-length
-  // preset. It keeps the faster BLE path without the memory pressure of
-  // BANDWIDTH_MAX across four simultaneous connections.
-  Bluefruit.configPrphBandwidth(BANDWIDTH_HIGH);
+  // Keep the 128-byte MTU needed by one-packet signed commands, but reserve a
+  // normal 3.75 ms event rather than BANDWIDTH_HIGH's 7.5 ms on every link.
+  Bluefruit.configPrphConn(128, MULTI_LINK_EVENT_LENGTH, 2, 1);
   Bluefruit.begin(MAX_BLE_CONNECTIONS, 0);
   applyBleIdentity();
   // App-approved P-256 keys are our trust source. Clear OS BLE bonds so stale
   // macOS/iOS link-encryption keys cannot destabilize multi-device control.
   Bluefruit.Periph.clearBonds();
-  Bluefruit.Periph.setConnInterval(FAST_CONN_INTERVAL_MIN, FAST_CONN_INTERVAL_MAX);
+  Bluefruit.Periph.setConnInterval(MULTI_LINK_CONN_INTERVAL_MIN, MULTI_LINK_CONN_INTERVAL_MAX);
+  Bluefruit.Periph.setConnSupervisionTimeoutMS(MULTI_LINK_SUPERVISION_TIMEOUT_MS);
   Bluefruit.autoConnLed(false);
   Bluefruit.setTxPower(4);
   Bluefruit.setName(CONTROLLER_MODEL_NAME);

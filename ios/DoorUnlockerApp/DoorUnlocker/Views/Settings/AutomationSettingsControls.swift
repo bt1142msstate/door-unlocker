@@ -57,7 +57,12 @@ struct AutoLockTimeoutControl: View {
                     set: { controller.updateAutoLockSeconds(Int($0.rounded())) }
                 ),
                 in: Double(controller.autoLockRange.lowerBound) ... Double(controller.autoLockRange.upperBound),
-                step: 5
+                step: 5,
+                onEditingChanged: { isEditing in
+                    if !isEditing {
+                        controller.commitAutoLockSeconds()
+                    }
+                }
             )
             .tint(accent)
 
@@ -103,7 +108,8 @@ struct ServoAnglesControl: View {
                 value: controller.servoLockAngle,
                 range: controller.servoAngleRange,
                 accent: accent,
-                setValue: controller.updateServoLockAngle
+                setValue: controller.updateServoLockAngle,
+                commitValue: controller.commitServoAngles
             )
 
             ServoAngleSlider(
@@ -111,7 +117,8 @@ struct ServoAnglesControl: View {
                 value: controller.servoUnlockAngle,
                 range: controller.servoAngleRange,
                 accent: accent,
-                setValue: controller.updateServoUnlockAngle
+                setValue: controller.updateServoUnlockAngle,
+                commitValue: controller.commitServoAngles
             )
 
             if !controller.servoAnglesAreAtDefaults {
@@ -126,7 +133,7 @@ struct ServoAnglesControl: View {
                 .tint(accent)
             }
 
-            Text("\(controller.servoAnglesStatus) - safe range \(controller.servoAngleRange.lowerBound)°-\(controller.servoAngleRange.upperBound)°, keep \(DoorUnlockerController.minimumServoAngleGap)° apart")
+            Text("\(controller.servoAnglesStatus) - safe range \(controller.servoAngleRange.lowerBound)°-\(controller.servoAngleRange.upperBound)°")
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
@@ -144,6 +151,7 @@ private struct ServoAngleSlider: View {
     let range: ClosedRange<Int>
     let accent: Color
     let setValue: (Int) -> Void
+    let commitValue: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
@@ -162,7 +170,12 @@ private struct ServoAngleSlider: View {
                     set: { setValue(Int($0.rounded())) }
                 ),
                 in: Double(range.lowerBound) ... Double(range.upperBound),
-                step: 1
+                step: 1,
+                onEditingChanged: { isEditing in
+                    if !isEditing {
+                        commitValue()
+                    }
+                }
             )
             .tint(accent)
         }

@@ -7,18 +7,12 @@ struct SidebarView: View {
     var body: some View {
         List {
             Section {
-                Label {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(store.lockName)
-                            .font(.headline)
-                        Text("Admin")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                } icon: {
-                    Image(systemName: "door.left.hand.closed")
-                        .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(.green)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(store.lockName)
+                        .font(.headline)
+                    Text("Admin")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 .padding(.vertical, 4)
             }

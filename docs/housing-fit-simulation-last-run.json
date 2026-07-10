@@ -1,0 +1,766 @@
+{
+  "inputs": {
+    "case_width_mm": 72.0,
+    "case_depth_mm": 34.0,
+    "case_height_mm": 244.0,
+    "wall_mm": 3.2,
+    "p1s_build_height_mm": 256.0,
+    "plate_width_mm": 50.8,
+    "plate_depth_mm": 7.0,
+    "plate_height_mm": 244.0,
+    "plate_max_height_mm": 244.0,
+    "housing_top_margin_mm": 4.0,
+    "housing_bottom_margin_mm": 1.5,
+    "rail_end_margin_target_mm": 8.0,
+    "mount_rail_length_mm": 224.0,
+    "mount_channel_length_mm": 226.0,
+    "servo_default_center_z_mm": 188.0,
+    "servo_cradle_width_mm": 42.0,
+    "servo_cradle_depth_mm": 23.0,
+    "servo_cradle_height_mm": 3.0,
+    "servo_notch_ledge_width_mm": 6.0,
+    "servo_notch_ledge_depth_mm": 20.0,
+    "servo_notch_ledge_height_mm": 2.2,
+    "servo_front_pocket_width_mm": 56.0,
+    "servo_front_pocket_depth_mm": 28.0,
+    "servo_front_pocket_height_mm": 58.0,
+    "servo_front_pocket_center_z_mm": 188.0,
+    "wire_channel_start_z_mm": 84.0,
+    "wire_channel_end_z_mm": 167.0,
+    "wire_channel_rib_width_mm": 1.0
+  },
+  "housing": {
+    "outer_dimensions_mm": [
+      72.0,
+      34.0,
+      244.0
+    ],
+    "inner_width_mm": 65.6,
+    "inner_depth_mm": 27.6,
+    "p1s_height_margin_mm": 12.0,
+    "minimum_height_for_current_layout_mm": 244.0,
+    "current_height_is_tight_minimum": true,
+    "vertical_used_span_mm": 238.25,
+    "vertical_utilization_percent": 97.6,
+    "max_width_utilization_percent": 89.3,
+    "max_depth_utilization_percent": 90.6,
+    "worst_side_margin_mm": 0.8,
+    "worst_depth_margin_mm": 1.3,
+    "recommendation": "Keep the 72 x 34 x 244mm housing for the current prototype parts. It is tight: the height is the calculated minimum for this vertical layout, and the buck converter is the width driver."
+  },
+  "plate_height": {
+    "housing_height_mm": 244.0,
+    "current_plate_height_mm": 244.0,
+    "plate_height_over_housing_mm": 0.0,
+    "minimum_plate_height_for_open_ended_rails_mm": 242.0,
+    "current_extra_above_minimum_mm": 2.0,
+    "recommended_plate_height_mm": 244.0,
+    "rail_end_margin_mm": 10.0,
+    "channel_end_margin_mm": 9.0,
+    "fits_flush_enclosure_height": true,
+    "recommendation": "Use the flush 244mm plate with open-ended rails and a hidden detent. It hides behind the enclosure and still leaves at least 9mm channel end margin."
+  },
+  "components": {
+    "collision_pairs_raw": [],
+    "collision_pairs_with_clearance": [],
+    "fit_margins": [
+      {
+        "name": "servo_body",
+        "expanded_width_mm": 41.7,
+        "expanded_depth_mm": 21.2,
+        "side_margin_mm": 11.95,
+        "depth_margin_mm": 2.2,
+        "fits_width": true,
+        "fits_depth": true
+      },
+      {
+        "name": "xiao_nrf52840_sense_pinned",
+        "expanded_width_mm": 22.6,
+        "expanded_depth_mm": 13.1,
+        "side_margin_mm": 2.5,
+        "depth_margin_mm": 7.25,
+        "fits_width": true,
+        "fits_depth": true
+      },
+      {
+        "name": "xalxmaw_inline_splitter_lower",
+        "expanded_width_mm": 35.0,
+        "expanded_depth_mm": 16.5,
+        "side_margin_mm": 0.8,
+        "depth_margin_mm": 2.25,
+        "fits_width": true,
+        "fits_depth": true
+      },
+      {
+        "name": "xalxmaw_inline_splitter_upper",
+        "expanded_width_mm": 35.0,
+        "expanded_depth_mm": 16.5,
+        "side_margin_mm": 0.8,
+        "depth_margin_mm": 2.25,
+        "fits_width": true,
+        "fits_depth": true
+      },
+      {
+        "name": "lm2596_buck_current",
+        "expanded_width_mm": 58.6,
+        "expanded_depth_mm": 15.6,
+        "side_margin_mm": 3.5,
+        "depth_margin_mm": 6.0,
+        "fits_width": true,
+        "fits_depth": true
+      },
+      {
+        "name": "battery_2s_5000mah",
+        "expanded_width_mm": 46.0,
+        "expanded_depth_mm": 25.0,
+        "side_margin_mm": 9.8,
+        "depth_margin_mm": 1.3,
+        "fits_width": true,
+        "fits_depth": true
+      }
+    ],
+    "boxes": [
+      {
+        "name": "servo_body",
+        "x": 0,
+        "y": -1,
+        "z": 188,
+        "width": 40.5,
+        "depth": 20,
+        "height": 37.5,
+        "clearance": 0.6,
+        "kind": "component",
+        "min": [
+          -20.25,
+          -11.0,
+          169.25
+        ],
+        "max": [
+          20.25,
+          9.0,
+          206.75
+        ]
+      },
+      {
+        "name": "xiao_nrf52840_sense_pinned",
+        "x": -19,
+        "y": 0,
+        "z": 134,
+        "width": 21,
+        "depth": 11.5,
+        "height": 17.8,
+        "clearance": 0.8,
+        "kind": "component",
+        "min": [
+          -29.5,
+          -5.75,
+          125.1
+        ],
+        "max": [
+          -8.5,
+          5.75,
+          142.9
+        ]
+      },
+      {
+        "name": "xalxmaw_inline_splitter_lower",
+        "x": 14.5,
+        "y": 3.3,
+        "z": 135,
+        "width": 32,
+        "depth": 13.5,
+        "height": 13,
+        "clearance": 1.5,
+        "kind": "component",
+        "min": [
+          -1.5,
+          -3.45,
+          128.5
+        ],
+        "max": [
+          30.5,
+          10.05,
+          141.5
+        ]
+      },
+      {
+        "name": "xalxmaw_inline_splitter_upper",
+        "x": 14.5,
+        "y": 3.3,
+        "z": 154,
+        "width": 32,
+        "depth": 13.5,
+        "height": 13,
+        "clearance": 1.5,
+        "kind": "component",
+        "min": [
+          -1.5,
+          -3.45,
+          147.5
+        ],
+        "max": [
+          30.5,
+          10.05,
+          160.5
+        ]
+      },
+      {
+        "name": "lm2596_buck_current",
+        "x": 0,
+        "y": 0,
+        "z": 102.5,
+        "width": 57,
+        "depth": 14,
+        "height": 36,
+        "clearance": 0.8,
+        "kind": "component",
+        "min": [
+          -28.5,
+          -7.0,
+          84.5
+        ],
+        "max": [
+          28.5,
+          7.0,
+          120.5
+        ]
+      },
+      {
+        "name": "battery_2s_5000mah",
+        "x": 0,
+        "y": 0,
+        "z": 42,
+        "width": 43,
+        "depth": 22,
+        "height": 75,
+        "clearance": 1.5,
+        "kind": "component",
+        "min": [
+          -21.5,
+          -11.0,
+          4.5
+        ],
+        "max": [
+          21.5,
+          11.0,
+          79.5
+        ]
+      }
+    ],
+    "features": [
+      {
+        "name": "solar_panel_series_pair",
+        "x": 0,
+        "y": 18.7,
+        "z": 130,
+        "width": 60,
+        "depth": 3,
+        "height": 220,
+        "clearance": 1.5,
+        "kind": "surface",
+        "min": [
+          -30.0,
+          17.2,
+          20.0
+        ],
+        "max": [
+          30.0,
+          20.2,
+          240.0
+        ]
+      },
+      {
+        "name": "pill_status_led",
+        "x": 0,
+        "y": 18.9,
+        "z": 233,
+        "width": 22,
+        "depth": 3,
+        "height": 5,
+        "clearance": 1.0,
+        "kind": "surface",
+        "min": [
+          -11.0,
+          17.4,
+          230.5
+        ],
+        "max": [
+          11.0,
+          20.4,
+          235.5
+        ]
+      },
+      {
+        "name": "servo_body",
+        "x": 0,
+        "y": -1,
+        "z": 188,
+        "width": 40.5,
+        "depth": 20,
+        "height": 37.5,
+        "clearance": 0.6,
+        "kind": "component",
+        "min": [
+          -20.25,
+          -11.0,
+          169.25
+        ],
+        "max": [
+          20.25,
+          9.0,
+          206.75
+        ]
+      },
+      {
+        "name": "servo_height_adjustment_cradle",
+        "x": 0,
+        "y": -15,
+        "z": 167.75,
+        "width": 42,
+        "depth": 23,
+        "height": 3,
+        "clearance": 0.0,
+        "kind": "adjustable_cradle",
+        "min": [
+          -21.0,
+          -26.5,
+          166.25
+        ],
+        "max": [
+          21.0,
+          -3.5,
+          169.25
+        ]
+      },
+      {
+        "name": "servo_front_exposure_pocket",
+        "x": 0,
+        "y": 14,
+        "z": 188,
+        "width": 56,
+        "depth": 28,
+        "height": 58,
+        "clearance": 0.0,
+        "kind": "open_pocket",
+        "min": [
+          -28.0,
+          0.0,
+          159.0
+        ],
+        "max": [
+          28.0,
+          28.0,
+          217.0
+        ]
+      },
+      {
+        "name": "electronics_service_bay",
+        "x": 0,
+        "y": 3.2,
+        "z": 117,
+        "width": 64,
+        "depth": 28,
+        "height": 90,
+        "clearance": 0.0,
+        "kind": "bay",
+        "min": [
+          -32.0,
+          -10.8,
+          72.0
+        ],
+        "max": [
+          32.0,
+          17.2,
+          162.0
+        ]
+      },
+      {
+        "name": "battery_slot",
+        "x": 0,
+        "y": 4.7,
+        "z": 42,
+        "width": 46.5,
+        "depth": 25,
+        "height": 80.5,
+        "clearance": 0.0,
+        "kind": "slot",
+        "min": [
+          -23.25,
+          -7.8,
+          1.75
+        ],
+        "max": [
+          23.25,
+          17.2,
+          82.25
+        ]
+      }
+    ]
+  },
+  "wire_routing": {
+    "type": "two raised-lip cable-comb banks on the inside rear wall",
+    "z_range_mm": [
+      84.0,
+      167.0
+    ],
+    "lane_count": 10,
+    "logic_bank_width_mm": 21.0,
+    "power_bank_width_mm": 27.0,
+    "center_service_gap_mm": 15.6,
+    "component_clearance_collisions": [],
+    "fit_margins": [
+      {
+        "name": "wire_channel_buck_input_positive",
+        "expanded_width_mm": 5.0,
+        "expanded_depth_mm": 2.2,
+        "side_margin_mm": 1.0,
+        "depth_margin_mm": 0.0,
+        "fits_width": true,
+        "fits_depth": true
+      },
+      {
+        "name": "wire_channel_buck_input_ground",
+        "expanded_width_mm": 5.0,
+        "expanded_depth_mm": 2.2,
+        "side_margin_mm": 5.0,
+        "depth_margin_mm": 0.0,
+        "fits_width": true,
+        "fits_depth": true
+      },
+      {
+        "name": "wire_channel_controller_5v",
+        "expanded_width_mm": 5.0,
+        "expanded_depth_mm": 2.2,
+        "side_margin_mm": 9.0,
+        "depth_margin_mm": 0.0,
+        "fits_width": true,
+        "fits_depth": true
+      },
+      {
+        "name": "wire_channel_controller_ground",
+        "expanded_width_mm": 5.0,
+        "expanded_depth_mm": 2.2,
+        "side_margin_mm": 13.0,
+        "depth_margin_mm": 0.0,
+        "fits_width": true,
+        "fits_depth": true
+      },
+      {
+        "name": "wire_channel_pwm_signal",
+        "expanded_width_mm": 5.0,
+        "expanded_depth_mm": 2.2,
+        "side_margin_mm": 17.0,
+        "depth_margin_mm": 0.0,
+        "fits_width": true,
+        "fits_depth": true
+      },
+      {
+        "name": "wire_channel_battery_positive_input",
+        "expanded_width_mm": 6.2,
+        "expanded_depth_mm": 3.4,
+        "side_margin_mm": 21.8,
+        "depth_margin_mm": 0.0,
+        "fits_width": true,
+        "fits_depth": true
+      },
+      {
+        "name": "wire_channel_battery_ground_input",
+        "expanded_width_mm": 6.2,
+        "expanded_depth_mm": 3.4,
+        "side_margin_mm": 16.6,
+        "depth_margin_mm": 0.0,
+        "fits_width": true,
+        "fits_depth": true
+      },
+      {
+        "name": "wire_channel_splitter_positive_to_switch",
+        "expanded_width_mm": 6.2,
+        "expanded_depth_mm": 3.4,
+        "side_margin_mm": 11.4,
+        "depth_margin_mm": 0.0,
+        "fits_width": true,
+        "fits_depth": true
+      },
+      {
+        "name": "wire_channel_switch_to_servo_positive",
+        "expanded_width_mm": 6.2,
+        "expanded_depth_mm": 3.4,
+        "side_margin_mm": 6.2,
+        "depth_margin_mm": 0.0,
+        "fits_width": true,
+        "fits_depth": true
+      },
+      {
+        "name": "wire_channel_splitter_ground_to_servo",
+        "expanded_width_mm": 6.2,
+        "expanded_depth_mm": 3.4,
+        "side_margin_mm": 1.0,
+        "depth_margin_mm": 0.0,
+        "fits_width": true,
+        "fits_depth": true
+      }
+    ],
+    "boxes": [
+      {
+        "name": "wire_channel_buck_input_positive",
+        "x": -29.3,
+        "y": -12.700000000000001,
+        "z": 125.5,
+        "width": 5.0,
+        "depth": 2.2,
+        "height": 83.0,
+        "clearance": 0.0,
+        "kind": "wire_routing",
+        "min": [
+          -31.8,
+          -13.8,
+          84.0
+        ],
+        "max": [
+          -26.8,
+          -11.6,
+          167.0
+        ]
+      },
+      {
+        "name": "wire_channel_buck_input_ground",
+        "x": -25.3,
+        "y": -12.700000000000001,
+        "z": 125.5,
+        "width": 5.0,
+        "depth": 2.2,
+        "height": 83.0,
+        "clearance": 0.0,
+        "kind": "wire_routing",
+        "min": [
+          -27.8,
+          -13.8,
+          84.0
+        ],
+        "max": [
+          -22.8,
+          -11.6,
+          167.0
+        ]
+      },
+      {
+        "name": "wire_channel_controller_5v",
+        "x": -21.3,
+        "y": -12.700000000000001,
+        "z": 125.5,
+        "width": 5.0,
+        "depth": 2.2,
+        "height": 83.0,
+        "clearance": 0.0,
+        "kind": "wire_routing",
+        "min": [
+          -23.8,
+          -13.8,
+          84.0
+        ],
+        "max": [
+          -18.8,
+          -11.6,
+          167.0
+        ]
+      },
+      {
+        "name": "wire_channel_controller_ground",
+        "x": -17.3,
+        "y": -12.700000000000001,
+        "z": 125.5,
+        "width": 5.0,
+        "depth": 2.2,
+        "height": 83.0,
+        "clearance": 0.0,
+        "kind": "wire_routing",
+        "min": [
+          -19.8,
+          -13.8,
+          84.0
+        ],
+        "max": [
+          -14.8,
+          -11.6,
+          167.0
+        ]
+      },
+      {
+        "name": "wire_channel_pwm_signal",
+        "x": -13.3,
+        "y": -12.700000000000001,
+        "z": 125.5,
+        "width": 5.0,
+        "depth": 2.2,
+        "height": 83.0,
+        "clearance": 0.0,
+        "kind": "wire_routing",
+        "min": [
+          -15.8,
+          -13.8,
+          84.0
+        ],
+        "max": [
+          -10.8,
+          -11.6,
+          167.0
+        ]
+      },
+      {
+        "name": "wire_channel_battery_positive_input",
+        "x": 7.9,
+        "y": -12.100000000000001,
+        "z": 125.5,
+        "width": 6.2,
+        "depth": 3.4,
+        "height": 83.0,
+        "clearance": 0.0,
+        "kind": "wire_routing",
+        "min": [
+          4.8,
+          -13.8,
+          84.0
+        ],
+        "max": [
+          11.0,
+          -10.4,
+          167.0
+        ]
+      },
+      {
+        "name": "wire_channel_battery_ground_input",
+        "x": 13.1,
+        "y": -12.100000000000001,
+        "z": 125.5,
+        "width": 6.2,
+        "depth": 3.4,
+        "height": 83.0,
+        "clearance": 0.0,
+        "kind": "wire_routing",
+        "min": [
+          10.0,
+          -13.8,
+          84.0
+        ],
+        "max": [
+          16.2,
+          -10.4,
+          167.0
+        ]
+      },
+      {
+        "name": "wire_channel_splitter_positive_to_switch",
+        "x": 18.3,
+        "y": -12.100000000000001,
+        "z": 125.5,
+        "width": 6.2,
+        "depth": 3.4,
+        "height": 83.0,
+        "clearance": 0.0,
+        "kind": "wire_routing",
+        "min": [
+          15.2,
+          -13.8,
+          84.0
+        ],
+        "max": [
+          21.4,
+          -10.4,
+          167.0
+        ]
+      },
+      {
+        "name": "wire_channel_switch_to_servo_positive",
+        "x": 23.5,
+        "y": -12.100000000000001,
+        "z": 125.5,
+        "width": 6.2,
+        "depth": 3.4,
+        "height": 83.0,
+        "clearance": 0.0,
+        "kind": "wire_routing",
+        "min": [
+          20.4,
+          -13.8,
+          84.0
+        ],
+        "max": [
+          26.6,
+          -10.4,
+          167.0
+        ]
+      },
+      {
+        "name": "wire_channel_splitter_ground_to_servo",
+        "x": 28.7,
+        "y": -12.100000000000001,
+        "z": 125.5,
+        "width": 6.2,
+        "depth": 3.4,
+        "height": 83.0,
+        "clearance": 0.0,
+        "kind": "wire_routing",
+        "min": [
+          25.6,
+          -13.8,
+          84.0
+        ],
+        "max": [
+          31.8,
+          -10.4,
+          167.0
+        ]
+      }
+    ],
+    "recommendation": "Use five dedicated 16 AWG lanes on the right and five dedicated 22 AWG lanes on the left. Keep the 15.6mm center service gap open and print a short channel-and-retainer coupon using the actual silicone wire before printing the enclosure."
+  },
+  "servo_height_adjustment": {
+    "type": "removable cradle on left/right notch ledges",
+    "offsets_mm": [
+      -5.0,
+      0.0,
+      5.0
+    ],
+    "servo_center_z_range_mm": [
+      183.0,
+      193.0
+    ],
+    "cradle_dimensions_mm": [
+      42.0,
+      23.0,
+      3.0
+    ],
+    "notch_ledge_dimensions_mm": [
+      6.0,
+      20.0,
+      2.2
+    ],
+    "servo_front_exposure_pocket_dimensions_mm": [
+      56.0,
+      28.0,
+      58.0
+    ],
+    "servo_front_exposure_pocket_center_z_mm": 188.0,
+    "collision_checks_by_detent": [
+      {
+        "offset_mm": -5.0,
+        "servo_center_z_mm": 183.0,
+        "raw_component_collisions": [],
+        "clearance_envelope_collisions": []
+      },
+      {
+        "offset_mm": 0.0,
+        "servo_center_z_mm": 188.0,
+        "raw_component_collisions": [],
+        "clearance_envelope_collisions": []
+      },
+      {
+        "offset_mm": 5.0,
+        "servo_center_z_mm": 193.0,
+        "raw_component_collisions": [],
+        "clearance_envelope_collisions": []
+      }
+    ],
+    "recommendation": "Use three sturdy detents first: low, center, and high. This gives 10mm of servo-height adjustment while keeping the servo tightly supported side-to-side."
+  }
+}

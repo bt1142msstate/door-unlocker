@@ -31,6 +31,8 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>DoorControllerFirmwareVersion</key>
+	<string>0.1.9</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Door Unlocker uses Bluetooth to connect to your XIAO desk-test controller.</string>
 	<key>NSFaceIDUsageDescription</key>

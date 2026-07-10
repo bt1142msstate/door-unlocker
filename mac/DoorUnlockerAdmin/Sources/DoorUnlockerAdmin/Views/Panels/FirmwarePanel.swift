@@ -3,7 +3,6 @@ import SwiftUI
 
 struct FirmwarePanel: View {
     @ObservedObject var store: DoorAdminStore
-    @Binding var isImporterPresented: Bool
 
     private var accent: Color {
         store.status.isUnlocked ? Color(red: 0.35, green: 0.86, blue: 0.58) : Color(red: 0.35, green: 0.72, blue: 1.0)
@@ -34,17 +33,6 @@ struct FirmwarePanel: View {
                             .tint(accent)
                     }
                 }
-
-                Button {
-                    isImporterPresented = true
-                } label: {
-                    Label("Install Firmware ZIP", systemImage: "doc.zipper")
-                        .frame(maxWidth: 260)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .tint(accent)
-                .disabled(store.isFirmwareUpdateRunning || store.isBusy)
             }
         }
     }

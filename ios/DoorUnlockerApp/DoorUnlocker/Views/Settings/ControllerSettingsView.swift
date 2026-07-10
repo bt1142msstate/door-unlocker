@@ -6,7 +6,6 @@ struct ControllerSettingsView: View {
     @Binding var appThemeRawValue: String
     @Binding var settingsExpanded: Bool
     @Binding var isLockZoneMapExpanded: Bool
-    @Binding var isFirmwareImporterPresented: Bool
 
     private var appTheme: DoorAppTheme {
         DoorAppTheme(rawValue: appThemeRawValue) ?? .original
@@ -19,7 +18,7 @@ struct ControllerSettingsView: View {
     var body: some View {
         DisclosureGroup(isExpanded: Binding(get: { settingsExpanded }, set: setExpanded)) {
             VStack(spacing: 10) {
-                LockNameControl(controller: controller, accent: accent)
+                LockNameControl(controller: controller)
                 AppearanceThemeControl(appTheme: appTheme, appThemeRawValue: $appThemeRawValue, accent: accent)
                 UnlockGestureControl(controller: controller, accent: accent)
                 UnlockAuthenticationToggle(controller: controller, accent: accent)
@@ -33,11 +32,7 @@ struct ControllerSettingsView: View {
                 DeviceDisplayNameControl(controller: controller, accent: accent)
                 AutoLockTimeoutControl(controller: controller, accent: accent)
                 ServoAnglesControl(controller: controller, accent: accent)
-                FirmwareSettingsControl(
-                    controller: controller,
-                    accent: accent,
-                    isFirmwareImporterPresented: $isFirmwareImporterPresented
-                )
+                FirmwareSettingsControl(controller: controller, accent: accent)
                 StartupTelemetryControl(controller: controller, accent: accent)
             }
             .padding(.top, 10)

@@ -11,24 +11,41 @@ final class DoorFirmwareLiveActivityCoordinator {
     private var completionTask: Task<Void, Never>?
     private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
 
-    func start(lockName: String, status: String, progress: Int?) {
+    func start(lockName: String, status: String, progress: Int?, estimatedSecondsRemaining: Int? = nil) {
         completionTask?.cancel()
         beginBackgroundTask()
 
         Task { [weak self] in
-            await self?.startOrUpdate(lockName: lockName, status: status, progress: progress, state: "firmwareUpdating")
+            await self?.startOrUpdate(
+                lockName: lockName,
+                status: status,
+                progress: progress,
+                estimatedSecondsRemaining: estimatedSecondsRemaining,
+                state: "firmwareUpdating"
+            )
         }
     }
 
-    func update(lockName: String, status: String, progress: Int?) {
+    func update(lockName: String, status: String, progress: Int?, estimatedSecondsRemaining: Int? = nil) {
         guard activity != nil || !Activity<DoorUnlockerActivityAttributes>.activities.isEmpty else {
-            start(lockName: lockName, status: status, progress: progress)
+            start(
+                lockName: lockName,
+                status: status,
+                progress: progress,
+                estimatedSecondsRemaining: estimatedSecondsRemaining
+            )
             return
         }
 
         beginBackgroundTask()
         Task { [weak self] in
-            await self?.startOrUpdate(lockName: lockName, status: status, progress: progress, state: "firmwareUpdating")
+            await self?.startOrUpdate(
+                lockName: lockName,
+                status: status,
+                progress: progress,
+                estimatedSecondsRemaining: estimatedSecondsRemaining,
+                state: "firmwareUpdating"
+            )
         }
     }
 
@@ -78,6 +95,7 @@ final class DoorFirmwareLiveActivityCoordinator {
         lockName: String,
         status: String,
         progress: Int?,
+        estimatedSecondsRemaining: Int? = nil,
         state: String,
         version: String? = nil,
         relevanceScore: Double = 1
@@ -90,9 +108,11 @@ final class DoorFirmwareLiveActivityCoordinator {
         let content = firmwareContent(
             status: status,
             progress: progress,
+            estimatedSecondsRemaining: estimatedSecondsRemaining,
             state: state,
             version: version,
-            relevanceScore: relevanceScore
+            relevanceScore: relevanceScore,
+            staleDate: Date().addingTimeInterval(Self.staleGraceSeconds)
         )
 
         do {
@@ -116,12 +136,14 @@ final class DoorFirmwareLiveActivityCoordinator {
         lockName: String,
         status: String,
         progress: Int?,
+        estimatedSecondsRemaining: Int? = nil,
         state: String,
         version: String? = nil
     ) async {
         let finalContent = firmwareContent(
             status: status,
             progress: progress,
+            estimatedSecondsRemaining: estimatedSecondsRemaining,
             state: state,
             version: version,
             relevanceScore: 0.2,
@@ -140,10 +162,11 @@ final class DoorFirmwareLiveActivityCoordinator {
     private func firmwareContent(
         status: String,
         progress: Int?,
+        estimatedSecondsRemaining: Int? = nil,
         state: String,
         version: String? = nil,
         relevanceScore: Double,
-        staleDate: Date? = Date().addingTimeInterval(staleGraceSeconds)
+        staleDate: Date?
     ) -> ActivityContent<DoorUnlockerActivityAttributes.ContentState> {
         ActivityContent(
             state: DoorUnlockerActivityAttributes.ContentState(
@@ -152,6 +175,7 @@ final class DoorFirmwareLiveActivityCoordinator {
                 activityKind: "firmware",
                 firmwareStatus: status,
                 firmwareProgress: progress.map { max(0, min(100, $0)) },
+                firmwareEstimatedSecondsRemaining: estimatedSecondsRemaining.map { max(0, $0) },
                 firmwareVersion: version
             ),
             staleDate: staleDate,

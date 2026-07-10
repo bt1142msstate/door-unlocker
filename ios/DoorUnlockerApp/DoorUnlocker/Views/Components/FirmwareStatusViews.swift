@@ -27,6 +27,7 @@ struct FirmwareUpdateStatusBanner: View {
     let title: String
     let status: String
     let progress: Int?
+    let etaText: String?
     let accent: Color
 
     private var shouldShowProgress: Bool {
@@ -52,6 +53,13 @@ struct FirmwareUpdateStatusBanner: View {
                 if shouldShowProgress, let progress {
                     ProgressView(value: Double(progress), total: 100)
                         .tint(accent)
+                }
+
+                if let etaText {
+                    Text(etaText)
+                        .font(.caption2.monospacedDigit().weight(.bold))
+                        .foregroundStyle(accent)
+                        .lineLimit(1)
                 }
             }
 

@@ -27,6 +27,13 @@ struct FirmwareIslandProgress: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.78)
+
+            if let etaText = state.firmwareEtaText {
+                Text(etaText)
+                    .font(.caption2.monospacedDigit().weight(.bold))
+                    .foregroundStyle(state.activityColor)
+                    .lineLimit(1)
+            }
         }
     }
 }
@@ -90,6 +97,26 @@ extension DoorUnlockerActivityAttributes.ContentState {
         }
 
         return "\(max(0, min(100, firmwareProgress)))%"
+    }
+
+    var firmwareEtaText: String? {
+        guard isFirmwareRunning,
+              let seconds = firmwareEstimatedSecondsRemaining,
+              seconds > 0 else {
+            return nil
+        }
+
+        if seconds < 60 {
+            return "~\(seconds)s left"
+        }
+
+        let minutes = seconds / 60
+        let remainingSeconds = seconds % 60
+        if remainingSeconds == 0 {
+            return "~\(minutes)m left"
+        }
+
+        return "~\(minutes)m \(remainingSeconds)s left"
     }
 
     var firmwareProgressFraction: Double {

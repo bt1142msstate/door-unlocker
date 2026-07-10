@@ -10,11 +10,11 @@ public enum DoorControllerPolicy {
     public static let defaultAutoLockSeconds = 30
     public static let minimumAutoLockSeconds = 5
     public static let maximumAutoLockSeconds = 120
-    public static let defaultServoLockAngle = 20
-    public static let defaultServoUnlockAngle = 95
+    public static let defaultServoLockAngle = 95
+    public static let defaultServoUnlockAngle = 20
     public static let minimumServoAngle = 10
     public static let maximumServoAngle = 170
-    public static let minimumServoAngleGap = 10
+    public static let minimumServoAngleGap = 0
     public static let defaultUnlockHoldDurationSeconds = 1.0
     public static let minimumUnlockHoldDurationSeconds = 0.5
     public static let maximumUnlockHoldDurationSeconds = 3.0
@@ -70,6 +70,24 @@ public enum DoorControllerPolicy {
         min(max(rssi, minimumProximityUnlockRSSIThreshold), maximumProximityUnlockRSSIThreshold)
     }
 
+    public static func restoredProximityUnlockArmedAt(
+        enabled: Bool,
+        hasLockZone: Bool,
+        storedArmedAt: Date?,
+        now: Date = Date(),
+        maximumAge: TimeInterval
+    ) -> Date? {
+        guard enabled,
+              hasLockZone,
+              let storedArmedAt,
+              now.timeIntervalSince(storedArmedAt) >= 0,
+              now.timeIntervalSince(storedArmedAt) <= maximumAge else {
+            return nil
+        }
+
+        return storedArmedAt
+    }
+
     public static func clampedServoAngles(
         _ angles: DoorServoAngles,
         range: ClosedRange<Int> = servoAngleRange
@@ -87,7 +105,7 @@ public enum DoorControllerPolicy {
     ) -> Bool {
         range.contains(angles.lockAngle)
             && range.contains(angles.unlockAngle)
-            && abs(angles.lockAngle - angles.unlockAngle) >= max(1, minimumGap)
+            && abs(angles.lockAngle - angles.unlockAngle) >= max(0, minimumGap)
     }
 
     public static func formattedDistance(_ meters: Double, unit: DoorDistanceUnit) -> String {

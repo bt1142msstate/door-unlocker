@@ -21,7 +21,7 @@ This repo therefore uses `script/score_modularity.py` as a project-specific scor
 - `wide-dependencies`: leaf views should avoid observing the whole controller/store when explicit values and callbacks will do. Feature adapter files may still observe the controller/store, but they are reported as `adapterBoundaryFiles` so the surface area stays visible.
 - `module-boundaries`: real target/package boundaries should exist for code that can compile or test independently without pulling in the full app.
 - `layering`: SwiftUI view files should not contain BLE, file, process, networking, crypto, or dispatch ownership.
-- `shared-protocol-codec`: secure command packet encoding must live in the shared package, not duplicated separately in the iOS and Mac apps.
+- `shared-protocol-codec`: secure command packet encoding and signed-packet assembly must live in the shared package, not duplicated separately in the iOS and Mac apps.
 - `shared-controller-policy`: safe servo limits, auto-lock limits, proximity signal/radius clamps, distance formatting, and name sanitizing should live in the shared package or be exposed through the Mac core model, not duplicated in each app.
 - `independent-testability`: protocol parsing, secure command encoding, and Mac core model behavior should be testable in package tests without launching the apps.
 
@@ -47,14 +47,14 @@ python3 script/score_modularity.py --threshold 95 --write-graph docs/dependency-
 python3 script/score_maintainability.py --threshold 90
 ```
 
-For this project, the full suite should be the default pre-beta check. The modularity gate requires the overall score and every dimension score to clear the threshold. `95` means the apps have strong beta-level modularity and independently testable shared/core boundaries. State-owner risks must still be reviewed before calling a release production-grade.
+For this project, the full suite should be the default pre-beta check. The modularity gate requires the overall score and every dimension score to clear the threshold. `95` means the project-specific structural checks indicate strong modularity and independently testable boundaries. It is not an Apple-issued architecture grade, and runtime test success is reported separately.
 
-The maintainability gate is separate from the architecture score. It uses SwiftLint-derived file/type line-count limits plus explicit legacy budgets so new work cannot quietly recreate oversized files.
+The maintainability gate is separate from the architecture score. It applies SwiftLint-derived file/type line-count limits uniformly so new work cannot quietly recreate oversized files.
 
 Current score:
 
-- iOS: `96.6/100` overall, `96.7` high modularity, `95.5` low coupling, `100.0` independent testability.
-- Mac: `98.9/100` overall, `100.0` high modularity, `96.7` low coupling, `100.0` independent testability.
+- iOS: `97.0/100` overall, `97.1` high modularity, `95.8` low coupling, `100.0` independent testability.
+- Mac: `98.9/100` overall, `100.0` high modularity, `96.8` low coupling, `100.0` independent testability.
 
 The remaining ceiling is `state-owner-pressure`: `DoorUnlockerController` and `DoorAdminStore` are still large hardware/session owners. They are acceptable for this beta gate because the UI leaves, shared protocol codec, shared controller policy, parser logic, Mac core models, and CLI are isolated, but they remain the next major architecture target.
 
@@ -62,10 +62,12 @@ The remaining ceiling is `state-owner-pressure`: `DoorUnlockerController` and `D
 
 The generated graph lives at `docs/dependency-graph.md`. It shows the app targets, shared package, Mac core library, CLI, tests, and third-party package edges. The important independent compile/test boundaries today are:
 
-- `DoorUnlockerShared`: shared parser/model library with its own test target.
+- `DoorUnlockerShared`: shared command, signing, parser, safety, recovery, write, presentation, and firmware policy library with its own test target.
+- `DoorUnlockerDFU`: one cross-platform CoreBluetooth/Nordic DFU transport used by both apps.
 - `DoorUnlockerCore`: Mac reusable core library with its own test target.
 - `DoorUnlockerAdmin`: Mac executable depending on core instead of owning all logic directly.
 - `door-unlocker`: CLI executable depending on core, useful for automation and smoke checks without launching the full Mac UI.
 - `DoorUnlockerWidget`: iOS extension target separated from the iOS app target.
+- `DoorUnlockerTests`: iOS host-app test target for parser and authenticated wire-packet adapter parity.
 
-The shared package currently has independent tests for controller state parsing, secure command packet encoding, and controller policy limits. The Mac core package has independent tests for controller status/device-count behavior.
+The shared package has independent command/signing/policy/codec/parser/firmware-progress tests. The Mac core and iOS host-app test targets also run matching parser and secure packet vectors, while the full suite separately compiles both apps.

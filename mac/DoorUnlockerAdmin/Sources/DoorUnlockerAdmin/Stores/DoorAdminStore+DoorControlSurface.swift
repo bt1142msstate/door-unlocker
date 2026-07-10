@@ -1,4 +1,5 @@
 import DoorUnlockerCore
+import DoorUnlockerShared
 
 extension DoorAdminStore {
     var doorControlSurfaceSnapshot: DoorControlSurfaceSnapshot {
@@ -13,8 +14,23 @@ extension DoorAdminStore {
         )
     }
 
-    var isDoorControlSurfaceDisabled: Bool {
-        DoorControlSurfacePolicy.isActionDisabled(doorControlSurfaceSnapshot)
+    var doorControlPresentation: DoorControlPresentation {
+        DoorControlPresentationPolicy.presentation(
+            for: DoorControlPresentationInput(
+                servoState: status.bleState,
+                isUnlocked: status.isUnlocked,
+                canAcceptDoorCommand: canSendDoorCommand,
+                isBusy: isBusy,
+                isApplyingControllerSetting: isApplyingControllerSetting,
+                isFirmwareUpdateBlockingDoorControl: isFirmwareUpdateRunning,
+                isDoorCommandQueuedForSecureLink: isDoorCommandQueued,
+                isDoorCommandReady: isWirelessDoorCommandReady || isConnected,
+                activationVerb: .click,
+                controllerSettingApplyTitle: controllerSettingApplyTitle,
+                firmwareUpdateActionTitle: "Updating firmware...",
+                queuedDoorCommandActionTitle: queuedDoorCommandActionTitle
+            )
+        )
     }
 
     var autoLockRange: ClosedRange<Int> {

@@ -1,0 +1,31 @@
+{
+  "note": "Coverage is diagnostic evidence, not a release threshold. Add tests around uncovered critical behavior instead of optimizing a single percentage.",
+  "schemaVersion": 1,
+  "source": "build/quality/ios-tests.xcresult",
+  "targets": [
+    {
+      "coveredLines": 1946,
+      "executableLines": 14023,
+      "lineCoverage": 0.13877201739998574,
+      "name": "DoorUnlocker.app"
+    },
+    {
+      "coveredLines": 0,
+      "executableLines": 306,
+      "lineCoverage": 0,
+      "name": "DoorUnlockerDFU"
+    },
+    {
+      "coveredLines": 152,
+      "executableLines": 153,
+      "lineCoverage": 0.9934640522875817,
+      "name": "DoorUnlockerTests.xctest"
+    },
+    {
+      "coveredLines": 63,
+      "executableLines": 1198,
+      "lineCoverage": 0.052587646076794656,
+      "name": "DoorUnlockerWidget.appex"
+    }
+  ]
+}

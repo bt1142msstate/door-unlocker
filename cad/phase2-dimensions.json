@@ -1,45 +1,424 @@
 {
   "units": "mm",
-  "revision": "phase-2-first-pass",
+  "revision": "phase-2-bambu-pla-p1s-tight-fit",
   "notes": [
-    "First-pass fit model for layout, service access, and 3D-print enclosure iteration.",
+    "First-pass printable fit model for layout, service access, and 3D-print enclosure iteration.",
+    "Default print target is Bambu Lab PLA Pure on a Bambu Lab P1S with the included 0.4mm nozzle.",
     "Verify every component with calipers before printing a functional enclosure.",
-    "Dimensions include practical clearance where noted; not all vendor pages publish exact dimensions."
+    "Dimensions include practical clearance where noted; not all vendor pages publish exact dimensions.",
+    "The battery pocket is intentionally less tight than the hard parts; do not clamp or compress a lithium pack."
+  ],
+  "printer": {
+    "model": "Bambu Lab P1S",
+    "build_volume": {
+      "width": 256,
+      "depth": 256,
+      "height": 256
+    },
+    "default_nozzle": 0.4,
+    "notes": "The 244mm enclosure, 244mm mounting plate, and 232mm removable service cover fit inside the P1S volume directly."
+  },
+  "material": {
+    "name": "Bambu Lab PLA Pure",
+    "density_g_cm3": 1.24,
+    "youngs_modulus_xy_mpa": 2481,
+    "youngs_modulus_z_mpa": 2196,
+    "tensile_strength_xy_mpa": 51.5,
+    "tensile_strength_z_mpa": 30,
+    "bending_strength_xy_mpa": 75,
+    "bending_strength_z_mpa": 55,
+    "heat_deflection_temperature_1_8mpa_c": 56,
+    "fit_notes": "Use the Z-direction tensile value for conservative layer-adhesion checks. Avoid hot sun or sustained loads near PLA heat-deflection temperatures."
+  },
+  "fit_clearances": {
+    "static_hard_part_clearance_per_side": 0.6,
+    "sliding_dovetail_clearance_per_side": 0.4,
+    "battery_clearance_per_side": 1.5,
+    "wire_and_connector_service_allowance": 3,
+    "test_coupon_clearances": [0.3, 0.4, 0.5, 0.6]
+  },
+  "wire_routing_channels": {
+    "type": "two open cable-comb banks with ten dedicated raised-lip lanes and snap-in retention nibs",
+    "mounting_surface": "inside rear wall of the main enclosure, accessible after removing the service cover",
+    "z_start": 84,
+    "z_end": 167,
+    "length": 83,
+    "rear_wall_inner_y": -13.8,
+    "rib_width": 1,
+    "retainer_spacing": 27,
+    "banks": [
+      {
+        "name": "logic_and_pwm",
+        "awg": 22,
+        "lane_count": 5,
+        "clear_width_per_lane": 3,
+        "rib_depth": 2.2,
+        "total_width": 21,
+        "x_bounds": [-31.8, -10.8]
+      },
+      {
+        "name": "high_current_power",
+        "awg": 16,
+        "lane_count": 5,
+        "clear_width_per_lane": 4.2,
+        "rib_depth": 3.4,
+        "total_width": 27,
+        "x_bounds": [4.8, 31.8]
+      }
+    ],
+    "lanes": [
+      {
+        "name": "buck_input_positive",
+        "color": "red",
+        "awg": 22,
+        "estimated_wire_outer_diameter": 1.8,
+        "clear_width": 3,
+        "rib_depth": 2.2,
+        "x_center": -29.3,
+        "minimum_bend_radius": 6
+      },
+      {
+        "name": "buck_input_ground",
+        "color": "black",
+        "awg": 22,
+        "estimated_wire_outer_diameter": 1.8,
+        "clear_width": 3,
+        "rib_depth": 2.2,
+        "x_center": -25.3,
+        "minimum_bend_radius": 6
+      },
+      {
+        "name": "controller_5v",
+        "color": "blue",
+        "awg": 22,
+        "estimated_wire_outer_diameter": 1.8,
+        "clear_width": 3,
+        "rib_depth": 2.2,
+        "x_center": -21.3,
+        "minimum_bend_radius": 6
+      },
+      {
+        "name": "controller_ground",
+        "color": "black",
+        "awg": 22,
+        "estimated_wire_outer_diameter": 1.8,
+        "clear_width": 3,
+        "rib_depth": 2.2,
+        "x_center": -17.3,
+        "minimum_bend_radius": 6
+      },
+      {
+        "name": "pwm_signal",
+        "color": "yellow",
+        "awg": 22,
+        "estimated_wire_outer_diameter": 1.8,
+        "clear_width": 3,
+        "rib_depth": 2.2,
+        "x_center": -13.3,
+        "minimum_bend_radius": 6
+      },
+      {
+        "name": "battery_positive_input",
+        "color": "red",
+        "awg": 16,
+        "estimated_wire_outer_diameter": 3,
+        "clear_width": 4.2,
+        "rib_depth": 3.4,
+        "x_center": 7.9,
+        "minimum_bend_radius": 10
+      },
+      {
+        "name": "battery_ground_input",
+        "color": "black",
+        "awg": 16,
+        "estimated_wire_outer_diameter": 3,
+        "clear_width": 4.2,
+        "rib_depth": 3.4,
+        "x_center": 13.1,
+        "minimum_bend_radius": 10
+      },
+      {
+        "name": "splitter_positive_to_switch",
+        "color": "red",
+        "awg": 16,
+        "estimated_wire_outer_diameter": 3,
+        "clear_width": 4.2,
+        "rib_depth": 3.4,
+        "x_center": 18.3,
+        "minimum_bend_radius": 10
+      },
+      {
+        "name": "switch_to_servo_positive",
+        "color": "red",
+        "awg": 16,
+        "estimated_wire_outer_diameter": 3,
+        "clear_width": 4.2,
+        "rib_depth": 3.4,
+        "x_center": 23.5,
+        "minimum_bend_radius": 10
+      },
+      {
+        "name": "splitter_ground_to_servo",
+        "color": "black",
+        "awg": 16,
+        "estimated_wire_outer_diameter": 3,
+        "clear_width": 4.2,
+        "rib_depth": 3.4,
+        "x_center": 28.7,
+        "minimum_bend_radius": 10
+      }
+    ],
+    "harness_connections": [
+      {"source": "battery XT30 positive", "lane": "battery_positive_input", "target": "positive splitter input"},
+      {"source": "battery XT30 ground", "lane": "battery_ground_input", "target": "ground splitter input"},
+      {"source": "positive splitter output", "lane": "splitter_positive_to_switch", "target": "servo power switch input"},
+      {"source": "servo power switch output", "lane": "switch_to_servo_positive", "target": "servo positive"},
+      {"source": "ground splitter output", "lane": "splitter_ground_to_servo", "target": "servo ground"},
+      {"source": "positive splitter output", "lane": "buck_input_positive", "target": "buck IN+"},
+      {"source": "ground splitter output", "lane": "buck_input_ground", "target": "buck IN-"},
+      {"source": "buck OUT+", "lane": "controller_5v", "target": "breadboard/XIAO 5V"},
+      {"source": "buck OUT-", "lane": "controller_ground", "target": "breadboard/XIAO ground"},
+      {"source": "breadboard/XIAO D2", "lane": "pwm_signal", "target": "servo signal"}
+    ],
+    "notes": [
+      "The troughs are raised from the rear wall instead of cut into it, preserving the full 3.2mm structural wall thickness.",
+      "Open ends provide bend-relief zones into the battery, splitter, controller, and servo bays; do not force a wire through a sharp 90-degree corner.",
+      "Five high-current conductors stay in a 27mm right-side bank while five low-current logic/PWM conductors stay in a 21mm left-side bank, leaving a 15.6mm center service gap.",
+      "The 1mm shared ribs form a printable cable comb; the outer bank edges retain 1mm clearance to the 65.6mm-wide inner shell.",
+      "Wire diameters are conservative estimates for flexible silicone-insulated stranded tinned-copper wire. Measure the purchased wire and print a channel coupon before the enclosure.",
+      "Retention nibs are removable-service features, not permanent bridges. Verify snap fit and PLA fatigue on a coupon before committing to the full-height print."
+    ]
+  },
+  "printed_parts": [
+    {
+      "name": "door_mounting_plate",
+      "count": 1,
+      "dimensions": {
+        "width": 50.8,
+        "depth": 7,
+        "height": 244
+      },
+      "role": "Fixed 2in x 244mm adhesive spine that stays on the door and hides behind the enclosure once the sled is installed."
+    },
+    {
+      "name": "main_enclosure_sled",
+      "count": 1,
+      "dimensions": {
+        "width": 72,
+        "depth": 34,
+        "height": 244
+      },
+      "role": "Removable housing that slides onto the door plate and contains the servo, controller, wiring, inline lever splitters, buck, and battery slot."
+    },
+    {
+      "name": "removable_service_cover",
+      "count": 1,
+      "dimensions": {
+        "width": 66,
+        "depth": 2.2,
+        "height": 232
+      },
+      "role": "Near full-height front service cover that can slide off the housing on its own low-profile dovetail rails."
+    }
   ],
   "enclosure": {
-    "outer_width": 78,
-    "outer_depth": 37,
-    "outer_height": 352,
-    "wall": 3,
+    "outer_width": 72,
+    "outer_depth": 34,
+    "outer_height": 244,
+    "wall": 3.2,
     "corner_radius": 7,
     "front_lip": 3,
-    "back_plate_width": 88,
-    "back_plate_depth": 4,
-    "back_plate_height": 366
+    "back_plate_width": 50.8,
+    "back_plate_depth": 7,
+    "back_plate_height": 244,
+    "back_plate_print_note": "The mounting plate is intentionally flush with the 244mm enclosure so it hides after installation. Open-ended rails plus a small hidden detent replace the earlier visible external retention geometry."
+  },
+  "adhesive_mount": {
+    "selected_strip": {
+      "model": "3M Command 17217 X-Large Picture Hanging Strips",
+      "dimensions_inches": {
+        "length": 4.375,
+        "width": 0.875,
+        "depth": 0.0625
+      },
+      "dimensions_mm": {
+        "length": 111.1,
+        "width": 22.2,
+        "depth": 1.6
+      },
+      "capacity_lbf_per_four_pairs": 20,
+      "capacity_lbf_per_pair": 5,
+      "source": "3M product 17217 for capacity; Uline 3M 17217 dimensions table for strip footprint."
+    },
+    "back_plate_layout": {
+      "plate_width": 50.8,
+      "plate_height": 244,
+      "columns": 2,
+      "rows": 2,
+      "pair_count": 4,
+      "x_centers": [-13.1, 13.1],
+      "z_centers": [64.4, 179.6],
+      "side_margin": 1.2,
+      "top_bottom_margin": 8.9,
+      "gap_between_columns": 4,
+      "gap_between_rows": 4
+    },
+    "alternative_fit_summary": [
+      {
+        "model": "17217 X-Large",
+        "pairs_fit": 4,
+        "ideal_capacity_lbf": 20,
+        "verdict": "Selected. Tightest width fit, but highest ideal capacity on the 2in x 244mm flush plate."
+      },
+      {
+        "model": "17206 Large",
+        "pairs_fit": 4,
+        "ideal_capacity_lbf": 15,
+        "verdict": "Fits with more side margin, but lower ideal capacity; three rows do not fit with practical spacing."
+      },
+      {
+        "model": "17204 Medium",
+        "pairs_fit": 6,
+        "ideal_capacity_lbf": 15,
+        "verdict": "More pieces fit, but total ideal capacity still trails four X-Large pairs."
+      }
+    ],
+    "notes": "The 17217 XL strips do fit on the current 2in plate, but the side margin is only about 1.2mm. Add shallow printed placement outlines or a simple installation jig so the strips land straight."
+  },
+  "housing_fit_simulation": {
+    "minimum_housing_height_for_current_layout": 244,
+    "current_housing_is_tight_minimum": true,
+    "vertical_utilization_percent": 97.6,
+    "max_width_utilization_percent": 89.3,
+    "max_depth_utilization_percent": 90.6,
+    "worst_side_margin": 0.8,
+    "worst_depth_margin": 1.3,
+    "raw_component_collisions": 0,
+    "clearance_envelope_collisions": 0,
+    "minimum_plate_height_for_open_ended_rails": 242,
+    "recommended_plate_height": 244,
+    "wire_routing_channel_collisions": 0,
+    "notes": "Simulation keeps the 72 x 34 x 244mm housing and 50.8 x 244mm flush hidden plate. Its zero-collision result covers the core servo/XIAO/inline-splitter/buck/battery boxes plus the ten rear-wall wire-routing keepouts. The HTML cutaway now shows the complete routed harness, no-solder breadboard, prototype servo-power-switch envelope, and second solar panel as additional inspection geometry; the breadboard, switch board, branch bends, and second panel still require physical measurement before a print-ready claim."
+  },
+  "model_accuracy": {
+    "coordinate_system": "Width is X, door-normal depth is Y in OpenSCAD and Z in the Three.js viewer, and vertical height is Z in OpenSCAD and Y in the Three.js viewer.",
+    "vendor_confirmed_geometry": [
+      "INJORA servo body 40.5 x 20 x 37.5mm",
+      "Seeed XIAO board footprint 21 x 17.8mm",
+      "XALXMAW 1-in/2-out splitter listing envelope 32 x 13 x 13.5mm",
+      "Seloky LM2596 module 57 x 36 x 14mm",
+      "3M 17217 strip footprint 111.1 x 22.2 x 1.6mm",
+      "6V 1W test solar panel 110 x 60 x 3mm"
+    ],
+    "standard_part_geometry": [
+      "170-point mini breadboard 47 x 35 x 8.5mm; shown vertically as 35 W x 8.5 D x 47 H mm"
+    ],
+    "estimated_or_measure_before_print": [
+      "Servo mounting-ear and output-boss subgeometry",
+      "56mm horn thickness, hole spacing, and rubber-cap dimensions",
+      "Prototype MOSFET module component height and terminal overhang",
+      "XALXMAW splitter mass until the delivered pair is weighed",
+      "Wire bend radii, ferrules, connector float, strain relief, and hidden detent",
+      "Solar charger and final battery-monitor board envelopes"
+    ],
+    "known_fit_conflicts": [
+      "Two 110 x 60mm solar panels cannot occupy the same 72 x 244mm front face while preserving the current servo opening.",
+      "The prototype MOSFET module and no-solder breadboard are shown for inspection but are not included in the current zero-collision calculator result."
+    ],
+    "print_gate": "Measure every purchased part with calipers and replace estimated subgeometry before exporting production STL/3MF files."
+  },
+  "slide_mount": {
+    "type": "dual captive dovetail",
+    "face_angle_degrees_from_mounting_surface": 60,
+    "side_angle_degrees_from_plate_normal": 30,
+    "rail_spacing": 30,
+    "rail_neck_width": 8,
+    "rail_head_width": 14.35,
+    "rail_depth": 5.5,
+    "rail_length": 224,
+    "channel_length": 226,
+    "solid_rail_end_margin": 10,
+    "channel_end_margin": 9,
+    "channel_clearance_per_side": 0.4,
+    "formula": "head_width = neck_width + 2 * rail_depth / tan(face_angle)",
+    "notes": "Male rails are narrowed to 30mm center spacing so both dovetails fit on a 2in-wide plate. The solid rails are 224mm long and the housing channel preview is 226mm long, leaving end margin on the flush 244mm plate. Matching female channels use the same 60 degree face angle plus 0.40mm per-side clearance so the enclosure can slide vertically while resisting straight pull-off. Print a coupon first before committing the full plate."
+  },
+  "retention_detent": {
+    "type": "hidden low-profile click detent or thumb-release",
+    "width": 8,
+    "depth": 1.2,
+    "height": 3,
+    "position": "inside the rail/sled interface near the upper rail span",
+    "notes": "No bulky top or bottom stop is modeled. The sled should intentionally slide off, but a hidden detent should prevent accidental creeping during normal use."
+  },
+  "service_cover_slide": {
+    "type": "low-profile dual dovetail",
+    "cover_width": 66,
+    "cover_depth": 2.2,
+    "cover_height": 232,
+    "rail_neck_width": 3.2,
+    "rail_head_width": 5.51,
+    "rail_depth": 2,
+    "rail_length": 214,
+    "notes": "The service cover is now treated as a near full-height removable panel instead of a short hatch. It should slide into shallow cover rails or channels so maintenance access is possible without removing the enclosure from the door plate."
   },
   "components": {
-    "solar_panel_placeholder": {
-      "width": 50,
+    "solar_panel_series_pair": {
+      "width": 60,
       "depth": 3,
-      "height": 80,
-      "source": "placeholder",
+      "height": 220,
+      "source": "2 x 6V 1W mini solar panels, each about 110 x 60 x 3mm, wired in series for a 12V-class solar charger input",
       "clearance": 1.5,
-      "notes": "Exact solar panel not selected yet; top pocket is intentionally replaceable."
+      "notes": "Surface-mounted solar skin allowance, not an internal volume block. The overall two-panel envelope fits inside the 72 x 244mm face, but the front-exposed servo pocket interrupts that face, so the final print needs a split, relief, or clip-on layout that clears the servo and service seams."
     },
     "pill_status_led": {
       "width": 22,
       "depth": 3,
       "height": 5,
       "source": "design placeholder",
-      "clearance": 1
+      "clearance": 1,
+      "layout": {
+        "z": 233
+      }
     },
     "injora_35kg_servo": {
       "width": 40.5,
-      "depth": 20.5,
-      "height": 40.5,
-      "source": "vendor/listing typical standard servo dimensions",
-      "clearance": 2,
-      "notes": "Mount tabs and wire strain relief need physical verification."
+      "depth": 20,
+      "height": 37.5,
+      "source": "INJORA listing: 40.5 x 20 x 37.5mm body",
+      "clearance": 0.6,
+      "bay": {
+        "width": 56,
+        "depth": 28,
+        "height": 52
+      },
+      "notes": "Body pocket is tight, but the bay remains wider for tabs, fasteners, arm clearance, and wire strain relief."
+    },
+    "servo_front_exposure_pocket": {
+      "width": 56,
+      "depth": 28,
+      "height": 58,
+      "center_z": 188,
+      "source": "Front-exposed servo bay pocket",
+      "clearance": 3,
+      "notes": "Open front pocket that lets the servo protrude from the enclosure face while the bay and removable cradle still support the servo body from the back, bottom, and side walls. Final dimensions should be checked against the actual calibrated lock/unlock angles."
+    },
+    "servo_height_adjustment_cradle": {
+      "type": "removable cradle on left/right notch ledges",
+      "servo_center_z_default": 188,
+      "servo_center_z_offsets": [-5, 0, 5],
+      "servo_center_z_range": [183, 193],
+      "cradle_dimensions": {
+        "width": 42,
+        "depth": 23,
+        "height": 3
+      },
+      "notch_ledge_dimensions": {
+        "width": 6,
+        "depth": 20,
+        "height": 2.2
+      },
+      "notes": "The servo remains tightly constrained side-to-side by the bay/cradle, while the removable floor can sit in one of three vertical detents for coarse handle alignment."
     },
     "servo_arm_with_cap_clearance": {
       "width": 64,
@@ -49,36 +428,84 @@
       "clearance": 3
     },
     "xiao_nrf52840_sense_pinned": {
-      "width": 17.8,
-      "depth": 11,
-      "height": 21,
+      "width": 21,
+      "depth": 11.5,
+      "height": 17.8,
       "source": "Seeed XIAO footprint plus pin/header clearance",
-      "clearance": 2,
-      "notes": "Board footprint is 21 x 17.5mm; depth includes pre-soldered header/USB clearance."
+      "clearance": 0.8,
+      "layout": {
+        "x": -18,
+        "y": -0.2,
+        "z": 143
+      },
+      "notes": "Board footprint is 21 x 17.8mm. The detailed cutaway shows the board on the front of the vertical 170-point breadboard, with separate header and USB-C subgeometry."
     },
-    "wago_222_413_pair": {
-      "single_width": 17,
-      "single_depth": 20.5,
-      "single_height": 14.5,
+    "mini_breadboard_170_point": {
+      "width": 35,
+      "depth": 8.5,
+      "height": 47,
+      "source": "Standard 170-tie-point mini breadboard envelope: 47 x 35 x 8.5mm",
+      "clearance": 0.8,
+      "layout": {
+        "x": -13,
+        "y": -7,
+        "z": 143
+      },
+      "notes": "Viewer orientation is vertical so the 35mm side is enclosure width and the 47mm side is height. The XIAO is shown plugged into its front face. This is no-solder inspection geometry, not yet part of the core zero-collision result."
+    },
+    "xalxmaw_inline_splitter_pair": {
+      "single_width": 32,
+      "single_depth": 13.5,
+      "single_height": 13,
       "count": 2,
-      "source": "WAGO 222-413 datasheet dimensions, rounded for clearance",
-      "clearance": 1.5
+      "source": "Purchased XALXMAW B0B28GYYL2 listing dimension graphic: 1.25 x 0.51 x 0.53in, rounded to 32 x 13 x 13.5mm",
+      "clearance": 1.5,
+      "layout": {
+        "x": 14.5,
+        "y": 3.3,
+        "z_centers": [135, 154]
+      },
+      "notes": "Each inline connector is modeled horizontally with its 32mm wire path across enclosure width. The positive and ground splitters remain stacked as separate routing lanes. Verify the delivered parts with calipers before printing."
+    },
+    "servo_power_switch_module": {
+      "width": 42,
+      "depth": 12,
+      "height": 26,
+      "source": "Amazon MOSFET switching module listing gives 4.2 x 2.6cm board footprint; height is an enclosure allowance for terminals/components",
+      "clearance": 1,
+      "layout": "TBD: mount vertically in the service bay or replace with an integrated high-side switch board in the production power stack",
+      "notes": "Prototype board is included in mass/BOM planning. Do a multimeter check before final wiring; final design should switch servo positive with a true high-side load switch or smart high-side switch."
     },
     "lm2596_buck_current": {
-      "width": 60,
-      "depth": 12,
-      "height": 40,
-      "source": "common LED-voltmeter LM2596 module estimate",
-      "clearance": 2,
-      "notes": "This is the bulky current prototype buck. Future low-Iq regulator can shrink this bay."
+      "width": 57,
+      "depth": 14,
+      "height": 36,
+      "source": "Seloky LM2596 module manual: 57 x 36 x 14mm",
+      "clearance": 0.8,
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "z": 102.5
+      },
+      "notes": "This is the bulky current prototype buck and the housing width driver. The detailed HTML model uses the verified board envelope and representative terminal, display, inductor, and trim-pot subgeometry. Future low-Iq regulator can shrink this bay."
     },
     "battery_2s_5000mah": {
       "width": 43,
       "depth": 22,
       "height": 75,
-      "source": "common 2S 5000mAh transmitter pack estimate",
-      "clearance": 2,
-      "notes": "Designed as a vertical bottom-inserting cartridge with only a small pull lip exposed."
+      "source": "sea jump listing: 75 x 43 x 22mm",
+      "clearance": 1.5,
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "z": 42
+      },
+      "slot": {
+        "width": 46.5,
+        "depth": 25,
+        "height": 80.5
+      },
+      "notes": "Designed as a vertical bottom-inserting cartridge with only a small pull lip exposed. Clearance is intentionally larger than hard-part pockets so the pack is retained without compression."
     },
     "future_camera_placeholders": {
       "forward_camera": {
@@ -95,6 +522,125 @@
       "notes": "Not modeled as functional cutouts yet; reserve optional top/front service space."
     }
   },
+  "mass_budget": {
+    "status": "engineering estimate until printed parts and real hardware are weighed",
+    "mass_basis": [
+      "Vendor-published masses were used where available.",
+      "Small hardware, wire, XT30 dock, and printed PLA masses are conservative layout estimates.",
+      "Use a gram scale after the first print and update these values before trusting the adhesive calculation."
+    ],
+    "component_masses_g": {
+      "battery_2s_5000mah": {
+        "mass": 151,
+        "source": "sea jump/Amazon listing battery weight"
+      },
+      "injora_35kg_servo": {
+        "mass": 70,
+        "source": "INJORA INJS235 published servo weight"
+      },
+      "servo_horn_with_rubber_cap": {
+        "mass": 9,
+        "source": "estimate for 56mm aluminum horn plus sleeve cap"
+      },
+      "xiao_nrf52840_sense_pinned": {
+        "mass": 4,
+        "source": "estimate for XIAO board plus pre-soldered headers"
+      },
+      "xalxmaw_inline_splitter_pair": {
+        "mass": 8,
+        "source": "engineering estimate for two installed inline splitters; weigh delivered parts before final mass validation"
+      },
+      "lm2596_buck_current": {
+        "mass": 20.6,
+        "source": "Seloky module manual item weight"
+      },
+      "mini_breadboard_170_point": {
+        "mass": 15,
+        "source": "engineering estimate until the actual red mini breadboard is weighed"
+      },
+      "xt30_fixed_dock_and_16awg_leads": {
+        "mass": 10,
+        "source": "estimate for fixed XT30 mating connector plus short 16 AWG leads"
+      },
+      "wire_ferrules_and_strain_relief": {
+        "mass": 16,
+        "source": "prototype wiring allowance"
+      },
+      "servo_power_switch_module": {
+        "mass": 12,
+        "source": "estimate for one MOSFET switching module with terminals; kit contains two"
+      },
+      "solar_panel_series_pair": {
+        "mass": 52,
+        "source": "estimate from 2 x 6V 1W 110 x 60mm panels; selected Amazon kit lists similar panels"
+      },
+      "solar_charge_controller_allowance": {
+        "mass": 12,
+        "source": "layout allowance for a compact 2S lithium solar charger/BMS module"
+      },
+      "battery_monitor_allowance": {
+        "mass": 2,
+        "source": "switched high-value divider prototype or tiny future fuel-gauge board"
+      },
+      "small_fasteners_latch_and_pads": {
+        "mass": 8,
+        "source": "prototype hardware allowance"
+      }
+    },
+    "printed_part_masses_g": {
+      "door_mounting_plate_with_dovetail_rails": {
+        "mass": 142,
+        "source": "PLA Pure density estimate from the 50.8 x 7 x 244mm plate plus rails"
+      },
+      "main_enclosure_sled": {
+        "mass": 205,
+        "source": "PLA Pure shell estimate after modeled bay cutouts"
+      },
+      "removable_service_cover": {
+        "mass": 43,
+        "source": "PLA Pure estimate for 66 x 2.2 x 232mm cover plus shallow rails"
+      }
+    },
+    "adhesive_and_install_masses_g": {
+      "four_command_17217_xlarge_pairs": {
+        "mass": 14,
+        "source": "installation allowance for four strip pairs"
+      }
+    },
+    "totals": {
+      "components_inside_housing_g": 389.6,
+      "printed_parts_g": 390,
+      "removable_enclosure_with_components_g": 637.6,
+      "full_door_supported_assembly_g": 793.6,
+      "full_door_supported_assembly_lbf": 1.75,
+      "force_simulation_rounded_input_lbf": 1.8
+    },
+    "quick_swap_battery_plan": {
+      "preferred_connector": "fixed controller-side XT30 dock that mates when the battery slides up into the bottom bay",
+      "alignment": "chamfered battery slot, 0.5-1.0mm connector float, and hard stop before the pack is compressed",
+      "retention": "thumb latch or spring tab plus a small pull ribbon/lip; battery should barely protrude below the enclosure",
+      "service_note": "Keep 16 AWG dock leads fixed to the housing/inline-splitter path so swapping the battery does not move the internal wiring."
+    },
+    "battery_state_of_charge_plan": {
+      "prototype_lowest_idle_power": "switched high-value resistor divider into the XIAO ADC, powered only during measurements",
+      "prototype_divider_example": "1M top resistor and 330k bottom resistor maps an 8.4V full 2S pack to about 2.08V at the ADC; add a small capacitor and average readings",
+      "future_accurate_gauge": "MAX17263-class multi-cell fuel gauge for accurate SOC, time-to-empty, battery age, and charge/discharge current",
+      "service_note": "Voltage-only percentage is approximate under servo load; use filtered idle readings and low-battery thresholds before showing a polished percentage."
+    },
+    "solar_charge_plan": {
+      "selected_test_panel_kit": "3Pcs Mini Solar Panel DC 6V 1W, about 110 x 60mm per panel",
+      "recommended_electrical_layout": "use two 6V panels in series as a 12V-class input to a proper 2S lithium solar charger; never connect raw panel output directly to the 2S pack",
+      "expected_peak_input": "about 12V at 0.16A, or roughly 2W peak before charger losses when two panels are in strong sun",
+      "mechanical_note": "Treat the panels as a thin service-cover/front-face skin. The rectangular envelope fits the enclosure face, but the servo pocket interrupts that surface; final placement still needs a split, relief, or clip-on layout that keeps maintenance access."
+    },
+    "servo_power_cut_plan": {
+      "prototype_part": "2PCS 3V/5V low-voltage-control MOSFET switching module, 5-36V output, 22A listed maximum",
+      "preferred_final_topology": "true high-side switch on servo positive, controlled by the XIAO, with servo ground left tied to the common battery/controller ground",
+      "locked_state": "set PWM safe/low or high-impedance, wait briefly, then cut servo positive power",
+      "unlocked_state": "enable servo power before command pulses and keep power enabled only while the handle must stay held down",
+      "caution": "Many cheap MOSFET modules switch the low side. If the prototype module switches ground instead of positive, use it only for bench testing or add signal isolation so the servo cannot be back-powered through the PWM line."
+    }
+  },
   "color_key": {
     "shell": "#1e2420",
     "back_plate": "#2d332f",
@@ -102,7 +648,7 @@
     "servo": "#4a64d8",
     "servo_arm": "#111111",
     "xiao": "#23a06f",
-    "wago": "#f28b32",
+    "splitter": "#f28b32",
     "buck": "#d7b546",
     "battery": "#ef6c38",
     "clearance": "#ff4d4d"

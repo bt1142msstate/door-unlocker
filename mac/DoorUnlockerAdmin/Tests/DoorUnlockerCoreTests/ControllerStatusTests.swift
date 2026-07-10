@@ -118,4 +118,32 @@ final class ControllerStatusTests: XCTestCase {
         XCTAssertEqual(mergedStatus.connectedDevices.map(\.displayName), ["Brandon's Mac (USB-C)", "iPhone Air"])
         XCTAssertEqual(mergedStatus.unidentifiedConnectedDeviceCount, 0)
     }
+
+    func testTrustedDeviceRosterPreservesWirelessReportedCount() {
+        let summary = TrustedDeviceRosterSummary(
+            reportedTrustedCount: 2,
+            reportedMaximumCount: 4,
+            loadedDeviceCount: 0,
+            hasTrustedLocalDevice: true
+        )
+
+        XCTAssertEqual(summary.trustedCount, 2)
+        XCTAssertEqual(summary.maximumCount, 4)
+        XCTAssertEqual(summary.countText, "2/4")
+        XCTAssertTrue(summary.isRosterIncomplete)
+    }
+
+    func testTrustedDeviceRosterUsesLoadedRosterWhenStatusIsStale() {
+        let summary = TrustedDeviceRosterSummary(
+            reportedTrustedCount: 1,
+            reportedMaximumCount: 0,
+            loadedDeviceCount: 3,
+            hasTrustedLocalDevice: false
+        )
+
+        XCTAssertEqual(summary.trustedCount, 3)
+        XCTAssertEqual(summary.maximumCount, 4)
+        XCTAssertEqual(summary.loadedDeviceCount, 3)
+        XCTAssertFalse(summary.isRosterIncomplete)
+    }
 }

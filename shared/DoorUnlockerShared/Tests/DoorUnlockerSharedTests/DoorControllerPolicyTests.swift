@@ -18,8 +18,9 @@ final class DoorControllerPolicyTests: XCTestCase {
         )
 
         XCTAssertEqual(clamped, DoorServoAngles(lockAngle: 10, unlockAngle: 170))
-        XCTAssertTrue(DoorControllerPolicy.servoAnglesAreValid(DoorServoAngles(lockAngle: 20, unlockAngle: 95)))
-        XCTAssertFalse(DoorControllerPolicy.servoAnglesAreValid(DoorServoAngles(lockAngle: 20, unlockAngle: 25)))
+        XCTAssertTrue(DoorControllerPolicy.servoAnglesAreValid(DoorServoAngles(lockAngle: 95, unlockAngle: 20)))
+        XCTAssertTrue(DoorControllerPolicy.servoAnglesAreValid(DoorServoAngles(lockAngle: 95, unlockAngle: 100)))
+        XCTAssertTrue(DoorControllerPolicy.servoAnglesAreValid(DoorServoAngles(lockAngle: 95, unlockAngle: 95)))
         XCTAssertFalse(DoorControllerPolicy.servoAnglesAreValid(DoorServoAngles(lockAngle: 9, unlockAngle: 95)))
     }
 
@@ -38,5 +39,48 @@ final class DoorControllerPolicyTests: XCTestCase {
         XCTAssertEqual(DoorControllerPolicy.formattedDistance(1400, unit: .meters), "1.4 km")
         XCTAssertEqual(DoorControllerPolicy.formattedDistance(10, unit: .feet), "33 ft")
         XCTAssertEqual(DoorControllerPolicy.sanitizedName("Brandon\u{2019}s\nLock"), "Brandon's Lock")
+    }
+
+    func testProximityArmRestoresWithoutRecheckingCurrentZoneContainment() {
+        let now = Date(timeIntervalSince1970: 10_000)
+        let armedAt = now.addingTimeInterval(-120)
+
+        XCTAssertEqual(
+            DoorControllerPolicy.restoredProximityUnlockArmedAt(
+                enabled: true,
+                hasLockZone: true,
+                storedArmedAt: armedAt,
+                now: now,
+                maximumAge: 12 * 60 * 60
+            ),
+            armedAt
+        )
+    }
+
+    func testProximityArmDoesNotRestoreWhenDisabledMissingOrExpired() {
+        let now = Date(timeIntervalSince1970: 10_000)
+        let armedAt = now.addingTimeInterval(-120)
+
+        XCTAssertNil(DoorControllerPolicy.restoredProximityUnlockArmedAt(
+            enabled: false,
+            hasLockZone: true,
+            storedArmedAt: armedAt,
+            now: now,
+            maximumAge: 12 * 60 * 60
+        ))
+        XCTAssertNil(DoorControllerPolicy.restoredProximityUnlockArmedAt(
+            enabled: true,
+            hasLockZone: false,
+            storedArmedAt: armedAt,
+            now: now,
+            maximumAge: 12 * 60 * 60
+        ))
+        XCTAssertNil(DoorControllerPolicy.restoredProximityUnlockArmedAt(
+            enabled: true,
+            hasLockZone: true,
+            storedArmedAt: now.addingTimeInterval(-(13 * 60 * 60)),
+            now: now,
+            maximumAge: 12 * 60 * 60
+        ))
     }
 }

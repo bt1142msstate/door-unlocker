@@ -13,8 +13,7 @@ let package = Package(
         .executable(name: "door-unlocker", targets: ["DoorUnlockerCLI"])
     ],
     dependencies: [
-        .package(path: "../../shared/DoorUnlockerShared"),
-        .package(url: "https://github.com/NordicSemiconductor/IOS-DFU-Library", from: "4.16.0")
+        .package(path: "../../shared/DoorUnlockerShared")
     ],
     targets: [
         .target(name: "DoorUnlockerCore", dependencies: ["DoorUnlockerShared"]),
@@ -23,7 +22,7 @@ let package = Package(
             dependencies: [
                 "DoorUnlockerCore",
                 "DoorUnlockerShared",
-                .product(name: "NordicDFU", package: "IOS-DFU-Library")
+                .product(name: "DoorUnlockerDFU", package: "DoorUnlockerShared")
             ]
         ),
         .executableTarget(name: "DoorUnlockerCLI", dependencies: ["DoorUnlockerCore"]),

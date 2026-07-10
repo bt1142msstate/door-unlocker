@@ -19,7 +19,8 @@ extension DoorUnlockerController {
     }
 
     var isFirmwareUpdateVerifying: Bool {
-        firmwareUpdateStatus == "Update complete. Verifying..."
+        firmwareUpdateStatus == "Update complete. Verifying..." ||
+            firmwareUpdateStatus == "Checking controller firmware..."
     }
 
     var isFirmwareUpdateFailureVisible: Bool {
@@ -61,6 +62,31 @@ extension DoorUnlockerController {
         return "Firmware update"
     }
 
+    var firmwareUpdateETAText: String? {
+        guard isFirmwareUpdateRunning,
+              let seconds = firmwareUpdateEstimatedSecondsRemaining,
+              seconds > 0 else {
+            return nil
+        }
+
+        return "About \(Self.formattedFirmwareETA(seconds)) remaining"
+    }
+
+    private static func formattedFirmwareETA(_ seconds: Int) -> String {
+        let clampedSeconds = max(1, seconds)
+        if clampedSeconds < 60 {
+            return "\(clampedSeconds)s"
+        }
+
+        let minutes = clampedSeconds / 60
+        let remainingSeconds = clampedSeconds % 60
+        if remainingSeconds == 0 {
+            return "\(minutes)m"
+        }
+
+        return "\(minutes)m \(remainingSeconds)s"
+    }
+
     func isCurrentPeripheral(_ peripheral: CBPeripheral) -> Bool {
         self.peripheral?.identifier == peripheral.identifier
     }
@@ -81,21 +107,14 @@ extension DoorUnlockerController {
 
     func scheduleFirmwareVersionSnapshotRetry(delay: Duration = .milliseconds(420)) {
         firmwareVersionSnapshotRetryTask?.cancel()
-        let generation = stateUpdateGeneration
         firmwareVersionSnapshotRetryTask = Task { [weak self] in
             try? await Task.sleep(for: delay)
             await MainActor.run {
-                guard let self,
-                      self.isReady,
-                      self.stateUpdateGeneration == generation || self.firmwareVersion == "Unknown" || self.firmwareUpdateStatus == "Update complete. Verifying..." else {
+                guard let self, self.isReady else {
                     return
                 }
 
                 self.firmwareVersionSnapshotRetryTask = nil
-                guard self.firmwareVersion == "Unknown" || self.firmwareUpdateStatus == "Update complete. Verifying..." else {
-                    return
-                }
-
                 self.requestStateNotificationSnapshotReplay()
             }
         }
@@ -159,6 +178,7 @@ extension DoorUnlockerController {
         guard isFirmwareUpdateSuccessVisible else { return }
         firmwareUpdateStatus = "Ready"
         firmwareUpdateProgress = nil
+        firmwareUpdateEstimatedSecondsRemaining = nil
     }
 
     func syncFirmwareUpdateLiveActivityIfNeeded() {
@@ -176,7 +196,8 @@ extension DoorUnlockerController {
         firmwareLiveActivityCoordinator.update(
             lockName: lockName,
             status: firmwareUpdateStatus,
-            progress: firmwareUpdateProgress
+            progress: firmwareUpdateProgress,
+            estimatedSecondsRemaining: firmwareUpdateEstimatedSecondsRemaining
         )
     }
 

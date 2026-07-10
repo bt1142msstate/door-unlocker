@@ -7,14 +7,10 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     CODE_SIGN_STYLE: Automatic
-    DEVELOPMENT_TEAM: ""
     SDKROOT: iphoneos
-    CURRENT_PROJECT_VERSION: "1"
-    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "2"
+    MARKETING_VERSION: "0.2.0"
 packages:
-  NordicDFU:
-    url: https://github.com/NordicSemiconductor/IOS-DFU-Library
-    from: 4.16.0
   DoorUnlockerShared:
     path: ../../shared/DoorUnlockerShared
 targets:
@@ -30,6 +26,7 @@ targets:
         CFBundleDisplayName: Door Unlocker
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        DoorControllerFirmwareVersion: "0.1.9"
         UILaunchScreen:
           UIColorName: LaunchBackground
         CFBundleURLTypes:
@@ -57,14 +54,13 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.bt1142msstate.DoorUnlocker
         INFOPLIST_FILE: DoorUnlocker/Info.plist
-        DEVELOPMENT_TEAM: ""
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_ENTITLEMENTS: DoorUnlocker/DoorUnlocker.entitlements
     dependencies:
-      - package: NordicDFU
-        product: NordicDFU
       - package: DoorUnlockerShared
         product: DoorUnlockerShared
+      - package: DoorUnlockerShared
+        product: DoorUnlockerDFU
       - target: DoorUnlockerWidget
         embed: true
         codeSign: true
@@ -87,11 +83,25 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.bt1142msstate.DoorUnlocker.widget
         INFOPLIST_FILE: DoorUnlockerWidget/Info.plist
-        DEVELOPMENT_TEAM: ""
         SKIP_INSTALL: YES
         APPLICATION_EXTENSION_API_ONLY: YES
         CODE_SIGN_ENTITLEMENTS: DoorUnlockerWidget/DoorUnlockerWidget.entitlements
     dependencies:
+      - package: DoorUnlockerShared
+        product: DoorUnlockerShared
+  DoorUnlockerTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: DoorUnlockerTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.bt1142msstate.DoorUnlockerTests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/DoorUnlocker.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/DoorUnlocker"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+    dependencies:
+      - target: DoorUnlocker
       - package: DoorUnlockerShared
         product: DoorUnlockerShared
 schemes:
@@ -102,5 +112,11 @@ schemes:
         DoorUnlockerWidget: all
     run:
       config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - name: DoorUnlockerTests
+          parallelizable: true
     archive:
       config: Release

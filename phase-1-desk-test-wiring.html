@@ -288,15 +288,65 @@
     .stage {
       position: relative;
       width: 1120px;
-      height: 890px;
+      height: 1900px;
       margin: 0 auto;
       background:
         linear-gradient(90deg, rgba(243,247,241,.06) 1px, transparent 1px),
         linear-gradient(180deg, rgba(243,247,241,.06) 1px, transparent 1px),
-        radial-gradient(circle at 48% 34%, rgba(94,184,255,.05), transparent 460px),
+        radial-gradient(circle at 62% 48%, rgba(94,184,255,.06), transparent 540px),
         linear-gradient(180deg, #111611 0, #0d110f 100%);
       background-size: 40px 40px, 40px 40px, auto, auto;
     }
+
+    .housing-outline {
+      position: absolute;
+      z-index: 0;
+      left: 300px;
+      top: 35px;
+      width: 760px;
+      height: 1845px;
+      border: 2px solid rgba(117,217,159,.28);
+      border-radius: 28px;
+      background: linear-gradient(180deg, rgba(37,49,40,.42), rgba(17,22,18,.30));
+      box-shadow: inset 0 0 0 8px rgba(117,217,159,.025), 0 24px 80px rgba(0,0,0,.30);
+      pointer-events: none;
+    }
+
+    .housing-outline::before {
+      content: "PHASE 2 ENCLOSURE STACK";
+      position: absolute;
+      left: 18px;
+      top: 14px;
+      color: rgba(183,255,208,.72);
+      font-size: 11px;
+      font-weight: 950;
+      letter-spacing: .08em;
+    }
+
+    .housing-zone {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      border-top: 1px dashed rgba(243,247,241,.14);
+      color: rgba(216,224,218,.62);
+      font-size: 10px;
+      font-weight: 950;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+    }
+
+    .housing-zone span {
+      position: absolute;
+      left: 8px;
+      top: 8px;
+      padding: 4px 7px;
+      border-radius: 999px;
+      background: rgba(12,16,13,.72);
+    }
+
+    .housing-zone.servo-zone { top: 48px; height: 342px; }
+    .housing-zone.service-zone { top: 390px; height: 1050px; }
+    .housing-zone.battery-zone { top: 1440px; height: 370px; }
 
     .stage > svg {
       position: absolute;
@@ -307,11 +357,15 @@
       pointer-events: none;
     }
 
+    .stage > svg.card-wire-overlay {
+      z-index: 20;
+    }
+
     .wire {
       fill: none;
       stroke-linecap: round;
       stroke-linejoin: round;
-      stroke-width: 10;
+      stroke-width: 8;
       filter: drop-shadow(0 4px 5px rgba(0,0,0,.32));
       transition: opacity .18s ease, stroke-width .18s ease, filter .18s ease;
     }
@@ -334,7 +388,7 @@
 
     .stage.has-active .wire.is-active {
       opacity: 1;
-      stroke-width: 12;
+      stroke-width: 10;
       stroke-dasharray: 24 16;
       animation: wireFlow .85s linear infinite, wireGlow 1.4s ease-in-out infinite;
       filter: drop-shadow(0 0 10px currentColor) drop-shadow(0 5px 10px rgba(0,0,0,.42));
@@ -526,59 +580,60 @@
     .port.signal { background: var(--signal); }
 
     .battery-card {
-      left: 48px;
-      top: 104px;
+      left: 585px;
+      top: 1640px;
       width: 190px;
-      height: 252px;
-    }
-
-    .xt30-card {
-      left: 300px;
-      top: 116px;
-      width: 164px;
       height: 230px;
     }
 
-    .junction-card {
-      left: 534px;
-      top: 92px;
-      width: 230px;
-      height: 244px;
+    .xt30-card {
+      left: 555px;
+      top: 1460px;
+      width: 250px;
+      height: 150px;
+    }
+
+    .splitter-card {
+      top: 1165px;
+      width: 96px;
+      height: 274px;
       border-color: rgba(216,224,218,.34);
     }
 
+    .positive-splitter-card {
+      left: 582px;
+      border-color: rgba(255,90,82,.34);
+    }
+
+    .ground-splitter-card {
+      left: 682px;
+    }
+
     .servo-card {
-      left: 872px;
-      top: 104px;
+      left: 577px;
+      top: 80px;
       width: 206px;
       height: 294px;
     }
 
     .buck-card {
-      left: 300px;
-      top: 462px;
+      left: 575px;
+      top: 820px;
       width: 210px;
       height: 318px;
     }
 
-    .breadboard-card {
-      left: 568px;
-      top: 470px;
-      width: 200px;
-      height: 284px;
-    }
-
-    .xiao-card {
-      left: 872px;
-      top: 458px;
-      width: 206px;
-      height: 274px;
+    .controller-card {
+      left: 462px;
+      top: 490px;
+      width: 436px;
+      height: 300px;
     }
 
     .usb-card {
-      left: 560px;
-      top: 812px;
-      width: 250px;
+      left: 675px;
+      top: 420px;
+      width: 206px;
       height: 48px;
       display: flex;
       align-items: center;
@@ -599,18 +654,109 @@
     }
 
     .xt30-visual {
-      height: 58px;
-      margin: -2px 0 10px;
+      width: auto;
+      height: 88px;
+      margin: 0;
+      justify-self: center;
+      object-fit: contain;
+    }
+
+    .xt30-card .card-top {
+      padding: 10px 44px 6px 12px;
+    }
+
+    .xt30-card .card-top strong {
+      font-size: 16px;
+    }
+
+    .xt30-card .card-body {
+      display: grid;
+      grid-template-columns: 70px minmax(0, 1fr);
+      align-items: center;
+      gap: 10px;
+      padding: 0 12px 12px;
+    }
+
+    .xt30-card .ports {
+      gap: 6px;
+    }
+
+    .xt30-card .port-row {
+      min-height: 27px;
+      padding: 0 7px;
+      font-size: 11px;
     }
 
     .battery-visual {
-      height: 78px;
-      margin: -8px 0 7px;
+      width: auto;
+      height: 88px;
+      margin: -8px auto 7px;
+      object-fit: contain;
     }
 
-    .wago-visual {
-      height: 94px;
-      margin: -6px auto 8px;
+    .splitter-card .card-top {
+      min-height: 48px;
+      padding: 10px 30px 4px 9px;
+    }
+
+    .splitter-card .card-top strong {
+      font-size: 12px;
+    }
+
+    .splitter-card .card-top span {
+      margin-top: 2px;
+      font-size: 8px;
+      line-height: 1.1;
+    }
+
+    .splitter-card .card-top > .detail-button {
+      top: 8px;
+      right: 8px;
+      width: 24px;
+      height: 24px;
+    }
+
+    .splitter-card .card-body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 9px;
+      padding: 0 8px 10px;
+    }
+
+    .splitter-visual {
+      display: block;
+      width: 56px;
+      height: 127px;
+      object-fit: contain;
+      filter: drop-shadow(0 8px 10px rgba(0,0,0,.28));
+    }
+
+    .splitter-caption {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      min-height: 24px;
+      color: var(--muted);
+      font-size: 8px;
+      font-weight: 900;
+      text-align: center;
+    }
+
+    .splitter-caption i {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--ground);
+    }
+
+    .positive-splitter-card .splitter-caption i { background: var(--red); }
+
+    .modal-media img[src*="component-inline-lever-splitter"] {
+      width: min(100%, 520px);
+      max-height: 300px;
+      background: transparent;
     }
 
     .buck-visual {
@@ -618,144 +764,84 @@
       margin: -8px 0 6px;
     }
 
-    .xiao-visual {
-      width: 158px;
-      height: 112px;
-      margin: -18px auto 0;
-    }
-
     .servo-visual {
       height: 134px;
       margin: -22px 0 -12px;
     }
 
-    .bread-visual {
+    .controller-card .card-body {
+      position: relative;
       display: grid;
-      grid-template-rows: 10px 20px 8px 20px 10px;
-      gap: 4px;
-      height: 82px;
-      margin-bottom: 12px;
-      border: 1px solid #8a968e;
-      border-radius: 8px;
-      position: relative;
-      overflow: hidden;
-      background:
-        linear-gradient(90deg, transparent 49%, rgba(17,22,20,.08) 50%, transparent 51%),
-        #eef3ef;
-      padding: 8px;
-      box-shadow: inset 0 0 0 3px rgba(255,255,255,.42), 0 10px 18px rgba(0,0,0,.16);
+      grid-template-columns: 180px minmax(0, 1fr);
+      align-items: center;
+      gap: 8px;
+      padding: 0 12px 12px;
     }
 
-    .bread-strip,
-    .bread-grid {
+    .controller-assembly {
       position: relative;
-      overflow: hidden;
-      border-radius: 999px;
+      width: 168px;
+      aspect-ratio: 168 / 237;
+      justify-self: start;
+      margin: -12px 0 0 -6px;
     }
 
-    .bread-strip.logic { background: rgba(35,120,200,.18); }
-    .bread-strip.ground { background: rgba(32,39,45,.16); }
-
-    .bread-strip::before {
-      content: "";
+    .controller-assembly .breadboard-layer {
       position: absolute;
-      inset: 4px 8px;
-      background-image: radial-gradient(circle, rgba(17,22,20,.55) 1px, transparent 1.3px);
-      background-size: 12px 8px;
+      inset: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: fill;
+      filter: drop-shadow(0 9px 12px rgba(0,0,0,.30));
     }
 
-    .bread-grid {
-      background-image:
-        radial-gradient(circle, rgba(17,22,20,.58) 1.25px, transparent 1.55px);
-      background-size: 12px 10px;
-      background-position: 2px 2px;
+    .controller-assembly .assembly-wires {
+      position: absolute;
+      z-index: 2;
+      inset: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      filter: drop-shadow(0 2px 2px rgba(0,0,0,.35));
     }
 
-    .bread-trench {
-      border-radius: 999px;
-      background: linear-gradient(90deg, transparent, rgba(17,22,20,.10), transparent);
+    .assembly-plug {
+      stroke: rgba(255,255,255,.72);
+      stroke-width: 1.2;
     }
 
-    .bread-jumper {
+    .assembly-plug.signal { fill: var(--signal); }
+    .assembly-plug.red { fill: var(--red); }
+    .assembly-plug.ground { fill: #171a18; }
+
+    .controller-assembly .xiao-layer {
       position: absolute;
       z-index: 3;
-      height: 5px;
-      border-radius: 999px;
-      box-shadow: 0 2px 5px rgba(0,0,0,.28);
+      left: 39.6px;
+      top: 57.3px;
+      display: block;
+      width: 88.8px;
+      height: 112.2px;
+      object-fit: fill;
+      filter: drop-shadow(0 5px 7px rgba(0,0,0,.34));
     }
 
-    .bread-jumper::after {
-      content: "";
-      position: absolute;
-      top: 50%;
-      width: 9px;
-      height: 9px;
-      border: 2px solid #f4f6f2;
-      border-radius: 50%;
-      transform: translateY(-50%);
-      box-shadow: 0 1px 3px rgba(0,0,0,.32);
+    [data-mode="usb"] .assembly-power {
+      opacity: 0;
     }
 
-    .bread-jumper.logic-in,
-    .bread-jumper.logic-out {
-      top: 13px;
-      background: var(--logic);
+    .controller-ports {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 6px;
     }
 
-    .bread-jumper.signal-in,
-    .bread-jumper.signal-out {
-      top: 38px;
-      background: var(--signal);
-    }
-
-    .bread-jumper.ground-in,
-    .bread-jumper.ground-out {
-      bottom: 10px;
-      background: var(--ground);
-    }
-
-    .bread-jumper.logic-in,
-    .bread-jumper.signal-in,
-    .bread-jumper.ground-in {
-      left: 0;
-      width: 62px;
-    }
-
-    .bread-jumper.logic-out,
-    .bread-jumper.signal-out,
-    .bread-jumper.ground-out {
-      right: 0;
-      width: 62px;
-    }
-
-    .bread-jumper.logic-in::after,
-    .bread-jumper.signal-in::after,
-    .bread-jumper.ground-in::after {
-      right: -2px;
-      background: currentColor;
-    }
-
-    .bread-jumper.logic-out::after,
-    .bread-jumper.signal-out::after,
-    .bread-jumper.ground-out::after {
-      left: -2px;
-      background: currentColor;
-    }
-
-    .bread-jumper.logic-in,
-    .bread-jumper.logic-out { color: var(--logic); }
-    .bread-jumper.signal-in,
-    .bread-jumper.signal-out { color: var(--signal); }
-    .bread-jumper.ground-in,
-    .bread-jumper.ground-out { color: var(--ground); }
-
-    .component.is-active .bread-jumper {
-      animation: plugPulse 1.1s ease-in-out infinite;
-    }
-
-    @keyframes plugPulse {
-      0%, 100% { transform: scaleX(1); opacity: .92; }
-      50% { transform: scaleX(1.06); opacity: 1; }
+    .controller-ports .port-row {
+      min-height: 34px;
+      padding: 0 9px;
+      font-size: 11px;
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -773,9 +859,9 @@
     .safety-note {
       position: absolute;
       z-index: 4;
-      left: 38px;
+      left: 30px;
       bottom: 26px;
-      width: 470px;
+      width: 250px;
       min-height: 56px;
       display: flex;
       align-items: center;
@@ -1121,6 +1207,18 @@
       color: var(--ink);
     }
 
+    .phase-list a,
+    .phase-stack a {
+      color: var(--green);
+      font-weight: 900;
+      text-decoration: none;
+    }
+
+    .phase-list a:hover,
+    .phase-stack a:hover {
+      text-decoration: underline;
+    }
+
     .phase-list > span > i,
     .phase-stack > span > i {
       display: grid;
@@ -1325,6 +1423,228 @@
       font-weight: 900;
     }
 
+    .mount-section {
+      margin-top: 18px;
+      padding: 18px;
+    }
+
+    .mount-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: start;
+      margin-bottom: 16px;
+    }
+
+    .mount-head h2 {
+      margin: 0 0 7px;
+      font-size: 24px;
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+
+    .mount-head p {
+      max-width: 820px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+      font-weight: 720;
+    }
+
+    .mount-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(310px, .85fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .mount-viewer-card {
+      min-width: 0;
+      display: grid;
+      gap: 10px;
+    }
+
+    .mount-viewer {
+      position: relative;
+      min-height: 620px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background:
+        radial-gradient(circle at 45% 20%, rgba(117, 217, 159, .12), transparent 310px),
+        linear-gradient(145deg, rgba(20, 25, 21, .95), rgba(8, 11, 9, .98));
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(243,247,241,.04), var(--shadow-soft);
+      cursor: grab;
+      touch-action: none;
+    }
+
+    .mount-viewer:active {
+      cursor: grabbing;
+    }
+
+    .mount-viewer canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 620px;
+    }
+
+    .mount-viewer.model-load-failed canvas {
+      display: none;
+    }
+
+    .model-fallback {
+      display: none;
+      place-items: center;
+      min-height: 520px;
+      padding: 28px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 14px;
+      line-height: 1.45;
+      font-weight: 760;
+    }
+
+    .mount-viewer.model-load-failed .model-fallback {
+      display: grid;
+    }
+
+    .model-label {
+      position: absolute;
+      left: 14px;
+      top: 14px;
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 0 10px;
+      border: 1px solid rgba(243,247,241,.13);
+      border-radius: 999px;
+      background: rgba(12,16,13,.70);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 950;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      backdrop-filter: blur(8px);
+      pointer-events: none;
+    }
+
+    .model-callouts {
+      position: absolute;
+      inset: auto 14px 14px 14px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      pointer-events: none;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+
+    .mount-viewer.harness-focus .model-callouts {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+
+    .model-callout {
+      min-width: 0;
+      padding: 9px 10px;
+      border: 1px solid rgba(243,247,241,.10);
+      border-radius: 8px;
+      background: rgba(12,16,13,.72);
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.25;
+      font-weight: 760;
+      backdrop-filter: blur(10px);
+    }
+
+    .model-callout b {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--ink);
+      font-size: 12px;
+      line-height: 1.15;
+    }
+
+    .model-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .model-button {
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper-soft);
+      color: var(--ink);
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 900;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .model-button:hover {
+      border-color: var(--line-strong);
+      background: #263029;
+    }
+
+    .model-button[aria-pressed="true"] {
+      border-color: rgba(117,217,159,.46);
+      background: #214733;
+      color: #ecfff2;
+    }
+
+    @media (max-width: 980px) {
+      .model-callouts {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    .mount-spec-grid {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .mount-spec {
+      display: grid;
+      grid-template-columns: 12px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      padding: 11px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(32,39,32,.66);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+      font-weight: 730;
+    }
+
+    .mount-dot {
+      width: 12px;
+      height: 12px;
+      margin-top: 2px;
+      border-radius: 3px;
+      box-shadow: 0 0 0 1px rgba(243,247,241,.18) inset;
+    }
+
+    .mount-spec b {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 1.2;
+    }
+
+    .mount-spec code {
+      color: var(--green);
+      font-size: 11px;
+      font-weight: 900;
+    }
+
     dialog {
       width: min(720px, calc(100vw - 32px));
       border: 1px solid var(--line);
@@ -1474,7 +1794,8 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
-      .cad-layout {
+      .cad-layout,
+      .mount-layout {
         grid-template-columns: minmax(0, 1fr);
       }
     }
@@ -1510,6 +1831,7 @@
       }
 
       .roadmap-head,
+      .mount-head,
       .cad-head,
       .phase-card.featured {
         display: block;
@@ -1531,6 +1853,16 @@
 
       .housing-visual {
         margin-top: 14px;
+      }
+
+      .mount-viewer,
+      .mount-viewer canvas,
+      .model-fallback {
+        min-height: 440px;
+      }
+
+      .model-callouts {
+        grid-template-columns: minmax(0, 1fr);
       }
     }
 
@@ -1662,16 +1994,16 @@
       }
 
       .diagram-scroll {
-        height: 641px;
+        height: 646px;
         overflow: hidden;
         background: #0d110f;
       }
 
       .stage {
         width: 1120px;
-        height: 890px;
+        height: 1900px;
         margin: 0;
-        transform: scale(.72);
+        transform: scale(.34);
         transform-origin: top left;
       }
 
@@ -1702,7 +2034,10 @@
       .phase-card,
       .phase-list > span,
       .phase-stack > span,
-      .housing-visual {
+      .housing-visual,
+      .mount-section,
+      .mount-viewer,
+      .mount-spec {
         break-inside: avoid;
       }
 
@@ -1763,6 +2098,48 @@
         line-height: 1.34;
       }
 
+      .mount-section {
+        padding: 12px;
+      }
+
+      .mount-head {
+        margin-bottom: 10px;
+      }
+
+      .mount-head h2 {
+        font-size: 22px;
+      }
+
+      .mount-head p,
+      .mount-spec {
+        font-size: 11px;
+        line-height: 1.32;
+      }
+
+      .mount-layout {
+        grid-template-columns: minmax(0, 1fr) 300px;
+        gap: 10px;
+      }
+
+      .mount-viewer,
+      .mount-viewer canvas,
+      .model-fallback {
+        min-height: 390px;
+      }
+
+      .model-controls {
+        display: none;
+      }
+
+      .model-callouts {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .model-callout {
+        padding: 7px;
+        font-size: 9.5px;
+      }
+
       .phase-list,
       .phase-stack {
         gap: 7px;
@@ -1806,20 +2183,20 @@
 
     <section class="metrics" aria-label="Prototype summary">
       <article class="metric">
-        <b>2 Wagos</b>
-        <span>One 3-port connector for positive, one 3-port connector for ground.</span>
+        <b>2 inline splitters</b>
+        <span>One 1-in/2-out lever splitter for positive, one for ground.</span>
       </article>
       <article class="metric">
         <b>Direct servo power</b>
-        <span>Servo red and ground stay on the battery/Wago path.</span>
+        <span>Servo red and ground stay on the battery/splitter path.</span>
       </article>
       <article class="metric">
         <b>USB or 5.0V buck</b>
         <span>Use one XIAO power source at a time. USB-first skips the buck; buck mode skips USB-C.</span>
       </article>
       <article class="metric">
-        <b>$144.32+</b>
-        <span>Known subtotal with the Wago order included, before the XT30 pigtail price.</span>
+        <b>$174.36+</b>
+        <span>Known subtotal with the inline splitters, solar kit, and servo power switch included, before the XT30 pigtail and 2S solar charger prices.</span>
       </article>
     </section>
 
@@ -1828,12 +2205,12 @@
         <div class="diagram-head">
           <div>
             <h2>Clean bench wiring map</h2>
-            <p>Wires use fixed lanes so nothing needs to sit on top of the parts.</p>
+            <p>Cards follow the planned enclosure stack, with the servo high, electronics in the service bay, and the removable battery low.</p>
             <p class="mode-copy" id="modeHint">Buck mode: battery powers the servo and the XIAO through the buck after the output is set to 5.0V.</p>
             <p class="mode-warning" id="modeWarning">Do not plug USB-C into the XIAO while buck 5V is connected to 5V/VBUS.</p>
           </div>
           <div class="legend" aria-label="Wire legend">
-            <span><i class="dot red"></i>Battery +</span>
+            <span><i class="dot red"></i>Positive power</span>
             <span><i class="dot ground"></i>Ground</span>
             <span><i class="dot logic"></i>5V logic</span>
             <span><i class="dot signal"></i>PWM signal</span>
@@ -1842,38 +2219,58 @@
 
         <div class="diagram-scroll">
           <div class="stage">
-            <svg viewBox="0 0 1120 890" role="img" aria-labelledby="diagramTitle diagramDesc">
-              <title id="diagramTitle">No-solder desk test wiring diagram</title>
-              <desc id="diagramDesc">The 2S battery connects to an XT30 pigtail, then to a Wago distribution pair. In buck mode, the Wagos feed the servo directly and the LM2596 buck converter, then the buck feeds the breadboard and XIAO while USB-C is unplugged. In USB-first mode, the buck is skipped, USB-C powers the XIAO, and the Wago ground still ties to XIAO ground through the breadboard. The XIAO sends PWM through a breadboard row to the servo signal wire.</desc>
+            <div class="housing-outline" aria-hidden="true">
+              <div class="housing-zone servo-zone"><span>Servo / actuator bay</span></div>
+              <div class="housing-zone service-zone"><span>Controller + power service bay</span></div>
+              <div class="housing-zone battery-zone"><span>Battery + XT30 dock</span></div>
+            </div>
 
-              <path class="wire red" data-parts="battery xt30 wago" d="M238 152 H300" />
-              <path class="wire ground" data-parts="battery xt30 wago" d="M238 246 H300" />
-              <path class="wire red" data-parts="xt30 wago" d="M464 152 H534" />
-              <path class="wire ground" data-parts="xt30 wago" d="M464 246 H534" />
-              <path class="wire red" data-parts="wago servo" d="M764 152 H872" />
-              <path class="wire ground" data-parts="wago servo" d="M764 246 H872" />
+            <svg viewBox="0 0 1120 1900" role="img" aria-labelledby="diagramTitle diagramDesc">
+              <title id="diagramTitle">No-solder desk test wiring arranged like the planned enclosure</title>
+              <desc id="diagramDesc">The physical layout forms one centered vertical chain: servo, XIAO on its breadboard, LM2596 buck, paired inline splitters, fixed XT30 dock, and slide-out battery. The battery mates directly upward into the XT30 dock, whose short positive and ground leads enter the splitters immediately above it. The splitters feed the servo through a dedicated right-side trunk and, in buck mode, feed the buck directly above them. The buck feeds the controller immediately above it while USB-C is unplugged. In USB-first mode, USB-C powers the XIAO, the buck is skipped, and splitter ground continues to the controller. PWM leaves the breadboard assembly on the left and travels upward to the servo.</desc>
 
-              <path class="wire red buck-wire" data-parts="wago buck" d="M608 336 V382 H386 V462" />
-              <path class="wire ground buck-wire" data-parts="wago buck" d="M690 336 V412 H426 V462" />
+              <path class="wire red" data-parts="battery xt30" d="M674 1640 V1632 H588 V1610" />
+              <path class="wire ground" data-parts="battery xt30" d="M689 1640 V1616 H616 V1610" />
+              <path class="wire red" data-parts="xt30 splitter-positive" d="M630 1439 H588 V1460" />
+              <path class="wire ground" data-parts="xt30 splitter-ground" d="M730 1439 V1452 H616 V1460" />
 
-              <path class="wire logic buck-wire" data-parts="buck breadboards" d="M510 526 H596" />
-              <path class="wire ground buck-wire" data-parts="buck breadboards" d="M510 588 H596" />
-              <path class="wire logic buck-wire" data-parts="breadboards xiao" d="M768 526 H872" />
-              <path class="wire ground" data-parts="breadboards xiao" d="M768 588 H872" />
-              <path class="wire ground usb-ground-wire muted" data-parts="wago breadboards xiao" d="M690 336 H536 V632 H568" />
+              <path class="wire red" data-parts="splitter-positive servo" d="M640 1165 V1135 H980 V400 H700 V374" />
+              <path class="wire ground" data-parts="splitter-ground servo" d="M740 1165 V1150 H995 V295 H783" />
 
-              <path class="wire signal" data-parts="xiao breadboards servo" d="M872 674 H768" />
-              <path class="wire signal" data-parts="breadboards servo" d="M768 626 H826 V426 H1086 V306 H1078" />
-              <path class="wire logic usb-wire muted" data-parts="usb xiao" d="M685 812 V782 H975 V702" />
+              <path class="wire red buck-wire" data-parts="splitter-positive buck" d="M620 1165 V1138" />
+              <path class="wire ground buck-wire" data-parts="splitter-ground buck" d="M720 1165 V1138" />
+
+              <path class="wire red buck-wire" data-parts="buck controller" d="M620 820 V790" />
+              <path class="wire ground buck-wire" data-parts="buck controller" d="M605 820 V790" />
+              <path class="wire ground usb-ground-wire muted" data-parts="splitter-ground controller" d="M720 1165 V1200 H550 V790 H605" />
+
+              <path class="wire signal" data-parts="controller servo" d="M471 490 V330 H577" />
+              <path class="wire logic usb-wire muted" data-parts="usb controller" d="M778 468 V478 H553 V490" />
             </svg>
 
-            <div class="lane-label power">High-current path</div>
+            <svg class="card-wire-overlay" viewBox="0 0 1120 1900" aria-hidden="true">
+              <path id="controllerSignalBridge" class="wire signal card-bridge" data-parts="controller servo" d="M471 490 V543.7" />
+              <path id="controllerPowerBridge" class="wire red assembly-power card-bridge" data-parts="buck controller" d="M620 780.7 V790" />
+              <path id="controllerGroundBridge" class="wire ground card-bridge" data-parts="buck splitter-ground controller" d="M605 780.7 V790" />
+              <path id="xt30RedTopBridge" class="wire red card-bridge" data-parts="xt30 splitter-positive" d="M588 1460 V1522.6" />
+              <path id="xt30GroundTopBridge" class="wire ground card-bridge" data-parts="xt30 splitter-ground" d="M616 1460 V1522.6" />
+              <path id="xt30RedBottomBridge" class="wire red card-bridge" data-parts="battery xt30" d="M588 1610 V1610.6" />
+              <path id="xt30GroundBottomBridge" class="wire ground card-bridge" data-parts="battery xt30" d="M616 1610 V1610.6" />
+              <path id="batteryRedBridge" class="wire red card-bridge" data-parts="battery xt30" d="M674 1640 V1694" />
+              <path id="batteryGroundBridge" class="wire ground card-bridge" data-parts="battery xt30" d="M689 1640 V1694" />
+              <path id="positiveSplitterOutputLeft" class="wire red card-bridge" data-parts="splitter-positive buck" d="M620 1165 V1220" />
+              <path id="positiveSplitterOutputRight" class="wire red card-bridge" data-parts="splitter-positive servo" d="M640 1165 V1220" />
+              <path id="positiveSplitterInput" class="wire red card-bridge" data-parts="xt30 splitter-positive" d="M630 1439 V1360" />
+              <path id="groundSplitterOutputLeft" class="wire ground card-bridge" data-parts="splitter-ground buck" d="M720 1165 V1220" />
+              <path id="groundSplitterOutputRight" class="wire ground card-bridge" data-parts="splitter-ground servo" d="M740 1165 V1220" />
+              <path id="groundSplitterInput" class="wire ground card-bridge" data-parts="xt30 splitter-ground" d="M730 1439 V1360" />
+            </svg>
 
             <article class="component battery-card power" data-node="battery" tabindex="0">
               <div class="card-top">
                 <div>
                   <strong>2S battery</strong>
-                  <span>7.4V nominal, 8.4V full</span>
+                  <span>7.4V Li-ion</span>
                 </div>
                 <div class="card-actions">
                   <button class="detail-button" type="button" data-part="battery" title="Open battery details">i</button>
@@ -1887,7 +2284,7 @@
                 </div>
               </div>
               <div class="card-body">
-                <img class="part-raster battery-visual" src="assets/component-battery-2s.png" alt="" aria-hidden="true" />
+                <img class="part-raster battery-visual" src="assets/component-battery-2s-vertical.png" alt="" aria-hidden="true" />
                 <div class="ports">
                   <div class="port-row">XT30 output <i class="port red"></i></div>
                   <div class="port-row">battery ground <i class="port ground"></i></div>
@@ -1899,12 +2296,12 @@
               <div class="card-top">
                 <div>
                   <strong>XT30 pigtail</strong>
-                  <span>16AWG bare leads</span>
+                  <span>16 AWG bare leads</span>
                 </div>
                 <button class="detail-button" type="button" data-part="xt30" title="Open XT30 pigtail details">i</button>
               </div>
               <div class="card-body">
-                <img class="part-raster xt30-visual" src="assets/component-xt30-pigtail.png" alt="" aria-hidden="true" />
+                <img class="part-raster xt30-visual" src="assets/component-xt30-pigtail-vertical.png" alt="" aria-hidden="true" />
                 <div class="ports">
                   <div class="port-row">red lead <i class="port red"></i></div>
                   <div class="port-row">black lead <i class="port ground"></i></div>
@@ -1912,20 +2309,31 @@
               </div>
             </article>
 
-            <article class="component junction-card" data-node="wago" tabindex="0">
+            <article class="component splitter-card positive-splitter-card" data-node="splitter-positive" tabindex="0" aria-label="Positive inline power splitter">
               <div class="card-top">
                 <div>
-                  <strong>Wago distribution</strong>
-                  <span>Two Wago 222-413 connectors</span>
+                  <strong>POS</strong>
+                  <span>positive</span>
                 </div>
-                <button class="detail-button" type="button" data-part="wago" title="Open Wago details">i</button>
+                <button class="detail-button" type="button" data-part="splitter" title="Open positive splitter details">i</button>
               </div>
               <div class="card-body">
-                <img class="part-raster wago-visual" src="assets/component-wago-pair.png" alt="" aria-hidden="true" />
-                <div class="ports">
-                  <div class="port-row">positive splitter <i class="port red"></i></div>
-                  <div class="port-row">ground splitter <i class="port ground"></i></div>
+                <img class="splitter-visual" src="assets/component-inline-lever-splitter-straight.png" alt="" aria-hidden="true" />
+                <div class="splitter-caption"><i></i><span>1 in / 2 out</span></div>
+              </div>
+            </article>
+
+            <article class="component splitter-card ground-splitter-card" data-node="splitter-ground" tabindex="0" aria-label="Ground inline power splitter">
+              <div class="card-top">
+                <div>
+                  <strong>GND</strong>
+                  <span>ground</span>
                 </div>
+                <button class="detail-button" type="button" data-part="splitter" title="Open ground splitter details">i</button>
+              </div>
+              <div class="card-body">
+                <img class="splitter-visual" src="assets/component-inline-lever-splitter-straight.png" alt="" aria-hidden="true" />
+                <div class="splitter-caption"><i></i><span>1 in / 2 out</span></div>
               </div>
             </article>
 
@@ -1967,58 +2375,39 @@
               <div class="card-body">
                 <img class="part-raster buck-visual" src="assets/component-buck.png" alt="" aria-hidden="true" />
                 <div class="ports">
-                  <div class="port-row">IN+ from Wago <i class="port red"></i></div>
-                  <div class="port-row">IN- from Wago <i class="port ground"></i></div>
+                  <div class="port-row">IN+ from splitter <i class="port red"></i></div>
+                  <div class="port-row">IN- from splitter <i class="port ground"></i></div>
                   <div class="port-row">OUT+ 5V <i class="port logic"></i></div>
                   <div class="port-row">OUT- ground <i class="port ground"></i></div>
                 </div>
               </div>
             </article>
 
-            <article class="component breadboard-card logic" data-node="breadboards" tabindex="0">
+            <article class="component controller-card logic" data-node="controller" tabindex="0">
               <div class="card-top">
                 <div>
-                  <strong>Breadboard</strong>
-                  <span>Logic rails only</span>
+                  <strong>XIAO + breadboard</strong>
+                  <span>Pre-soldered controller plugged into logic rows</span>
                 </div>
-                <button class="detail-button" type="button" data-part="breadboards" title="Open breadboard details">i</button>
+                <button class="detail-button" type="button" data-part="xiao" title="Open XIAO details" aria-label="Open XIAO details">i</button>
               </div>
               <div class="card-body">
-                <div class="bread-visual" aria-hidden="true">
-                  <i class="bread-jumper logic-in"></i>
-                  <i class="bread-jumper signal-in"></i>
-                  <i class="bread-jumper ground-in"></i>
-                  <i class="bread-jumper logic-out"></i>
-                  <i class="bread-jumper signal-out"></i>
-                  <i class="bread-jumper ground-out"></i>
-                  <i class="bread-strip logic"></i>
-                  <i class="bread-grid"></i>
-                  <i class="bread-trench"></i>
-                  <i class="bread-grid"></i>
-                  <i class="bread-strip ground"></i>
+                <div class="controller-assembly" aria-hidden="true">
+                  <img class="breadboard-layer" src="assets/component-breadboard-red-layer.png" alt="" />
+                  <svg class="assembly-wires" viewBox="0 0 168 237">
+                    <path class="wire signal bread-jumper" data-parts="controller servo" d="M2 0 V103.7 H19.5" />
+                    <circle class="assembly-plug signal" cx="19.5" cy="103.7" r="3.2" />
+                    <path class="wire red assembly-power bread-jumper" data-parts="buck controller" d="M151 237 V79.1 H136.3" />
+                    <circle class="assembly-plug red assembly-power" cx="136.3" cy="79.1" r="3.2" />
+                    <path class="wire ground bread-jumper" data-parts="buck splitter-ground controller" d="M136 237 V91.4" />
+                    <circle class="assembly-plug ground" cx="136.3" cy="91.4" r="3.2" />
+                  </svg>
+                  <img class="xiao-layer" src="assets/component-xiao-top-down-layer.png" alt="" />
                 </div>
-                <div class="ports">
-                  <div class="port-row">5V rail <i class="port logic"></i></div>
-                  <div class="port-row">PWM row <i class="port signal"></i></div>
-                  <div class="port-row">GND rail <i class="port ground"></i></div>
-                </div>
-              </div>
-            </article>
-
-            <article class="component xiao-card logic" data-node="xiao" tabindex="0">
-              <div class="card-top">
-                <div>
-                  <strong>XIAO nRF52840</strong>
-                  <span>PWM controller</span>
-                </div>
-                <button class="detail-button" type="button" data-part="xiao" title="Open XIAO details">i</button>
-              </div>
-              <div class="card-body">
-                <img class="part-raster xiao-visual" src="assets/component-xiao-amazon-style.png" alt="" aria-hidden="true" />
-                <div class="ports">
-                  <div class="port-row">5V/VBUS <i class="port logic"></i></div>
-                  <div class="port-row">GND <i class="port ground"></i></div>
-                  <div class="port-row">PWM pin <i class="port signal"></i></div>
+                <div class="ports controller-ports">
+                  <div class="port-row">5V/VBUS row <i class="port red"></i></div>
+                  <div class="port-row">GND row <i class="port ground"></i></div>
+                  <div class="port-row">D2 PWM row <i class="port signal"></i></div>
                 </div>
               </div>
             </article>
@@ -2038,12 +2427,30 @@
         <section class="panel side-card">
           <h2>Hookup Order</h2>
           <ol class="steps">
-            <li><span class="num">1</span><span>Secure the loose XT30 pigtail leads in Wagos before plugging in the battery.</span></li>
-            <li><span class="num">2</span><span>USB-first: put pigtail red and servo red into the positive Wago. Add buck IN+ only when using buck mode.</span></li>
-            <li><span class="num">3</span><span>USB-first: put pigtail black and servo ground into the negative Wago, then jumper that ground to XIAO GND through the breadboard. Add buck IN- only in buck mode.</span></li>
+            <li><span class="num">1</span><span>Strip each splitter lead to 10mm, secure the loose XT30 pigtail leads, then pull-test every clamp before plugging in the battery.</span></li>
+            <li><span class="num">2</span><span>USB-first: put pigtail red in the single-input side of the positive splitter, with servo red and buck IN+ on the two-output side. Leave the buck branch disconnected in USB mode.</span></li>
+            <li><span class="num">3</span><span>USB-first: put pigtail black in the single-input side of the ground splitter, with servo ground and the XIAO ground-reference branch on the two-output side. Buck IN- joins that ground branch only in buck mode.</span></li>
             <li><span class="num">4</span><span>Choose one XIAO power source: Mac USB-C or buck 5V. Never connect USB-C while buck OUT+ is feeding XIAO 5V/VBUS.</span></li>
             <li><span class="num">5</span><span>Patch XIAO D2 to a breadboard row, then jumper that row to the servo signal wire. With USB-C at the top, D2 is the third pin down on the left.</span></li>
           </ol>
+        </section>
+
+        <section class="panel side-card">
+          <h2>Wire Gauge Map</h2>
+          <table class="table">
+            <thead>
+              <tr><th>Route</th><th>AWG</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Battery / XT30 to inline splitters</td><td><span class="pill good">16 AWG</span></td></tr>
+              <tr><td>Splitters to servo red + ground</td><td><span class="pill good">16 AWG</span></td></tr>
+              <tr><td>Splitters to buck IN+ / IN-</td><td><span class="pill warn">22 AWG</span></td></tr>
+              <tr><td>Buck 5V/GND to XIAO</td><td><span class="pill warn">22 AWG</span></td></tr>
+              <tr><td>XIAO D2 to servo signal row</td><td><span class="pill warn">22 AWG</span></td></tr>
+              <tr><td>Breadboard jumpers</td><td><span class="pill danger">Logic only</span></td></tr>
+              <tr class="note-row"><td colspan="2"><strong>Recommended wire material:</strong> stranded tinned copper silicone wire for custom runs. The splitters accept flexible 24-14 AWG wire; use a 10mm strip length and pull-test each clamp. Use ferrules only after confirming they fully seat. Breadboard jumper pins remain logic/reference only.</td></tr>
+            </tbody>
+          </table>
         </section>
 
         <section class="panel side-card">
@@ -2057,8 +2464,10 @@
               <tr><td><button class="part-link" type="button" data-part="battery">2S battery</button></td><td><span class="pill good">Use</span></td></tr>
               <tr><td><button class="part-link" type="button" data-part="xiao">XIAO Sense</button></td><td><span class="pill good">Use</span></td></tr>
               <tr><td><button class="part-link" type="button" data-part="buck">LM2596 buck</button></td><td><span class="pill warn">Skip in USB</span></td></tr>
-              <tr><td><button class="part-link" type="button" data-part="wago">Wago 222-413</button></td><td><span class="pill good">Use</span></td></tr>
+              <tr><td><button class="part-link" type="button" data-part="splitter">1-in/2-out splitters</button></td><td><span class="pill good">Use</span></td></tr>
               <tr><td><button class="part-link" type="button" data-part="xt30">XT30 pigtail</button></td><td><span class="pill good">Use</span></td></tr>
+              <tr><td><button class="part-link" type="button" data-part="servo-power-switch">Servo power switch</button></td><td><span class="pill warn">Phase 2</span></td></tr>
+              <tr><td><button class="part-link" type="button" data-part="solar">Solar panel kit</button></td><td><span class="pill warn">Phase 2</span></td></tr>
               <tr><td><button class="part-link" type="button" data-part="breadboards">Mini breadboards</button></td><td><span class="pill warn">Logic only</span></td></tr>
               <tr><td><button class="part-link" type="button" data-part="jumpers">Jumper wires</button></td><td><span class="pill warn">Logic only</span></td></tr>
               <tr><td><button class="part-link" type="button" data-part="servo-horn">Servo horn</button></td><td><span class="pill good">Use</span></td></tr>
@@ -2075,9 +2484,61 @@
             </thead>
             <tbody>
               <tr><td>Known active parts</td><td class="money">$136.88</td></tr>
-              <tr><td>Wago 222-413 order</td><td class="money">$7.44</td></tr>
-              <tr class="total-row"><td>Known subtotal</td><td class="money">$144.32</td></tr>
-              <tr class="note-row"><td colspan="2">XT30 pigtail price is not included until that order total is known.</td></tr>
+              <tr><td>XALXMAW splitter order</td><td class="money">$11.98</td></tr>
+              <tr><td>Solar panel kit</td><td class="money">$15.62</td></tr>
+              <tr><td>Servo power switch module</td><td class="money">$9.88</td></tr>
+              <tr class="total-row"><td>Known subtotal</td><td class="money">$174.36</td></tr>
+              <tr class="note-row"><td colspan="2">XT30 pigtail price and the future 2S solar charger/BMS are not included until those order totals are known.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="panel side-card">
+          <h2>Weight Budget</h2>
+          <table class="table">
+            <thead>
+              <tr><th>Assembly</th><th>Mass</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Components inside housing</td><td><span class="pill good">390 g</span></td></tr>
+              <tr><td>Printed PLA parts</td><td><span class="pill warn">390 g</span></td></tr>
+              <tr><td>Enclosure with components</td><td><span class="pill good">638 g / 1.41 lb</span></td></tr>
+              <tr><td>Full door-supported assembly</td><td><span class="pill warn">794 g / 1.75 lb</span></td></tr>
+              <tr class="note-row">
+                <td colspan="2">Solar and servo-switch-equipped Phase 2 force simulation rounds the door-supported assembly up to <strong>1.8 lb</strong>. Weigh the real prints, battery, panels, charger, servo, switch, and wiring before trusting the adhesive math.</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="panel side-card">
+          <h2>Battery + Solar</h2>
+          <table class="table">
+            <thead>
+              <tr><th>Item</th><th>Plan</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Battery %</td><td><span class="pill good">Switched ADC divider</span></td></tr>
+              <tr><td>Future gauge</td><td><span class="pill warn">MAX17263-class</span></td></tr>
+              <tr><td>Solar input</td><td><span class="pill good">2 x 6V panels</span></td></tr>
+              <tr><td>Charging</td><td><span class="pill danger">Needs 2S charger</span></td></tr>
+              <tr class="note-row"><td colspan="2">Prototype battery percentage should use a high-value divider that is only enabled while measuring. The two mini panels should feed a real 2S lithium solar charger/BMS; never connect raw solar panel output directly to the 2S pack.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="panel side-card">
+          <h2>Servo Power Cut</h2>
+          <table class="table">
+            <thead>
+              <tr><th>State</th><th>Power Path</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Locked</td><td><span class="pill good">Servo off</span></td></tr>
+              <tr><td>Moving</td><td><span class="pill warn">Switch on</span></td></tr>
+              <tr><td>Unlocked/holding</td><td><span class="pill warn">Switch on</span></td></tr>
+              <tr><td>Final topology</td><td><span class="pill good">High-side</span></td></tr>
+              <tr class="note-row"><td colspan="2">Cut servo positive power when locked. Before cutting power, put the PWM pin in a safe low or high-impedance state so the servo cannot be back-powered through the signal wire. The final design should use a true high-side load switch; cheap MOSFET modules must be checked with a multimeter before final wiring.</td></tr>
             </tbody>
           </table>
         </section>
@@ -2087,20 +2548,94 @@
           <div class="rules">
             <span><strong>No raw 2S into XIAO.</strong> Use USB-C or the buck converter set to 5.0V.</span>
             <span><strong>No dual XIAO power.</strong> Do not plug in USB-C while buck 5V is connected to 5V/VBUS.</span>
-            <span><strong>No servo power through breadboard.</strong> Servo red/black stay on the Wago battery path.</span>
+            <span><strong>No servo power through breadboard.</strong> Servo red/black stay on the battery-side inline splitter path.</span>
+            <span><strong>16 AWG for servo power.</strong> Battery, XT30, splitter power path, and servo red/ground stay on 16 AWG.</span>
+            <span><strong>22 AWG for control wiring.</strong> Buck-to-XIAO, XIAO ground reference, and PWM signal can use 22 AWG or breadboard jumpers where appropriate.</span>
+            <span><strong>Use stranded tinned copper silicone wire.</strong> It stays flexible, resists corrosion better than bare copper, and handles repeated service/removal better than stiff solid wire.</span>
+            <span><strong>No raw solar into battery.</strong> Solar panels must go through a proper 2S lithium charge controller/BMS before touching the pack.</span>
+            <span><strong>Cut servo power when locked.</strong> The servo should not stay powered just because software stopped sending pulses; use a load switch on the servo supply path.</span>
             <span><strong>PWM through breadboard is OK.</strong> The orange/yellow signal wire is low-current control wiring.</span>
-            <span><strong>Grounds must meet.</strong> Servo/Wago ground and XIAO GND share the same reference; buck ground joins only in buck mode.</span>
+            <span><strong>Grounds must meet.</strong> Servo/splitter ground and XIAO GND share the same reference; buck ground joins only in buck mode.</span>
             <span><strong>XIAO pin positions.</strong> With USB-C at the top, D2 is third pin down on the left; GND is second pin down on the right.</span>
           </div>
         </section>
       </aside>
     </section>
 
+    <section class="panel roadmap" aria-label="Optimal component list">
+      <div class="roadmap-head">
+        <div>
+          <h2>Optimal Component Direction</h2>
+          <p>This is the power-optimized parts direction for the cleaner enclosure and later product versions. The current parts are still right for desk testing; this list shows what we should migrate toward when reducing standby drain, thickness, wiring bulk, and service friction.</p>
+        </div>
+        <div class="cad-links" aria-label="Optimal component files">
+          <a class="cad-link" href="docs/optimal-components.md">Open full list</a>
+        </div>
+      </div>
+
+      <div class="phase-grid">
+        <article class="phase-card">
+          <div class="phase-kicker">Low-power core</div>
+          <h3>Controller and regulator</h3>
+          <p>Keep the XIAO nRF52840 for the current prototype, then migrate the same BLE controller approach onto a smaller custom board when enclosure size and battery life matter more.</p>
+          <div class="phase-stack">
+            <span><i>1</i><span><b>Current controller.</b> Keep using the <a href="https://wiki.seeedstudio.com/XIAO_BLE/">Seeed XIAO nRF52840 Sense</a> through Phase 1/2 while the firmware, pairing, and app flows are still moving quickly.</span></span>
+            <span><i>2</i><span><b>2S direct low-IQ buck.</b> Replace the LM2596 with a <a href="https://www.ti.com/lit/ds/symlink/tps62177.pdf">TPS62177-class regulator</a> for the controller rail. It fits the current 2S battery voltage range better than the 60nA TPS62840, which is not a direct 2S input part.</span></span>
+            <span><i>3</i><span><b>Accessory rail only if needed.</b> A <a href="https://www.ti.com/product/TPS62933">TPS62933-class 3A buck</a> is a better later choice if cameras, sensors, or a higher-current accessory rail become real.</span></span>
+          </div>
+        </article>
+
+        <article class="phase-card">
+          <div class="phase-kicker">Servo power</div>
+          <h3>Physical cutoff</h3>
+          <p>The servo should be electrically disconnected when locked. That is the big idle-power win beyond software detach.</p>
+          <div class="phase-stack">
+            <span><i>1</i><span><b>Prototype cutoff.</b> Use the MOSFET switch module already added to the cart for bench testing, but verify with a multimeter whether it switches positive or ground.</span></span>
+            <span><i>2</i><span><b>Cleaner prototype switch.</b> A <a href="https://www.pololu.com/product-info-merged/2814">Pololu Big MOSFET Slide Switch MP</a> is documented as a high-side switch and fits 4.5V-40V systems.</span></span>
+            <span><i>3</i><span><b>Product switch.</b> Move toward a real high-side/smart high-side stage using <a href="https://www.ti.com/product-category/power-management/high-side-switches-controllers/switches/overview.html">TI</a> or <a href="https://www.infineon.com/products/power/smart-power-switches/high-side-switches">Infineon</a> parts after stall current is measured.</span></span>
+          </div>
+        </article>
+
+        <article class="phase-card">
+          <div class="phase-kicker">Battery and solar</div>
+          <h3>Protected charging path</h3>
+          <p>Solar should be treated as a charging subsystem, not a wire that goes straight into the battery.</p>
+          <div class="phase-stack">
+            <span><i>1</i><span><b>Panels.</b> The current cheap 6V panels are fine for experiments. For a cleaner enclosure, test waterproof ETFE/monocrystalline panels such as <a href="https://voltaicsystems.com/1-watt-6-volt-solar-panel-etfe/">Voltaic 1.2W 6V</a> or the <a href="https://www.adafruit.com/product/3809">Adafruit 6V 1W</a> panel.</span></span>
+            <span><i>2</i><span><b>2S solar charger.</b> Use a <a href="https://www.ti.com/product/BQ24650">BQ24650-class solar charger with MPPT</a>, configured for the exact 2S lithium pack and panel stack.</span></span>
+            <span><i>3</i><span><b>Protection and balancing.</b> Keep using protected packs; if we build a custom pack later, include a 2S protection/balancing path such as the <a href="https://www.ti.com/lit/gpn/BQ29200">TI bq2920x family</a>.</span></span>
+          </div>
+        </article>
+
+        <article class="phase-card">
+          <div class="phase-kicker">Telemetry and service</div>
+          <h3>Battery visibility and swap</h3>
+          <p>The first version should stay simple, then add better telemetry once a custom board is justified.</p>
+          <div class="phase-stack">
+            <span><i>1</i><span><b>Battery percentage now.</b> Use a switched high-value divider into the XIAO ADC so it only draws power while measuring.</span></span>
+            <span><i>2</i><span><b>Battery gauge later.</b> Move to a <a href="https://www.analog.com/en/products/max17263.html">MAX17263-class multi-cell fuel gauge</a> when we need accurate SOC, time-to-empty, current, age, and telemetry.</span></span>
+            <span><i>3</i><span><b>Quick swap.</b> Keep the fixed XT30 dock for Phase 1.5/2. Only move to spring contacts or pogo contacts if the parts are rated with enough current and wear margin.</span></span>
+          </div>
+        </article>
+
+        <article class="phase-card long-range">
+          <div class="phase-kicker">Later hardening</div>
+          <h3>Water, heat, and safety</h3>
+          <p>This is not needed for the desk prototype, but it belongs in the optimal path before any product-style build.</p>
+          <div class="phase-stack">
+            <span><i>W</i><span><b>Water resistance.</b> Add gasketed seams, coated PCBs, drainage/venting decisions, and ingress testing rather than assuming the print itself is waterproof.</span></span>
+            <span><i>T</i><span><b>Thermal safety.</b> PLA is not the final direct-sun material. Use material testing, temperature sensing near power electronics, and charger/servo fault limits before treating it as product-ready.</span></span>
+            <span><i>F</i><span><b>Fire protection.</b> Add fusing/current limits, protected charging, battery spacing, and eventually flame-retardant material review.</span></span>
+          </div>
+        </article>
+      </div>
+    </section>
+
     <section class="panel roadmap" aria-label="Next build phases">
       <div class="roadmap-head">
         <div>
           <h2>Next Build Phases</h2>
-          <p>Phase 1 proves the wiring and software on the desk. Phase 1.5 adds a practical two-part removable mount, then the next phases move toward a cleaner enclosure, a more universal unlocker that supports different door hardware, and eventually a cheaper product-ready design.</p>
+          <p>Phase 1 proves the wiring and software on the desk. Phase 1.5 adds a practical three-part removable mount, then the next phases move toward a cleaner enclosure, a more universal unlocker that supports different door hardware, and eventually a cheaper product-ready design.</p>
         </div>
         <span class="phase-tag">Roadmap</span>
       </div>
@@ -2108,15 +2643,17 @@
       <div class="phase-grid">
         <article class="phase-card">
           <div class="phase-kicker">Phase 1.5</div>
-          <h3>Two-part removable mount</h3>
-          <p>Before the full enclosure, build a simple 3D printed mounting system: a Command-strip back plate that stays on the door and a removable electronics/servo sled that slides onto it. The battery should be easy to disconnect or pull for charging, while the controller, wiring, Wagos, and servo stay firmly mounted.</p>
+          <h3>Three-part removable mount</h3>
+          <p>Before the full enclosure, build a simple 3D printed mounting system with three printed parts: a Command-strip back plate that stays on the door, a removable electronics/servo sled that slides onto it, and a near full-height service cover for maintenance. The battery should slide out quickly for charging, while the controller, wiring, inline splitters, and servo stay firmly mounted.</p>
 
           <div class="phase-stack">
-            <span><i>A</i><span><b>Door back plate.</b> Wide flat plate for large removable strips, sized to resist servo torque without peeling.</span></span>
-            <span><i>B</i><span><b>Fixed sled.</b> Controller, buck, Wagos, wiring, and servo mount stay secured to the module so repeated battery swaps do not disturb alignment.</span></span>
-            <span><i>C</i><span><b>Battery quick disconnect.</b> Add an XT30-accessible pocket, clip, or short pigtail so the battery can be unplugged and removed without opening up the rest of the build.</span></span>
-            <span><i>D</i><span><b>Dovetail rails.</b> Rails or a dovetail track keep the sled tight against the plate, with a clip or thumb screw to stop accidental release.</span></span>
-            <span><i>E</i><span><b>Adjustment slots.</b> Servo bracket and arm position should have small alignment slots before the door-mounted geometry is finalized.</span></span>
+            <span><i>1</i><span><b>Door mounting plate.</b> Fixed 2in x 244mm adhesive spine with four Command strip pairs, hidden behind the enclosure for a cleaner installed look.</span></span>
+            <span><i>2</i><span><b>Main enclosure sled.</b> Controller, buck, inline splitters, wiring, battery pocket, and servo mount stay secured to the removable module.</span></span>
+            <span><i>3</i><span><b>Service cover.</b> Near full-height removable cover, ideally on shallow dovetail rails, so maintenance does not require peeling the door plate off.</span></span>
+            <span><i>R</i><span><b>Dovetail rails.</b> Open-ended rails keep the sled tight against the plate, with a hidden detent or thumb release to stop accidental release.</span></span>
+            <span><i>E</i><span><b>Adjustment slots.</b> Servo bracket and arm position should use a notched removable cradle so the servo can shift height without losing tight side support.</span></span>
+            <span><i>Q</i><span><b>Quick-swap battery.</b> Use a fixed XT30 dock in the housing, a chamfered slide-up battery slot, a small pull ribbon/lip, and a thumb latch so charging does not disturb the internal wiring.</span></span>
+            <span><i>W</i><span><b>Fixed harness routing.</b> Mold two open cable-comb banks into the enclosure behind the service cover: five dedicated 16 AWG power lanes on the right and five dedicated 22 AWG logic/PWM lanes on the left, with removable retention nibs so every service reassembly follows the same route.</span></span>
           </div>
         </article>
 
@@ -2124,15 +2661,16 @@
           <div>
             <div class="phase-kicker">Phase 2</div>
             <h3>Integrated printed housing</h3>
-            <p>After the Phase 1.5 slide-on mount works, the next enclosure should merge the sled into a cleaner, mostly vertical housing. The goal is to stay thin off the door instead of stacking thickness: solar/status LED at the top, servo and arm near the handle, controller plus Wago/service bay below that, and the removable battery at the bottom. That vertical layout should also make servicing easier because parts are not buried behind each other depth-wise.</p>
+            <p>After the Phase 1.5 slide-on mount works, the next enclosure should merge the sled into a cleaner, mostly vertical housing. The goal is to stay thin off the door instead of stacking thickness: solar/status LED at the top, servo and arm near the handle, controller plus inline-splitter service bay below that, and the removable battery at the bottom. That vertical layout should also make servicing easier because parts are not buried behind each other depth-wise.</p>
 
             <div class="phase-list">
-              <span><i>1</i><span><b>Thin vertical stack.</b> Lay parts out by height instead of depth: solar/status LED, then servo/arm, then controller plus Wago/service bay, then bottom battery. Nothing should be stacked depth-wise in a way that blocks service access.</span></span>
-              <span><i>2</i><span><b>Slide-out battery bay.</b> Battery should sit low, slot in, click or friction-fit, and pull out quickly from the side or bottom for charging or replacement.</span></span>
-              <span><i>3</i><span><b>Solar panel mount.</b> Housing should reserve a top/front face for the mini solar panel and route its charging leads internally.</span></span>
-              <span><i>4</i><span><b>Back-plate compatibility.</b> Keep the same slide-on mount pattern so the full enclosure can reuse the Phase 1.5 door plate.</span></span>
-              <span><i>5</i><span><b>Serviceable wiring.</b> Prefer connectors, sockets, Wagos, or small screw terminals so battery, servo, controller, and charger can be replaced.</span></span>
-              <span><i>6</i><span><b>Shielding-ready layout.</b> Leave room for foil, grounded shielding, ferrites, or cable routing changes around the controller and servo leads if EMI/RFI testing shows noise issues.</span></span>
+              <span><i>1</i><span><b>Thin vertical stack.</b> Lay parts out by height instead of depth: solar/status LED, then servo/arm, then controller plus inline-splitter service bay, then bottom battery. Nothing should be stacked depth-wise in a way that blocks service access.</span></span>
+              <span><i>2</i><span><b>Slide-up battery bay.</b> Battery should sit low, slide up from the bottom, mate into a fixed XT30 dock, click into a small latch, and pull out quickly for charging or replacement.</span></span>
+              <span><i>3</i><span><b>Solar panel mount.</b> Housing should reserve a thin front/service-cover solar skin for two 110 x 60 mm, 6V/1W mini panels wired in series, with the final panel split relieved around the servo pocket and routed to a real 2S lithium solar charger.</span></span>
+              <span><i>4</i><span><b>Servo power cutoff.</b> Add a controller-driven load switch so the servo is physically unpowered when locked, but powered while moving or holding the handle down in unlocked mode.</span></span>
+              <span><i>5</i><span><b>Back-plate compatibility.</b> Keep the same slide-on mount pattern so the full enclosure can reuse the Phase 1.5 door plate.</span></span>
+              <span><i>6</i><span><b>Serviceable wiring.</b> Prefer connectors, sockets, inline lever splitters, or small screw terminals so battery, servo, controller, switch, and charger can be replaced. Keep the harness in dedicated snap-in grooves on the main sled so removing the cover or a component does not erase the wiring layout.</span></span>
+              <span><i>7</i><span><b>Shielding-ready layout.</b> Leave room for foil, grounded shielding, ferrites, or cable routing changes around the controller and servo leads if EMI/RFI testing shows noise issues.</span></span>
             </div>
           </div>
 
@@ -2177,10 +2715,10 @@
 
           <div class="phase-stack">
             <span><i>A</i><span><b>Custom low-cost parts.</b> Replace bulky prototype hardware with purpose-built brackets, actuator tips, and enclosure pieces.</span></span>
-            <span><i>B</i><span><b>Production electronics.</b> Move toward a cleaner board, smaller wiring harness, better battery monitoring, and fewer hand-assembled connections.</span></span>
+              <span><i>B</i><span><b>Production electronics.</b> Move toward a cleaner board, smaller wiring harness, high-side servo power switching, ultra-low-power battery monitoring, protected solar charging, and fewer hand-assembled connections.</span></span>
             <span><i>C</i><span><b>Ready-to-install package.</b> Include the mount, battery, charging path, setup flow, safety limits, and clear compatibility guidance.</span></span>
             <span><i>D</i><span><b>Interior tamper resistance.</b> Cover wiring, add strain relief, hide casual-access fasteners, and enclose moving parts while keeping owner service access possible.</span></span>
-            <span><i>E</i><span><b>Water and thermal safety.</b> Add splash/humidity protection, drainage or sealing where needed, flame-retardant material choices, fusing, and protected battery charging.</span></span>
+            <span><i>E</i><span><b>Water and thermal safety.</b> Add splash/humidity protection, drainage or sealing where needed, flame-retardant material choices, fusing, protected battery charging, and basic thermal fault handling.</span></span>
             <span><i>F</i><span><b>Interference shielding validation.</b> Add EMI/RFI shielding, cleaner cable routing, filtered power paths, and real-world shielding validation so wireless control, sensors, and future accessories stay reliable in noisy apartments.</span></span>
             <span><i>G</i><span><b>Vision setup hardening.</b> If the Phase 4 dual-camera setup works, refine privacy controls, lens placement, lighting tolerance, offline calibration, and failure recovery so vision helps installation and presence context without becoming a constant recording feature.</span></span>
             <span><i>H</i><span><b>Access roles.</b> Add owner/admin versus standard trusted-device permissions so some phones can approve new devices or change critical settings while others only lock and unlock.</span></span>
@@ -2201,8 +2739,59 @@
             <span><i>F</i><span><b>Integrated door platform.</b> Explore a future installable door system with the unlocker and swing motion built in, using innovative hardware such as magnetic-hinge concepts to reduce noise, creaks, and visible bulk.</span></span>
             <span><i>G</i><span><b>Advanced power stack.</b> Evaluate solid-state battery options, higher-efficiency solar cells, better charge management, and energy-harvesting layouts once the product design is mature enough to justify custom power hardware.</span></span>
             <span><i>H</i><span><b>Exterior doorbell face-recognition add-on.</b> Explore a separate weather-resistant outside module with a doorbell button, camera, face recognition, privacy controls, and secure handoff to the interior unlocker.</span></span>
+            <span><i>I</i><span><b>Rated enclosure research.</b> Work toward real IP-rated sealing, thermal protection, ingress testing, and fault detection after the removable interior design is proven.</span></span>
           </div>
         </article>
+      </div>
+    </section>
+
+    <section class="panel mount-section" aria-label="Phase 1.5 door mounting plate 3D concept">
+      <div class="mount-head">
+        <div>
+          <h2>Door Mounting Plate 3D Concept</h2>
+          <p>The fixed door piece is the door mounting plate. The enclosure is the removable electronics housing that slides onto this plate. This cleaner concept uses a flush 2 inch x 244 mm adhesive spine hidden behind the enclosure, with open-ended rails and a small internal detent instead of visible load stops.</p>
+        </div>
+        <span class="phase-tag">Phase 1.5</span>
+      </div>
+
+      <div class="mount-layout">
+        <div class="mount-viewer-card">
+          <div class="mount-viewer" id="mountingPlateViewer">
+            <canvas id="mountingPlateCanvas" aria-label="Interactive dimension-driven 3D cutaway of the door plate, dovetail rails, enclosure shell, fitted components, routing grooves, and complete wiring harness"></canvas>
+            <div class="model-fallback">The interactive 3D model could not load. The fit notes below still document the measured plate, rail, enclosure, adhesive, and component envelopes.</div>
+            <span class="model-label">Dimension-driven fit model · millimeters</span>
+            <div class="model-callouts" aria-hidden="true">
+              <div class="model-callout"><b>72 × 34 × 244 mm</b>Current enclosure envelope.</div>
+              <div class="model-callout"><b>50.8 × 7 × 244 mm</b>Hidden door mounting plate.</div>
+              <div class="model-callout"><b>0.40 mm per side</b>Dovetail channel clearance.</div>
+              <div class="model-callout"><b>10 connected wire lanes</b>Five 16 AWG power paths plus five 22 AWG logic/PWM paths.</div>
+              <div class="model-callout"><b>Fit issue shown honestly</b>Two full solar panels conflict with the servo zone.</div>
+            </div>
+          </div>
+          <div class="model-controls" aria-label="3D mounting plate controls">
+            <button class="model-button" type="button" id="mountExplodeToggle" aria-pressed="false">Explode View</button>
+            <button class="model-button" type="button" id="mountCutawayToggle" aria-pressed="true">Component Cutaway</button>
+            <button class="model-button" type="button" id="mountHarnessToggle" aria-pressed="false">Harness View</button>
+            <button class="model-button" type="button" id="mountAutoRotateToggle" aria-pressed="true">Auto Rotate</button>
+            <button class="model-button" type="button" id="mountResetView">Reset View</button>
+          </div>
+        </div>
+
+        <div class="mount-spec-grid" aria-label="Door mounting plate fit notes">
+          <div class="mount-spec"><span class="mount-dot" style="background:#253128"></span><span><b>Door mounting plate</b><code>2 in W x 244 mm H, 7 mm thick</code><br>Flush fixed backplate sized to hide behind the 244 mm enclosure, so the mount mostly disappears once the sled is installed.</span></div>
+          <div class="mount-spec"><span class="mount-dot" style="background:#75d99f"></span><span><b>Dual captive dovetail rails</b><code>30 mm spacing, 224 mm solid rail</code><br>Raised male rails are formula-driven trapezoids: 8 mm neck, 14.35 mm head, 5.5 mm depth, and 0.40 mm per-side channel clearance. Rails are open-ended for easier slide-on removal.</span></div>
+          <div class="mount-spec"><span class="mount-dot" style="background:#3c453f"></span><span><b>Printed parts</b><code>3 total</code><br>Print one flush hidden door mounting plate, one main enclosure sled, and one near full-height sliding service cover.</span></div>
+          <div class="mount-spec"><span class="mount-dot" style="background:#4a64d8"></span><span><b>Front-exposed servo pocket</b><code>front opening, 56 x 28 x 58 mm</code><br>The servo can protrude from the enclosure face, while the cradle and bay still support the body from the back, bottom, and side walls.</span></div>
+          <div class="mount-spec"><span class="mount-dot" style="background:#2f6f9f"></span><span><b>Servo height detents</b><code>42 x 23 x 3 mm cradle, -5 / 0 / +5 mm</code><br>The servo sits in a tight side-hugging cradle whose floor slots into three 6 x 20 x 2.2mm left/right ledge pairs for coarse handle alignment.</span></div>
+          <div class="mount-spec"><span class="mount-dot" style="background:#5eb8ff"></span><span><b>Hidden retention</b><code>small internal detent</code><br>No bulky top or bottom stop. A low-profile click detent keeps the sled from creeping, but intentional removal stays a straight slide.</span></div>
+          <div class="mount-spec"><span class="mount-dot" style="background:#f3f7f1"></span><span><b>Adhesive backing</b><code>4 x 17217 XL pairs, 111.1 x 22.2 x 1.6 mm</code><br>Use two columns by two rows. The fit is tight on the flush plate: about 1.2 mm side margin, 8.9 mm top/bottom margin, and 4.0 mm between rows.</span></div>
+          <div class="mount-spec"><span class="mount-dot" style="background:#ff6f61"></span><span><b>Force check</b><code>4 pairs = 1.28x vs servo stall</code><br>Four pairs are not enough for a 3x full-stall target. They are acceptable only if measured handle force stays around 4.9 lbf or lower for a 3x margin.</span></div>
+          <div class="mount-spec"><span class="mount-dot" style="background:#9a8cff"></span><span><b>Validation test</b><code>measure handle force first</code><br>Command ratings are static picture-hanging ratings, so the real door needs a staged load and cycle test before the plate is trusted on the door.</span></div>
+          <div class="mount-spec"><span class="mount-dot" style="background:#303a33"></span><span><b>Bambu PLA Pure print</b><code>P1S, 0.4 mm nozzle, 0.40 mm rail clearance</code><br>Print the flush plate flat, print dovetail coupons first, and keep heat/creep testing in mind before trusting it on a hot door.</span></div>
+          <div class="mount-spec"><span class="mount-dot" style="background:#d7b546"></span><span><b>Dimension confidence</b><code>verified + estimated geometry</code><br>Vendor-confirmed dimensions drive the plate, servo, XIAO footprint, inline splitters, buck, and solar panels. The splitter dimensions come from the purchased listing graphic; verify the actual parts with calipers before printing.</span></div>
+          <div class="mount-spec"><span class="mount-dot" style="background:#f5c542"></span><span><b>Complete harness routing</b><code>2 banks / 10 lanes, z 84-167 mm</code><br>The cutaway now connects battery, splitters, buck, power switch, breadboard/XIAO, and servo. Five 4.2 mm lanes form the 16 AWG power bank; five 3.0 mm lanes form the 22 AWG logic/PWM bank. Shared 1 mm ribs preserve a 15.6 mm center service gap and the full 3.2 mm rear wall. Solar leads remain intentionally unrouted until the 2S charger and final panel placement are selected.</span></div>
+          <div class="mount-spec"><span class="mount-dot" style="background:#ff6f61"></span><span><b>Solar fit conflict</b><code>2 × 110 × 60 × 3 mm panels</code><br>The two selected 6 V / 1 W panels cannot share the current 72 × 244 mm front face with the servo opening. The cutaway shows the second panel as a translucent conflict envelope instead of pretending the layout is print-ready.</span></div>
+        </div>
       </div>
     </section>
 
@@ -2210,19 +2799,20 @@
       <div class="cad-head">
         <div>
           <h2>Phase 2 CAD Fit Model</h2>
-          <p>This is the first print-oriented pass: a parametric enclosure source plus a color-coded fit preview. The model lays parts out vertically so the shell stays thin and serviceable instead of hiding components behind each other depth-wise.</p>
+          <p>This is the first Bambu P1S-oriented print pass: a tighter parametric enclosure source plus a color-coded fit preview. The design is three printed parts: a flush 244 mm mounting plate, a 244 mm enclosure sled with built-in wire-routing troughs, and a near full-height removable service cover. The latest fit simulation keeps the housing at the calculated tight minimum for the current components.</p>
         </div>
         <div class="cad-links" aria-label="CAD files">
           <a class="cad-link" href="cad/phase2-enclosure.scad">OpenSCAD source</a>
           <a class="cad-link" href="cad/phase2-dimensions.json">Dimensions JSON</a>
+          <a class="cad-link" href="docs/housing-fit-simulation.md">Housing fit report</a>
         </div>
       </div>
 
       <div class="cad-layout">
         <figure class="cad-preview">
           <svg viewBox="0 0 760 980" role="img" aria-labelledby="cadTitle cadDesc">
-            <title id="cadTitle">Color-coded first-pass enclosure CAD layout</title>
-            <desc id="cadDesc">Isometric-style fit preview showing shell, back plate, solar panel, servo, controller, Wago connectors, buck converter, and bottom-inserting battery cartridge.</desc>
+            <title id="cadTitle">Color-coded Bambu P1S tight-fit enclosure CAD layout</title>
+            <desc id="cadDesc">Isometric-style fit preview showing shell, back plate, removable service cover, two-panel solar skin, servo, controller, two compact inline lever splitters, buck converter, and bottom-inserting battery cartridge.</desc>
             <defs>
               <filter id="cadShadow" x="-20%" y="-20%" width="140%" height="140%">
                 <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#000" flood-opacity=".35" />
@@ -2254,7 +2844,17 @@
               <rect x="300" y="333" width="62" height="12" rx="6" fill="#71f0a1" stroke="#b7ffd0" stroke-width="2" />
 
               <rect x="239" y="381" width="181" height="158" rx="16" fill="#080b09" stroke="rgba(243,247,241,.2)" stroke-width="2" />
+              <rect x="256" y="396" width="145" height="136" rx="14" fill="none" stroke="#75d99f" stroke-width="4" stroke-dasharray="10 8" opacity=".9" />
               <rect x="278" y="414" width="85" height="94" rx="10" fill="#4a64d8" stroke="#9aa8ff" stroke-width="2" />
+              <g fill="#75d99f" opacity=".85">
+                <rect x="246" y="498" width="26" height="8" rx="3" />
+                <rect x="370" y="498" width="26" height="8" rx="3" />
+                <rect x="246" y="515" width="26" height="8" rx="3" />
+                <rect x="370" y="515" width="26" height="8" rx="3" />
+                <rect x="246" y="532" width="26" height="8" rx="3" />
+                <rect x="370" y="532" width="26" height="8" rx="3" />
+              </g>
+              <rect x="266" y="514" width="126" height="10" rx="4" fill="#2f6f9f" stroke="#93bfe0" stroke-width="2" />
               <circle cx="321" cy="461" r="27" fill="#111" stroke="#777" stroke-width="3" />
               <rect x="320" y="449" width="158" height="18" rx="9" fill="#111" stroke="#333" stroke-width="2" />
               <circle cx="450" cy="458" r="6" fill="#0b0e0c" stroke="#747a73" stroke-width="2" />
@@ -2267,14 +2867,17 @@
                 <circle cx="269" cy="610" r="3" /><circle cx="269" cy="625" r="3" /><circle cx="269" cy="640" r="3" /><circle cx="269" cy="655" r="3" />
                 <circle cx="313" cy="610" r="3" /><circle cx="313" cy="625" r="3" /><circle cx="313" cy="640" r="3" /><circle cx="313" cy="655" r="3" />
               </g>
-              <rect x="336" y="608" width="52" height="86" rx="7" fill="#c9d0cb" stroke="#fff" stroke-opacity=".5" stroke-width="2" />
-              <g fill="#f28b32">
-                <rect x="343" y="617" width="12" height="25" rx="3" />
-                <rect x="360" y="617" width="12" height="25" rx="3" />
-                <rect x="377" y="617" width="8" height="25" rx="3" />
-                <rect x="343" y="657" width="12" height="25" rx="3" />
-                <rect x="360" y="657" width="12" height="25" rx="3" />
-                <rect x="377" y="657" width="8" height="25" rx="3" />
+              <g>
+                <rect x="328" y="611" width="68" height="29" rx="8" fill="#c9d0cb" stroke="#fff" stroke-opacity=".5" stroke-width="2" />
+                <rect x="328" y="652" width="68" height="29" rx="8" fill="#c9d0cb" stroke="#fff" stroke-opacity=".5" stroke-width="2" />
+                <g fill="#f28b32">
+                  <rect x="336" y="615" width="18" height="7" rx="3" />
+                  <rect x="336" y="629" width="18" height="7" rx="3" />
+                  <rect x="371" y="622" width="18" height="7" rx="3" />
+                  <rect x="336" y="656" width="18" height="7" rx="3" />
+                  <rect x="336" y="670" width="18" height="7" rx="3" />
+                  <rect x="371" y="663" width="18" height="7" rx="3" />
+                </g>
               </g>
               <rect x="261" y="711" width="136" height="42" rx="7" fill="#d7b546" stroke="#fff2a8" stroke-opacity=".5" stroke-width="2" />
               <path d="M289 675 C289 700 290 720 297 753" fill="none" stroke="#ef6c38" stroke-width="7" stroke-linecap="round" />
@@ -2283,35 +2886,46 @@
               <rect x="255" y="804" width="149" height="128" rx="15" fill="#101310" stroke="#ef6c38" stroke-width="3" />
               <rect x="271" y="827" width="117" height="108" rx="13" fill="#ef6c38" opacity=".9" />
               <rect x="295" y="933" width="68" height="10" rx="4" fill="#111" stroke="#777" stroke-width="1.5" />
+
+              <rect x="226" y="82" width="206" height="846" rx="26" fill="none" stroke="#75d99f" stroke-width="3" stroke-opacity=".68" stroke-dasharray="10 9" />
+              <line x1="244" y1="108" x2="244" y2="904" stroke="#75d99f" stroke-width="4" stroke-opacity=".42" />
+              <line x1="414" y1="108" x2="414" y2="904" stroke="#75d99f" stroke-width="4" stroke-opacity=".42" />
             </g>
 
             <line class="cad-measure" x1="505" y1="58" x2="505" y2="942" />
-            <text class="cad-small-label" x="520" y="510" transform="rotate(90 520 510)">352 mm enclosure height</text>
+            <text class="cad-small-label" x="520" y="510" transform="rotate(90 520 510)">244 mm enclosure height</text>
             <line class="cad-measure" x1="210" y1="955" x2="448" y2="955" />
-            <text class="cad-small-label" x="276" y="976">78 mm shell width</text>
+            <text class="cad-small-label" x="276" y="976">72 mm shell width</text>
 
             <text class="cad-label" x="44" y="92">Color key</text>
-            <text class="cad-small-label" x="44" y="122">Blue: solar</text>
+            <text class="cad-small-label" x="44" y="122">Blue: solar skin</text>
             <text class="cad-small-label" x="44" y="146">Purple: servo</text>
             <text class="cad-small-label" x="44" y="170">Green: XIAO</text>
-            <text class="cad-small-label" x="44" y="194">Orange: Wago/battery</text>
+            <text class="cad-small-label" x="44" y="194">Orange: splitters/battery</text>
             <text class="cad-small-label" x="44" y="218">Gold: buck bay</text>
           </svg>
         </figure>
 
         <div class="cad-dim-grid" aria-label="CAD dimension assumptions">
-          <div class="cad-dim"><span class="cad-dot" style="background:#1e2420"></span><span><b>Shell envelope</b><code>78 W x 37 D x 352 H</code><br>First-pass tall housing with 3mm walls, rounded top/corners, service openings, and a separate back plate.</span></div>
-          <div class="cad-dim"><span class="cad-dot" style="background:#2f6f9f"></span><span><b>Solar placeholder</b><code>50 W x 3 D x 80 H</code><br>Reserved top panel space. Exact solar panel can change before printing.</span></div>
-          <div class="cad-dim"><span class="cad-dot" style="background:#4a64d8"></span><span><b>Servo bay</b><code>62 W x 31 D x 62 H</code><br>Holds the INJORA 35kg servo block, arm clearance, cable exit, and screw access.</span></div>
-          <div class="cad-dim"><span class="cad-dot" style="background:#23a06f"></span><span><b>XIAO controller</b><code>17.8 W x 11 D x 21 H</code><br>Includes a Seeed XIAO nRF52840 Sense footprint plus pre-soldered header/USB-C clearance.</span></div>
-          <div class="cad-dim"><span class="cad-dot" style="background:#f28b32"></span><span><b>Wago pair</b><code>2 x 17 W x 20.5 D x 14.5 H</code><br>Modeled as two accessible 222-413 connector blocks in the service bay.</span></div>
-          <div class="cad-dim"><span class="cad-dot" style="background:#d7b546"></span><span><b>Current buck module</b><code>60 W x 12 D x 40 H</code><br>Bulky LM2596 prototype bay. This can shrink later with the low-quiescent regulator plan.</span></div>
-          <div class="cad-dim"><span class="cad-dot" style="background:#ef6c38"></span><span><b>Battery cartridge</b><code>43 W x 22 D x 75 H</code><br>Vertical bottom-inserting pack, mostly inside the enclosure with only a small pull lip exposed.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#1e2420"></span><span><b>Three printed parts</b><code>plate + sled + cover</code><br>Print one 50.8 x 7 x 244mm hidden mounting plate, one 72 x 34 x 244mm enclosure sled, and one 66 x 2.2 x 232mm service cover. The plate prints flat.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#75d99f"></span><span><b>Fit simulation</b><code>244 mm tight minimum</code><br>The 72 x 34 x 244mm housing has 97.6% vertical utilization, 89.3% width utilization, 90.6% depth utilization, 0.8mm minimum side clearance, and zero raw or clearance-envelope component collisions.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#5eb8ff"></span><span><b>Plate height check</b><code>244 mm flush hidden plate</code><br>Removing visible top/bottom stops lets the plate match the enclosure height. Open-ended rails keep the mount clean, and a hidden detent handles retention.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#2f6f9f"></span><span><b>Solar skin</b><code>2 x 110 x 60 mm panels</code><br>Use two thin 6V/1W panels in series for a 12V-class charger input. The rectangular envelope fits the face, but the servo pocket interrupts it, so the final split must clear the servo and still allow service access.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#4a64d8"></span><span><b>Servo bay</b><code>56 W x 28 D x 52 H + front pocket</code><br>Holds the 40.5 x 20 x 37.5mm INJORA servo body, uses a 42 x 23 x 3mm removable cradle on 6 x 20 x 2.2mm detent ledges, and opens the front face with a 56 x 28 x 58mm pocket.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#23a06f"></span><span><b>XIAO controller</b><code>21 W x 17.8 H board</code><br>Vendor footprint with separate board thickness, header pins, and USB-C connector shown in the detailed cutaway.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#b8242d"></span><span><b>No-solder breadboard</b><code>35 W x 8.5 D x 47 H</code><br>Standard 170-point board shown vertically in the cutaway, with the XIAO and headers modeled separately on its front face.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#f28b32"></span><span><b>Inline splitter pair</b><code>2 x 32 W x 13.5 D x 13 H</code><br>The purchased 1-in/2-out connectors are modeled horizontally in two stacked routing lanes. Their narrower depth improves service-bay cable routing.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#d7b546"></span><span><b>Current buck module</b><code>57 W x 14 D x 36 H</code><br>Verified Seloky LM2596 module envelope. This can shrink later with the low-quiescent regulator plan.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#ef6c38"></span><span><b>Battery cartridge</b><code>43 W x 22 D x 75 H</code><br>Bottom-inserting pack in a 46.5 x 25 x 80.5mm slot, mostly inside the enclosure with only a small pull lip exposed.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#ffd166"></span><span><b>Battery quick swap</b><code>fixed XT30 dock + pull lip</code><br>The controller-side XT30 should be fixed to the housing with slight connector float. The battery slides up into chamfered guides, mates automatically, and releases with a thumb latch or spring tab.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#9bdcff"></span><span><b>Servo power switch</b><code>42 x 26 mm board footprint</code><br>Prototype MOSFET module cuts servo supply power when locked. Final wiring should switch the high side, keep common ground shared, and prevent PWM back-powering when the switch is off.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#c7ffd6"></span><span><b>Estimated mass</b><code>638 g enclosure, 794 g installed</code><br>Components including the no-solder breadboard are about 390g, printed PLA parts about 390g, and the full door-supported assembly about 794g. Force math still rounds this up to 1.8lb.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#303a33"></span><span><b>PLA force check</b><code>6.65 MPa plate bend, 0.0172 MPa rail shear</code><br>Bambu PLA Pure checks pass the first-order printed-part load, and the open-ended rails keep 10 mm end margins. The four Command pairs still do not meet a 3x full-stall adhesive target.</span></div>
         </div>
       </div>
     </section>
 
-    <p class="footer-note">Desk-test assumption: the servo can spike several amps during startup or stall. The XIAO provides only the control signal through the breadboard, so the high-current wiring stays on the XT30 pigtail and Wago connectors.</p>
+    <p class="footer-note">Desk-test assumption: the servo can spike several amps during startup or stall. The XIAO provides only the control signal through the breadboard, so the high-current wiring stays on the XT30 pigtail and inline lever splitters.</p>
   </main>
 
   <dialog id="partDialog" aria-labelledby="partModalTitle">
@@ -2329,6 +2943,10 @@
       <div class="modal-row">
         <strong>Price</strong>
         <span id="partModalPrice"></span>
+      </div>
+      <div class="modal-row">
+        <strong>Weight</strong>
+        <span id="partModalWeight"></span>
       </div>
       <div class="modal-row">
         <strong>Full Title</strong>
@@ -2358,18 +2976,20 @@
       servo: {
         short: "35kg servo",
         price: "$37.44",
+        weight: "70 g servo body, about 79 g with long arm and rubber cap",
         full: "INJORA 35KG Brushless Waterproof High Voltage Servo Motor High Torque Digital Servo for RC Car Model",
         image: "assets/injora-servo-regenerated-full.png",
         description: "High-torque RC servo with the installed long 25T arm and glossy rubber sleeve cap shown for the handle-contact end.",
         role: "High-torque actuator that moves the door handle during the desk test.",
-        specs: ["35kg-class high-torque digital servo", "Brushless waterproof RC servo body", "Runs from the direct 2S battery path, not through the breadboard", "Uses three leads: power, ground, and PWM signal"],
+        specs: ["35kg-class high-torque digital servo", "Brushless waterproof RC servo body", "Use 16 AWG for servo red power and black/brown ground", "Runs from the direct 2S battery path, not through the breadboard", "PWM signal is low-current and can use 22 AWG or a breadboard jumper", "Uses three leads: power, ground, and PWM signal"],
         link: "https://www.amazon.com/dp/B0B56SN46D"
       },
       battery: {
         short: "2S battery",
         price: "$27.81",
+        weight: "151 g",
         full: "sea jump 7.4V 5000mAh 2S Li-ion Battery with JST Plug and XT30 Plug with USB Charging Cable Suitable for TX16S, TX18S, RC4GS, RC6GS, TX12 RC Transmitter RC Car Truck Engineering Vehicle Battery",
-        image: "assets/component-battery-2s.png",
+        image: "assets/component-battery-2s-vertical.png",
         description: "Rechargeable 2S Li-ion pack that provides the main high-current supply for the servo side of the bench test.",
         role: "Main 2S battery source. Use the XT30 side for the high-current servo path.",
         specs: ["7.4V nominal 2S pack", "8.4V when fully charged", "5000mAh listed capacity", "XT30 output plus JST lead and USB charging cable"],
@@ -2378,6 +2998,7 @@
       xiao: {
         short: "XIAO Sense",
         price: "$25.99",
+        weight: "Estimated 4 g with pre-soldered headers",
         full: "Seeed Studio XIAO nRF52840 Sense (Pre-Soldered)",
         image: "assets/component-xiao-amazon-style.png",
         description: "Compact pre-soldered microcontroller board with header pins, so it can plug directly into the breadboard for no-solder testing.",
@@ -2388,56 +3009,84 @@
       buck: {
         short: "LM2596 buck",
         price: "$8.23",
+        weight: "Estimated 23 g for the voltmeter module",
         full: "Seloky LM2596 Adjustable DC-DC Step-Down Buck Converter Module with LED Voltmeter Display, Voltage Regulator 4.0-40V Input to 1.25-37V Output Power Supply Module",
         image: "assets/component-buck.png",
         description: "Adjustable step-down voltage regulator used to turn the 2S battery voltage into a safe 5.0V logic supply.",
         role: "Steps the 2S battery voltage down to 5.0V for the XIAO after adjustment.",
-        specs: ["LM2596 adjustable buck converter", "4.0-40V listed input range", "1.25-37V listed output range", "Set and verify 5.0V output before connecting the XIAO", "Unplug XIAO USB-C before feeding buck 5V into 5V/VBUS"],
+        specs: ["LM2596 adjustable buck converter", "Verified module envelope: 57 x 36 x 14mm", "4.0-40V listed input range", "1.25-37V listed output range", "Set and verify 5.0V output before connecting the XIAO", "Unplug XIAO USB-C before feeding buck 5V into 5V/VBUS"],
         link: "https://www.amazon.com/dp/B0DM946DHG"
       },
-      wago: {
-        short: "Wago 222-413",
-        price: "$7.44",
-        full: "Wago 222-413 Lever-Nuts 3 Conductor Compact Connectors 10 PK",
-        image: "assets/component-wago-pair.png",
-        description: "Lever-nut connectors used as removable no-solder junctions for splitting battery positive and ground.",
-        role: "No-solder power split: one connector for positive wires and one for ground wires.",
-        specs: ["3-conductor lever connector", "Use one Wago for positive and one for ground", "Reusable lever clamp style", "Keeps high-current servo wiring off the breadboard"],
-        link: "https://www.amazon.com/dp/B07CN59ZX3"
+      splitter: {
+        short: "Inline lever splitters",
+        price: "$11.98",
+        weight: "Estimated 8 g for the installed pair; weigh the delivered parts before final CAD",
+        full: "XALXMAW 20Pcs Lever Wire Connectors, 1 in 2 Out DIY Mini Splicing Compact Splitter Docking Terminal Block Electrical Connectors, 24-12 AWG",
+        image: "assets/component-inline-lever-splitter-straight.png",
+        description: "Compact inline 1-in/2-out lever connectors that keep the positive and ground branches routed in straight, removable no-solder lanes.",
+        role: "No-solder power distribution: one splitter for battery positive and one for common ground.",
+        specs: ["Use two connectors: one positive and one ground", "Planning envelope per connector: 32 x 13 x 13.5mm", "Flexible/stranded wire range: 24-14 AWG", "10mm listed wire strip length", "Use 16 AWG for battery and servo power; 22 AWG for low-current branches", "Rated 32A and 250V by the listing", "Reusable pure-copper/stainless-steel lever clamp construction", "Pull-test every conductor before connecting the battery"],
+        link: "https://www.amazon.com/dp/B0B28GYYL2"
       },
       xt30: {
         short: "XT30 pigtail",
         price: "Pending exact order total",
-        full: "5 Pairs XT30 Pigtail, XT30 Male and Female Plug, XT30 Connector Adapter with 10cm 16AWG Silicone Wire for RC Lipo Battery FPV Racing Drone",
-        image: "assets/component-xt30-pigtail.png",
-        description: "Connector lead that adapts the battery XT30 plug to bare red and black wires for the Wago split.",
-        role: "Adapts the battery XT30 connector to bare red/black wires for the Wago splitters.",
-        specs: ["XT30 connector pair/pigtail style", "10cm listed silicone leads", "16AWG listed wire size", "Bare red/black ends land in the Wago connectors"],
+        weight: "Estimated 8-10 g per short 16 AWG connector lead",
+        full: "5 Pairs XT30 Pigtail, XT30 Male and Female Plug, XT30 Connector Adapter with 10cm 16 AWG Silicone Wire for RC Lipo Battery FPV Racing Drone",
+        image: "assets/component-xt30-pigtail-vertical.png",
+        description: "Connector lead that adapts the battery XT30 plug to bare red and black wires for the inline splitter pair.",
+        role: "Adapts the battery XT30 connector to the positive and ground inline splitters.",
+        specs: ["XT30 connector pair/pigtail style", "10cm listed silicone leads", "16 AWG listed wire size", "Bare red/black ends land in the single-input ports of the two splitters"],
         link: "https://www.amazon.com/WOODGUILIN-Connector-connector-connection-quadcopter/dp/B0FK4Z5CTK"
+      },
+      "servo-power-switch": {
+        short: "Servo power switch",
+        price: "$9.88",
+        weight: "Estimated 12 g installed; kit includes two modules",
+        full: "2PCS 3V 5V Low Voltage Control High Voltage 12V 24V 36V Switch Mosfet Module, MOSFET Switching Module for Arduino Connect IO MCU PWM Control Motor Speed 22A",
+        image: "assets/component-servo-power-switch.svg",
+        description: "MOSFET switching board for physically cutting power to the servo supply path instead of only detaching PWM in code.",
+        role: "Prototype servo power cutoff. Servo power is enabled only while moving or holding the unlocked position, then cut when locked.",
+        specs: ["3.3V-12V listed input control voltage", "5-36V listed output/load voltage", "22A listed maximum load current, with heat sinking above 5A per listing", "Use one board in the servo supply path", "Final product should use a true high-side load switch or smart high-side switch", "Before final wiring, verify with a multimeter whether this prototype board switches positive or ground"],
+        link: "https://www.amazon.com/Voltage-Control-Switching-Arduino-Connect/dp/B0F6K4LX6Y"
+      },
+      solar: {
+        short: "Solar panel kit",
+        price: "$15.62",
+        weight: "Estimated 52 g for two installed panels; kit includes three panels",
+        full: "3Pcs Mini Solar Panel DC 6V Polysilicon Solar Cell Charger Module Solar DIY System Kits with 30cm Cable",
+        image: "assets/component-solar-panel.svg",
+        description: "Small 6V/1W mini solar panels sized for enclosure experiments. Two panels can be wired in series to create a 12V-class solar input for a proper 2S lithium charger.",
+        role: "Phase 2 solar energy input. This is not connected directly to the battery; it feeds a protected solar charging stage.",
+        specs: ["6V, 1W listed per panel", "About 110 x 60mm per panel", "Use two panels in series for roughly 12V at 0.16A peak", "Route through a real 2S lithium solar charger/BMS", "Never connect raw solar panel output directly to the 2S pack", "Mount as a thin front/service-cover solar skin; final split must clear the servo pocket"],
+        link: "https://www.amazon.com/Solar-Polysilicon-Charger-Module-System/dp/B08THXDWS1"
       },
       breadboards: {
         short: "Mini breadboards",
         price: "$8.55",
+        weight: "Estimated 8-10 g each, not planned inside the Phase 2 housing",
         full: "LampVPath [12Packs] 170 Points Mini Small solderless breadboard Compatible for Proto Shield",
         image: "assets/component-mini-breadboards-pack.png",
         description: "Small solderless breadboards for no-solder signal and logic hookups during desk testing.",
         role: "Logic-only prototyping area for XIAO power, ground, and PWM signal jumpers. Do not run servo power through it.",
-        specs: ["170 tie-points per mini breadboard", "Solderless push-in jumper wiring", "Use for XIAO 5V/GND/PWM only", "Not for servo red/black high-current power"],
+        specs: ["170 tie-points per mini breadboard", "Standard envelope: about 47 x 35 x 8.5mm", "Solderless push-in jumper wiring", "Use for XIAO 5V/GND/PWM only", "Use breadboard jumper pins or 22 AWG control wiring only", "Not for servo red/black high-current power"],
         link: "https://www.amazon.com/dp/B01KKE602W"
       },
       jumpers: {
         short: "Jumper wires",
         price: "$9.62",
+        weight: "Desk-test kit only; final short harness allowance is about 16 g",
         full: "WWZMDiB 840 Pin Breadboard Jumper Wires Kit 14 Vaules 2-125mm",
         image: "assets/component-jumper-wires-kit-clean.png",
         description: "Pre-cut jumper wires for connecting breadboard rows, rails, and microcontroller pins without soldering.",
         role: "Low-current signal and logic jumpers for the breadboard and XIAO.",
-        specs: ["840-piece listed jumper kit", "14 listed length values from 2-125mm", "Solid-core breadboard style", "Use for PWM, 5V logic, and ground reference jumpers"],
+        specs: ["840-piece listed jumper kit", "14 listed length values from 2-125mm", "Solid-core breadboard style", "Use for PWM, 5V logic, and ground reference jumpers", "Do not use these for servo red/black power"],
         link: "https://www.amazon.com/dp/B0BWGZRGYP"
       },
       "servo-horn": {
         short: "Servo horn",
         price: "$9.62",
+        weight: "Estimated 8 g",
         full: "2pcs Servo Horn 56mm Metal 25T Metal Servo Arm Extension Servo Horn for 30-100CC Balsa Airplanes 1/10 RC Crawler Car Boat Futaba HSP Wltoys Axial SCX10 Parts",
         image: "assets/component-servo-horn-pair.png",
         description: "Long black metal servo arm that extends the servo's reach so rotation can press the handle more effectively.",
@@ -2448,6 +3097,7 @@
       "rubber-caps": {
         short: "Rubber caps",
         price: "$9.62",
+        weight: "Less than 1 g for one installed cap",
         full: "Aleric Rubber End Caps - 60pcs Flexible Screw Thread Protector Covers Rubber Bolt Covers Caps for Metal Tube Rod in 6 Sizes 2mm, 3mm, 6.5mm, 8mm, 10mm, 12mm",
         image: "assets/component-rubber-caps-set.png",
         description: "Flexible sleeve-style rubber caps that slip over hard metal ends to soften contact and protect surfaces.",
@@ -2467,6 +3117,7 @@
     const partModalSubtitle = document.getElementById("partModalSubtitle");
     const partModalImage = document.getElementById("partModalImage");
     const partModalPrice = document.getElementById("partModalPrice");
+    const partModalWeight = document.getElementById("partModalWeight");
     const partModalFullTitle = document.getElementById("partModalFullTitle");
     const partModalDescription = document.getElementById("partModalDescription");
     const partModalRole = document.getElementById("partModalRole");
@@ -2480,7 +3131,7 @@
       usbMode.setAttribute("aria-pressed", mode === "usb" ? "true" : "false");
       modeHint.textContent = mode === "buck"
         ? "Buck mode: battery powers the servo and the XIAO through the buck after the output is set to 5.0V."
-        : "USB-first mode: Mac USB-C powers the XIAO, the LM2596 buck is skipped, the battery still powers the servo, and Wago ground ties to XIAO GND.";
+        : "USB-first mode: Mac USB-C powers the XIAO, the LM2596 buck is skipped, the battery still powers the servo, and the ground splitter ties to XIAO GND.";
       modeWarning.textContent = mode === "buck"
         ? "Do not plug USB-C into the XIAO while buck 5V is connected to 5V/VBUS."
         : "Do not connect buck OUT+ to XIAO 5V/VBUS while the XIAO is powered by USB-C.";
@@ -2492,6 +3143,199 @@
     const stage = document.querySelector(".stage");
     const diagramNodes = Array.from(document.querySelectorAll(".stage [data-node]"));
     const diagramWires = Array.from(document.querySelectorAll(".stage .wire[data-parts]"));
+    const controllerCard = document.querySelector(".controller-card");
+    const controllerAssembly = controllerCard.querySelector(".controller-assembly");
+    const controllerSignalBridge = document.getElementById("controllerSignalBridge");
+    const controllerPowerBridge = document.getElementById("controllerPowerBridge");
+    const controllerGroundBridge = document.getElementById("controllerGroundBridge");
+    const xt30Card = document.querySelector(".xt30-card");
+    const xt30Image = xt30Card.querySelector(".xt30-visual");
+    const xt30RedTopBridge = document.getElementById("xt30RedTopBridge");
+    const xt30GroundTopBridge = document.getElementById("xt30GroundTopBridge");
+    const xt30RedBottomBridge = document.getElementById("xt30RedBottomBridge");
+    const xt30GroundBottomBridge = document.getElementById("xt30GroundBottomBridge");
+    const batteryCard = document.querySelector(".battery-card");
+    const batteryImage = batteryCard.querySelector(".battery-visual");
+    const batteryRedBridge = document.getElementById("batteryRedBridge");
+    const batteryGroundBridge = document.getElementById("batteryGroundBridge");
+    const splitterBridgeConfigs = [
+      {
+        card: document.querySelector(".positive-splitter-card"),
+        outputLeft: document.getElementById("positiveSplitterOutputLeft"),
+        outputRight: document.getElementById("positiveSplitterOutputRight"),
+        input: document.getElementById("positiveSplitterInput"),
+        anchors: { outputLeft: [620, 1165], outputRight: [640, 1165], input: [630, 1439] },
+      },
+      {
+        card: document.querySelector(".ground-splitter-card"),
+        outputLeft: document.getElementById("groundSplitterOutputLeft"),
+        outputRight: document.getElementById("groundSplitterOutputRight"),
+        input: document.getElementById("groundSplitterInput"),
+        anchors: { outputLeft: [720, 1165], outputRight: [740, 1165], input: [730, 1439] },
+      },
+    ];
+    splitterBridgeConfigs.forEach((config) => {
+      config.image = config.card.querySelector(".splitter-visual");
+    });
+
+    function updateControllerBridges() {
+      const stageRect = stage.getBoundingClientRect();
+      const assemblyRect = controllerAssembly.getBoundingClientRect();
+      const assemblyX = (localX) => (
+        assemblyRect.left - stageRect.left + (localX / 168) * assemblyRect.width
+      );
+      const top = assemblyRect.top - stageRect.top;
+      const bottom = assemblyRect.bottom - stageRect.top;
+      controllerSignalBridge.setAttribute("d", `M471 490 L${assemblyX(2).toFixed(1)} ${top.toFixed(1)}`);
+      controllerPowerBridge.setAttribute("d", `M620 790 L${assemblyX(151).toFixed(1)} ${bottom.toFixed(1)}`);
+      controllerGroundBridge.setAttribute("d", `M605 790 L${assemblyX(136).toFixed(1)} ${bottom.toFixed(1)}`);
+    }
+
+    let controllerBridgeFrame = 0;
+    function trackControllerBridges() {
+      cancelAnimationFrame(controllerBridgeFrame);
+      const deadline = performance.now() + 260;
+      function updateFrame(now) {
+        updateControllerBridges();
+        if (now < deadline) {
+          controllerBridgeFrame = requestAnimationFrame(updateFrame);
+        }
+      }
+      controllerBridgeFrame = requestAnimationFrame(updateFrame);
+    }
+
+    ["pointerenter", "pointerleave", "focusin", "focusout"].forEach((eventName) => {
+      controllerCard.addEventListener(eventName, trackControllerBridges);
+    });
+    controllerCard.addEventListener("transitionrun", trackControllerBridges);
+    controllerCard.addEventListener("transitionend", updateControllerBridges);
+    window.addEventListener("resize", updateControllerBridges);
+    requestAnimationFrame(updateControllerBridges);
+
+    function updateXT30Bridges() {
+      const stageRect = stage.getBoundingClientRect();
+      const imageRect = xt30Image.getBoundingClientRect();
+      const imageX = (ratio) => imageRect.left - stageRect.left + ratio * imageRect.width;
+      const redX = imageX(0.292);
+      const groundX = imageX(0.689);
+      const top = imageRect.top - stageRect.top;
+      const bottom = imageRect.bottom - stageRect.top;
+      xt30RedTopBridge.setAttribute("d", `M588 1460 L${redX.toFixed(1)} ${top.toFixed(1)}`);
+      xt30GroundTopBridge.setAttribute("d", `M616 1460 L${groundX.toFixed(1)} ${top.toFixed(1)}`);
+      xt30RedBottomBridge.setAttribute("d", `M588 1610 L${redX.toFixed(1)} ${bottom.toFixed(1)}`);
+      xt30GroundBottomBridge.setAttribute("d", `M616 1610 L${groundX.toFixed(1)} ${bottom.toFixed(1)}`);
+    }
+
+    let xt30BridgeFrame = 0;
+    function trackXT30Bridges() {
+      cancelAnimationFrame(xt30BridgeFrame);
+      const deadline = performance.now() + 260;
+      function updateFrame(now) {
+        updateXT30Bridges();
+        if (now < deadline) {
+          xt30BridgeFrame = requestAnimationFrame(updateFrame);
+        }
+      }
+      xt30BridgeFrame = requestAnimationFrame(updateFrame);
+    }
+
+    ["pointerenter", "pointerleave", "focusin", "focusout"].forEach((eventName) => {
+      xt30Card.addEventListener(eventName, trackXT30Bridges);
+    });
+    xt30Card.addEventListener("transitionrun", trackXT30Bridges);
+    xt30Card.addEventListener("transitionend", updateXT30Bridges);
+    window.addEventListener("resize", updateXT30Bridges);
+    requestAnimationFrame(updateXT30Bridges);
+
+    function updateBatteryBridges() {
+      const stageRect = stage.getBoundingClientRect();
+      const imageRect = batteryImage.getBoundingClientRect();
+      const connectorPoint = (xRatio) => [
+        imageRect.left - stageRect.left + xRatio * imageRect.width,
+        imageRect.top - stageRect.top + 0.038 * imageRect.height,
+      ];
+      const redTerminal = connectorPoint(0.460);
+      const groundTerminal = connectorPoint(0.518);
+      batteryRedBridge.setAttribute(
+        "d",
+        `M674 1640 L${redTerminal[0].toFixed(1)} ${redTerminal[1].toFixed(1)}`,
+      );
+      batteryGroundBridge.setAttribute(
+        "d",
+        `M689 1640 L${groundTerminal[0].toFixed(1)} ${groundTerminal[1].toFixed(1)}`,
+      );
+    }
+
+    let batteryBridgeFrame = 0;
+    function trackBatteryBridges() {
+      cancelAnimationFrame(batteryBridgeFrame);
+      const deadline = performance.now() + 260;
+      function updateFrame(now) {
+        updateBatteryBridges();
+        if (now < deadline) {
+          batteryBridgeFrame = requestAnimationFrame(updateFrame);
+        }
+      }
+      batteryBridgeFrame = requestAnimationFrame(updateFrame);
+    }
+
+    ["pointerenter", "pointerleave", "focusin", "focusout"].forEach((eventName) => {
+      batteryCard.addEventListener(eventName, trackBatteryBridges);
+    });
+    batteryCard.addEventListener("transitionrun", trackBatteryBridges);
+    batteryCard.addEventListener("transitionend", updateBatteryBridges);
+    batteryImage.addEventListener("load", updateBatteryBridges);
+    window.addEventListener("resize", updateBatteryBridges);
+    requestAnimationFrame(updateBatteryBridges);
+
+    function updateSplitterBridges() {
+      const stageRect = stage.getBoundingClientRect();
+      splitterBridgeConfigs.forEach((config) => {
+        const imageRect = config.image.getBoundingClientRect();
+        const point = (xRatio, yRatio) => [
+          imageRect.left - stageRect.left + xRatio * imageRect.width,
+          imageRect.top - stageRect.top + yRatio * imageRect.height,
+        ];
+        const outputLeft = point(0.319, 0.061);
+        const outputRight = point(0.662, 0.061);
+        const input = point(0.504, 0.963);
+        config.outputLeft.setAttribute(
+          "d",
+          `M${config.anchors.outputLeft.join(" ")} L${outputLeft[0].toFixed(1)} ${outputLeft[1].toFixed(1)}`,
+        );
+        config.outputRight.setAttribute(
+          "d",
+          `M${config.anchors.outputRight.join(" ")} L${outputRight[0].toFixed(1)} ${outputRight[1].toFixed(1)}`,
+        );
+        config.input.setAttribute(
+          "d",
+          `M${config.anchors.input.join(" ")} L${input[0].toFixed(1)} ${input[1].toFixed(1)}`,
+        );
+      });
+    }
+
+    let splitterBridgeFrame = 0;
+    function trackSplitterBridges() {
+      cancelAnimationFrame(splitterBridgeFrame);
+      const deadline = performance.now() + 260;
+      function updateFrame(now) {
+        updateSplitterBridges();
+        if (now < deadline) {
+          splitterBridgeFrame = requestAnimationFrame(updateFrame);
+        }
+      }
+      splitterBridgeFrame = requestAnimationFrame(updateFrame);
+    }
+
+    splitterBridgeConfigs.forEach((config) => {
+      ["pointerenter", "pointerleave", "focusin", "focusout"].forEach((eventName) => {
+        config.card.addEventListener(eventName, trackSplitterBridges);
+      });
+      config.card.addEventListener("transitionrun", trackSplitterBridges);
+      config.card.addEventListener("transitionend", updateSplitterBridges);
+    });
+    window.addEventListener("resize", updateSplitterBridges);
+    requestAnimationFrame(updateSplitterBridges);
 
     function setActiveNode(nodeId) {
       stage.classList.add("has-active");
@@ -2534,6 +3378,7 @@
       partModalImage.src = part.image || "";
       partModalImage.alt = `${part.short} product image`;
       partModalPrice.textContent = part.price;
+      partModalWeight.textContent = part.weight || "Not estimated yet";
       partModalFullTitle.textContent = part.full;
       partModalDescription.textContent = part.description;
       partModalRole.textContent = part.role;
@@ -2571,6 +3416,1051 @@
         partDialog.close();
       }
     });
+  </script>
+
+  <script type="module">
+    const mountCanvas = document.getElementById("mountingPlateCanvas");
+    const mountViewer = document.getElementById("mountingPlateViewer");
+    const explodeToggle = document.getElementById("mountExplodeToggle");
+    const cutawayToggle = document.getElementById("mountCutawayToggle");
+    const harnessToggle = document.getElementById("mountHarnessToggle");
+    const autoRotateToggle = document.getElementById("mountAutoRotateToggle");
+    const resetViewButton = document.getElementById("mountResetView");
+
+    async function startMountingPlateModel() {
+      if (!mountCanvas || !mountViewer) return;
+
+      let THREE;
+      try {
+        THREE = await import("https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.module.js");
+      } catch (error) {
+        mountViewer.classList.add("model-load-failed");
+        return;
+      }
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(34, 1, 1, 900);
+      camera.position.set(0, 0, 660);
+
+      const renderer = new THREE.WebGLRenderer({
+        canvas: mountCanvas,
+        antialias: true,
+        alpha: true,
+        powerPreference: "high-performance"
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.15;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+      scene.add(new THREE.HemisphereLight(0xe8fff0, 0x0b0f0c, 1.8));
+
+      const keyLight = new THREE.DirectionalLight(0xffffff, 2.1);
+      keyLight.position.set(-70, 115, 170);
+      keyLight.castShadow = true;
+      keyLight.shadow.mapSize.set(1024, 1024);
+      scene.add(keyLight);
+
+      const rimLight = new THREE.DirectionalLight(0x75d99f, 1.2);
+      rimLight.position.set(110, -40, 115);
+      scene.add(rimLight);
+
+      const pivot = new THREE.Group();
+      pivot.rotation.set(-0.1, -0.26, 0);
+      scene.add(pivot);
+
+      const doorGroup = new THREE.Group();
+      const adhesiveGroup = new THREE.Group();
+      const plateGroup = new THREE.Group();
+      const enclosureGroup = new THREE.Group();
+      const internalsGroup = new THREE.Group();
+      const coverGroup = new THREE.Group();
+      const solarGroup = new THREE.Group();
+      pivot.add(doorGroup, adhesiveGroup, plateGroup, enclosureGroup, internalsGroup, coverGroup, solarGroup);
+
+      const materials = {
+        door: new THREE.MeshStandardMaterial({ color: 0x192018, roughness: 0.92 }),
+        doorLine: new THREE.MeshStandardMaterial({ color: 0x2e3a30, roughness: 0.88 }),
+        plate: new THREE.MeshStandardMaterial({ color: 0x4e6254, roughness: 0.66, metalness: 0.05 }),
+        rail: new THREE.MeshStandardMaterial({ color: 0xa0ffc0, roughness: 0.42, metalness: 0.12 }),
+        railSide: new THREE.MeshStandardMaterial({ color: 0x5d806c, roughness: 0.58, metalness: 0.08 }),
+        lip: new THREE.MeshStandardMaterial({ color: 0xf4a62a, roughness: 0.46, metalness: 0.08 }),
+        latch: new THREE.MeshStandardMaterial({ color: 0x5eb8ff, roughness: 0.38, metalness: 0.08 }),
+        slot: new THREE.MeshStandardMaterial({ color: 0x0b0e0c, roughness: 0.84 }),
+        adhesive: new THREE.MeshStandardMaterial({ color: 0xf3f7f1, roughness: 0.82, transparent: true, opacity: 0.86 }),
+        cover: new THREE.MeshStandardMaterial({ color: 0x596a60, roughness: 0.62, metalness: 0.06, transparent: true, opacity: 0.24 }),
+        coverRail: new THREE.MeshStandardMaterial({ color: 0x75d99f, roughness: 0.5, metalness: 0.1 }),
+        enclosure: new THREE.MeshPhysicalMaterial({
+          color: 0x253128,
+          roughness: 0.54,
+          metalness: 0.02,
+          transparent: true,
+          opacity: 0.22,
+          depthWrite: true
+        }),
+        channel: new THREE.MeshStandardMaterial({ color: 0x071009, roughness: 0.75, transparent: true, opacity: 0.58 }),
+        outline: new THREE.LineBasicMaterial({ color: 0xb9ffd0, transparent: true, opacity: 0.55 }),
+        servoBlue: new THREE.MeshStandardMaterial({ color: 0x2058b6, roughness: 0.44, metalness: 0.28 }),
+        servoBlack: new THREE.MeshStandardMaterial({ color: 0x090b0a, roughness: 0.56, metalness: 0.12 }),
+        servoArm: new THREE.MeshStandardMaterial({ color: 0x0b0d0c, roughness: 0.3, metalness: 0.72 }),
+        rubber: new THREE.MeshPhysicalMaterial({ color: 0x050606, roughness: 0.19, clearcoat: 0.82, clearcoatRoughness: 0.16 }),
+        battery: new THREE.MeshStandardMaterial({ color: 0x273a65, roughness: 0.6, metalness: 0.02 }),
+        pcbBlue: new THREE.MeshStandardMaterial({ color: 0x1d4f92, roughness: 0.58, metalness: 0.04 }),
+        pcbGreen: new THREE.MeshStandardMaterial({ color: 0x148264, roughness: 0.56, metalness: 0.04 }),
+        breadboard: new THREE.MeshStandardMaterial({ color: 0xb8242d, roughness: 0.7, metalness: 0.01 }),
+        breadboardHole: new THREE.MeshStandardMaterial({ color: 0x171a18, roughness: 0.9 }),
+        splitter: new THREE.MeshPhysicalMaterial({ color: 0xadb4b0, roughness: 0.38, transparent: true, opacity: 0.88 }),
+        splitterLever: new THREE.MeshStandardMaterial({ color: 0xf18b2f, roughness: 0.48 }),
+        routingChannel: new THREE.MeshStandardMaterial({ color: 0x6d8072, roughness: 0.64 }),
+        wireYellow: new THREE.MeshStandardMaterial({ color: 0xffce45, emissive: 0x5a3d00, emissiveIntensity: 0.34, roughness: 0.44 }),
+        wireBlue: new THREE.MeshStandardMaterial({ color: 0x63b5ff, emissive: 0x082f5a, emissiveIntensity: 0.34, roughness: 0.44 }),
+        wireBlack: new THREE.MeshStandardMaterial({ color: 0x424b45, emissive: 0x111713, emissiveIntensity: 0.26, roughness: 0.56 }),
+        wireRed: new THREE.MeshStandardMaterial({ color: 0xff665f, emissive: 0x5a0c08, emissiveIntensity: 0.34, roughness: 0.44 }),
+        terminal: new THREE.MeshStandardMaterial({ color: 0xc5c9c7, roughness: 0.42, metalness: 0.68 }),
+        display: new THREE.MeshPhysicalMaterial({ color: 0x260607, roughness: 0.22, clearcoat: 0.5 }),
+        solar: new THREE.MeshPhysicalMaterial({ color: 0x164f86, roughness: 0.24, clearcoat: 0.58, clearcoatRoughness: 0.24, transparent: true, opacity: 0.3 }),
+        solarLine: new THREE.LineBasicMaterial({ color: 0x8bc9ff, transparent: true, opacity: 0.72 }),
+        conflict: new THREE.MeshPhysicalMaterial({ color: 0xff5c52, roughness: 0.35, transparent: true, opacity: 0.22, depthWrite: false }),
+        estimate: new THREE.MeshPhysicalMaterial({ color: 0xe0b73f, roughness: 0.42, transparent: true, opacity: 0.46 })
+      };
+
+      function roundedRectShape(width, height, radius) {
+        const x = -width / 2;
+        const y = -height / 2;
+        const shape = new THREE.Shape();
+        shape.moveTo(x + radius, y);
+        shape.lineTo(x + width - radius, y);
+        shape.quadraticCurveTo(x + width, y, x + width, y + radius);
+        shape.lineTo(x + width, y + height - radius);
+        shape.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        shape.lineTo(x + radius, y + height);
+        shape.quadraticCurveTo(x, y + height, x, y + height - radius);
+        shape.lineTo(x, y + radius);
+        shape.quadraticCurveTo(x, y, x + radius, y);
+        return shape;
+      }
+
+      function roundedRectMesh(width, height, depth, radius, material, bevelSize = 0.7) {
+        const resolvedBevelSize = Math.min(bevelSize, radius * 0.35, width * 0.08, height * 0.08);
+        const resolvedBevelThickness = Math.min(bevelSize, depth * 0.28);
+        const geometry = new THREE.ExtrudeGeometry(roundedRectShape(
+          width - resolvedBevelSize * 2,
+          height - resolvedBevelSize * 2,
+          Math.max(0.1, radius - resolvedBevelSize)
+        ), {
+          depth: Math.max(0.05, depth - resolvedBevelThickness * 2),
+          bevelEnabled: true,
+          bevelThickness: resolvedBevelThickness,
+          bevelSize: resolvedBevelSize,
+          bevelSegments: 7,
+          steps: 1
+        });
+        geometry.center();
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        return mesh;
+      }
+
+      function boxMesh(width, height, depth, material) {
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        return mesh;
+      }
+
+      function roundedRectPath(width, height, radius, centerX = 0, centerY = 0) {
+        const x = centerX - width / 2;
+        const y = centerY - height / 2;
+        const path = new THREE.Path();
+        path.moveTo(x + radius, y);
+        path.lineTo(x + width - radius, y);
+        path.quadraticCurveTo(x + width, y, x + width, y + radius);
+        path.lineTo(x + width, y + height - radius);
+        path.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        path.lineTo(x + radius, y + height);
+        path.quadraticCurveTo(x, y + height, x, y + height - radius);
+        path.lineTo(x, y + radius);
+        path.quadraticCurveTo(x, y, x + radius, y);
+        return path;
+      }
+
+      function panelWithHoles(width, height, depth, radius, holes, material, bevelSize = 0.35) {
+        const shape = roundedRectShape(width, height, radius);
+        holes.forEach((hole) => {
+          shape.holes.push(roundedRectPath(
+            hole.width,
+            hole.height,
+            Math.min(hole.radius || 0.8, hole.width / 2, hole.height / 2),
+            hole.x || 0,
+            hole.y || 0
+          ));
+        });
+        const geometry = new THREE.ExtrudeGeometry(shape, {
+          depth,
+          // Keep panel and cutout envelopes exact. Three.js bevels expand the
+          // bounding box unless the source profile is compensated.
+          bevelEnabled: false,
+          steps: 1
+        });
+        geometry.center();
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        return mesh;
+      }
+
+      function roundedFrameMesh(width, height, depth, wall, radius, material) {
+        return panelWithHoles(width, height, depth, radius, [{
+          width: width - wall * 2,
+          height: height - wall * 2,
+          radius: Math.max(1, radius - wall)
+        }], material, 0.35);
+      }
+
+      function addEdges(mesh, group, threshold = 22, material = materials.outline) {
+        const edges = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry, threshold), material);
+        edges.position.copy(mesh.position);
+        edges.rotation.copy(mesh.rotation);
+        edges.scale.copy(mesh.scale);
+        group.add(edges);
+        return edges;
+      }
+
+      function cylinderMesh(radius, depth, material, radialSegments = 32) {
+        const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, depth, radialSegments), material);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        return mesh;
+      }
+
+      function makeSolarPanel(width, height, depth, material) {
+        const group = new THREE.Group();
+        const panel = roundedRectMesh(width, height, depth, 1.5, material, 0.12);
+        group.add(panel);
+        for (let column = 1; column < 6; column += 1) {
+          const line = new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints([
+              new THREE.Vector3(-width / 2 + column * width / 6, -height / 2 + 2, depth / 2 + 0.16),
+              new THREE.Vector3(-width / 2 + column * width / 6, height / 2 - 2, depth / 2 + 0.16)
+            ]),
+            materials.solarLine
+          );
+          group.add(line);
+        }
+        for (let row = 1; row < 10; row += 1) {
+          const line = new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints([
+              new THREE.Vector3(-width / 2 + 2, -height / 2 + row * height / 10, depth / 2 + 0.16),
+              new THREE.Vector3(width / 2 - 2, -height / 2 + row * height / 10, depth / 2 + 0.16)
+            ]),
+            materials.solarLine
+          );
+          group.add(line);
+        }
+        return group;
+      }
+
+      const railProfile = {
+        faceAngleDeg: 60,
+        neckWidth: 8,
+        depth: 5.5,
+        length: 224,
+        channelLength: 226,
+        spacing: 30,
+        channelClearance: 0.4
+      };
+
+      const modelDimensions = Object.freeze({
+        enclosure: { width: 72, height: 244, depth: 34, wall: 3.2, radius: 7 },
+        plate: { width: 50.8, height: 244, depth: 7, radius: 6 },
+        serviceCover: { width: 66, height: 232, depth: 2.2, radius: 6 },
+        servo: { width: 40.5, height: 37.5, depth: 20, centerY: 66 },
+        servoPocket: { width: 56, height: 58, centerY: 66 },
+        battery: { width: 43, height: 75, depth: 22, centerY: -80 },
+        buck: { width: 57, height: 36, depth: 14, centerY: -19.5 },
+        xiao: { width: 21, height: 17.8, boardDepth: 1.6, centerX: -18, centerY: 21 },
+        splitter: { width: 32, height: 13, depth: 13.5, centerX: 14.5, centersY: [13, 32] },
+        breadboard: { width: 35, height: 47, depth: 8.5, centerX: -13, centerY: 21 },
+        powerSwitchEnvelope: { width: 42, height: 26, depth: 12, centerY: -19.5 },
+        wireRouting: {
+          startY: -38,
+          endY: 45,
+          length: 83,
+          centerY: 3.5,
+          ribWidth: 1,
+          retainerSpacing: 27,
+          lanes: [
+            { name: "buckInputPositive", x: -29.3, clearWidth: 3, ribDepth: 2.2, wireDiameter: 1.8, retainerOverhang: 0.4, material: "wireRed" },
+            { name: "buckInputGround", x: -25.3, clearWidth: 3, ribDepth: 2.2, wireDiameter: 1.8, retainerOverhang: 0.4, material: "wireBlack" },
+            { name: "controller5V", x: -21.3, clearWidth: 3, ribDepth: 2.2, wireDiameter: 1.8, retainerOverhang: 0.4, material: "wireBlue" },
+            { name: "controllerGround", x: -17.3, clearWidth: 3, ribDepth: 2.2, wireDiameter: 1.8, retainerOverhang: 0.4, material: "wireBlack" },
+            { name: "pwmSignal", x: -13.3, clearWidth: 3, ribDepth: 2.2, wireDiameter: 1.8, retainerOverhang: 0.4, material: "wireYellow" },
+            { name: "batteryPositiveInput", x: 7.9, clearWidth: 4.2, ribDepth: 3.4, wireDiameter: 3, retainerOverhang: 1, material: "wireRed" },
+            { name: "batteryGroundInput", x: 13.1, clearWidth: 4.2, ribDepth: 3.4, wireDiameter: 3, retainerOverhang: 1, material: "wireBlack" },
+            { name: "splitterPositiveToSwitch", x: 18.3, clearWidth: 4.2, ribDepth: 3.4, wireDiameter: 3, retainerOverhang: 1, material: "wireRed" },
+            { name: "switchToServoPositive", x: 23.5, clearWidth: 4.2, ribDepth: 3.4, wireDiameter: 3, retainerOverhang: 1, material: "wireRed" },
+            { name: "splitterGroundToServo", x: 28.7, clearWidth: 4.2, ribDepth: 3.4, wireDiameter: 3, retainerOverhang: 1, material: "wireBlack" }
+          ]
+        },
+        solarPanel: { width: 60, height: 110, depth: 3 }
+      });
+
+      const shellCenterZ = modelDimensions.plate.depth / 2 + 1 + modelDimensions.enclosure.depth / 2;
+      const shellBackZ = shellCenterZ - modelDimensions.enclosure.depth / 2;
+      const shellFrontZ = shellCenterZ + modelDimensions.enclosure.depth / 2;
+
+      const coverRailProfile = {
+        faceAngleDeg: 60,
+        neckWidth: 3.2,
+        depth: 2,
+        length: 214
+      };
+
+      const commandStrip = {
+        model: "3M Command 17217 X-Large",
+        width: 0.875 * 25.4,
+        length: 4.375 * 25.4,
+        thickness: 0.0625 * 25.4,
+        gap: 4,
+        rowCenterOffset: (4.375 * 25.4 + 4) / 2
+      };
+      commandStrip.columnCenterOffset = (commandStrip.width + commandStrip.gap) / 2;
+
+      function dovetailHeadWidth(neckWidth, depth, faceAngleDeg) {
+        return neckWidth + 2 * depth / Math.tan(faceAngleDeg * Math.PI / 180);
+      }
+
+      function captiveDovetailGeometry(neckWidth, headWidth, depth, length) {
+        const n = neckWidth / 2;
+        const h = headWidth / 2;
+        const y0 = -length / 2;
+        const y1 = length / 2;
+        const vertices = new Float32Array([
+          -n, y0, 0, n, y0, 0, h, y0, depth, -h, y0, depth,
+          -n, y1, 0, n, y1, 0, h, y1, depth, -h, y1, depth
+        ]);
+        const indices = [
+          0, 2, 1, 0, 3, 2,
+          4, 5, 6, 4, 6, 7,
+          0, 1, 5, 0, 5, 4,
+          1, 2, 6, 1, 6, 5,
+          2, 3, 7, 2, 7, 6,
+          3, 0, 4, 3, 4, 7
+        ];
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
+        geometry.setIndex(indices);
+        geometry.clearGroups();
+        geometry.addGroup(0, 6, 0);
+        geometry.addGroup(6, 6, 0);
+        geometry.addGroup(12, 6, 0);
+        geometry.addGroup(18, 6, 0);
+        geometry.addGroup(24, 6, 1);
+        geometry.addGroup(30, 6, 0);
+        geometry.computeVertexNormals();
+        return geometry;
+      }
+
+      const door = boxMesh(180, 308, 3, materials.door);
+      door.position.z = -6.75;
+      doorGroup.add(door);
+
+      [-92, 92].forEach((y) => {
+        const doorLine = boxMesh(168, 1.4, 0.7, materials.doorLine);
+        doorLine.position.set(0, y, -5.15);
+        doorGroup.add(doorLine);
+      });
+
+      [-commandStrip.columnCenterOffset, commandStrip.columnCenterOffset].forEach((x) => {
+        [-commandStrip.rowCenterOffset, commandStrip.rowCenterOffset].forEach((y) => {
+          const strip = roundedRectMesh(
+            commandStrip.width,
+            commandStrip.length,
+            commandStrip.thickness,
+            4,
+            materials.adhesive,
+            0.25
+          );
+          strip.position.set(x, y, -4.3);
+          adhesiveGroup.add(strip);
+        });
+      });
+
+      const plate = roundedRectMesh(
+        modelDimensions.plate.width,
+        modelDimensions.plate.height,
+        modelDimensions.plate.depth,
+        modelDimensions.plate.radius,
+        materials.plate,
+        0.9
+      );
+      plateGroup.add(plate);
+
+      [-railProfile.spacing / 2, railProfile.spacing / 2].forEach((x) => {
+        const railHeadWidth = dovetailHeadWidth(
+          railProfile.neckWidth,
+          railProfile.depth,
+          railProfile.faceAngleDeg
+        );
+        const rail = new THREE.Mesh(
+          captiveDovetailGeometry(
+            railProfile.neckWidth,
+            railHeadWidth,
+            railProfile.depth,
+            railProfile.length
+          ),
+          [materials.railSide, materials.rail]
+        );
+        rail.position.set(x, 0, modelDimensions.plate.depth / 2);
+        rail.castShadow = true;
+        rail.receiveShadow = true;
+        plateGroup.add(rail);
+
+        const railEdges = new THREE.LineSegments(
+          new THREE.EdgesGeometry(rail.geometry, 22),
+          materials.outline
+        );
+        railEdges.position.copy(rail.position);
+        plateGroup.add(railEdges);
+      });
+
+      const hiddenDetent = roundedRectMesh(8, 3, 1.2, 0.8, materials.latch, 0.04);
+      hiddenDetent.position.set(0, 104, modelDimensions.plate.depth / 2 + railProfile.depth - 0.5);
+      plateGroup.add(hiddenDetent);
+
+      [-76, 0, 76].forEach((y) => {
+        const slot = roundedRectMesh(8, 26, 0.7, 4, materials.slot, 0.18);
+        slot.position.set(0, y, modelDimensions.plate.depth / 2 - 0.35);
+        plateGroup.add(slot);
+      });
+
+      const channelNeckWidth = railProfile.neckWidth + railProfile.channelClearance * 2;
+      const channelDepth = railProfile.depth + railProfile.channelClearance;
+      const channelHeadWidth = dovetailHeadWidth(channelNeckWidth, channelDepth, railProfile.faceAngleDeg);
+
+      // Hollow enclosure: perimeter frame plus a rear wall with real channel openings.
+      const enclosureFrame = roundedFrameMesh(
+        modelDimensions.enclosure.width,
+        modelDimensions.enclosure.height,
+        modelDimensions.enclosure.depth,
+        modelDimensions.enclosure.wall,
+        modelDimensions.enclosure.radius,
+        materials.enclosure
+      );
+      enclosureFrame.position.z = shellCenterZ;
+      enclosureGroup.add(enclosureFrame);
+      addEdges(enclosureFrame, enclosureGroup);
+
+      const enclosureRear = panelWithHoles(
+        modelDimensions.enclosure.width,
+        modelDimensions.enclosure.height,
+        modelDimensions.enclosure.wall,
+        modelDimensions.enclosure.radius,
+        [-railProfile.spacing / 2, railProfile.spacing / 2].map((x) => ({
+          x,
+          y: 0,
+          width: channelHeadWidth,
+          height: railProfile.channelLength,
+          radius: 1.2
+        })),
+        materials.enclosure,
+        0.28
+      );
+      enclosureRear.position.z = shellBackZ + modelDimensions.enclosure.wall / 2;
+      enclosureGroup.add(enclosureRear);
+      addEdges(enclosureRear, enclosureGroup);
+
+      [-railProfile.spacing / 2, railProfile.spacing / 2].forEach((x) => {
+        const channel = new THREE.Mesh(
+          captiveDovetailGeometry(channelNeckWidth, channelHeadWidth, channelDepth, railProfile.channelLength),
+          materials.channel
+        );
+        channel.position.set(x, 0, shellBackZ - 0.2);
+        channel.castShadow = false;
+        enclosureGroup.add(channel);
+        addEdges(channel, enclosureGroup);
+      });
+
+      // Battery guide rails and the three-position servo cradle are printable sled features.
+      [-24.1, 24.1].forEach((x) => {
+        const batteryGuide = roundedRectMesh(3.2, 78, 8, 1.2, materials.railSide, 0.12);
+        batteryGuide.position.set(x, modelDimensions.battery.centerY, shellBackZ + 7.2);
+        enclosureGroup.add(batteryGuide);
+      });
+
+      const servoCradleCenterY = modelDimensions.servo.centerY - modelDimensions.servo.height / 2 - 1.5;
+      [-5, 0, 5].forEach((offset) => {
+        [-20.5, 20.5].forEach((x) => {
+          const detent = roundedRectMesh(6, 2.2, 20, 0.7, materials.rail, 0.05);
+          detent.position.set(x, servoCradleCenterY + offset, shellBackZ + 13.2);
+          enclosureGroup.add(detent);
+        });
+      });
+      const servoCradle = roundedRectMesh(42, 3, 23, 1, materials.latch, 0.08);
+      servoCradle.position.set(0, servoCradleCenterY, shellBackZ + 14.7);
+      enclosureGroup.add(servoCradle);
+
+      function addBatteryModel() {
+        const d = modelDimensions.battery;
+        const body = roundedRectMesh(d.width, d.height, d.depth, 4, materials.battery, 0.75);
+        body.position.set(0, d.centerY, shellBackZ + modelDimensions.enclosure.wall + d.depth / 2 + 0.8);
+        internalsGroup.add(body);
+        addEdges(body, internalsGroup, 24);
+
+        const label = roundedRectMesh(31, 45, 0.7, 2, materials.servoBlue, 0.04);
+        label.position.set(0, d.centerY, body.position.z + d.depth / 2 + 0.42);
+        internalsGroup.add(label);
+
+        const dock = boxMesh(13, 7, 9, materials.terminal);
+        dock.position.set(0, d.centerY + d.height / 2 + 3.5, body.position.z);
+        internalsGroup.add(dock);
+
+        const pullLip = roundedRectMesh(28, 4, 3.5, 1.8, materials.rubber, 0.1);
+        pullLip.position.set(0, -119.2, shellFrontZ - 5);
+        internalsGroup.add(pullLip);
+      }
+
+      function addBuckAndPowerSwitch() {
+        const d = modelDimensions.buck;
+        const board = roundedRectMesh(d.width, d.height, 1.6, 2, materials.pcbBlue, 0.08);
+        board.position.set(0, d.centerY, shellBackZ + modelDimensions.enclosure.wall + 1.6);
+        internalsGroup.add(board);
+
+        const inductor = cylinderMesh(6, 6, materials.servoBlack, 28);
+        inductor.rotation.x = Math.PI / 2;
+        inductor.position.set(9, d.centerY + 2, board.position.z + 4);
+        internalsGroup.add(inductor);
+
+        [-24, 24].forEach((x) => {
+          const terminal = boxMesh(8, 11, 7, materials.terminal);
+          terminal.position.set(x, d.centerY - 8, board.position.z + 3.2);
+          internalsGroup.add(terminal);
+        });
+
+        const display = roundedRectMesh(18, 10, 5, 1.5, materials.display, 0.18);
+        display.position.set(-8, d.centerY + 8, board.position.z + 3.3);
+        internalsGroup.add(display);
+
+        const trimPot = boxMesh(9, 9, 7, materials.pcbBlue);
+        trimPot.position.set(20, d.centerY + 9, board.position.z + 3.5);
+        internalsGroup.add(trimPot);
+
+        const power = modelDimensions.powerSwitchEnvelope;
+        const envelope = roundedRectMesh(power.width, power.height, power.depth, 2.4, materials.estimate, 0.24);
+        envelope.position.set(0, power.centerY, shellFrontZ - power.depth / 2 - 1.1);
+        internalsGroup.add(envelope);
+        addEdges(envelope, internalsGroup, 22);
+      }
+
+      function addBreadboardAndXiao() {
+        const breadboard = modelDimensions.breadboard;
+        const boardZ = shellBackZ + modelDimensions.enclosure.wall + breadboard.depth / 2 + 0.6;
+        const board = roundedRectMesh(breadboard.width, breadboard.height, breadboard.depth, 2.5, materials.breadboard, 0.35);
+        board.position.set(breadboard.centerX, breadboard.centerY, boardZ);
+        internalsGroup.add(board);
+
+        const holeGeometry = new THREE.CylinderGeometry(0.52, 0.52, 0.42, 8);
+        holeGeometry.rotateX(Math.PI / 2);
+        const holes = new THREE.InstancedMesh(holeGeometry, materials.breadboardHole, 170);
+        const matrix = new THREE.Matrix4();
+        const columns = [-13.46, -10.92, -8.38, -5.84, -3.3, 3.3, 5.84, 8.38, 10.92, 13.46];
+        let holeIndex = 0;
+        for (let row = 0; row < 17; row += 1) {
+          columns.forEach((column) => {
+            matrix.makeTranslation(
+              breadboard.centerX + column,
+              breadboard.centerY - 20.32 + row * 2.54,
+              boardZ + breadboard.depth / 2 + 0.2
+            );
+            holes.setMatrixAt(holeIndex, matrix);
+            holeIndex += 1;
+          });
+        }
+        holes.instanceMatrix.needsUpdate = true;
+        internalsGroup.add(holes);
+
+        const xiao = modelDimensions.xiao;
+        const xiaoZ = boardZ + breadboard.depth / 2 + 3.2;
+        const xiaoBoard = roundedRectMesh(xiao.width, xiao.height, xiao.boardDepth, 1.8, materials.pcbGreen, 0.08);
+        xiaoBoard.position.set(xiao.centerX, xiao.centerY, xiaoZ);
+        internalsGroup.add(xiaoBoard);
+
+        [-8.9, 8.9].forEach((pinX) => {
+          for (let pin = 0; pin < 7; pin += 1) {
+            const header = boxMesh(0.8, 0.8, 5, materials.terminal);
+            header.position.set(pinX + xiao.centerX, xiao.centerY - 7.62 + pin * 2.54, xiaoZ - 2.2);
+            internalsGroup.add(header);
+          }
+        });
+
+        const usb = roundedRectMesh(9, 5.4, 3.2, 1.3, materials.terminal, 0.16);
+        usb.position.set(xiao.centerX, xiao.centerY + xiao.height / 2 + 1.8, xiaoZ + 1.5);
+        internalsGroup.add(usb);
+      }
+
+      function addInlineSplitters() {
+        const d = modelDimensions.splitter;
+        d.centersY.forEach((centerY) => {
+          const body = roundedRectMesh(d.width, d.height, d.depth, 2.6, materials.splitter, 0.4);
+          body.position.set(d.centerX, centerY, shellFrontZ - d.depth / 2 - 2.2);
+          internalsGroup.add(body);
+          [[-9, -3.1], [-9, 3.1], [9.5, 0]].forEach(([offsetX, offsetY]) => {
+            const lever = roundedRectMesh(9, 3.4, 2.4, 1.6, materials.splitterLever, 0.12);
+            lever.position.set(d.centerX + offsetX, centerY + offsetY, body.position.z + d.depth / 2 + 0.9);
+            internalsGroup.add(lever);
+          });
+        });
+      }
+
+      function addWireRoutingChannels() {
+        const d = modelDimensions.wireRouting;
+        const rearInnerZ = shellBackZ + modelDimensions.enclosure.wall;
+        d.lanes.forEach((lane) => {
+          [-1, 1].forEach((side) => {
+            const rib = boxMesh(d.ribWidth, d.length, lane.ribDepth, materials.routingChannel);
+            rib.position.set(
+              lane.x + side * (lane.clearWidth / 2 + d.ribWidth / 2),
+              d.centerY,
+              rearInnerZ + lane.ribDepth / 2
+            );
+            enclosureGroup.add(rib);
+
+            for (let index = 0; index < 3; index += 1) {
+              const retainer = roundedRectMesh(
+                d.ribWidth + lane.retainerOverhang,
+                2.2,
+                0.7,
+                0.35,
+                materials.routingChannel,
+                0.04
+              );
+              retainer.position.set(
+                lane.x + side * (lane.clearWidth / 2 + d.ribWidth / 2) - side * lane.retainerOverhang / 2,
+                d.startY + d.retainerSpacing / 2 + index * d.retainerSpacing,
+                rearInnerZ + lane.ribDepth - 0.35
+              );
+              enclosureGroup.add(retainer);
+            }
+          });
+        });
+      }
+
+      function addCompleteWireHarness() {
+        const routing = modelDimensions.wireRouting;
+        const lanes = Object.fromEntries(routing.lanes.map((lane) => [lane.name, lane]));
+        const rearInnerZ = shellBackZ + modelDimensions.enclosure.wall;
+        const harnessGroup = new THREE.Group();
+        harnessGroup.name = "complete-service-harness";
+        internalsGroup.add(harnessGroup);
+
+        const point = (x, y, z) => new THREE.Vector3(x, y, z);
+        const lanePoint = (name, y) => {
+          const lane = lanes[name];
+          return point(lane.x, y, rearInnerZ + lane.wireDiameter / 2 + 0.2);
+        };
+        const addWire = (name, material, diameter, points) => {
+          const curve = new THREE.CatmullRomCurve3(points, false, "centripetal", 0.45);
+          const geometry = new THREE.TubeGeometry(
+            curve,
+            Math.max(36, points.length * 12),
+            diameter / 2,
+            12,
+            false
+          );
+          const wire = new THREE.Mesh(geometry, material);
+          wire.name = name;
+          wire.castShadow = true;
+          wire.receiveShadow = true;
+          harnessGroup.add(wire);
+        };
+
+        const batteryZ = shellBackZ + modelDimensions.enclosure.wall + modelDimensions.battery.depth / 2 + 0.8;
+        const buckPortZ = shellBackZ + modelDimensions.enclosure.wall + 4.8;
+        const breadboardZ = shellBackZ + modelDimensions.enclosure.wall + modelDimensions.breadboard.depth / 2 + 0.6;
+        const xiaoPortZ = breadboardZ + modelDimensions.breadboard.depth / 2 + 3.2;
+        const splitterZ = shellFrontZ - modelDimensions.splitter.depth / 2 - 2.2;
+        const switchZ = shellFrontZ - modelDimensions.powerSwitchEnvelope.depth / 2 - 1.1;
+        const servoZ = shellFrontZ - 6.5;
+
+        // Battery inputs into the single-input side of the positive and ground splitters.
+        addWire("battery-positive-to-splitter", materials.wireRed, 3, [
+          point(3, -39, batteryZ),
+          point(6, -39, 15),
+          lanePoint("batteryPositiveInput", -38),
+          lanePoint("batteryPositiveInput", 13),
+          point(16, 13, 17),
+          point(26, 13, 25),
+          point(30.5, 13, splitterZ)
+        ]);
+        addWire("battery-ground-to-splitter", materials.wireBlack, 3, [
+          point(-3, -39, batteryZ),
+          point(5, -38, 15),
+          lanePoint("batteryGroundInput", -38),
+          lanePoint("batteryGroundInput", 32),
+          point(20, 32, 18),
+          point(27, 32, 25),
+          point(30.5, 32, splitterZ)
+        ]);
+
+        // High-current branches: positive passes through the load switch; ground remains common.
+        addWire("splitter-positive-to-power-switch", materials.wireRed, 3, [
+          point(-1.5, 10, splitterZ),
+          point(5, 10, 20),
+          lanePoint("splitterPositiveToSwitch", 10),
+          lanePoint("splitterPositiveToSwitch", -32),
+          point(10, -32, 18),
+          point(-14, -30, switchZ)
+        ]);
+        addWire("power-switch-to-servo-positive", materials.wireRed, 3, [
+          point(14, -30, switchZ),
+          point(20, -32, 18),
+          lanePoint("switchToServoPositive", -32),
+          lanePoint("switchToServoPositive", 45),
+          point(22, 47, 18),
+          point(8, 49, 25),
+          point(-18, 52, servoZ)
+        ]);
+        addWire("splitter-ground-to-servo", materials.wireBlack, 3, [
+          point(-1.5, 35, splitterZ),
+          point(9, 35, 19),
+          lanePoint("splitterGroundToServo", 35),
+          lanePoint("splitterGroundToServo", 45),
+          point(25, 48, 18),
+          point(10, 51, 25),
+          point(-13, 55, servoZ)
+        ]);
+
+        // Low-current buck input and regulated controller rails.
+        addWire("splitter-positive-to-buck-in", materials.wireRed, 1.8, [
+          point(-1.5, 16, splitterZ),
+          point(-9, 16, 18),
+          lanePoint("buckInputPositive", 16),
+          lanePoint("buckInputPositive", -29),
+          point(-24, -29, buckPortZ)
+        ]);
+        addWire("splitter-ground-to-buck-in", materials.wireBlack, 1.8, [
+          point(-1.5, 29, splitterZ),
+          point(-10, 29, 18),
+          lanePoint("buckInputGround", 29),
+          lanePoint("buckInputGround", -25),
+          point(-24, -25, buckPortZ)
+        ]);
+        addWire("buck-out-to-controller-5v", materials.wireBlue, 1.8, [
+          point(24, -25, buckPortZ),
+          point(16, -34, 15),
+          lanePoint("controller5V", -34),
+          lanePoint("controller5V", 28.5),
+          point(-15, 28.5, 14),
+          point(-7.5, 28.5, xiaoPortZ)
+        ]);
+        addWire("buck-out-to-controller-ground", materials.wireBlack, 1.8, [
+          point(24, -29, buckPortZ),
+          point(13, -35, 14),
+          lanePoint("controllerGround", -35),
+          lanePoint("controllerGround", 26),
+          point(-13, 26, 14),
+          point(-7.5, 26, xiaoPortZ)
+        ]);
+
+        // PWM leaves D2 through its own quiet lane, then joins the servo lead at the bay edge.
+        addWire("controller-d2-to-servo-signal", materials.wireYellow, 1.8, [
+          point(-28.5, 23.5, xiaoPortZ),
+          point(-23, 23.5, 15),
+          lanePoint("pwmSignal", 23.5),
+          lanePoint("pwmSignal", 45),
+          point(-11, 47, 17),
+          point(-8, 51, 24),
+          point(-8, 58, servoZ)
+        ]);
+      }
+
+      function addServoModel() {
+        const d = modelDimensions.servo;
+        const bodyZ = shellFrontZ - 6.5;
+        const centerBand = roundedRectMesh(d.width, d.height, d.depth, 3.2, materials.servoBlue, 0.58);
+        centerBand.position.set(0, d.centerY, bodyZ);
+        internalsGroup.add(centerBand);
+
+        const topCap = roundedRectMesh(45, 13, 22, 4, materials.servoBlack, 0.7);
+        topCap.position.set(0, d.centerY + 13.8, bodyZ);
+        internalsGroup.add(topCap);
+
+        const bottomCap = roundedRectMesh(42.5, 7, 21, 2.8, materials.servoBlack, 0.4);
+        bottomCap.position.set(0, d.centerY - 17.3, bodyZ);
+        internalsGroup.add(bottomCap);
+
+        const mountingEar = roundedRectMesh(55, 5.4, 23, 2.2, materials.servoBlack, 0.3);
+        mountingEar.position.set(0, d.centerY - 11.5, bodyZ);
+        internalsGroup.add(mountingEar);
+        [-24, 24].forEach((x) => {
+          const earHole = cylinderMesh(2.1, 1, materials.slot, 20);
+          earHole.rotation.x = Math.PI / 2;
+          earHole.position.set(x, d.centerY - 11.5, shellFrontZ + 5.2);
+          internalsGroup.add(earHole);
+        });
+
+        const pivotX = 12.2;
+        const pivotY = d.centerY + 11.2;
+        const boss = cylinderMesh(8.4, 8, materials.servoBlack, 36);
+        boss.rotation.x = Math.PI / 2;
+        boss.position.set(pivotX, pivotY, shellFrontZ + 5.2);
+        internalsGroup.add(boss);
+
+        const horn = roundedRectMesh(56, 6.2, 4.2, 3.1, materials.servoArm, 0.35);
+        horn.position.set(pivotX + 28, pivotY, shellFrontZ + 11.1);
+        internalsGroup.add(horn);
+
+        [pivotX + 12, pivotX + 28].forEach((x) => {
+          const hole = cylinderMesh(1.6, 4.5, materials.slot, 18);
+          hole.rotation.x = Math.PI / 2;
+          hole.position.set(x, pivotY, shellFrontZ + 13.3);
+          internalsGroup.add(hole);
+        });
+
+        const collar = cylinderMesh(10.6, 5.2, materials.servoArm, 40);
+        collar.rotation.x = Math.PI / 2;
+        collar.position.set(pivotX, pivotY, shellFrontZ + 11.2);
+        internalsGroup.add(collar);
+
+        const cap = roundedRectMesh(15, 8.2, 6, 4.1, materials.rubber, 0.45);
+        cap.position.set(pivotX + 49.5, pivotY, shellFrontZ + 11.2);
+        internalsGroup.add(cap);
+      }
+
+      addBatteryModel();
+      addBuckAndPowerSwitch();
+      addBreadboardAndXiao();
+      addInlineSplitters();
+      addWireRoutingChannels();
+      addCompleteWireHarness();
+      addServoModel();
+
+      const serviceCover = panelWithHoles(
+        modelDimensions.serviceCover.width,
+        modelDimensions.serviceCover.height,
+        modelDimensions.serviceCover.depth,
+        modelDimensions.serviceCover.radius,
+        [
+          { width: modelDimensions.servoPocket.width, height: modelDimensions.servoPocket.height, y: modelDimensions.servoPocket.centerY, radius: 5 },
+          { width: 26, height: 9, y: 111, radius: 4.5 }
+        ],
+        materials.cover,
+        0.38
+      );
+      serviceCover.position.set(0, 0, shellFrontZ + modelDimensions.serviceCover.depth / 2 + 0.8);
+      coverGroup.add(serviceCover);
+      addEdges(serviceCover, coverGroup);
+
+      [-27, 27].forEach((x) => {
+        const coverRailHeadWidth = dovetailHeadWidth(
+          coverRailProfile.neckWidth,
+          coverRailProfile.depth,
+          coverRailProfile.faceAngleDeg
+        );
+        const coverRail = new THREE.Mesh(
+          captiveDovetailGeometry(
+            coverRailProfile.neckWidth,
+            coverRailHeadWidth,
+            coverRailProfile.depth,
+            coverRailProfile.length
+          ),
+          materials.coverRail
+        );
+        coverRail.rotation.y = Math.PI;
+        coverRail.position.set(x, 0, shellFrontZ + 0.6);
+        coverGroup.add(coverRail);
+        addEdges(coverRail, coverGroup);
+      });
+
+      const statusLed = roundedRectMesh(22, 5, 2.4, 2.5, materials.rail, 0.18);
+      statusLed.position.set(0, 111, serviceCover.position.z + 2.3);
+      coverGroup.add(statusLed);
+
+      const lowerSolar = makeSolarPanel(
+        modelDimensions.solarPanel.width,
+        modelDimensions.solarPanel.height,
+        modelDimensions.solarPanel.depth,
+        materials.solar
+      );
+      lowerSolar.position.set(0, -61, serviceCover.position.z + 3.1);
+      solarGroup.add(lowerSolar);
+
+      const upperSolarConflict = makeSolarPanel(
+        modelDimensions.solarPanel.width,
+        modelDimensions.solarPanel.height,
+        modelDimensions.solarPanel.depth,
+        materials.conflict
+      );
+      upperSolarConflict.position.set(0, 50, serviceCover.position.z + 3.15);
+      solarGroup.add(upperSolarConflict);
+
+      const ground = new THREE.Mesh(
+        new THREE.PlaneGeometry(260, 230),
+        new THREE.ShadowMaterial({ color: 0x000000, opacity: 0.22 })
+      );
+      ground.rotation.x = -Math.PI / 2;
+      ground.position.set(0, -128, 36);
+      ground.receiveShadow = true;
+      scene.add(ground);
+
+      let exploded = false;
+      let cutaway = true;
+      let harnessFocus = false;
+      let autoRotate = true;
+      let targetRotationX = -0.1;
+      let targetRotationY = -0.26;
+      let cameraDistance = 520;
+      let dragging = false;
+      let lastPointerX = 0;
+      let lastPointerY = 0;
+
+      const defaultZ = { door: 0, adhesive: 0, plate: 0, enclosure: 0, internals: 0, cover: 0, solar: 0 };
+      const explodedZ = { door: -16, adhesive: -8, plate: 0, enclosure: 22, internals: 40, cover: 74, solar: 88 };
+
+      function updateInspectionVisibility() {
+        materials.enclosure.opacity = harnessFocus ? 0.1 : (cutaway ? 0.22 : 0.96);
+        materials.cover.opacity = cutaway ? 0.24 : 0.94;
+        materials.solar.opacity = cutaway ? 0.3 : 0.98;
+        materials.enclosure.depthWrite = !cutaway && !harnessFocus;
+        materials.cover.depthWrite = !cutaway;
+        materials.solar.depthWrite = !cutaway;
+        doorGroup.visible = !harnessFocus;
+        adhesiveGroup.visible = !harnessFocus;
+        plateGroup.visible = !harnessFocus;
+        coverGroup.visible = !harnessFocus;
+        solarGroup.visible = !harnessFocus;
+        internalsGroup.visible = cutaway || exploded || harnessFocus;
+        upperSolarConflict.visible = !harnessFocus && (cutaway || exploded);
+      }
+
+      function setExploded(next) {
+        exploded = next;
+        explodeToggle?.setAttribute("aria-pressed", exploded ? "true" : "false");
+        updateInspectionVisibility();
+      }
+
+      function setCutaway(next) {
+        cutaway = next;
+        cutawayToggle?.setAttribute("aria-pressed", cutaway ? "true" : "false");
+        updateInspectionVisibility();
+      }
+
+      function setAutoRotate(next) {
+        autoRotate = next;
+        autoRotateToggle?.setAttribute("aria-pressed", autoRotate ? "true" : "false");
+      }
+
+      function setHarnessFocus(next) {
+        harnessFocus = next;
+        harnessToggle?.setAttribute("aria-pressed", harnessFocus ? "true" : "false");
+        mountViewer.classList.toggle("harness-focus", harnessFocus);
+        if (harnessFocus) {
+          exploded = false;
+          cutaway = true;
+          setAutoRotate(false);
+          explodeToggle?.setAttribute("aria-pressed", "false");
+          cutawayToggle?.setAttribute("aria-pressed", "true");
+          targetRotationX = -0.04;
+          targetRotationY = -0.12;
+          cameraDistance = 410;
+        } else {
+          cameraDistance = 520;
+        }
+        updateInspectionVisibility();
+      }
+
+      function resetView() {
+        targetRotationX = -0.1;
+        targetRotationY = -0.26;
+        cameraDistance = harnessFocus ? 410 : 520;
+      }
+
+      explodeToggle?.addEventListener("click", () => setExploded(!exploded));
+      cutawayToggle?.addEventListener("click", () => setCutaway(!cutaway));
+      harnessToggle?.addEventListener("click", () => setHarnessFocus(!harnessFocus));
+      autoRotateToggle?.addEventListener("click", () => setAutoRotate(!autoRotate));
+      resetViewButton?.addEventListener("click", resetView);
+      updateInspectionVisibility();
+
+      mountViewer.addEventListener("pointerdown", (event) => {
+        dragging = true;
+        lastPointerX = event.clientX;
+        lastPointerY = event.clientY;
+        mountViewer.setPointerCapture(event.pointerId);
+      });
+
+      mountViewer.addEventListener("pointermove", (event) => {
+        if (!dragging) return;
+        const dx = event.clientX - lastPointerX;
+        const dy = event.clientY - lastPointerY;
+        lastPointerX = event.clientX;
+        lastPointerY = event.clientY;
+        targetRotationY += dx * 0.008;
+        targetRotationX = Math.max(-0.82, Math.min(0.48, targetRotationX + dy * 0.006));
+      });
+
+      mountViewer.addEventListener("pointerup", (event) => {
+        dragging = false;
+        if (mountViewer.hasPointerCapture(event.pointerId)) {
+          mountViewer.releasePointerCapture(event.pointerId);
+        }
+      });
+
+      mountViewer.addEventListener("pointercancel", () => {
+        dragging = false;
+      });
+
+      mountViewer.addEventListener("wheel", (event) => {
+        event.preventDefault();
+        cameraDistance = Math.max(harnessFocus ? 360 : 440, Math.min(860, cameraDistance + event.deltaY * 0.18));
+      }, { passive: false });
+
+      function resizeRenderer() {
+        const rect = mountViewer.getBoundingClientRect();
+        const width = Math.max(320, Math.floor(rect.width));
+        const height = Math.max(360, Math.floor(rect.height));
+        renderer.setSize(width, height, false);
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+      }
+
+      const resizeObserver = new ResizeObserver(resizeRenderer);
+      resizeObserver.observe(mountViewer);
+      resizeRenderer();
+
+      function easeGroupZ(group, target) {
+        group.position.z += (target - group.position.z) * 0.12;
+      }
+
+      function animate() {
+        if (autoRotate && !dragging) {
+          targetRotationY += 0.0008;
+        }
+
+        pivot.rotation.x += (targetRotationX - pivot.rotation.x) * 0.1;
+        pivot.rotation.y += (targetRotationY - pivot.rotation.y) * 0.1;
+        camera.position.z += (cameraDistance - camera.position.z) * 0.1;
+
+        const z = exploded ? explodedZ : defaultZ;
+        easeGroupZ(doorGroup, z.door);
+        easeGroupZ(adhesiveGroup, z.adhesive);
+        easeGroupZ(plateGroup, z.plate);
+        easeGroupZ(enclosureGroup, z.enclosure);
+        easeGroupZ(internalsGroup, z.internals);
+        easeGroupZ(coverGroup, z.cover);
+        easeGroupZ(solarGroup, z.solar);
+
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+      }
+
+      animate();
+    }
+
+    startMountingPlateModel();
   </script>
 </body>
 </html>
