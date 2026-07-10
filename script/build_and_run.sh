@@ -233,13 +233,13 @@ build_bundle() {
   <key>CFBundleExecutable</key>
   <string>$APP_NAME</string>
   <key>CFBundleDisplayName</key>
-  <string>Door Unlocker</string>
+  <string>Door Unlocker Admin</string>
   <key>CFBundleIdentifier</key>
   <string>$BUNDLE_ID</string>
   <key>CFBundleIconFile</key>
   <string>AppIcon</string>
   <key>CFBundleName</key>
-  <string>Door Unlocker</string>
+  <string>Door Unlocker Admin</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
