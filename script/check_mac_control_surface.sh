@@ -19,18 +19,27 @@ tell application "System Events"
   if not (exists process "DoorUnlockerAdmin") then error "DoorUnlockerAdmin process is not running"
   tell process "DoorUnlockerAdmin"
     set frontmost to true
-    set matchingButtons to {}
-    repeat with candidate in buttons of window 1
-      set candidateTitle to ""
+    if (count of windows) is 0 then
       try
-        set candidateTitle to name of candidate as text
+        click menu item "Show Door Unlocker" of menu "File" of menu bar item "File" of menu bar 1
+      on error
+        try
+          click menu item "Door Unlocker" of menu "Window" of menu bar item "Window" of menu bar 1
+        end try
       end try
-      if candidateTitle contains "Click to lock" or candidateTitle contains "Click to unlock" then
-        set end of matchingButtons to candidate
-      end if
+      delay 1
+    end if
+    repeat 40 times
+      repeat with candidate in menu items of menu "Controller" of menu bar item "Controller" of menu bar 1
+        set candidateTitle to name of candidate as text
+        if (candidateTitle is "Lock" or candidateTitle is "Unlock") and (enabled of candidate) then
+          click candidate
+          return
+        end if
+      end repeat
+      delay 0.25
     end repeat
-    if (count of matchingButtons) is 0 then error "No enabled lock/unlock control surface was found"
-    click item 1 of matchingButtons
+    error "No enabled lock/unlock control path was found after 10 seconds"
   end tell
 end tell
 APPLESCRIPT

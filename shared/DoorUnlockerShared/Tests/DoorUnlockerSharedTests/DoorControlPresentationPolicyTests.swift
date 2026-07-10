@@ -68,12 +68,36 @@ final class DoorControlPresentationPolicyTests: XCTestCase {
         XCTAssertEqual(presentation.actionTitle, "Tap to unlock")
     }
 
+    func testQueuedCommandDisablesRepeatedAction() {
+        let presentation = DoorControlPresentationPolicy.presentation(
+            for: input(isDoorCommandQueuedForSecureLink: true)
+        )
+
+        XCTAssertFalse(presentation.isPrimaryActionEnabled)
+    }
+
+    func testChangingStateDisablesRepeatedActionUntilControllerConfirmation() {
+        let presentation = DoorControlPresentationPolicy.presentation(
+            for: input(servoState: "unlocking", isUnlocked: true)
+        )
+
+        XCTAssertFalse(presentation.isPrimaryActionEnabled)
+        XCTAssertEqual(presentation.actionTitle, "Unlocking...")
+    }
+
     func testDoorStateHelpersCoverFinalAndTransientStates() {
         XCTAssertTrue(DoorControlPresentationPolicy.isDoorState("locked"))
         XCTAssertTrue(DoorControlPresentationPolicy.isDoorState("unlocking"))
         XCTAssertFalse(DoorControlPresentationPolicy.isDoorState("paired"))
         XCTAssertTrue(DoorControlPresentationPolicy.isUnlockedState("unlocking", fallback: false))
         XCTAssertFalse(DoorControlPresentationPolicy.isUnlockedState("locking", fallback: true))
+    }
+
+    func testDoorStateOnlySatisfiesMatchingCommandTarget() {
+        XCTAssertTrue(DoorControlPresentationPolicy.state("unlocking", satisfiesUnlockedTarget: true))
+        XCTAssertTrue(DoorControlPresentationPolicy.state("locked", satisfiesUnlockedTarget: false))
+        XCTAssertFalse(DoorControlPresentationPolicy.state("locking", satisfiesUnlockedTarget: true))
+        XCTAssertFalse(DoorControlPresentationPolicy.state("paired", satisfiesUnlockedTarget: false))
     }
 
     private func input(

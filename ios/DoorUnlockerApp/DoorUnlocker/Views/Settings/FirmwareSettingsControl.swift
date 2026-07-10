@@ -3,7 +3,6 @@ import SwiftUI
 struct FirmwareSettingsControl: View {
     @ObservedObject var controller: DoorUnlockerController
     let accent: Color
-    @Binding var isFirmwareImporterPresented: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -20,6 +19,12 @@ struct FirmwareSettingsControl: View {
                     .minimumScaleFactor(0.7)
             }
 
+            Text(controller.bundledFirmwareVersionDisplayText)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+
             if let progress = controller.firmwareUpdateProgress {
                 ProgressView(value: Double(progress), total: 100)
                     .tint(accent)
@@ -31,28 +36,12 @@ struct FirmwareSettingsControl: View {
                 .lineLimit(2)
                 .minimumScaleFactor(0.75)
 
-            HStack(spacing: 8) {
-                if controller.bundledFirmwarePackageURL != nil {
-                    Button {
-                        controller.startBundledFirmwareUpdate()
-                    } label: {
-                        Label("Install Bundled Update", systemImage: "shippingbox.fill")
-                            .frame(maxWidth: .infinity, minHeight: 38)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(accent)
-                }
-
-                Button {
-                    isFirmwareImporterPresented = true
-                } label: {
-                    Label("Choose ZIP", systemImage: "doc.zipper")
-                        .frame(maxWidth: .infinity, minHeight: 38)
-                }
-                .buttonStyle(.bordered)
-                .tint(accent)
+            if let etaText = controller.firmwareUpdateETAText {
+                Text(etaText)
+                    .font(.caption2.monospacedDigit().weight(.bold))
+                    .foregroundStyle(accent)
+                    .lineLimit(1)
             }
-            .font(.caption.weight(.bold))
         }
         .disabled(controller.isAuthenticatingSettings || controller.isFirmwareUpdateRunning)
         .padding(12)

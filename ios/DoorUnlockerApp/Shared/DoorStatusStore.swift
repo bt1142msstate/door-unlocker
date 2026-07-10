@@ -11,6 +11,7 @@ struct DoorUnlockerActivityAttributes: ActivityAttributes {
         let activityKind: String
         let firmwareStatus: String?
         let firmwareProgress: Int?
+        let firmwareEstimatedSecondsRemaining: Int?
         let firmwareVersion: String?
 
         init(
@@ -22,6 +23,7 @@ struct DoorUnlockerActivityAttributes: ActivityAttributes {
             activityKind: String = "door",
             firmwareStatus: String? = nil,
             firmwareProgress: Int? = nil,
+            firmwareEstimatedSecondsRemaining: Int? = nil,
             firmwareVersion: String? = nil
         ) {
             self.state = state
@@ -32,6 +34,7 @@ struct DoorUnlockerActivityAttributes: ActivityAttributes {
             self.activityKind = activityKind
             self.firmwareStatus = firmwareStatus
             self.firmwareProgress = firmwareProgress
+            self.firmwareEstimatedSecondsRemaining = firmwareEstimatedSecondsRemaining
             self.firmwareVersion = firmwareVersion
         }
 

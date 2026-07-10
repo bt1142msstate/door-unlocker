@@ -46,7 +46,7 @@ extension DoorAdminStore {
             return false
         }
 
-        return sendWirelessCommandText(commandText, intent: .pairingAdmin)
+        return sendWirelessCommandText(commandText, intent: .pairingAdmin).isAccepted
     }
 
     func removeSelectedDevice() {

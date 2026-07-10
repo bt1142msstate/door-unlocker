@@ -20,6 +20,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from quality_test_support import count_swift_tests_under
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -245,7 +247,9 @@ def score_module_boundaries(config: AppConfig) -> tuple[float, str]:
         checks = {
             "appTarget": "DoorUnlocker" in project_text,
             "widgetTarget": "DoorUnlockerWidget" in project_text,
+            "testTarget": "DoorUnlockerTests" in project_text,
             "sharedPackage": shared_package.exists(),
+            "sharedDFUProduct": "DoorUnlockerDFU" in project_text,
             "sharedTests": shared_tests.exists(),
         }
     else:
@@ -257,6 +261,7 @@ def score_module_boundaries(config: AppConfig) -> tuple[float, str]:
             "cliExecutable": ".executable(name: \"door-unlocker\"" in package_text,
             "coreTests": "\"DoorUnlockerCoreTests\"" in package_text,
             "sharedDependency": "DoorUnlockerShared" in package_text,
+            "sharedDFUProduct": "DoorUnlockerDFU" in package_text,
         }
 
     passed = sum(1 for value in checks.values() if value)
@@ -301,12 +306,19 @@ def score_state_owner_pressure(config: AppConfig, files: list[SwiftFile]) -> tup
 
 
 def source_contains(path: Path, needle: str) -> bool:
+    if path.is_dir():
+        return any(
+            needle in candidate.read_text(encoding="utf-8")
+            for candidate in path.rglob("*.swift")
+        )
     return path.exists() and needle in path.read_text(encoding="utf-8")
 
 
 def score_shared_protocol_codec(config: AppConfig) -> tuple[float, str]:
     shared_codec = ROOT / "shared" / "DoorUnlockerShared" / "Sources" / "DoorUnlockerShared" / "DoorSecureCommandCodec.swift"
+    shared_signing = ROOT / "shared" / "DoorUnlockerShared" / "Sources" / "DoorUnlockerShared" / "DoorSecureCommandSigningContext.swift"
     shared_tests = ROOT / "shared" / "DoorUnlockerShared" / "Tests" / "DoorUnlockerSharedTests" / "DoorSecureCommandCodecTests.swift"
+    shared_signing_tests = ROOT / "shared" / "DoorUnlockerShared" / "Tests" / "DoorUnlockerSharedTests" / "DoorSecureCommandSigningContextTests.swift"
     if config.name == "iOS":
         auth_file = ROOT / "ios" / "DoorUnlockerApp" / "DoorUnlocker" / "DoorCommandAuthenticator.swift"
     else:
@@ -315,8 +327,11 @@ def score_shared_protocol_codec(config: AppConfig) -> tuple[float, str]:
     checks = {
         "sharedCodec": shared_codec.exists(),
         "sharedCodecTests": shared_tests.exists() and shared_tests.read_text(encoding="utf-8").count("func test") >= 5,
-        "appUsesSharedCodec": source_contains(auth_file, "DoorSecureCommandCodec"),
+        "sharedSigning": shared_signing.exists(),
+        "sharedSigningTests": shared_signing_tests.exists() and shared_signing_tests.read_text(encoding="utf-8").count("func test") >= 4,
+        "appUsesSharedSigning": source_contains(auth_file, "DoorSecureCommandSigningContext"),
         "appDoesNotOwnOpcodeTable": not source_contains(auth_file, "fastCommandSetServoAnglesOp"),
+        "appDoesNotAssembleSignedPacket": not source_contains(auth_file, "DoorSecureCommandCodec.unsignedPacket"),
     }
     passed = sum(1 for value in checks.values() if value)
     return 100 * passed / len(checks), f"{passed}/{len(checks)} shared protocol codec checks"
@@ -328,7 +343,7 @@ def score_shared_controller_policy(config: AppConfig) -> tuple[float, str]:
     policy_test_count = shared_tests.read_text(encoding="utf-8").count("func test") if shared_tests.exists() else 0
 
     if config.name == "iOS":
-        controller = ROOT / "ios" / "DoorUnlockerApp" / "DoorUnlocker" / "DoorUnlockerController.swift"
+        controller = ROOT / "ios" / "DoorUnlockerApp" / "DoorUnlocker"
         checks = {
             "sharedPolicy": shared_policy.exists(),
             "sharedPolicyTests": policy_test_count >= 4,
@@ -338,7 +353,7 @@ def score_shared_controller_policy(config: AppConfig) -> tuple[float, str]:
         }
     else:
         core_model = ROOT / "mac" / "DoorUnlockerAdmin" / "Sources" / "DoorUnlockerCore" / "ControllerModels.swift"
-        store = ROOT / "mac" / "DoorUnlockerAdmin" / "Sources" / "DoorUnlockerAdmin" / "Stores" / "DoorAdminStore.swift"
+        store = ROOT / "mac" / "DoorUnlockerAdmin" / "Sources" / "DoorUnlockerAdmin" / "Stores"
         checks = {
             "sharedPolicy": shared_policy.exists(),
             "sharedPolicyTests": policy_test_count >= 4,
@@ -352,12 +367,7 @@ def score_shared_controller_policy(config: AppConfig) -> tuple[float, str]:
 
 
 def count_tests(path: Path) -> int:
-    if not path.exists():
-        return 0
-    return sum(
-        text.count("func test")
-        for text in (file.read_text(encoding="utf-8") for file in path.rglob("*.swift"))
-    )
+    return count_swift_tests_under(path)
 
 
 def score_independent_testability(config: AppConfig) -> tuple[float, str]:
@@ -370,6 +380,8 @@ def score_independent_testability(config: AppConfig) -> tuple[float, str]:
 
     if config.name == "iOS":
         app_parser_adapter = ROOT / "ios" / "DoorUnlockerApp" / "Shared" / "DoorControllerStateParser.swift"
+        ios_tests = ROOT / "ios" / "DoorUnlockerApp" / "DoorUnlockerTests"
+        ios_test_count = count_tests(ios_tests)
         shared_policy_tests = shared_tests / "DoorUnlockerSharedTests" / "DoorControllerPolicyTests.swift"
         checks = {
             "sharedPackage": shared_package.exists(),
@@ -378,6 +390,7 @@ def score_independent_testability(config: AppConfig) -> tuple[float, str]:
             "sharedPolicyTests": shared_policy_tests.exists() and shared_policy_tests.read_text(encoding="utf-8").count("func test") >= 4,
             "iOSParserUsesShared": source_contains(app_parser_adapter, "DoorControllerStateParsing"),
             "iOSAuthUsesShared": score_shared_protocol_codec(config)[0] == 100,
+            "iOSAdapterTests": ios_test_count >= 5,
         }
     else:
         package_text = mac_package.read_text(encoding="utf-8") if mac_package.exists() else ""
@@ -394,7 +407,8 @@ def score_independent_testability(config: AppConfig) -> tuple[float, str]:
     passed = sum(1 for value in checks.values() if value)
     return 100 * passed / len(checks), (
         f"{passed}/{len(checks)} independent checks, "
-        f"sharedTests={shared_test_count}, macCoreTests={mac_test_count}"
+        f"sharedTests={shared_test_count}, macCoreTests={mac_test_count}, "
+        f"iOSAdapterTests={count_tests(ROOT / 'ios' / 'DoorUnlockerApp' / 'DoorUnlockerTests')}"
     )
 
 
@@ -476,6 +490,7 @@ def dependency_graph_mermaid() -> str:
     subgraph iOS["iOS app"]
         IOSApp["DoorUnlocker app target"]
         Widget["DoorUnlockerWidget extension"]
+        IOSTests["DoorUnlockerTests"]
     end
 
     subgraph Mac["macOS app"]
@@ -487,6 +502,7 @@ def dependency_graph_mermaid() -> str:
 
     subgraph Shared["shared package"]
         SharedLib["DoorUnlockerShared library"]
+        SharedDFU["DoorUnlockerDFU transport"]
         SharedTests["DoorUnlockerSharedTests"]
     end
 
@@ -497,13 +513,17 @@ def dependency_graph_mermaid() -> str:
 
     IOSApp --> Widget
     IOSApp --> SharedLib
-    IOSApp --> Nordic
+    IOSApp --> SharedDFU
+    IOSTests --> IOSApp
+    IOSTests --> SharedLib
     MacAdmin --> MacCore
-    MacAdmin --> Nordic
+    MacAdmin --> SharedDFU
     MacCLI --> MacCore
     MacTests --> MacCore
     MacCore --> SharedLib
     SharedTests --> SharedLib
+    SharedDFU --> SharedLib
+    SharedDFU --> Nordic
     Nordic --> ZIP
 """
 
@@ -550,7 +570,17 @@ def result_payload(threshold: float) -> dict[str, object]:
                 "adapterBoundaryFiles": [file.rel for file in adapter_boundaries],
             }
         )
-    return {"threshold": threshold, "passed": not failed, "apps": apps}
+    return {
+        "scoreKind": "project-architecture-heuristic",
+        "threshold": threshold,
+        "passed": not failed,
+        "limitations": [
+            "Apple does not publish a numeric coupling or modularity grade.",
+            "Source ownership and registered tests are structural evidence; runtime results come from the full quality suite.",
+            "Large hardware/session state owners remain explicit risks even when UI boundaries score well.",
+        ],
+        "apps": apps,
+    }
 
 
 def main() -> int:

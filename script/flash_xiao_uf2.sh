@@ -9,6 +9,7 @@ UF2_PATH="$TMP_SKETCH/DoorUnlockerXiao.uf2"
 DIST_UF2_PATH="$ROOT_DIR/dist/DoorUnlockerXiao.uf2"
 DFU_ZIP_PATH="$TMP_BUILD/DoorUnlockerXiao.ino.zip"
 DIST_DFU_ZIP_PATH="$ROOT_DIR/dist/DoorUnlockerXiao-dfu.zip"
+BUNDLED_DFU_ZIP_PATH="$ROOT_DIR/ios/DoorUnlockerApp/DoorUnlocker/Firmware/DoorUnlockerXiao-dfu.zip"
 FQBN="${XIAO_FQBN:-Seeeduino:nrf52:xiaonRF52840Sense}"
 XIAO_OPTIMIZATION_FLAG="${XIAO_OPTIMIZATION_FLAG:--Os}"
 UF2CONV="${UF2CONV:-$HOME/Library/Arduino15/packages/Seeeduino/hardware/nrf52/1.1.13/tools/uf2conv/uf2conv.py}"
@@ -117,7 +118,10 @@ echo "Creating BLE DFU package..."
   --application "$TMP_BUILD/DoorUnlockerXiao.ino.hex" \
   "$DFU_ZIP_PATH"
 cp -X "$DFU_ZIP_PATH" "$DIST_DFU_ZIP_PATH"
+mkdir -p "$(dirname "$BUNDLED_DFU_ZIP_PATH")"
+cp -X "$DFU_ZIP_PATH" "$BUNDLED_DFU_ZIP_PATH"
 echo "BLE DFU package ready at $DIST_DFU_ZIP_PATH"
+echo "Bundled iOS DFU package synchronized at $BUNDLED_DFU_ZIP_PATH"
 
 if [[ "$BUILD_ONLY" == "1" ]]; then
   exit 0

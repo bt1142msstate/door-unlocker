@@ -5,6 +5,7 @@ flowchart LR
     subgraph iOS["iOS app"]
         IOSApp["DoorUnlocker app target"]
         Widget["DoorUnlockerWidget extension"]
+        IOSTests["DoorUnlockerTests"]
     end
 
     subgraph Mac["macOS app"]
@@ -16,6 +17,7 @@ flowchart LR
 
     subgraph Shared["shared package"]
         SharedLib["DoorUnlockerShared library"]
+        SharedDFU["DoorUnlockerDFU transport"]
         SharedTests["DoorUnlockerSharedTests"]
     end
 
@@ -26,12 +28,16 @@ flowchart LR
 
     IOSApp --> Widget
     IOSApp --> SharedLib
-    IOSApp --> Nordic
+    IOSApp --> SharedDFU
+    IOSTests --> IOSApp
+    IOSTests --> SharedLib
     MacAdmin --> MacCore
-    MacAdmin --> Nordic
+    MacAdmin --> SharedDFU
     MacCLI --> MacCore
     MacTests --> MacCore
     MacCore --> SharedLib
     SharedTests --> SharedLib
+    SharedDFU --> SharedLib
+    SharedDFU --> Nordic
     Nordic --> ZIP
 ```

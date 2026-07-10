@@ -28,12 +28,8 @@ struct LockSettingsPanel: View {
                     .font(.headline)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "door.left.hand.closed")
-                            .foregroundStyle(accent)
-                        Text("Lock Name")
-                            .font(.caption.weight(.bold))
-                    }
+                    Text("Lock Name")
+                        .font(.caption.weight(.bold))
 
                     TextField(DoorAdminStore.defaultLockName, text: lockNameBinding)
                         .textFieldStyle(.roundedBorder)
@@ -78,7 +74,12 @@ struct LockSettingsPanel: View {
                             set: { store.updateAutoLockSeconds(Int($0.rounded())) }
                         ),
                         in: Double(store.autoLockRange.lowerBound) ... Double(store.autoLockRange.upperBound),
-                        step: 5
+                        step: 5,
+                        onEditingChanged: { isEditing in
+                            if !isEditing {
+                                store.commitAutoLockSeconds()
+                            }
+                        }
                     )
                     .tint(accent)
                     .controlSize(.small)
@@ -114,13 +115,15 @@ struct LockSettingsPanel: View {
                     servoAngleSlider(
                         title: "Rest angle",
                         value: store.status.lockAngle,
-                        setValue: store.updateLockServoAngle
+                        setValue: store.updateLockServoAngle,
+                        commitValue: store.commitServoAngles
                     )
 
                     servoAngleSlider(
                         title: "Push angle",
                         value: store.status.unlockAngle,
-                        setValue: store.updateUnlockServoAngle
+                        setValue: store.updateUnlockServoAngle,
+                        commitValue: store.commitServoAngles
                     )
 
                     Button {
@@ -163,7 +166,12 @@ struct LockSettingsPanel: View {
         }
     }
 
-    private func servoAngleSlider(title: String, value: Int, setValue: @escaping (Int) -> Void) -> some View {
+    private func servoAngleSlider(
+        title: String,
+        value: Int,
+        setValue: @escaping (Int) -> Void,
+        commitValue: @escaping () -> Void
+    ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 Text(title)
@@ -180,7 +188,12 @@ struct LockSettingsPanel: View {
                     set: { setValue(Int($0.rounded())) }
                 ),
                 in: Double(store.servoAngleRange.lowerBound) ... Double(store.servoAngleRange.upperBound),
-                step: 1
+                step: 1,
+                onEditingChanged: { isEditing in
+                    if !isEditing {
+                        commitValue()
+                    }
+                }
             )
             .tint(accent)
             .controlSize(.small)

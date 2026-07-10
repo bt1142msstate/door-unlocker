@@ -4,13 +4,13 @@ Open-source desk-test prototype for a BLE-controlled servo actuator. The project
 
 This is a bench prototype and wiring reference, not a certified door lock, access-control system, or life-safety device.
 
-Current release: `v0.1.0`, the first stable desk-test release. The authenticated wireless command path, trusted-device pairing admin flow, app-driven OTA update path, iPhone app, Mac app, and bench hardware workflow are in place. The project is still a prototype and is not a certified lock, access-control system, or life-safety device.
+Current pre-release: `v0.2.0-beta.1`. This beta expands the authenticated multi-device BLE path, automatic and resumable app-driven OTA updates, shared iPhone/Mac command contracts, release-quality gates, and Phase 2 enclosure documentation. The project is still a prototype and is not a certified lock, access-control system, or life-safety device.
 
-Latest stable firmware: `0.1.0`.
+Latest non-beta release: `v0.1.0`. Latest beta controller firmware: `0.1.9`.
 
-## Latest Stable Validation
+## Latest Beta Validation
 
-The `v0.1.0` cut was tested on July 7-8, 2026 against the bench XIAO controller and the iPhone/Mac apps.
+The `v0.2.0-beta.1` candidate was tested on July 10, 2026 against the bench XIAO controller and the iPhone/Mac apps.
 
 Observed iPhone startup timing from `script/benchmark_ios_startup.sh`:
 
@@ -25,11 +25,13 @@ Observed iPhone startup timing from `script/benchmark_ios_startup.sh`:
 Validation run:
 
 - iPhone install path remains `script/install_ios_app.sh`, which builds for `generic/platform=iOS` and installs with `devicectl`.
+- iPhone wireless debug/monitor path is documented in `docs/ios-wireless-debugging.md`; use `script/ios_device_status.sh --require-wireless` and `script/monitor_ios_app.sh --wireless-only` to prove the no-cable path.
 - iPhone physical-device build/install passed with the bundled DFU package.
+- Firmware `0.1.9` passed a cold-launch trusted-iPhone OTA proof on July 10, 2026: signed BLE entry command at `284 ms`, `82.38s` upload, bootloader validation, reboot, secure reconnection, and post-reboot BLE version verification.
 - Mac admin package build passed with `swift build --package-path mac/DoorUnlockerAdmin`.
 - Mac admin build/run install path passed with `script/build_and_run.sh --install`.
-- iPhone OTA path verified without controller USB-C: the iPhone app updated/verified `0.1.0` over BLE in `94s`.
-- Mac OTA path can verify without controller USB-C; the latest proof run verified over BLE. Use the firmware update commands below for the current size-optimized `0.1.0` package.
+- iPhone OTA entry, upload, reboot, and post-update firmware verification passed over BLE for firmware `0.1.9`.
+- Mac OTA uses the same shared DFU transport and tuning package as iOS.
 - The wireless verifier refuses the iPhone no-USB run if the controller USB-C serial port is visible, so the normal OTA proof does not depend on serial readback.
 - Earlier Mac OTA timing for `0.1.0-beta.ota24`: `184.8s` app-side DFU time, with `951 B/s` average upload speed at completion.
 - OTA tuning test results:
@@ -49,7 +51,10 @@ Validation run:
 - SwiftUI Mac admin app for USB-C controller management, Bluetooth lock/unlock, pairing approval, and trusted-device removal.
 - Siri/App Shortcuts, WidgetKit home widget, and Control Widget support for iPhone Action Button controls.
 - Interactive no-solder desk-test wiring diagram with hardware list, costs, and part details.
-- Hardware notes for a battery-powered 2S setup using XT30 pigtails, WAGO lever nuts, a buck converter, and a breadboard.
+- Hardware notes for a battery-powered 2S setup using XT30 pigtails, compact inline lever splitters, a buck converter, and a breadboard.
+- An optimal component direction document for the lower-power enclosure path: [docs/optimal-components.md](docs/optimal-components.md).
+- A documented, cross-platform low-latency control contract: [docs/fast-lock-command-path.md](docs/fast-lock-command-path.md).
+- A calibrated full quality suite with iOS/Mac adapter parity tests and explicit evidence limits: [docs/quality-suite.md](docs/quality-suite.md).
 
 ## Hardware
 
@@ -61,10 +66,12 @@ Current Phase 1 desk-test parts:
 - 7.4 V 2S Li-ion battery with XT30 output.
 - XT30 pigtails.
 - LM2596 adjustable buck converter for the microcontroller rail.
-- WAGO 222-413 3-conductor lever nuts for power splitting.
+- Two XALXMAW 1-in/2-out inline lever splitters: one for positive and one for common ground.
 - Mini breadboard and jumper wires.
 
 The servo power should come directly from the battery-side power split. The XIAO should be powered through the buck converter. The servo signal line can go through the breadboard because it is only carrying PWM signal, not servo motor current.
+
+The current LM2596 and no-solder wiring are prototype-friendly, not the final low-power target. The optimized hardware direction is to use one protected 2S pack, a low-quiescent 2S-capable buck for the controller rail, a true high-side servo power switch, switched battery measurement or a multi-cell fuel gauge, and protected 2S solar charging. See [docs/optimal-components.md](docs/optimal-components.md) for the current preferred component direction and source links.
 
 With the XIAO component side facing up and the USB-C connector at the top:
 
@@ -79,10 +86,15 @@ assets/                         Rendered hardware images used by the wiring page
 firmware/DoorUnlockerXiao/       Arduino firmware for the XIAO nRF52840
 ios/DoorUnlockerApp/             SwiftUI iPhone app, widget, and control extension
 mac/DoorUnlockerAdmin/           SwiftUI Mac admin app for USB-C controller management
+shared/DoorUnlockerShared/       Cross-platform command, BLE policy, parser, signing, and DFU modules
 screenshots/                     Project screenshots and visual references
 phase-1-desk-test-wiring.html    Interactive desk-test wiring diagram
 index.html                       GitHub Pages entry point
 ```
+
+The iPhone and Mac apps share two Swift package products. `DoorUnlockerShared` owns the lock/unlock command model, secure wire-packet assembly, parser/models, safety limits, write/recovery decisions, controller-setting formatting, and control presentation policy. `DoorUnlockerDFU` owns the complete Nordic BLE firmware-update transport and progress/ETA model. Platform targets retain only platform integrations such as local signing-key storage, iOS background/proximity behavior, Mac USB serial administration, and native UI.
+
+`script/score_shared_parity.py` prevents shared contracts from drifting back into app-specific copies, and the full quality suite compiles/tests the shared package, both platform adapters, and both apps.
 
 ## Quick Start
 
@@ -107,7 +119,7 @@ Unlock commands hold the servo at the unlock angle for up to 30 seconds by defau
 
 The controller also stores the last unlock timestamp locally. The apps include their current epoch time when sending an unlock command, and the XIAO persists that value so the iPhone and Mac apps can display the controller's last recorded unlock time.
 
-Servo calibration is also controller-owned. The default rest angle is `20` degrees and the default push angle is `95` degrees. Apps and USB commands can set both values, but the firmware rejects angles outside `10`-`170` degrees or angles closer than `10` degrees apart.
+Servo calibration is also controller-owned. The default rest angle is `95` degrees and the default push angle is `20` degrees for the current arm setup, so unlock rotates the arm to the right. Apps and USB commands can set both values, but the firmware rejects angles outside `10`-`170` degrees or angles closer than `10` degrees apart.
 
 USB serial commands:
 
@@ -122,7 +134,7 @@ USB serial commands:
 - `app status`: print machine-readable model, state, pairing, timeout, servo-angle, and last-unlock status for the Mac admin app.
 - `app pairs`: print machine-readable paired-device slots, fingerprints, counters, and names when known.
 - `app unlock [EPOCH_SECONDS]`: move the actuator and optionally save the controller-owned last-unlock timestamp.
-- `app angles REST PUSH`: set persisted servo rest and push angles, for example `app angles 20 95`.
+- `app angles REST PUSH`: set persisted servo rest and push angles, for example `app angles 95 20`.
 - `app pair on` / `app pair off`: enable or disable USB-C pairing from the Mac admin app.
 - `app approve CODE` / `app reject`: approve or reject a pending device request from the Mac admin app.
 - `app remove N`: remove one paired device by slot number from the Mac admin app.
@@ -213,9 +225,15 @@ When the installed firmware supports `app bootloader`, the script asks the runni
 
 For app-driven OTA updates, the controller must already trust the app issuing the update command. The trusted app sends the signed `ENTER_OTA_DFU` command, the controller enters BLE DFU mode, the app uploads `DoorUnlockerXiao-dfu.zip`, then the controller reboots and the app verifies the reported firmware version. USB-C remains the recovery fallback if an OTA attempt is interrupted.
 
+Firmware may be promoted as stable only after `python3 script/quality_suite.py --firmware-release` passes. The release proof must match the exact DFU package hash and firmware version, enter OTA with a signed BLE command, avoid USB recovery commands, and verify the reported version over BLE after reboot. The structural contract gate also rejects a non-subscribable control characteristic and prevents the pre-DFU connection phase from being blocked as though DFU transport had already taken over.
+
+The iPhone app also carries a bundled controller firmware version in `DoorControllerFirmwareVersion`. When the app connects, reads a known controller firmware version, and sees that the bundled firmware is newer, it can start the same secure OTA path automatically without a manual update button press. The app intentionally does not auto-update when the controller version is `Unknown` and does not downgrade a controller that reports a newer version than the bundled package.
+
 Normal firmware updates should preserve the controller's stored pairings, lock name, timeout, and servo angles. Do not run `pairs clear`, delete trusted devices, or re-pair the iPhone just because an OTA or UF2 update was performed. Re-pair only when the app key was actually lost, such as after deleting/reinstalling the app or replacing the phone.
 
-Expected OTA timing for the current 127 KB DFU zip, with a `129,360` byte application payload, should be proportionally lower than the previous 164 KB package. The latest measured iPhone wireless proof before the size-optimized build took `119s` to install `0.1.0-beta.ota27`; an earlier iPhone proof for the same firmware took `109s`, and the earlier measured `0.1.0-beta.ota24` Mac update took `184.8s` inside the Nordic DFU flow, including bootloader scan and upload. The app logs DFU package size, PRN setting, object prep delay, progress buckets, upload speed, and total/upload elapsed time under the `FirmwareUpdate` log category.
+The controller keeps the servo signal attached while the lock is in the unlocked state so the arm can hold pressure on the handle until auto-lock or a manual lock command. After returning to the locked/rest angle, the firmware detaches the servo signal to reduce idle power draw and heat.
+
+The current firmware `0.1.9` application payload is `128,976` bytes and its DFU zip is `129,851` bytes. The latest trusted-iPhone proof uploaded it in `82.38s` and completed post-reboot BLE verification in `92.262s`. The app logs DFU package size, PRN setting, object prep delay, progress buckets, upload speed, and total/upload elapsed time under the `FirmwareUpdate` log category.
 
 The current DFU tuning is intentionally conservative: packet receipt notification parameter `8` and data object preparation delay `0.4s`. [Nordic's iOS DFU library](https://github.com/NordicSemiconductor/IOS-DFU-Library/blob/main/Library/Classes/Implementation/DFUServiceInitiator.swift) documents that PRNs can be disabled on modern iOS/macOS for speed, but also warns that devices with slower flash handling can fail or become very slow; its documented safe object-prep delay range for SDK 15-17 style bootloaders is `0.3s` to `0.4s`. On this XIAO/Adafruit DFU bootloader, PRN `8` was the fastest measured reliable setting; PRN `0`, `12`, and `20` were slower in real OTA tests.
 
@@ -246,7 +264,7 @@ ios/DoorUnlockerApp/DoorUnlocker/Firmware/DoorUnlockerXiao-dfu.zip
 Then run the repeatable physical-device verifier:
 
 ```sh
-./script/verify_ios_ota.sh --wireless-only --target 0.1.0
+./script/verify_ios_ota.sh --wireless-only --target 0.1.9
 ```
 
 The wireless verifier installs the iPhone app, launches the bundled-firmware debug update flow, and waits for a version-specific iPhone Darwin notification that is posted only after the app receives `firmware_version:<target>` from the controller over BLE after DFU. With `--wireless-only`, the script refuses to start if the controller USB-C serial port is visible. The controller should not be plugged into USB-C for this proof; the iPhone can stay connected to the Mac for app installation and automation.
@@ -258,7 +276,7 @@ For Mac OTA testing, build the package and send it through the admin app/CLI flo
 ```sh
 ./script/flash_xiao_uf2.sh --build-only
 ./script/build_and_run.sh --install
-./dist/door-unlocker firmware-proof dist/DoorUnlockerXiao-dfu.zip 0.1.0
+./dist/door-unlocker firmware-proof dist/DoorUnlockerXiao-dfu.zip 0.1.9
 ```
 
 `firmware-proof` sends the update request to the running Mac app, waits for the app to receive the expected `firmware_version` over BLE after DFU, then prints `verified_over=ble`. Use plain `firmware ZIP_PATH` for an interactive app-driven update when you do not need an automated proof.
@@ -275,7 +293,7 @@ That build also creates `dist/door-unlocker`, a USB-C command-line tool:
 ./dist/door-unlocker lock
 ./dist/door-unlocker toggle
 ./dist/door-unlocker timeout 30
-./dist/door-unlocker angles 20 95
+./dist/door-unlocker angles 95 20
 ./dist/door-unlocker pairs
 ./dist/door-unlocker rename 1 "Brandon's iPhone"
 ```
@@ -287,6 +305,7 @@ When the Mac app is already running, `lock`, `unlock`, `toggle`, `timeout`, and 
 
 - Controller/app usage stats: track values such as daily unlock counts and recent lock/unlock history. Keep this local-first and privacy-preserving, with the controller as the source of truth where practical.
 - Per-device access roles: let owner/admin devices approve new devices wirelessly while standard trusted devices can only lock/unlock or use selected settings.
+- Power-optimized hardware pass: replace prototype power modules with the optimal component stack documented in [docs/optimal-components.md](docs/optimal-components.md), then remeasure idle current, servo hold current, charge recovery, and enclosure heat.
 
 ## Security And Safety
 

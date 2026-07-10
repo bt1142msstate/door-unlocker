@@ -2,19 +2,14 @@ import SwiftUI
 
 struct LockNameControl: View {
     @ObservedObject var controller: DoorUnlockerController
-    let accent: Color
     @State private var draft = ""
     @State private var commitTask: Task<Void, Never>?
     @FocusState private var isFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Image(systemName: "door.left.hand.closed")
-                    .foregroundStyle(accent)
-                Text("Lock Name")
-                    .font(.caption.weight(.bold))
-            }
+            Text("Lock Name")
+                .font(.caption.weight(.bold))
 
             TextField(DoorStatusStore.defaultLockName, text: $draft)
                 .textFieldStyle(.roundedBorder)

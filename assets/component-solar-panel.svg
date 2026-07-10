@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420" role="img" aria-labelledby="title desc">
+  <title id="title">Mini 6V solar panel pair</title>
+  <desc id="desc">Stylized black and blue mini solar panels for the Door Unlocker solar charging plan.</desc>
+  <defs>
+    <linearGradient id="panelFace" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#15374f"/>
+      <stop offset="0.55" stop-color="#0b1c2a"/>
+      <stop offset="1" stop-color="#071017"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" x2="1">
+      <stop offset="0" stop-color="#d9e1df"/>
+      <stop offset="1" stop-color="#6f7d7b"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#000" flood-opacity=".35"/>
+    </filter>
+  </defs>
+  <rect width="720" height="420" fill="none"/>
+  <g filter="url(#shadow)" transform="translate(60 38) rotate(-5 300 170)">
+    <rect x="28" y="24" width="292" height="320" rx="18" fill="url(#edge)"/>
+    <rect x="42" y="38" width="264" height="292" rx="12" fill="url(#panelFace)"/>
+    <g stroke="#89cfff" stroke-opacity=".55" stroke-width="3">
+      <path d="M86 44v278M130 44v278M174 44v278M218 44v278M262 44v278"/>
+      <path d="M48 86h252M48 136h252M48 186h252M48 236h252M48 286h252"/>
+    </g>
+    <g fill="#bce7ff" opacity=".9">
+      <circle cx="64" cy="60" r="4"/><circle cx="284" cy="60" r="4"/>
+      <circle cx="64" cy="310" r="4"/><circle cx="284" cy="310" r="4"/>
+    </g>
+  </g>
+  <g filter="url(#shadow)" transform="translate(360 58) rotate(5 140 160)">
+    <rect x="28" y="24" width="292" height="320" rx="18" fill="url(#edge)"/>
+    <rect x="42" y="38" width="264" height="292" rx="12" fill="url(#panelFace)"/>
+    <g stroke="#89cfff" stroke-opacity=".55" stroke-width="3">
+      <path d="M86 44v278M130 44v278M174 44v278M218 44v278M262 44v278"/>
+      <path d="M48 86h252M48 136h252M48 186h252M48 236h252M48 286h252"/>
+    </g>
+    <g fill="#bce7ff" opacity=".9">
+      <circle cx="64" cy="60" r="4"/><circle cx="284" cy="60" r="4"/>
+      <circle cx="64" cy="310" r="4"/><circle cx="284" cy="310" r="4"/>
+    </g>
+  </g>
+  <path d="M314 328 C358 360 405 360 449 328" fill="none" stroke="#ef6c38" stroke-width="10" stroke-linecap="round"/>
+  <path d="M323 346 C361 378 401 378 439 346" fill="none" stroke="#111" stroke-width="10" stroke-linecap="round"/>
+</svg>

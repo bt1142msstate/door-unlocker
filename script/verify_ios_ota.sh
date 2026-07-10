@@ -12,7 +12,6 @@ PORT_PATH="${PORT_PATH:-}"
 POLL_SECONDS="${POLL_SECONDS:-420}"
 ALLOW_CURRENT="${ALLOW_CURRENT:-0}"
 WIRELESS_ONLY="${WIRELESS_ONLY:-0}"
-WIRELESS_WAIT_SECONDS="${WIRELESS_WAIT_SECONDS:-240}"
 DFU_PRN="${DFU_PRN:-}"
 DFU_OBJECT_PREP_DELAY="${DFU_OBJECT_PREP_DELAY:-}"
 DFU_SCAN_TIMEOUT="${DFU_SCAN_TIMEOUT:-}"
@@ -41,7 +40,6 @@ Environment:
   POLL_SECONDS           Defaults to 420.
   ALLOW_CURRENT          Set to 1 only when checking an already-installed target.
   WIRELESS_ONLY          Set to 1 for --wireless-only behavior.
-  WIRELESS_WAIT_SECONDS  Deprecated. Wireless-only now verifies over BLE.
   DFU_PRN                Optional debug benchmark PRN override, clamped by app.
   DFU_OBJECT_PREP_DELAY  Optional debug benchmark object-prep delay override.
   DFU_SCAN_TIMEOUT       Optional debug benchmark DFU bootloader scan timeout.

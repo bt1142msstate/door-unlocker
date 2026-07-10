@@ -1,0 +1,193 @@
+{
+  "inputs": {
+    "servo_torque_kg_cm": 35.0,
+    "servo_arm_mm": 56.0,
+    "command_strip_model": "3M Command 17217 X-Large Picture Hanging Strips",
+    "command_capacity_lb_per_four_pairs": 20.0,
+    "safety_factor": 3.0,
+    "estimated_assembly_weight_lbf": 1.8,
+    "plate_width_mm": 50.8,
+    "plate_height_mm": 244.0,
+    "current_concept_plate_width_mm": 50.8,
+    "current_concept_plate_height_mm": 244.0,
+    "strip_length_mm": 111.125,
+    "strip_width_mm": 22.224999999999998,
+    "strip_thickness_mm": 1.5875,
+    "strip_gap_mm": 4.0,
+    "force_offset_from_door_mm": 45.0,
+    "adhesive_row_separation_mm": 115.125,
+    "rail_face_angle_deg": 60.0,
+    "rail_neck_width_mm": 8.0,
+    "rail_depth_mm": 5.5,
+    "rail_length_mm": 224.0,
+    "rail_channel_length_mm": 226.0,
+    "rail_spacing_mm": 30.0,
+    "rail_channel_clearance_mm": 0.4,
+    "enclosure_height_mm": 244.0,
+    "rail_end_margin_target_mm": 8.0,
+    "pla_pure_tensile_strength_z_mpa": 30.0,
+    "pla_pure_bending_strength_z_mpa": 55.0,
+    "pla_pure_youngs_modulus_z_mpa": 2196.0,
+    "printed_part_design_safety_factor": 4.0,
+    "back_plate_thickness_mm": 7.0,
+    "hidden_detent_note": "Use a small internal detent or thumb-release feature; do not rely on open-ended rails alone for retention."
+  },
+  "verdict": {
+    "status": "conditional_pass",
+    "label": "CONDITIONAL PASS - okay for prototype fit testing, not cleared for unattended door mounting",
+    "prototype_fit_testing_good_to_go": true,
+    "unattended_door_mount_good_to_go": false,
+    "physical_test_required": true,
+    "summary": "The PLA rails/backplate and four X-Large strip layout pass this simplified geometry/strength check, but the adhesive layout does not meet the preferred 3x margin against full servo stall. Measure the real handle force and run a staged load test before trusting it on a door.",
+    "checks": {
+      "printed_parts": "pass",
+      "command_strip_fit": "pass",
+      "command_strip_full_servo_stall_3x_margin": "fail"
+    }
+  },
+  "servo": {
+    "stall_torque_nm": 3.4323,
+    "tip_force_n": 61.29,
+    "tip_force_lbf": 13.78
+  },
+  "command_strips": {
+    "selected_model": "3M Command 17217 X-Large Picture Hanging Strips",
+    "ideal_capacity_lbf_per_pair": 5.0,
+    "ideal_static_capacity_note": "Manufacturer rating is picture-hanging static load; peel/dynamic loads need margin and physical testing.",
+    "selected_pair_dimensions_mm": {
+      "length": 111.12,
+      "width": 22.22,
+      "thickness": 1.59
+    },
+    "selected_2x11_plate_layout_with_4mm_gap": {
+      "columns": 2,
+      "rows": 2,
+      "pairs_that_fit": 4,
+      "used_width_mm": 48.45,
+      "used_height_mm": 226.25,
+      "side_margin_mm": 1.18,
+      "top_bottom_margin_mm": 8.88
+    },
+    "modeled_layout_note": "3D concept places two columns by two rows with centers at +/-13.1mm across and +/-57.6mm vertically, leaving about 1.2mm side margin, 8.9mm top/bottom margin, and 4.0mm between rows.",
+    "alternative_strip_fit_comparison": [
+      {
+        "model": "17217 X-Large",
+        "pair_dimensions_mm": {
+          "length": 111.12,
+          "width": 22.22,
+          "thickness": 1.59
+        },
+        "capacity_lbf_per_four_pairs": 20.0,
+        "pairs_that_fit_on_2x11_plate": 4,
+        "ideal_capacity_lbf_on_2x11_plate": 20.0,
+        "layout": {
+          "columns": 2,
+          "rows": 2,
+          "pairs_that_fit": 4,
+          "used_width_mm": 48.45,
+          "used_height_mm": 226.25,
+          "side_margin_mm": 1.18,
+          "top_bottom_margin_mm": 8.88
+        }
+      },
+      {
+        "model": "17206 Large",
+        "pair_dimensions_mm": {
+          "length": 92.07,
+          "width": 19.05,
+          "thickness": 1.59
+        },
+        "capacity_lbf_per_four_pairs": 15.0,
+        "pairs_that_fit_on_2x11_plate": 4,
+        "ideal_capacity_lbf_on_2x11_plate": 15.0,
+        "layout": {
+          "columns": 2,
+          "rows": 2,
+          "pairs_that_fit": 4,
+          "used_width_mm": 42.1,
+          "used_height_mm": 188.15,
+          "side_margin_mm": 4.35,
+          "top_bottom_margin_mm": 27.93
+        }
+      },
+      {
+        "model": "17204 Medium",
+        "pair_dimensions_mm": {
+          "length": 69.85,
+          "width": 15.88,
+          "thickness": 2.54
+        },
+        "capacity_lbf_per_four_pairs": 10.0,
+        "pairs_that_fit_on_2x11_plate": 6,
+        "ideal_capacity_lbf_on_2x11_plate": 15.0,
+        "layout": {
+          "columns": 2,
+          "rows": 3,
+          "pairs_that_fit": 6,
+          "used_width_mm": 35.75,
+          "used_height_mm": 217.55,
+          "side_margin_mm": 7.52,
+          "top_bottom_margin_mm": 13.23
+        }
+      }
+    ],
+    "pairs_by_safety_factor": {
+      "1.5": 5,
+      "2.0": 7,
+      "3.0": 10,
+      "4.0": 13
+    },
+    "recommended_design_pairs": 4,
+    "pairs_for_selected_safety_factor": 10,
+    "current_concept_plate_pairs_that_fit": 4,
+    "recommended_plate_pairs_that_fit": 4,
+    "fits_selected_safety_factor": false,
+    "static_safety_factor_with_max_fit_pairs": 1.28,
+    "max_tip_force_lbf_by_safety_factor_with_max_fit": {
+      "1.5": 11.53,
+      "2.0": 8.2,
+      "3.0": 4.87,
+      "4.0": 3.2
+    },
+    "peel_couple_total_lbf_at_top_row": 5.39
+  },
+  "dovetail": {
+    "rail_head_width_mm": 14.3509,
+    "channel_neck_width_mm": 8.8,
+    "channel_depth_mm": 5.9,
+    "channel_head_width_mm": 15.6127,
+    "capture_overlap_each_side_mm": 2.7754,
+    "slides_without_interference": true,
+    "straight_pull_off_blocked": true,
+    "rail_shear_stress_mpa_at_servo_stall": 0.0171,
+    "rail_length_mm": 224.0,
+    "rail_bottom_z_mm": 10.0,
+    "rail_top_z_mm": 234.0,
+    "rail_bottom_end_margin_mm": 10.0,
+    "rail_top_end_margin_mm": 10.0,
+    "solid_rail_has_end_margin": true,
+    "channel_length_mm": 226.0,
+    "channel_bottom_end_margin_mm": 9.0,
+    "channel_top_end_margin_mm": 9.0,
+    "channel_has_end_margin": true,
+    "retention": "Use a small internal detent or thumb-release feature; do not rely on open-ended rails alone for retention."
+  },
+  "printed_pla": {
+    "material": "Bambu Lab PLA Pure",
+    "printer": "Bambu Lab P1S",
+    "assumed_nozzle_mm": 0.4,
+    "allowable_stress_mpa_with_4x_margin": 7.5,
+    "rail_shear_safety_factor_vs_z_tensile": 1754.2,
+    "rail_shear_safety_factor_vs_design_allowable": 438.6,
+    "back_plate_bending_stress_mpa": 6.65,
+    "back_plate_bending_safety_factor_vs_z_tensile": 4.5,
+    "back_plate_bending_safety_factor_vs_z_bending": 8.3,
+    "back_plate_simple_tip_deflection_mm": 0.58,
+    "thermal_warning": "PLA Pure heat-deflection temperature is about 56C at 1.8MPa; avoid direct sun/hot-door creep testing before trusting the mount."
+  },
+  "recommendation": {
+    "minimum_for_stall_with_3x_margin": 10,
+    "practical_recommendation": "The 2 inch x 244 mm flush plate fits only 4 X-Large pairs, which is below the 10 pairs needed for a 3x servo-stall margin. Use all 4 pairs only if measured handle force is low enough, or add a mechanical bracket/force limiter.",
+    "critical_warning": "Do not trust this as certification. Command strips are not specified for repeated actuator torque or peel loading; do a staged physical load test before door use."
+  }
+}

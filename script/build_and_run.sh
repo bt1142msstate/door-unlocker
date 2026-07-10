@@ -15,7 +15,6 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACKAGE_DIR="$ROOT_DIR/mac/DoorUnlockerAdmin"
 DIST_DIR="$ROOT_DIR/dist"
 STAGING_DIR="${TMPDIR:-/tmp}/door-unlocker-admin-build/staging"
-LEGACY_TMP_DIST="${TMPDIR:-/tmp}/door-unlocker-admin-dist"
 APP_BUNDLE="$STAGING_DIR/$APP_NAME.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
@@ -46,7 +45,6 @@ kill_running_app() {
 
 cleanup_duplicate_build_artifacts() {
   rm -rf \
-    "$LEGACY_TMP_DIST" \
     "$DIST_DIR/$APP_NAME.app" \
     "$DIST_DIR/macos/$APP_NAME.app" \
     "$STAGING_DIR"
@@ -245,13 +243,17 @@ build_bundle() {
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.1</string>
+  <string>0.2.0</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>2</string>
   <key>LSMinimumSystemVersion</key>
   <string>$MIN_SYSTEM_VERSION</string>
   <key>NSPrincipalClass</key>
   <string>NSApplication</string>
+  <key>NSQuitAlwaysKeepsWindows</key>
+  <false/>
+  <key>NSWindowRestoresWorkspaceAtLaunch</key>
+  <false/>
   <key>NSBluetoothAlwaysUsageDescription</key>
   <string>Door Unlocker uses Bluetooth to connect to the controller wirelessly.</string>
 </dict>

@@ -1,6 +1,6 @@
 import Foundation
 
-public struct DoorServoAngles: Equatable, Hashable {
+public struct DoorServoAngles: Equatable, Hashable, Sendable {
     public let lockAngle: Int
     public let unlockAngle: Int
 
@@ -22,13 +22,21 @@ public struct DoorLastUnlockRecord: Equatable, Hashable {
     }
 }
 
-public struct DoorParsedConnectedDevice: Equatable, Hashable {
+public struct DoorParsedConnectedDevice: Identifiable, Equatable, Hashable {
     public let slot: Int
     public let name: String
 
     public init(slot: Int, name: String) {
         self.slot = slot
         self.name = name
+    }
+
+    public var id: Int { slot }
+
+    public var displayName: String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "Connected Device \(slot)"
+            : name
     }
 }
 

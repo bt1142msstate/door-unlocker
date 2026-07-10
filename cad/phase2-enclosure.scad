@@ -3,70 +3,163 @@
 //
 // This is a fit/print iteration model, not a final production enclosure.
 // Verify all purchased components with calipers before printing.
+// Defaults target Bambu Lab PLA Pure on a Bambu Lab P1S with a 0.4mm nozzle.
 
 $fn = 44;
 
 show_shell = true;
 show_back_plate = true;
+show_service_cover = true;
 show_component_blocks = true;
+show_command_strips = true;
 show_clearance_blocks = false;
 show_labels = false;
 
-case_w = 78;
-case_d = 37;
-case_h = 352;
-wall = 3;
+case_w = 72;
+case_d = 34;
+case_h = 244;
+wall = 3.2;
 case_r = 7;
 front_y = case_d / 2;
 
-back_plate_w = 88;
-back_plate_d = 4;
-back_plate_h = 366;
+back_plate_w = 50.8;
+back_plate_d = 7;
+back_plate_h = case_h;
+back_plate_z = (case_h - back_plate_h) / 2;
 
-solar_w = 50;
+command_strip_w = 0.875 * 25.4; // 3M Command 17217 X-Large, 7/8 in
+command_strip_h = 4.375 * 25.4; // 3M Command 17217 X-Large, 4 3/8 in
+command_strip_d = 0.0625 * 25.4; // 3M Command 17217 listed depth, 1/16 in
+command_strip_gap = 4;
+command_strip_x_center = (command_strip_w + command_strip_gap) / 2;
+command_strip_z_center_offset = (command_strip_h + command_strip_gap) / 2;
+command_strip_side_margin = (back_plate_w - (2 * command_strip_w + command_strip_gap)) / 2;
+command_strip_top_margin = (back_plate_h - (2 * command_strip_h + 2 * command_strip_z_center_offset - command_strip_h)) / 2;
+
+mount_rail_spacing = 30;
+mount_rail_angle = 60;
+mount_rail_neck_w = 8;
+mount_rail_depth = 5.5;
+mount_rail_head_w = mount_rail_neck_w + 2 * mount_rail_depth / tan(mount_rail_angle);
+mount_rail_clearance = 0.40;
+mount_rail_end_margin = 10;
+mount_channel_end_margin = 9;
+detent_w = 8;
+detent_d = 1.2;
+detent_h = 3;
+detent_z = case_h - 18;
+mount_rail_bottom_z = mount_rail_end_margin;
+mount_rail_top_z = case_h - mount_rail_end_margin;
+mount_rail_center_z = (mount_rail_bottom_z + mount_rail_top_z) / 2;
+mount_rail_h = mount_rail_top_z - mount_rail_bottom_z;
+mount_channel_bottom_z = mount_channel_end_margin;
+mount_channel_top_z = case_h - mount_channel_end_margin;
+mount_channel_center_z = (mount_channel_bottom_z + mount_channel_top_z) / 2;
+mount_channel_h = mount_channel_top_z - mount_channel_bottom_z;
+
+solar_w = 60;
 solar_d = 3;
-solar_h = 80;
-solar_z = 303;
+solar_h = 220;
+solar_z = 130;
 
 led_w = 22;
 led_d = 3;
 led_h = 5;
-led_z = 257;
+led_z = 233;
 
 servo_w = 40.5;
-servo_d = 20.5;
-servo_h = 40.5;
-servo_z = 218;
+servo_d = 20;
+servo_h = 37.5;
+servo_z = 188;
 
-servo_bay_w = 62;
-servo_bay_h = 62;
-servo_bay_z = 218;
+servo_bay_w = 56;
+servo_bay_h = 52;
+servo_bay_z = 188;
+servo_front_pocket_w = servo_bay_w;
+servo_front_pocket_d = case_d - 6;
+servo_front_pocket_h = 58;
+servo_front_pocket_z = servo_z;
+servo_adjustment_offsets = [-5, 0, 5];
+servo_cradle_w = 42;
+servo_cradle_d = 23;
+servo_cradle_h = 3;
+servo_notch_w = 6;
+servo_notch_d = 20;
+servo_notch_h = 2.2;
 
 electronics_bay_w = 64;
-electronics_bay_h = 118;
-electronics_bay_z = 137;
+electronics_bay_h = 90;
+electronics_bay_z = 117;
 
-xiao_w = 17.8;
-xiao_d = 11;
-xiao_h = 21;
+service_cover_w = 66;
+service_cover_d = 2.2;
+service_cover_h = case_h - 12;
+service_cover_z = case_h / 2;
+service_cover_rail_neck_w = 3.2;
+service_cover_rail_depth = 2.0;
+service_cover_rail_head_w = service_cover_rail_neck_w + 2 * service_cover_rail_depth / tan(mount_rail_angle);
+service_cover_rail_h = service_cover_h - 18;
 
-wago_w = 17;
-wago_d = 20.5;
-wago_h = 14.5;
+xiao_w = 21;
+xiao_d = 1.6;
+xiao_h = 17.8;
+xiao_x = -18;
+xiao_y = -0.2;
+xiao_z = 143;
 
-buck_w = 60;
-buck_d = 12;
-buck_h = 40;
+breadboard_w = 35;
+breadboard_d = 8.5;
+breadboard_h = 47;
+breadboard_x = -13;
+breadboard_y = -8.2;
+breadboard_z = 143;
+
+splitter_w = 32;
+splitter_d = 13.5;
+splitter_h = 13;
+splitter_x = 14.5;
+splitter_y = 3.3;
+splitter_z_lower = 135;
+splitter_z_upper = 154;
+
+buck_w = 57;
+buck_d = 14;
+buck_h = 36;
+buck_y = -6.8;
+buck_z = 102.5;
+
+power_switch_w = 42;
+power_switch_d = 12;
+power_switch_h = 26;
+power_switch_y = 7.2;
+power_switch_z = 102.5;
 
 battery_w = 43;
 battery_d = 22;
 battery_h = 75;
-battery_z = 44;
+battery_y = 0;
+battery_z = 42;
 
-battery_slot_w = 49;
-battery_slot_d = 28;
-battery_slot_h = 84;
-battery_slot_z = 47;
+battery_slot_w = 46.5;
+battery_slot_d = 25;
+battery_slot_h = 80.5;
+battery_slot_z = 42;
+
+// Rear-wall service harness. Raised lips preserve the full structural wall
+// thickness and keep the harness attached to the sled when the cover is off.
+wire_channel_z_start = 84;
+wire_channel_z_end = 167;
+wire_channel_h = wire_channel_z_end - wire_channel_z_start;
+wire_channel_z = (wire_channel_z_start + wire_channel_z_end) / 2;
+wire_channel_rear_y = -case_d / 2 + wall;
+wire_channel_rib_w = 1;
+wire_channel_retainer_spacing = 27;
+wire_lane_x = [-29.3, -25.3, -21.3, -17.3, -13.3, 7.9, 13.1, 18.3, 23.5, 28.7];
+wire_lane_clear_w = [3, 3, 3, 3, 3, 4.2, 4.2, 4.2, 4.2, 4.2];
+wire_lane_rib_d = [2.2, 2.2, 2.2, 2.2, 2.2, 3.4, 3.4, 3.4, 3.4, 3.4];
+wire_lane_od = [1.8, 1.8, 1.8, 1.8, 1.8, 3, 3, 3, 3, 3];
+wire_lane_retainer_overhang = [0.4, 0.4, 0.4, 0.4, 0.4, 1, 1, 1, 1, 1];
+wire_lane_colors = ["#e05252", "#171a18", "#4ea4ff", "#171a18", "#f5c542", "#e05252", "#171a18", "#e05252", "#e05252", "#171a18"];
 
 module rounded_prism(size, r) {
   linear_extrude(height = size[2], center = false)
@@ -90,17 +183,115 @@ module cable_slot(x, z, h = 26) {
     cube([5, 16, h], center = true);
 }
 
+module wire_routing_trough(x, clear_w, rib_d, retainer_overhang) {
+  // Two shallow ribs create an open service groove. Partial opposing nibs hold
+  // the wire without turning the lane into a closed tunnel that must be threaded.
+  for (side = [-1, 1]) {
+    translate([
+      x + side * (clear_w / 2 + wire_channel_rib_w / 2),
+      wire_channel_rear_y + rib_d / 2,
+      wire_channel_z
+    ])
+      cube([wire_channel_rib_w, rib_d, wire_channel_h], center = true);
+
+    for (index = [0 : 2])
+      translate([
+        x + side * (clear_w / 2 + wire_channel_rib_w / 2) - side * retainer_overhang / 2,
+        wire_channel_rear_y + rib_d - 0.35,
+        wire_channel_z_start + wire_channel_retainer_spacing / 2 + index * wire_channel_retainer_spacing
+      ])
+        cube([wire_channel_rib_w + retainer_overhang, 0.7, 2.2], center = true);
+  }
+}
+
+module wire_routing_channels() {
+  color("#38413a")
+    for (index = [0 : len(wire_lane_x) - 1])
+      wire_routing_trough(
+        wire_lane_x[index],
+        wire_lane_clear_w[index],
+        wire_lane_rib_d[index],
+        wire_lane_retainer_overhang[index]
+      );
+}
+
+module wire_harness_preview() {
+  for (index = [0 : len(wire_lane_x) - 1])
+    color(wire_lane_colors[index])
+      translate([
+        wire_lane_x[index],
+        wire_channel_rear_y + wire_lane_od[index] / 2 + 0.2,
+        wire_channel_z
+      ])
+        cylinder(h = wire_channel_h, d = wire_lane_od[index], center = true);
+}
+
+module dovetail_profile(neck_w, head_w, depth) {
+  polygon(points = [
+    [-neck_w / 2, 0],
+    [neck_w / 2, 0],
+    [head_w / 2, depth],
+    [-head_w / 2, depth]
+  ]);
+}
+
+module captive_dovetail_rail(length = mount_rail_h) {
+  linear_extrude(height = length, center = true)
+    dovetail_profile(mount_rail_neck_w, mount_rail_head_w, mount_rail_depth);
+}
+
+module captive_dovetail_channel(length = mount_channel_h) {
+  channel_neck_w = mount_rail_neck_w + mount_rail_clearance * 2;
+  channel_depth = mount_rail_depth + mount_rail_clearance;
+  channel_head_w = channel_neck_w + 2 * channel_depth / tan(mount_rail_angle);
+
+  linear_extrude(height = length, center = true)
+    dovetail_profile(channel_neck_w, channel_head_w, channel_depth);
+}
+
+module service_cover_dovetail_rail(length = service_cover_rail_h) {
+  linear_extrude(height = length, center = true)
+    dovetail_profile(service_cover_rail_neck_w, service_cover_rail_head_w, service_cover_rail_depth);
+}
+
+module servo_adjustment_notches() {
+  for (offset = servo_adjustment_offsets) {
+    notch_z = servo_z + offset - servo_h / 2 - servo_cradle_h / 2;
+
+    // A removable cradle sits on left/right ledges so servo height can shift
+    // without loosening the tight side support in the bay.
+    color("#75d99f") {
+      for (x = [-20.5, 20.5])
+        translate([x, front_y - 15, notch_z])
+          cube([servo_notch_w, servo_notch_d, servo_notch_h], center = true);
+    }
+  }
+
+  color("#2f6f9f")
+    translate([0, front_y - 15, servo_z - servo_h / 2 - servo_cradle_h / 2])
+      cube([servo_cradle_w, servo_cradle_d, servo_cradle_h], center = true);
+}
+
 module shell_body() {
   difference() {
     color("#1e2420")
       rounded_prism([case_w, case_d, case_h], case_r);
 
-    // Solar and LED shallow recesses.
-    front_pocket(solar_w + 5, solar_h + 5, solar_z, 3.2);
+    // Matching female channels for the door mounting plate's captive dovetail rails.
+    for (x = [-mount_rail_spacing / 2, mount_rail_spacing / 2])
+      translate([x, -case_d / 2 - 0.2, mount_channel_center_z])
+        captive_dovetail_channel();
+
+    // The solar panels are planned as a thin external service-cover/front-face
+    // skin. Do not cut a full 220mm panel recess until the exact split around
+    // the front-exposed servo pocket is modeled.
+    front_pocket(18, 8, solar_z + 96, 3.2);
     front_pocket(led_w + 4, led_h + 4, led_z, 4);
 
     // Main service openings.
-    front_pocket(servo_bay_w, servo_bay_h, servo_bay_z, case_d - 6);
+    // Front-exposed servo pocket: the servo can protrude forward while the
+    // bay/cradle keeps side, bottom, and rear support.
+    front_pocket(servo_front_pocket_w, servo_front_pocket_h, servo_front_pocket_z, servo_front_pocket_d);
     front_pocket(electronics_bay_w, electronics_bay_h, electronics_bay_z, case_d - 6);
     front_pocket(battery_slot_w, battery_slot_h, battery_slot_z, battery_slot_d);
 
@@ -114,35 +305,83 @@ module shell_body() {
     cable_slot(-18, 84, 32);
 
     // Service bay screw holes.
-    screw_hole(-29, servo_bay_z + 25);
-    screw_hole(29, servo_bay_z + 25);
-    screw_hole(-29, servo_bay_z - 25);
-    screw_hole(29, servo_bay_z - 25);
-    screw_hole(-31, electronics_bay_z + 53);
-    screw_hole(31, electronics_bay_z + 53);
-    screw_hole(-31, electronics_bay_z - 53);
-    screw_hole(31, electronics_bay_z - 53);
+    screw_hole(-26, servo_bay_z + 23);
+    screw_hole(26, servo_bay_z + 23);
+    screw_hole(-26, servo_bay_z - 23);
+    screw_hole(26, servo_bay_z - 23);
+    screw_hole(-29, electronics_bay_z + 40);
+    screw_hole(29, electronics_bay_z + 40);
+    screw_hole(-29, electronics_bay_z - 40);
+    screw_hole(29, electronics_bay_z - 40);
   }
 }
 
 module back_plate() {
   color("#2d332f")
-    translate([0, -case_d / 2 - back_plate_d / 2 - 1, -7])
+    translate([0, -case_d / 2 - back_plate_d / 2 - 1, back_plate_z])
       rounded_prism([back_plate_w, back_plate_d, back_plate_h], 6);
 
-  // Simple slide rails for the removable shell.
+  // Open-ended captive male dovetail rails hide behind the enclosure.
   color("#38413a") {
-    translate([-case_w / 2 - 2, -case_d / 2 - 1.5, case_h / 2])
-      cube([3.5, 5, case_h - 20], center = true);
-    translate([case_w / 2 + 2, -case_d / 2 - 1.5, case_h / 2])
-      cube([3.5, 5, case_h - 20], center = true);
+    for (x = [-mount_rail_spacing / 2, mount_rail_spacing / 2])
+      translate([x, -case_d / 2 - 1, mount_rail_center_z])
+        captive_dovetail_rail();
+  }
+
+  // Small hidden detent instead of visible load stops, so removal stays easy.
+  color("#5eb8ff")
+    translate([0, -case_d / 2 - 0.55, detent_z])
+      rounded_prism([detent_w, detent_d, detent_h], 1);
+}
+
+module command_strips() {
+  // Four 17217 X-Large picture-hanging pairs: 4 3/8 x 7/8 x 1/16 in each.
+  // The two-column layout is intentionally tight on a 2in plate: about 1.2mm side margin.
+  color([0.95, 0.97, 0.94, 0.86]) {
+    for (x = [-command_strip_x_center, command_strip_x_center])
+      for (z = [
+        case_h / 2 - command_strip_z_center_offset,
+        case_h / 2 + command_strip_z_center_offset
+      ])
+        translate([
+          x,
+          -case_d / 2 - back_plate_d - 1 - command_strip_d / 2,
+          z - command_strip_h / 2
+        ])
+          rounded_prism([command_strip_w, command_strip_d, command_strip_h], 2);
+  }
+}
+
+module service_cover() {
+  color("#3c453f")
+    translate([0, front_y + service_cover_d / 2 + 0.8, service_cover_z - service_cover_h / 2])
+      rounded_prism([service_cover_w, service_cover_d, service_cover_h], 5);
+
+  // Full-height cover rails: the cover can slide off separately for service.
+  color("#75d99f") {
+    for (x = [-service_cover_w / 2 + 6, service_cover_w / 2 - 6])
+      translate([x, front_y + service_cover_d + 0.4, service_cover_z])
+        service_cover_dovetail_rail();
+  }
+
+  color("#151a16") {
+    for (x = [-28, 28], z = [service_cover_z - 94, service_cover_z + 94])
+      translate([x, front_y + service_cover_d + 1.2, z])
+        rotate([90, 0, 0])
+          cylinder(h = 1.2, d = 3.6, center = true);
   }
 }
 
 module solar_panel() {
   color("#2f6f9f")
-    translate([0, front_y + solar_d / 2 + 0.2, solar_z])
-      cube([solar_w, solar_d, solar_h], center = true);
+    translate([0, front_y + solar_d / 2 + 0.2, solar_z - 55])
+      cube([solar_w, solar_d, 110], center = true);
+
+  // The second full panel overlaps the servo opening. Keep it translucent red
+  // until a smaller panel, external carrier, or different face layout is chosen.
+  color([1, 0.25, 0.2, 0.28])
+    translate([0, front_y + solar_d / 2 + 0.2, solar_z + 55])
+      cube([solar_w, solar_d, 110], center = true);
 }
 
 module pill_led() {
@@ -164,61 +403,73 @@ module servo_block() {
       cube([servo_w, servo_d, servo_h], center = true);
 
   color("#111111")
-    translate([servo_w / 2 + 24, front_y + 4, servo_z + 7])
+    translate([servo_w / 2 + 24, front_y + 4, servo_z + 6])
       cube([64, 4, 8], center = true);
 
   color("#0b0b0b")
-    translate([0, front_y + 3, servo_z + 7])
+    translate([0, front_y + 3, servo_z + 6])
       rotate([90, 0, 0])
         cylinder(h = 8, d = 18, center = true);
 }
 
 module xiao_block() {
+  color("#b8242d")
+    translate([breadboard_x, breadboard_y, breadboard_z])
+      cube([breadboard_w, breadboard_d, breadboard_h], center = true);
+
   color("#23a06f")
-    translate([-19, front_y - 18, electronics_bay_z + 21])
+    translate([xiao_x, xiao_y, xiao_z])
       cube([xiao_w, xiao_d, xiao_h], center = true);
 
   color("#dfe6e1")
-    translate([-19, front_y - 11.8, electronics_bay_z + 29])
+    translate([xiao_x, xiao_y + 6.2, xiao_z + 7])
       cube([9, 3, 4], center = true);
 }
 
-module wago_pair() {
-  for (zoff = [-10, 10]) {
-    color("#f28b32")
-      translate([20, front_y - 16, electronics_bay_z + 21 + zoff])
-        cube([wago_w, wago_d, wago_h], center = true);
+module inline_splitter_pair() {
+  for (z = [splitter_z_lower, splitter_z_upper]) {
     color("#c9d0cb")
-      translate([20, front_y - 8, electronics_bay_z + 21 + zoff])
-        cube([wago_w + 2, 3, wago_h + 1], center = true);
+      translate([splitter_x, splitter_y, z])
+        cube([splitter_w, splitter_d, splitter_h], center = true);
+    for (lever = [[-9, -3.1], [-9, 3.1], [9.5, 0]]) {
+      color("#f28b32")
+        translate([splitter_x + lever[0], splitter_y + splitter_d / 2 + 1.2, z + lever[1]])
+          cube([9, 2.4, 3.4], center = true);
+    }
   }
 }
 
 module buck_block() {
   color("#d7b546")
-    translate([0, front_y - 18, electronics_bay_z - 36])
+    translate([0, buck_y, buck_z])
       cube([buck_w, buck_d, buck_h], center = true);
+
+  // Prototype MOSFET switch planning envelope. Measure the actual module and
+  // rerun fit checks before this becomes a print-ready pocket.
+  color([0.88, 0.72, 0.25, 0.46])
+    translate([0, power_switch_y, power_switch_z])
+      cube([power_switch_w, power_switch_d, power_switch_h], center = true);
 }
 
 module battery_block() {
   color("#ef6c38")
-    translate([0, front_y - 18, battery_z])
+    translate([0, battery_y, battery_z])
       cube([battery_w, battery_d, battery_h], center = true);
 
   // Small exposed pull lip. The cartridge is otherwise nearly flush.
   color("#111111")
     translate([0, front_y - 5, 4])
-      cube([28, 4, 4], center = true);
+      cube([28, 3.5, 4], center = true);
 }
 
 module clearance_blocks() {
   color([1, 0.2, 0.2, 0.22]) {
     translate([0, front_y - 18, servo_z])
-      cube([servo_w + 4, servo_d + 4, servo_h + 4], center = true);
+      cube([servo_w + 1.2, servo_d + 1.2, servo_h + 1.2], center = true);
     translate([0, front_y - 18, battery_z])
-      cube([battery_w + 4, battery_d + 4, battery_h + 4], center = true);
+      cube([battery_w + 3, battery_d + 3, battery_h + 5.5], center = true);
     translate([0, front_y - 18, electronics_bay_z - 5])
-      cube([electronics_bay_w - 4, 24, electronics_bay_h - 4], center = true);
+      cube([electronics_bay_w - 3, 24, electronics_bay_h - 3], center = true);
   }
 }
 
@@ -244,13 +495,20 @@ module labels() {
 }
 
 if (show_back_plate) back_plate();
-if (show_shell) shell_body();
+if (show_command_strips) command_strips();
+if (show_shell) {
+  shell_body();
+  wire_routing_channels();
+}
+if (show_service_cover) service_cover();
 if (show_component_blocks) {
   solar_panel();
   pill_led();
   servo_block();
+  servo_adjustment_notches();
   xiao_block();
-  wago_pair();
+  inline_splitter_pair();
+  wire_harness_preview();
   buck_block();
   battery_block();
 }
