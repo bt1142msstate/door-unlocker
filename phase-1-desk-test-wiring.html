@@ -282,7 +282,12 @@
     .diagram-scroll {
       max-width: 100%;
       overflow: auto;
-      background: #0d110f;
+      background:
+        linear-gradient(90deg, rgba(243,247,241,.06) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(243,247,241,.06) 1px, transparent 1px),
+        radial-gradient(circle at 62% 48%, rgba(94,184,255,.06), transparent 540px),
+        linear-gradient(180deg, #111611 0, #0d110f 100%);
+      background-size: 40px 40px, 40px 40px, auto, auto;
     }
 
     .stage {
@@ -290,12 +295,7 @@
       width: 1120px;
       height: 1900px;
       margin: 0 auto;
-      background:
-        linear-gradient(90deg, rgba(243,247,241,.06) 1px, transparent 1px),
-        linear-gradient(180deg, rgba(243,247,241,.06) 1px, transparent 1px),
-        radial-gradient(circle at 62% 48%, rgba(94,184,255,.06), transparent 540px),
-        linear-gradient(180deg, #111611 0, #0d110f 100%);
-      background-size: 40px 40px, 40px 40px, auto, auto;
+      background: transparent;
     }
 
     .housing-outline {
@@ -670,14 +670,17 @@
     }
 
     .xt30-card .card-body {
-      display: grid;
-      grid-template-columns: 70px minmax(0, 1fr);
+      display: flex;
       align-items: center;
-      gap: 10px;
+      justify-content: center;
       padding: 0 12px 12px;
     }
 
     .xt30-card .ports {
+      position: absolute;
+      left: calc(100% + 16px);
+      top: 58px;
+      width: 142px;
       gap: 6px;
     }
 
@@ -2229,10 +2232,10 @@
               <title id="diagramTitle">No-solder desk test wiring arranged like the planned enclosure</title>
               <desc id="diagramDesc">The physical layout forms one centered vertical chain: servo, XIAO on its breadboard, LM2596 buck, paired inline splitters, fixed XT30 dock, and slide-out battery. The battery mates directly upward into the XT30 dock, whose short positive and ground leads enter the splitters immediately above it. The splitters feed the servo through a dedicated right-side trunk and, in buck mode, feed the buck directly above them. The buck feeds the controller immediately above it while USB-C is unplugged. In USB-first mode, USB-C powers the XIAO, the buck is skipped, and splitter ground continues to the controller. PWM leaves the breadboard assembly on the left and travels upward to the servo.</desc>
 
-              <path class="wire red" data-parts="battery xt30" d="M674 1640 V1632 H588 V1610" />
-              <path class="wire ground" data-parts="battery xt30" d="M689 1640 V1616 H616 V1610" />
-              <path class="wire red" data-parts="xt30 splitter-positive" d="M630 1439 H588 V1460" />
-              <path class="wire ground" data-parts="xt30 splitter-ground" d="M730 1439 V1452 H616 V1460" />
+              <path class="wire red" data-parts="battery xt30" d="M674 1694 V1632 H588 V1610" />
+              <path class="wire ground" data-parts="battery xt30" d="M689 1694 V1616 H616 V1610" />
+              <path class="wire red" data-parts="xt30 splitter-positive" d="M630 1439 H588 V1522" />
+              <path class="wire ground" data-parts="xt30 splitter-ground" d="M730 1439 V1452 H616 V1522" />
 
               <path class="wire red" data-parts="splitter-positive servo" d="M640 1165 V1135 H980 V400 H700 V374" />
               <path class="wire ground" data-parts="splitter-ground servo" d="M740 1165 V1150 H995 V295 H783" />
@@ -2244,20 +2247,20 @@
               <path class="wire ground buck-wire" data-parts="buck controller" d="M605 820 V790" />
               <path class="wire ground usb-ground-wire muted" data-parts="splitter-ground controller" d="M720 1165 V1200 H550 V790 H605" />
 
-              <path class="wire signal" data-parts="controller servo" d="M471 490 V330 H577" />
+              <path class="wire signal" data-parts="controller servo" d="M471 550 V330 H577" />
               <path class="wire logic usb-wire muted" data-parts="usb controller" d="M778 468 V478 H553 V490" />
             </svg>
 
             <svg class="card-wire-overlay" viewBox="0 0 1120 1900" aria-hidden="true">
-              <path id="controllerSignalBridge" class="wire signal card-bridge" data-parts="controller servo" d="M471 490 V543.7" />
+              <path id="controllerSignalBridge" class="wire signal card-bridge" data-parts="controller servo" d="M471 550 V543.7" />
               <path id="controllerPowerBridge" class="wire red assembly-power card-bridge" data-parts="buck controller" d="M620 780.7 V790" />
               <path id="controllerGroundBridge" class="wire ground card-bridge" data-parts="buck splitter-ground controller" d="M605 780.7 V790" />
-              <path id="xt30RedTopBridge" class="wire red card-bridge" data-parts="xt30 splitter-positive" d="M588 1460 V1522.6" />
-              <path id="xt30GroundTopBridge" class="wire ground card-bridge" data-parts="xt30 splitter-ground" d="M616 1460 V1522.6" />
+              <path id="xt30RedTopBridge" class="wire red card-bridge" data-parts="xt30 splitter-positive" d="M588 1522 V1522.6" />
+              <path id="xt30GroundTopBridge" class="wire ground card-bridge" data-parts="xt30 splitter-ground" d="M616 1522 V1522.6" />
               <path id="xt30RedBottomBridge" class="wire red card-bridge" data-parts="battery xt30" d="M588 1610 V1610.6" />
               <path id="xt30GroundBottomBridge" class="wire ground card-bridge" data-parts="battery xt30" d="M616 1610 V1610.6" />
-              <path id="batteryRedBridge" class="wire red card-bridge" data-parts="battery xt30" d="M674 1640 V1694" />
-              <path id="batteryGroundBridge" class="wire ground card-bridge" data-parts="battery xt30" d="M689 1640 V1694" />
+              <path id="batteryRedBridge" class="wire red card-bridge" data-parts="battery xt30" d="M674 1694 V1694" />
+              <path id="batteryGroundBridge" class="wire ground card-bridge" data-parts="battery xt30" d="M689 1694 V1694" />
               <path id="positiveSplitterOutputLeft" class="wire red card-bridge" data-parts="splitter-positive buck" d="M620 1165 V1220" />
               <path id="positiveSplitterOutputRight" class="wire red card-bridge" data-parts="splitter-positive servo" d="M640 1165 V1220" />
               <path id="positiveSplitterInput" class="wire red card-bridge" data-parts="xt30 splitter-positive" d="M630 1439 V1360" />
@@ -3186,7 +3189,7 @@
       );
       const top = assemblyRect.top - stageRect.top;
       const bottom = assemblyRect.bottom - stageRect.top;
-      controllerSignalBridge.setAttribute("d", `M471 490 L${assemblyX(2).toFixed(1)} ${top.toFixed(1)}`);
+      controllerSignalBridge.setAttribute("d", `M471 550 L${assemblyX(2).toFixed(1)} ${top.toFixed(1)}`);
       controllerPowerBridge.setAttribute("d", `M620 790 L${assemblyX(151).toFixed(1)} ${bottom.toFixed(1)}`);
       controllerGroundBridge.setAttribute("d", `M605 790 L${assemblyX(136).toFixed(1)} ${bottom.toFixed(1)}`);
     }
@@ -3220,8 +3223,8 @@
       const groundX = imageX(0.689);
       const top = imageRect.top - stageRect.top;
       const bottom = imageRect.bottom - stageRect.top;
-      xt30RedTopBridge.setAttribute("d", `M588 1460 L${redX.toFixed(1)} ${top.toFixed(1)}`);
-      xt30GroundTopBridge.setAttribute("d", `M616 1460 L${groundX.toFixed(1)} ${top.toFixed(1)}`);
+      xt30RedTopBridge.setAttribute("d", `M588 1522 L${redX.toFixed(1)} ${top.toFixed(1)}`);
+      xt30GroundTopBridge.setAttribute("d", `M616 1522 L${groundX.toFixed(1)} ${top.toFixed(1)}`);
       xt30RedBottomBridge.setAttribute("d", `M588 1610 L${redX.toFixed(1)} ${bottom.toFixed(1)}`);
       xt30GroundBottomBridge.setAttribute("d", `M616 1610 L${groundX.toFixed(1)} ${bottom.toFixed(1)}`);
     }
@@ -3258,11 +3261,11 @@
       const groundTerminal = connectorPoint(0.518);
       batteryRedBridge.setAttribute(
         "d",
-        `M674 1640 L${redTerminal[0].toFixed(1)} ${redTerminal[1].toFixed(1)}`,
+        `M674 1694 L${redTerminal[0].toFixed(1)} ${redTerminal[1].toFixed(1)}`,
       );
       batteryGroundBridge.setAttribute(
         "d",
-        `M689 1640 L${groundTerminal[0].toFixed(1)} ${groundTerminal[1].toFixed(1)}`,
+        `M689 1694 L${groundTerminal[0].toFixed(1)} ${groundTerminal[1].toFixed(1)}`,
       );
     }
 
