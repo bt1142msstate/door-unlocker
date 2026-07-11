@@ -601,7 +601,7 @@
     }
 
     .servo-card {
-      left: 520px;
+      left: 700px;
       top: 30px;
       width: 320px;
       height: 460px;
@@ -2112,7 +2112,7 @@
 
             <svg viewBox="0 0 1120 2160" role="img" aria-labelledby="diagramTitle diagramDesc">
               <title id="diagramTitle">No-solder desk test wiring arranged like the planned enclosure</title>
-              <desc id="diagramDesc">The physical layout forms one centered vertical chain: servo, XIAO on its breadboard, LM2596 buck, a physically joined but electrically separate inline splitter pair, and a slide-out battery with its XT30 pigtail already connected. The pigtail's red and black leads enter the splitter bottoms directly. The positive splitter's right output takes the short branch to the buck, while its left output routes around the buck's left side to the servo without crossing another wire. The buck feeds the controller immediately above it while USB-C is unplugged. In USB-first mode, USB-C powers the XIAO, the buck is skipped, and splitter ground continues to the controller. PWM leaves the breadboard assembly on the left and travels upward to the servo. Component bodies are shown at one approximately consistent real-size scale; flexible lead lengths are diagrammatic.</desc>
+              <desc id="diagramDesc">The physical layout follows one vertical enclosure-style chain: a right-shifted servo, XIAO on its breadboard, LM2596 buck, a physically joined but electrically separate inline splitter pair, and a slide-out battery with its XT30 pigtail already connected. The pigtail's red and black leads enter the splitter bottoms directly. The positive splitter's right output takes the short branch to the buck, while its left output routes around the buck's left side to the servo without crossing another wire. The buck feeds the controller immediately above it while USB-C is unplugged. In USB-first mode, USB-C powers the XIAO, the buck is skipped, and splitter ground continues to the controller. PWM leaves the breadboard assembly on the left and travels upward to the servo. Component bodies are shown at one approximately consistent real-size scale; flexible lead lengths are diagrammatic.</desc>
 
               <path id="xt30PositiveWire" class="wire red" data-parts="battery splitter-positive" />
               <path id="xt30GroundWire" class="wire ground" data-parts="battery splitter-ground" />
@@ -2177,7 +2177,7 @@
             <aside class="diagram-callout servo-callout" data-callout-for="servo">
               <div class="callout-head">
                 <strong>35kg servo</strong>
-                <span>Centered actuator; battery power plus PWM signal.</span>
+                <span>Right-shifted actuator aligned to its vertical three-pin connector.</span>
                 <button class="detail-button" type="button" data-part="servo" title="Open servo details">i</button>
               </div>
               <div class="callout-ports">
@@ -3017,25 +3017,24 @@
       const positiveOutputBuck = point(positiveSplitterRect, 0.662, 0.061);
       const groundOutputBuck = point(groundSplitterRect, 0.319, 0.061);
       const groundOutputServo = point(groundSplitterRect, 0.662, 0.061);
-      const buckInputPositive = point(buckRect, 0.46, 0.91);
-      const buckInputGround = point(buckRect, 0.55, 0.91);
+      const buckInputPositive = point(buckRect, 0.447, 0.819);
+      const buckInputGround = point(buckRect, 0.545, 0.819);
       wiringPaths.buckInputPositive.setAttribute("d", `M${pathPoint(positiveOutputBuck)} V1138 H${buckInputPositive[0].toFixed(1)} V${buckInputPositive[1].toFixed(1)}`);
       wiringPaths.buckInputGround.setAttribute("d", `M${pathPoint(groundOutputBuck)} V1118 H${buckInputGround[0].toFixed(1)} V${buckInputGround[1].toFixed(1)}`);
 
-      const servoSignal = point(servoRect, 0.479, 0.895);
-      const servoRed = point(servoRect, 0.517, 0.895);
-      const servoGround = point(servoRect, 0.553, 0.895);
+      const servoSignal = point(servoRect, 0.254, 0.935);
+      const servoRed = point(servoRect, 0.28, 0.935);
+      const servoGround = point(servoRect, 0.307, 0.935);
       const servoBranchTurnY = 1148;
-      const servoBranchRiseY = 430;
       const servoBranchLeftX = 566;
       const servoBranchRightX = 794;
-      wiringPaths.servoPositive.setAttribute("d", `M${pathPoint(positiveOutputServo)} V${servoBranchTurnY} H${servoBranchLeftX} V${servoBranchRiseY} H660 L${pathPoint(servoRed)}`);
-      wiringPaths.servoGround.setAttribute("d", `M${pathPoint(groundOutputServo)} V${servoBranchTurnY} H${servoBranchRightX} V${servoBranchRiseY} H700 L${pathPoint(servoGround)}`);
+      wiringPaths.servoPositive.setAttribute("d", `M${pathPoint(positiveOutputServo)} V${servoBranchTurnY} H${servoBranchLeftX} V532 H790 L${pathPoint(servoRed)}`);
+      wiringPaths.servoGround.setAttribute("d", `M${pathPoint(groundOutputServo)} V${servoBranchTurnY} H${servoBranchRightX} V558 H816 L${pathPoint(servoGround)}`);
 
       const controllerPower = assemblyPoint(151, 1);
       const controllerGround = assemblyPoint(136, 1);
-      const buckOutputGround = point(buckRect, 0.46, 0.09);
-      const buckOutputPower = point(buckRect, 0.55, 0.09);
+      const buckOutputGround = point(buckRect, 0.447, 0.133);
+      const buckOutputPower = point(buckRect, 0.545, 0.133);
       wiringPaths.controllerPower.setAttribute("d", `M${pathPoint(buckOutputPower)} L${pathPoint(controllerPower)}`);
       wiringPaths.controllerGround.setAttribute("d", `M${pathPoint(buckOutputGround)} L${pathPoint(controllerGround)}`);
 
