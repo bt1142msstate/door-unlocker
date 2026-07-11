@@ -35,6 +35,15 @@ public enum DoorFirmwareUpdatePolicy {
         decision(installedVersion: installedVersion, bundledVersion: bundledVersion) == .installBundledVersion
     }
 
+    public static func isVersion(_ installedVersion: String, atLeast minimumVersion: String) -> Bool {
+        guard let installedVersion = normalizedVersion(installedVersion),
+              let minimumVersion = normalizedVersion(minimumVersion),
+              installedVersion.lowercased() != "unknown" else {
+            return false
+        }
+        return compareVersions(installedVersion, minimumVersion) != .orderedAscending
+    }
+
     private static func normalizedVersion(_ version: String?) -> String? {
         guard let trimmed = version?.trimmingCharacters(in: .whitespacesAndNewlines),
               !trimmed.isEmpty else {

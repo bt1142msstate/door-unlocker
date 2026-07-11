@@ -9,7 +9,7 @@ export DEVELOPER_DIR
 DEVICE_UDID="${DEVICE_UDID:-}"
 INSTALL_APP=0
 CAPTURE_SECONDS="${CAPTURE_SECONDS:-10}"
-MAX_READY_MS="${MAX_READY_MS:-2000}"
+MAX_READY_MS="${MAX_READY_MS:-800}"
 
 usage() {
   cat <<USAGE
@@ -21,7 +21,7 @@ DEBUG-only DUStartup timing lines. Use --install to build/install first.
 Environment:
   DEVICE_UDID       Physical iOS device UDID. Auto-detected when omitted.
   CAPTURE_SECONDS   Console capture timeout. Defaults to 10.
-  MAX_READY_MS      Maximum true command-ready time. Defaults to 2000.
+  MAX_READY_MS      Maximum true command-ready time. Defaults to 800.
 USAGE
 }
 

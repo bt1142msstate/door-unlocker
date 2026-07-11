@@ -29,6 +29,7 @@ extension DoorUnlockerController {
 #if DEBUG
                 recordStartupTelemetry("state_notify_enabled")
 #endif
+                scheduleStartupCriticalSnapshot(after: .milliseconds(20))
                 enableControlNotificationsIfPossible(on: peripheral)
                 scheduleStateSnapshotFallbackRead()
                 scheduleFirmwareVersionSnapshotRetry()

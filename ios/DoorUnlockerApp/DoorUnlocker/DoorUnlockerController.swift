@@ -181,6 +181,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     var queuedDoorCommandNonceRequestCount = 0
     var postReadySyncTask: Task<Void, Never>?
     var stateSnapshotFallbackTask: Task<Void, Never>?
+    var startupCriticalSnapshotTask: Task<Void, Never>?
     var stateSnapshotRequestGate = DoorSingleFlightRequestGate()
     var stateSnapshotRequestTimeoutTask: Task<Void, Never>?
     var firmwareVersionSnapshotRetryTask: Task<Void, Never>?
@@ -270,6 +271,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     deinit {
         startupHousekeepingTask?.cancel()
         stateSnapshotFallbackTask?.cancel()
+        startupCriticalSnapshotTask?.cancel()
         stateSnapshotRequestTimeoutTask?.cancel()
         firmwareVersionSnapshotRetryTask?.cancel()
         controlNonceRecoveryTask?.cancel()

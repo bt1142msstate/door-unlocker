@@ -52,6 +52,18 @@ public struct DoorParsedConnectionsPayload: Equatable, Hashable {
     }
 }
 
+public struct DoorCriticalStartupSnapshot: Equatable, Hashable, Sendable {
+    public let sessionIdentifier: String
+    public let healthState: String
+    public let doorState: String
+
+    public init(sessionIdentifier: String, healthState: String, doorState: String) {
+        self.sessionIdentifier = sessionIdentifier
+        self.healthState = healthState
+        self.doorState = doorState
+    }
+}
+
 public enum DoorNameNormalizer {
     public static let maximumNameLength = 24
 
@@ -84,6 +96,27 @@ public enum DoorNameNormalizer {
 }
 
 public enum DoorControllerStateParsing {
+    public static func criticalStartupSnapshot(from rawState: String) -> DoorCriticalStartupSnapshot? {
+        guard let payload = prefixedValue(rawState, prefix: "critical:"),
+              payload.utf8.count <= 72 else { return nil }
+        let parts = payload.split(separator: "|", maxSplits: 2, omittingEmptySubsequences: false).map(String.init)
+        guard parts.count == 3,
+              let sessionIdentifier = sessionIdentifier(from: "session:\(parts[0])") else {
+            return nil
+        }
+        let healthState = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard healthState == "ok" || healthState == "storage_fault" else { return nil }
+        let doorState = parts[2].trimmingCharacters(in: .whitespacesAndNewlines)
+        let isStableOrMovingState = ["locked", "locking", "unlocked", "unlocking"].contains(doorState)
+        let unlockedRemainingSeconds = prefixedTrimmedValue(doorState, prefix: "unlocked:").flatMap(Int.init)
+        guard isStableOrMovingState || unlockedRemainingSeconds != nil else { return nil }
+        return DoorCriticalStartupSnapshot(
+            sessionIdentifier: sessionIdentifier,
+            healthState: healthState,
+            doorState: doorState
+        )
+    }
+
     public static func sessionIdentifier(from rawState: String) -> String? {
         guard let value = prefixedTrimmedValue(rawState, prefix: "session:"),
               value.count == 16,

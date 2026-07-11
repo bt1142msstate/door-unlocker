@@ -140,6 +140,56 @@ extension DoorUnlockerController {
         }
     }
 
+    func requestStartupCriticalSnapshotIfPossible() {
+        let action = DoorStartupSnapshotPolicy.action(
+            isBluetoothAvailable: bluetoothState == "On",
+            isGattReady: hasDiscoveredControllerCharacteristics,
+            areStateNotificationsActive: stateCharacteristic?.isNotifying == true,
+            supportsCriticalSnapshot: DoorFirmwareUpdatePolicy.isVersion(
+                firmwareVersion,
+                atLeast: Self.criticalStartupSnapshotMinimumFirmwareVersion
+            ),
+            hasCurrentCriticalSnapshot: hasCurrentCriticalStartupSnapshot,
+            isFirmwareUpdateActive: isFirmwareDfuTransportActive || isFirmwareUpdateRunning
+        )
+        guard action == .requestImmediately else { return }
+        guard let peripheral, let commandCharacteristic else { return }
+
+        let payload = Data("critical_snapshot".utf8)
+        if commandCharacteristic.properties.contains(.writeWithoutResponse),
+           peripheral.canSendWriteWithoutResponse {
+            peripheral.writeValue(payload, for: commandCharacteristic, type: .withoutResponse)
+        } else if commandCharacteristic.properties.contains(.write) {
+            peripheral.writeValue(payload, for: commandCharacteristic, type: .withResponse)
+        } else {
+            return
+        }
+#if DEBUG
+        recordStartupTelemetry("critical_snapshot_requested", once: false)
+#endif
+        scheduleStartupCriticalSnapshot(after: .milliseconds(220))
+    }
+
+    func scheduleStartupCriticalSnapshot(after delay: Duration = .milliseconds(60)) {
+        guard !hasCurrentCriticalStartupSnapshot else { return }
+        startupCriticalSnapshotTask?.cancel()
+        startupCriticalSnapshotTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: delay)
+            } catch {
+                return
+            }
+            await MainActor.run {
+                guard let self,
+                      !self.hasCurrentCriticalStartupSnapshot else {
+                    return
+                }
+                self.startupCriticalSnapshotTask = nil
+                self.requestStartupCriticalSnapshotIfPossible()
+            }
+        }
+    }
+
     func requestStateNotificationSnapshotReplay() {
         guard !hasCompleteControllerMetadataSnapshot else { return }
         guard isDoorCommandReady,
@@ -178,6 +228,9 @@ extension DoorUnlockerController {
                   peripheral.canSendWriteWithoutResponse {
             peripheral.writeValue(payload, for: commandCharacteristic, type: .withoutResponse)
         } else {
+            stateSnapshotRequestGate.invalidate()
+            stateSnapshotRequestTimeoutTask?.cancel()
+            stateSnapshotRequestTimeoutTask = nil
             _ = readStateIfPermitted()
             return
         }

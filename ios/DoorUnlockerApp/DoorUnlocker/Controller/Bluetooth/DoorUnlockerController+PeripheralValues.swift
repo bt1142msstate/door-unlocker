@@ -72,6 +72,20 @@ extension DoorUnlockerController {
 
             guard characteristic.uuid == stateUUID else { return }
 
+            if let criticalSnapshot = DoorControllerStateParsing.criticalStartupSnapshot(from: rawState) {
+                applyControllerBootSession(criticalSnapshot.sessionIdentifier)
+                guard applyControllerStorageHealth(criticalSnapshot.healthState) else { return }
+                if criticalSnapshot.healthState == "storage_fault" {
+                    lastError = "Controller storage is unavailable. Secure control is disabled until storage is repaired."
+                }
+#if DEBUG
+                recordStartupTelemetry("critical_snapshot_received")
+#endif
+                _ = applyAuthoritativeDoorState(criticalSnapshot.doorState)
+                finishCriticalStartupSnapshotIfCurrent()
+                return
+            }
+
             if let sessionIdentifier = DoorControllerStateParsing.sessionIdentifier(from: rawState) {
                 applyControllerBootSession(sessionIdentifier)
                 return
@@ -151,39 +165,27 @@ extension DoorUnlockerController {
                 return
             }
 
-                if let connections = DoorControllerStateParser.connectedDevices(from: rawState) {
-                    guard markControllerConnectionRosterCurrent() else { return }
+            if let connections = DoorControllerStateParser.connectedDevices(from: rawState) {
+                guard markControllerConnectionRosterCurrent() else { return }
 #if DEBUG
-                    recordStartupTelemetry(
-                        "controller_connections_received",
-                        details: "\(connections.count)/\(connections.max) \(connections.devices.map(\.displayName).joined(separator: "|"))",
-                        once: false
-                    )
+                recordStartupTelemetry(
+                    "controller_connections_received",
+                    details: "\(connections.count)/\(connections.max) \(connections.devices.map(\.displayName).joined(separator: "|"))",
+                    once: false
+                )
 #endif
-                    connectedDeviceCount = connections.count
-                    maximumConnectedDeviceCount = connections.max
-                    connectedDevices = connections.devices
-                    confirmCurrentDeviceTrustIfListed(in: connections.devices)
-                    if pairingState == "Unknown" {
-                        promoteKnownControllerPairingIfNeeded()
+                connectedDeviceCount = connections.count
+                maximumConnectedDeviceCount = connections.max
+                connectedDevices = connections.devices
+                confirmCurrentDeviceTrustIfListed(in: connections.devices)
+                if pairingState == "Unknown" {
+                    promoteKnownControllerPairingIfNeeded()
                 }
                 return
             }
 
+            if applyAuthoritativeDoorState(rawState) { return }
             let parsedState = parseControllerState(rawState)
-            if DoorControlPresentationPolicy.isDoorState(parsedState.state) {
-                guard markControllerStateSnapshotCurrent() else { return }
-#if DEBUG
-                recordStartupTelemetry(
-                    "door_state_received",
-                    details: parsedState.state,
-                    once: false
-                )
-#endif
-                stateUpdateGeneration += 1
-                stateSnapshotFallbackTask?.cancel()
-                stateSnapshotFallbackTask = nil
-            }
 
             if parsedState.state == "timeout_set" {
                 if let seconds = parsedState.remainingSeconds {
@@ -229,10 +231,33 @@ extension DoorUnlockerController {
             syncLockNameIfReady()
             syncDeviceDisplayNameIfReady()
             runProximityUnlockIfReady()
-            if DoorControlPresentationPolicy.isDoorState(parsedState.state),
-               !DoorControlPresentationPolicy.isChangingState(parsedState.state) {
-                _ = sendPendingFreshNonceDoorCommandIfReady()
-            }
         }
+    }
+
+    @discardableResult
+    func applyAuthoritativeDoorState(_ rawState: String) -> Bool {
+        let parsedState = parseControllerState(rawState)
+        guard DoorControlPresentationPolicy.isDoorState(parsedState.state) else { return false }
+        guard markControllerStateSnapshotCurrent() else { return true }
+#if DEBUG
+        recordStartupTelemetry("door_state_received", details: parsedState.state, once: false)
+#endif
+        stateUpdateGeneration += 1
+        stateSnapshotFallbackTask?.cancel()
+        stateSnapshotFallbackTask = nil
+        guard !shouldIgnoreStaleDoorState(parsedState.state) else { return true }
+        clearQueuedDoorCommandIfSatisfied(by: parsedState.state)
+        servoState = parsedState.state
+        reconcileOptimisticDoorCommand(with: parsedState.state)
+        updatePairingState(from: parsedState.state)
+        publishWidgetState(parsedState.state, controllerRemainingSeconds: parsedState.remainingSeconds)
+        sendPendingSystemCommandIfReady()
+        syncLockNameIfReady()
+        syncDeviceDisplayNameIfReady()
+        runProximityUnlockIfReady()
+        if !DoorControlPresentationPolicy.isChangingState(parsedState.state) {
+            _ = sendPendingFreshNonceDoorCommandIfReady()
+        }
+        return true
     }
 }

@@ -90,6 +90,18 @@ extension DoorUnlockerController {
 #endif
     }
 
+    var hasCurrentCriticalStartupSnapshot: Bool {
+        controllerBootSessionIdentifier != nil &&
+            controllerHealthStatus != "unknown" &&
+            hasCurrentControllerSnapshot
+    }
+
+    func finishCriticalStartupSnapshotIfCurrent() {
+        guard hasCurrentCriticalStartupSnapshot else { return }
+        startupCriticalSnapshotTask?.cancel()
+        startupCriticalSnapshotTask = nil
+    }
+
     var isControllerOnline: Bool {
         sessionAssessment.isControllerOnline
     }

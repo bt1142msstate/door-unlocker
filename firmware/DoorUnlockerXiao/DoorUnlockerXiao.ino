@@ -41,7 +41,7 @@ static const uint16_t MIN_UNLOCK_HOLD_TIMEOUT_SECONDS = 5;
 static const uint16_t MAX_UNLOCK_HOLD_TIMEOUT_SECONDS = 120;
 static const char DEFAULT_LOCK_NAME[] = "My Lock";
 static const char CONTROLLER_MODEL_NAME[] = "DoorUnlocker-XIAO-v4";
-static const char CONTROLLER_FIRMWARE_VERSION[] = "0.1.24";
+static const char CONTROLLER_FIRMWARE_VERSION[] = "0.1.25";
 // Fresh random-static BLE identity for the app-layer-security firmware. This
 // avoids stale iOS/macOS OS-level bond records from the earlier encrypted-GATT
 // builds while preserving trusted app keys in LittleFS.
@@ -2373,6 +2373,28 @@ void publishStartupSnapshotTo(uint16_t connHandle) {
   notifyStateSubscriber(connHandle, payload);
 }
 
+void publishCriticalStartupSnapshotTo(uint16_t connHandle) {
+  char statePayload[24] = {0};
+  if (strcmp(currentStateText(), "unlocked") == 0) {
+    snprintf(statePayload, sizeof(statePayload), "unlocked:%u", unlockHoldRemainingSeconds());
+  } else {
+    snprintf(statePayload, sizeof(statePayload), "%s", currentStateText());
+  }
+
+  char payload[STATE_PAYLOAD_MAX_LEN] = {0};
+  snprintf(
+    payload,
+    sizeof(payload),
+    "critical:%s|%s|%s",
+    controllerBootSessionId,
+    internalFsReady ? "ok" : "storage_fault",
+    statePayload
+  );
+  notifyStateSubscriber(connHandle, payload);
+  Serial.print("State: ");
+  Serial.println(payload);
+}
+
 void processPendingStateStartupSnapshots() {
   uint32_t now = millis();
   for (uint8_t slot = 0; slot < MAX_BLE_CONNECTIONS; slot++) {
@@ -3148,6 +3170,13 @@ void processPendingBleCommand() {
 
   if (job.payloadLen == 8 && memcmp(job.payload, "snapshot", 8) == 0) {
     publishStartupSnapshotTo(job.connHandle);
+    return;
+  }
+
+  static const char criticalSnapshotCommand[] = "critical_snapshot";
+  if (job.payloadLen == sizeof(criticalSnapshotCommand) - 1
+      && memcmp(job.payload, criticalSnapshotCommand, sizeof(criticalSnapshotCommand) - 1) == 0) {
+    publishCriticalStartupSnapshotTo(job.connHandle);
     return;
   }
 

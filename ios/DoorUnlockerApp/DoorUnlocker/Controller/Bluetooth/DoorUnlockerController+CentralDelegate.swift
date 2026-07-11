@@ -29,6 +29,7 @@ extension DoorUnlockerController: CBCentralManagerDelegate {
                     recordStartupTelemetry("powered_on_ready_skip_scan")
 #endif
                     updateProximityUnlockStatus()
+                    scheduleStartupCriticalSnapshot()
                     if isReady, !isDoorCommandReady {
 #if DEBUG
                         recordStartupTelemetry("powered_on_nonce_nudge")

@@ -19,6 +19,8 @@ extension DoorUnlockerController {
         postReadySyncTask = nil
         stateSnapshotFallbackTask?.cancel()
         stateSnapshotFallbackTask = nil
+        startupCriticalSnapshotTask?.cancel()
+        startupCriticalSnapshotTask = nil
         firmwareVersionSnapshotRetryTask?.cancel()
         firmwareVersionSnapshotRetryTask = nil
         controlNonceRecoveryTask?.cancel()
@@ -295,6 +297,7 @@ extension DoorUnlockerController {
             setKnownPairedController(true)
         }
         _ = promoteKnownControllerPairingIfNeeded()
+        scheduleStartupCriticalSnapshot()
         requestFreshSecureControlNonce()
         scheduleStateSnapshotFallbackRead()
         scheduleFirmwareVersionSnapshotRetry()

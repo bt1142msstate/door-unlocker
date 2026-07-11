@@ -3,6 +3,29 @@ import XCTest
 @testable import DoorUnlockerShared
 
 final class ControllerStateParsingTests: XCTestCase {
+    func testParsesCriticalStartupSnapshot() {
+        XCTAssertEqual(
+            DoorControllerStateParsing.criticalStartupSnapshot(
+                from: "critical:0123456789abcdef|ok|unlocked:27"
+            ),
+            DoorCriticalStartupSnapshot(
+                sessionIdentifier: "0123456789abcdef",
+                healthState: "ok",
+                doorState: "unlocked:27"
+            )
+        )
+        XCTAssertNil(
+            DoorControllerStateParsing.criticalStartupSnapshot(
+                from: "critical:bad-session|ok|locked"
+            )
+        )
+        XCTAssertNil(
+            DoorControllerStateParsing.criticalStartupSnapshot(
+                from: "critical:0123456789abcdef|ok|unlocked:not-a-number"
+            )
+        )
+    }
+
     func testParsesBootSessionAndHealth() {
         XCTAssertEqual(
             DoorControllerStateParsing.sessionIdentifier(from: "session:0123456789ABCDEF"),
