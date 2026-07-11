@@ -115,6 +115,12 @@ extension DoorUnlockerController {
                 return "Existing connecting link reused"
             case "restore_connected":
                 return "Restored connected link"
+            case "restore_connected_reused":
+                return "Reused restored connection"
+            case "restore_validation_succeeded":
+                return "Restored connection validated"
+            case "restore_validation_timeout":
+                return "Restored connection required reconnect"
             case "restore_connecting":
                 return "Restored connecting link"
             case "restore_connect_start":
@@ -139,8 +145,8 @@ extension DoorUnlockerController {
                 return "Secure nonce received"
             case "link_auth_probe_sent":
                 return "Trusted link checked"
-            case "door_command_usable":
-                return "Door command usable"
+            case "door_command_dispatch_ready":
+                return "Door command ready to dispatch"
             case "door_command_queued_for_nonce":
                 return "Door command waiting for secure material"
             case "door_command_link_recovery":

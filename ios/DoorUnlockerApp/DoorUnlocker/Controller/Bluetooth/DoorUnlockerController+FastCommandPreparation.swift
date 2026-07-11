@@ -50,6 +50,7 @@ extension DoorUnlockerController {
                     }
 
                     self.preparedFastDoorCommandPayloads[command] = payload
+                    self.refreshDoorCommandDispatchReadiness()
 #if DEBUG
                     if self.preparedFastDoorCommandPayloads.count == 1 {
                         self.recordStartupTelemetry("first_fast_payload_ready", details: command.rawValue)
@@ -114,7 +115,7 @@ extension DoorUnlockerController {
         fastCommandNonce = nonce
 #if DEBUG
         recordStartupTelemetry("secure_nonce_received")
-        recordStartupTelemetry("door_command_usable", details: "nonce_ready")
+        recordStartupTelemetry("secure_nonce_ready")
 #endif
         if pendingFirmwareUpdatePackageURL != nil,
            sendPendingFirmwareUpdateCommandIfReady() {

@@ -29,8 +29,9 @@ extension DoorUnlockerController {
         stateCharacteristic = nil
         pairingCharacteristic = nil
         controlCharacteristic = nil
-        restoredConnectionRefreshTask?.cancel()
-        restoredConnectionRefreshTask = nil
+        restoredConnectionValidationTask?.cancel()
+        restoredConnectionValidationTask = nil
+        restoredConnectionValidationSessionGeneration = nil
         lastControllerActivityAt = nil
         stopSecureLinkWatchdog()
         controlNonceRequestGate.invalidate()
@@ -93,33 +94,9 @@ extension DoorUnlockerController {
         case .connected:
             if reason == "Restoring" {
 #if DEBUG
-                recordStartupTelemetry("restore_clean_reconnect")
+                recordStartupTelemetry("restore_connected_reused")
 #endif
-                isRefreshingRestoredConnection = true
-                connectionState = "Reconnecting"
-                invalidateControllerFreshness()
-                central.cancelPeripheralConnection(restoredPeripheral)
-                restoredConnectionRefreshTask?.cancel()
-                restoredConnectionRefreshTask = Task { [weak self, weak restoredPeripheral] in
-                    try? await Task.sleep(for: .seconds(1))
-                    await MainActor.run {
-                        guard let self,
-                              self.isRefreshingRestoredConnection,
-                              let restoredPeripheral else { return }
-                        if restoredPeripheral.state == .connected || restoredPeripheral.state == .disconnecting {
-                            self.central?.cancelPeripheralConnection(restoredPeripheral)
-                        }
-                    }
-                    try? await Task.sleep(for: .seconds(2))
-                    await MainActor.run {
-                        guard let self, self.isRefreshingRestoredConnection else { return }
-                        self.isRefreshingRestoredConnection = false
-                        self.restoredConnectionRefreshTask = nil
-                        self.clearDiscoveredControllerCharacteristics()
-                        self.startScan()
-                    }
-                }
-                return
+                beginRestoredConnectionValidation(for: restoredPeripheral)
             }
 #if DEBUG
             recordStartupTelemetry("restore_connected", details: reason)
@@ -156,6 +133,54 @@ extension DoorUnlockerController {
             scheduleReconnectCheck(after: reconnectCheckDelay(6))
             scheduleKnownPeripheralAssistScan()
         }
+    }
+
+    func beginRestoredConnectionValidation(for restoredPeripheral: CBPeripheral) {
+        restoredConnectionValidationTask?.cancel()
+        let sessionGeneration = controllerSessionGeneration
+        let peripheralIdentifier = restoredPeripheral.identifier
+        restoredConnectionValidationSessionGeneration = sessionGeneration
+        restoredConnectionValidationTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(DoorRestoredConnectionPolicy.validationTimeout))
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard let self,
+                      self.restoredConnectionValidationSessionGeneration == sessionGeneration,
+                      self.peripheral?.identifier == peripheralIdentifier else {
+                    return
+                }
+
+                let isConnected = restoredPeripheral.state == .connected
+                let receivedFreshBootSession = self.controllerSessionGeneration != sessionGeneration
+                guard DoorRestoredConnectionPolicy.shouldForceCleanReconnect(
+                    validationExpired: true,
+                    receivedFreshBootSession: receivedFreshBootSession,
+                    isTransportConnected: isConnected
+                ) else {
+                    self.completeRestoredConnectionValidation()
+                    return
+                }
+
+#if DEBUG
+                self.recordStartupTelemetry("restore_validation_timeout")
+#endif
+                self.restoredConnectionValidationTask = nil
+                self.restoredConnectionValidationSessionGeneration = nil
+                self.connectionState = "Reconnecting"
+                self.lastError = nil
+                self.central?.cancelPeripheralConnection(restoredPeripheral)
+            }
+        }
+    }
+
+    func completeRestoredConnectionValidation() {
+        guard restoredConnectionValidationTask != nil else { return }
+        restoredConnectionValidationTask?.cancel()
+        restoredConnectionValidationTask = nil
+        restoredConnectionValidationSessionGeneration = nil
+#if DEBUG
+        recordStartupTelemetry("restore_validation_succeeded")
+#endif
     }
 
     func discoverControllerServices(on peripheral: CBPeripheral) {

@@ -9,6 +9,7 @@ export DEVELOPER_DIR
 DEVICE_UDID="${DEVICE_UDID:-}"
 INSTALL_APP=0
 CAPTURE_SECONDS="${CAPTURE_SECONDS:-10}"
+MAX_READY_MS="${MAX_READY_MS:-2000}"
 
 usage() {
   cat <<USAGE
@@ -20,6 +21,7 @@ DEBUG-only DUStartup timing lines. Use --install to build/install first.
 Environment:
   DEVICE_UDID       Physical iOS device UDID. Auto-detected when omitted.
   CAPTURE_SECONDS   Console capture timeout. Defaults to 10.
+  MAX_READY_MS      Maximum true command-ready time. Defaults to 2000.
 USAGE
 }
 
@@ -67,14 +69,16 @@ if [[ "$INSTALL_APP" == "1" ]]; then
   "$ROOT_DIR/script/install_ios_app.sh" --device-udid "$DEVICE_UDID" --no-launch
 fi
 
-DEVICE_UDID="$DEVICE_UDID" BUNDLE_ID="$BUNDLE_ID" CAPTURE_SECONDS="$CAPTURE_SECONDS" /usr/bin/python3 <<'PY'
+DEVICE_UDID="$DEVICE_UDID" BUNDLE_ID="$BUNDLE_ID" CAPTURE_SECONDS="$CAPTURE_SECONDS" MAX_READY_MS="$MAX_READY_MS" /usr/bin/python3 <<'PY'
 import os
+import re
 import subprocess
 import sys
 
 device = os.environ["DEVICE_UDID"]
 bundle_id = os.environ["BUNDLE_ID"]
 capture_seconds = float(os.environ["CAPTURE_SECONDS"])
+max_ready_ms = int(os.environ["MAX_READY_MS"])
 env = os.environ.copy()
 
 cmd = [
@@ -107,6 +111,22 @@ if lines:
 else:
     print("No DUStartup lines captured.", file=sys.stderr)
     sys.exit(1)
+
+ready = next(
+    (
+        int(match.group(1))
+        for line in lines
+        if (match := re.search(r"DUStartup\s+(\d+)ms\s+door_command_dispatch_ready", line))
+    ),
+    None,
+)
+if ready is None:
+    print("The app never reported a truly dispatch-ready secure command path.", file=sys.stderr)
+    sys.exit(1)
+if ready > max_ready_ms:
+    print(f"Cold-launch command readiness took {ready} ms; limit is {max_ready_ms} ms.", file=sys.stderr)
+    sys.exit(1)
+print(f"Cold-launch command ready: {ready} ms (limit {max_ready_ms} ms)")
 PY
 
 xcrun devicectl device process launch \

@@ -287,7 +287,10 @@ def main() -> int:
 
     try:
         console.start()
-        console.wait_for(lambda line: "door_command_usable" in line, timeout=args.startup_timeout)
+        console.wait_for(
+            lambda line: "door_command_dispatch_ready" in line,
+            timeout=args.startup_timeout,
+        )
         _, initial_state_line = console.wait_for(
             lambda line: (
                 "door_state_received locked" in line

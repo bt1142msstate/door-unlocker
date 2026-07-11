@@ -22,6 +22,7 @@ extension DoorUnlockerController {
 
     func applyControllerBootSession(_ identifier: String) {
         guard controllerFreshness.receiveBootSession(identifier) else { return }
+        completeRestoredConnectionValidation()
         hasCurrentFirmwareVersionSnapshot = false
         mirrorControllerFreshness()
 #if DEBUG
@@ -48,6 +49,7 @@ extension DoorUnlockerController {
         guard controllerFreshness.receiveStorageHealth(value) else { return false }
         mirrorControllerFreshness()
         refreshControllerMetadataSnapshotRetry()
+        refreshDoorCommandDispatchReadiness()
         return true
     }
 
@@ -56,6 +58,7 @@ extension DoorUnlockerController {
         guard controllerFreshness.receiveStateSnapshot() else { return false }
         mirrorControllerFreshness()
         refreshControllerMetadataSnapshotRetry()
+        refreshDoorCommandDispatchReadiness()
         return true
     }
 
@@ -78,6 +81,13 @@ extension DoorUnlockerController {
         controllerHealthStatus = controllerFreshness.storageHealth.rawValue
         hasCurrentControllerSnapshot = controllerFreshness.hasCurrentStateSnapshot
         hasCurrentConnectionRoster = controllerFreshness.hasCurrentConnectionRoster
+    }
+
+    func refreshDoorCommandDispatchReadiness() {
+        guard canAcceptDoorCommand else { return }
+#if DEBUG
+        recordStartupTelemetry("door_command_dispatch_ready")
+#endif
     }
 
     var isControllerOnline: Bool {

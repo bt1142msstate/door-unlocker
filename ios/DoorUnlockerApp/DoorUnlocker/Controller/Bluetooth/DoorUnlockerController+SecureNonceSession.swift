@@ -207,6 +207,7 @@ extension DoorUnlockerController {
         linkAuthenticationInFlight = false
         linkAuthenticationAttemptCount = 0
         hasAuthenticatedCurrentLink = true
+        refreshDoorCommandDispatchReadiness()
     }
 
     func scheduleLinkAuthenticationTimeout() {

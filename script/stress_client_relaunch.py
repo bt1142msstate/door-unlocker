@@ -71,7 +71,13 @@ def main() -> int:
     parser.add_argument("--cycles", type=int, default=10)
     parser.add_argument("--ready-timeout", type=float, default=12)
     parser.add_argument("--command-timeout", type=float, default=6)
-    parser.add_argument("--max-ios-ready-ms", type=int, default=4000)
+    parser.add_argument(
+        "--cycle-settle",
+        type=float,
+        default=1.25,
+        help="Seconds for iOS and devicectl to release the prior console session.",
+    )
+    parser.add_argument("--max-ios-ready-ms", type=int, default=2000)
     parser.add_argument("--max-mac-ready-ms", type=int, default=7000)
     parser.add_argument("--max-command-ms", type=int, default=1200)
     args = parser.parse_args()
@@ -88,13 +94,14 @@ def main() -> int:
         for cycle in range(args.cycles):
             if console is not None:
                 console.stop()
+                time.sleep(max(0, args.cycle_settle))
             quit_mac()
             mac_start = len(mac_lines())
             console = IOSConsole(device)
             console.start()
 
             _, ios_ready_line = console.wait_for(
-                lambda line: "door_command_usable" in line,
+                lambda line: "door_command_dispatch_ready" in line,
                 timeout=args.ready_timeout,
             )
             _, state_line = console.wait_for(

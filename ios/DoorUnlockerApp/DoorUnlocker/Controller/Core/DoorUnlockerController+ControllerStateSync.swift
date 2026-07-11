@@ -14,7 +14,7 @@ extension DoorUnlockerController {
         if linkAuthenticationInFlight {
             completeLinkAuthentication()
 #if DEBUG
-            recordStartupTelemetry("door_command_usable", details: "link_authenticated")
+            recordStartupTelemetry("link_authenticated")
 #endif
         }
         clearRemoteSettingApplying()

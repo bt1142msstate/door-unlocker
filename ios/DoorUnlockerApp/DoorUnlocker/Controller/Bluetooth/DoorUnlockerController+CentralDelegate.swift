@@ -24,13 +24,6 @@ extension DoorUnlockerController: CBCentralManagerDelegate {
                     updateProximityUnlockStatus()
                     return
                 }
-                if isRefreshingRestoredConnection {
-#if DEBUG
-                    recordStartupTelemetry("powered_on_waiting_for_restore_reconnect")
-#endif
-                    updateProximityUnlockStatus()
-                    return
-                }
                 if isSecureCommandWriteReady {
 #if DEBUG
                     recordStartupTelemetry("powered_on_ready_skip_scan")
@@ -127,9 +120,7 @@ extension DoorUnlockerController: CBCentralManagerDelegate {
             recordStartupTelemetry("peripheral_connected")
 #endif
             reconnectTimer?.invalidate()
-            restoredConnectionRefreshTask?.cancel()
-            restoredConnectionRefreshTask = nil
-            isRefreshingRestoredConnection = false
+            completeRestoredConnectionValidation()
             knownPeripheralAssistScanTask?.cancel()
             knownPeripheralAssistScanTask = nil
             stopControllerScan()
@@ -165,10 +156,9 @@ extension DoorUnlockerController: CBCentralManagerDelegate {
         Task { @MainActor in
             guard isCurrentPeripheral(peripheral) else { return }
 
-            let wasRefreshingRestoredConnection = isRefreshingRestoredConnection
-            isRefreshingRestoredConnection = false
-            restoredConnectionRefreshTask?.cancel()
-            restoredConnectionRefreshTask = nil
+            restoredConnectionValidationTask?.cancel()
+            restoredConnectionValidationTask = nil
+            restoredConnectionValidationSessionGeneration = nil
             let shouldCheckProximityUnlock = proximityUnlockEnabled && central.state == .poweredOn && hasTrustedPairingForSecureCommand
             connectionState = "Disconnected"
             connectedDeviceCount = 0
@@ -185,16 +175,6 @@ extension DoorUnlockerController: CBCentralManagerDelegate {
             if isFirmwareDfuTransportActive {
                 connectionState = "Updating firmware"
                 updateProximityUnlockStatus()
-                return
-            }
-            if wasRefreshingRestoredConnection, central.state == .poweredOn {
-#if DEBUG
-                recordStartupTelemetry("restore_reconnect_start")
-#endif
-                lastError = nil
-                connectionState = "Reconnecting"
-                central.connect(peripheral, options: nil)
-                scheduleReconnectCheck(after: reconnectCheckDelay(6))
                 return
             }
             if shouldCheckProximityUnlock {

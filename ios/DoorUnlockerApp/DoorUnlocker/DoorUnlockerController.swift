@@ -190,8 +190,8 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     var controlUpdateGeneration = 0
     var controllerNonceHandoffGate = DoorSingleFlightRequestGate()
     var controllerNonceHandoffTimeoutTask: Task<Void, Never>?
-    var isRefreshingRestoredConnection = false
-    var restoredConnectionRefreshTask: Task<Void, Never>?
+    var restoredConnectionValidationTask: Task<Void, Never>?
+    var restoredConnectionValidationSessionGeneration: Int?
     var hasAuthenticatedCurrentLink = false
     var linkAuthenticationInFlight = false
     var linkAuthenticationAttemptCount = 0
@@ -276,6 +276,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         controlNonceRequestTimeoutTask?.cancel()
         controllerNonceHandoffTimeoutTask?.cancel()
         linkAuthenticationTimeoutTask?.cancel()
+        restoredConnectionValidationTask?.cancel()
         NotificationCenter.default.removeObserver(self)
     }
 }

@@ -128,7 +128,10 @@ def main() -> int:
 
     try:
         console.start()
-        console.wait_for(lambda line: "door_command_usable" in line, timeout=args.startup_timeout)
+        console.wait_for(
+            lambda line: "door_command_dispatch_ready" in line,
+            timeout=args.startup_timeout,
+        )
         for index in range(args.count):
             origin = "iphone" if index % 2 == 0 else "mac"
             seconds = 31 if origin == "iphone" else 30
