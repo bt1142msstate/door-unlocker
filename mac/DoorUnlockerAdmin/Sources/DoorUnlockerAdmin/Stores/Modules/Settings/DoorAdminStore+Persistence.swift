@@ -9,7 +9,7 @@ extension DoorAdminStore {
     func startStateSyncLoop() {
         syncTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                do { try await Task.sleep(nanoseconds: 1_000_000_000) } catch { return }
                 await self?.syncControllerStateIfNeeded()
             }
         }

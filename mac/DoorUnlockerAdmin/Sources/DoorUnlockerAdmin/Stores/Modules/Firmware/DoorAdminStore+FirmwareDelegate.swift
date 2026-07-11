@@ -8,12 +8,28 @@ import os
 extension DoorAdminStore: DoorFirmwareDfuManagerDelegate {
     func firmwareDfuManagerDidUpdate(_ update: DoorFirmwareDfuUpdate) {
         firmwareLog.info("DFU status=\(update.status, privacy: .public) progress=\(update.progress ?? -1, privacy: .public)")
+        recordRuntimeTelemetry(
+            "firmware_update_status",
+            details: "\(update.status) progress=\(update.progress ?? -1)",
+            once: false
+        )
         firmwareUpdateStatus = update.status
         firmwareUpdateProgress = update.progress
     }
 
+    func firmwareDfuManagerDidDetectControllerFirmware() {
+        firmwareUpdateStatus = "Controller firmware found. Reconnecting..."
+        firmwareUpdateProgress = nil
+        isFirmwareUpdateRunning = false
+        firmwareUpdateEntryCommandSent = false
+        firmwareDfuStartFallbackTask?.cancel()
+        firmwareDfuStartFallbackTask = nil
+        scanBluetooth()
+    }
+
     func firmwareDfuManagerDidFinish() {
         firmwareLog.info("DFU finished; verifying firmware version")
+        recordRuntimeTelemetry("firmware_update_uploaded", once: false)
         firmwareUpdateWatchdogTask?.cancel()
         firmwareUpdateWatchdogTask = nil
         firmwareDfuStartFallbackTask?.cancel()
@@ -29,7 +45,7 @@ extension DoorAdminStore: DoorFirmwareDfuManagerDelegate {
         wirelessIdleDisconnectTask?.cancel()
         wirelessIdleDisconnectTask = nil
         Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            do { try await Task.sleep(nanoseconds: 1_500_000_000) } catch { return }
             await MainActor.run {
                 guard let self else { return }
                 if self.isConnected {
@@ -43,6 +59,7 @@ extension DoorAdminStore: DoorFirmwareDfuManagerDelegate {
 
     func firmwareDfuManagerDidFail(_ message: String) {
         firmwareLog.error("DFU failed: \(message, privacy: .public)")
+        recordRuntimeTelemetry("firmware_update_failed", details: message, once: false)
         firmwareUpdateWatchdogTask?.cancel()
         firmwareUpdateWatchdogTask = nil
         firmwareDfuStartFallbackTask?.cancel()

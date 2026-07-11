@@ -100,6 +100,20 @@ final class DoorControlPresentationPolicyTests: XCTestCase {
         XCTAssertFalse(DoorControlPresentationPolicy.state("paired", satisfiesUnlockedTarget: false))
     }
 
+    func testSupersededUnlockNotificationCannotConfirmNewerLock() {
+        XCTAssertFalse(DoorControlPresentationPolicy.state("unlocking", satisfiesUnlockedTarget: false))
+        XCTAssertFalse(DoorControlPresentationPolicy.state("unlocked", satisfiesUnlockedTarget: false))
+        XCTAssertTrue(DoorControlPresentationPolicy.state("locking", satisfiesUnlockedTarget: false))
+        XCTAssertTrue(DoorControlPresentationPolicy.state("locked", satisfiesUnlockedTarget: false))
+    }
+
+    func testSupersededLockNotificationCannotConfirmNewerUnlock() {
+        XCTAssertFalse(DoorControlPresentationPolicy.state("locking", satisfiesUnlockedTarget: true))
+        XCTAssertFalse(DoorControlPresentationPolicy.state("locked", satisfiesUnlockedTarget: true))
+        XCTAssertTrue(DoorControlPresentationPolicy.state("unlocking", satisfiesUnlockedTarget: true))
+        XCTAssertTrue(DoorControlPresentationPolicy.state("unlocked", satisfiesUnlockedTarget: true))
+    }
+
     private func input(
         servoState: String = "locked",
         isUnlocked: Bool = false,

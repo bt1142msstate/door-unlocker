@@ -100,7 +100,7 @@ extension DoorAdminStore {
         firmwareDfuStartFallbackTask?.cancel()
         firmwareDfuStartFallbackTask = Task { [weak self] in
             let nanoseconds = UInt64(max(0, delay) * 1_000_000_000)
-            try? await Task.sleep(nanoseconds: nanoseconds)
+            do { try await Task.sleep(nanoseconds: nanoseconds) } catch { return }
             await MainActor.run {
                 guard let self,
                       self.isFirmwareUpdateRunning,

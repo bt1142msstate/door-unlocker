@@ -141,6 +141,14 @@ ensure_signing_keychain_in_search_list() {
 sign_bundle() {
   ensure_local_signing_identity
   ensure_signing_keychain_in_search_list
+  if [[ -f "$CLI_BINARY" ]]; then
+    xattr -cr "$CLI_BINARY"
+    codesign \
+      --force \
+      --timestamp=none \
+      --sign "$SIGNING_IDENTITY" \
+      "$CLI_BINARY" >/dev/null
+  fi
   find "$APP_BUNDLE" -name ".DS_Store" -delete
   find "$APP_BUNDLE" -name "._*" -delete
   xattr -cr "$APP_BUNDLE"
@@ -273,6 +281,10 @@ install_app() {
 
 verify_installed_app() {
   codesign --verify --deep --strict "$INSTALL_PATH"
+  if [[ -f "$CLI_BINARY" ]]; then
+    codesign --verify --strict "$CLI_BINARY"
+    "$CLI_BINARY" --help >/dev/null
+  fi
 
   local requirement
   requirement="$(designated_requirement "$INSTALL_PATH")"

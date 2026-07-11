@@ -84,6 +84,12 @@ def main() -> int:
     mac = ROOT / "mac/DoorUnlockerAdmin/Sources/DoorUnlockerAdmin/Stores"
     mac_format = ROOT / "mac/DoorUnlockerAdmin/Sources/DoorUnlockerAdmin/Stores/DoorAdminStore+WirelessCommandFormatting.swift"
     mac_recovery = ROOT / "mac/DoorUnlockerAdmin/Sources/DoorUnlockerAdmin/Stores/DoorAdminStore+FastDoorRecovery.swift"
+    ios_snapshot = ROOT / "ios/DoorUnlockerApp/DoorUnlocker/DoorUnlockerController+FirmwareStatus.swift"
+    mac_snapshot = ROOT / "mac/DoorUnlockerAdmin/Sources/DoorUnlockerAdmin/Stores/DoorAdminStore+FirmwareSnapshot.swift"
+    mac_connection = ROOT / "mac/DoorUnlockerAdmin/Sources/DoorUnlockerAdmin/Stores/Modules/Bluetooth/DoorAdminStore+BluetoothConnection.swift"
+    mac_bluetooth_recovery = ROOT / "mac/DoorUnlockerAdmin/Sources/DoorUnlockerAdmin/Stores/Modules/Bluetooth/DoorAdminStore+BluetoothRecovery.swift"
+    mac_firmware_transport = ROOT / "mac/DoorUnlockerAdmin/Sources/DoorUnlockerAdmin/Stores/Modules/Firmware/DoorAdminStore+FirmwareTransport.swift"
+    mac_firmware_request = ROOT / "mac/DoorUnlockerAdmin/Sources/DoorUnlockerAdmin/Stores/Modules/Firmware/DoorAdminStore+FirmwareRequest.swift"
     presentation = ROOT / "shared/DoorUnlockerShared/Sources/DoorUnlockerShared/DoorControlPresentationPolicy.swift"
     firmware = ROOT / "firmware/DoorUnlockerXiao/DoorUnlockerXiao.ino"
 
@@ -134,6 +140,13 @@ def main() -> int:
         "controlCharacteristic.setPermission(SECMODE_OPEN, SECMODE_NO_ACCESS)",
         "Bluefruit.configPrphConn(128, MULTI_LINK_EVENT_LENGTH, 2, 1)",
         "Bluefruit.Periph.setConnSupervisionTimeoutMS(MULTI_LINK_SUPERVISION_TIMEOUT_MS)",
+        "BLE_COMMAND_QUEUE_PER_CONNECTION_LIMIT = 2",
+        "queuedBleCommandCountForHandleLocked(connHandle)",
+        "markBleCommandQueueOverflowLocked(connHandle)",
+        "bleCommandQueueOverflowHandles[MAX_BLE_CONNECTIONS]",
+        "discardBleCommandsForHandle(connHandle);",
+        "bleCommandQueueServeOverflowNext",
+        'publishControlRejectTo(connHandle, "controller_busy")',
     ], failures)
     require(presentation, [
         "!input.isDoorCommandQueuedForSecureLink",
@@ -151,14 +164,28 @@ def main() -> int:
         "fastCommandMaterialMaxAge",
         "readAckIfPossible",
         "queuedWirelessCommandDuringCurrentSend",
+        "CBConnectPeripheralOptionEnableAutoReconnect",
+        "scheduleWirelessReconnect(after: 6)",
         "if characteristic.uuid == controlUUID {\n                wirelessControlUpdateGeneration += 1",
     ], failures)
+    forbid(ios_snapshot, ["setNotifyValue(false"], failures)
+    forbid(mac_snapshot, ["setNotifyValue(false"], failures)
+    for cancellable_transport_file in (
+        mac_connection,
+        mac_bluetooth_recovery,
+        mac_snapshot,
+        mac_firmware_transport,
+        mac_firmware_request,
+    ):
+        forbid(cancellable_transport_file, ["try? await Task.sleep"], failures)
     forbid(firmware, [
         "controlCharacteristic.write(",
         "controlCharacteristic.setProperties(CHR_PROPS_READ",
         "controlCharacteristic.setPermission(SECMODE_NO_ACCESS",
         "requestConnectionParameter(",
         "setConnectedDeviceName(connHandle, trustedDeviceName, true);\n    publishConnectionsState();",
+        "bleCommandQueueOverflowConnHandle",
+        "bleCommandQueueOverflowPending",
     ], failures)
 
     firmware_text = firmware.read_text(encoding="utf-8")

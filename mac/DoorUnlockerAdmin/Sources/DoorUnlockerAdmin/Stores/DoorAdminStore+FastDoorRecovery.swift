@@ -62,7 +62,7 @@ extension DoorAdminStore {
     func scheduleWirelessDoorCommandTransportRecovery() {
         guard wirelessDoorCommandTransportRecoveryTask == nil else { return }
         wirelessDoorCommandTransportRecoveryTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(1))
+            do { try await Task.sleep(for: .seconds(1)) } catch { return }
             await MainActor.run {
                 guard let self else { return }
                 self.wirelessDoorCommandTransportRecoveryTask = nil
@@ -85,9 +85,10 @@ extension DoorAdminStore {
     func scheduleWirelessDoorCommandConfirmation(_ command: Command) {
         wirelessDoorCommandConfirmationTask?.cancel()
         wirelessDoorCommandConfirmationTask = Task { [weak self] in
-            let readDelays: [UInt64] = [250_000_000, 500_000_000, 1_000_000_000]
-            for delay in readDelays {
-                try? await Task.sleep(nanoseconds: delay)
+            var previousDeadline: Duration = .zero
+            for deadline in DoorCommandConfirmationPolicy.fallbackReadDeadlines {
+                try? await Task.sleep(for: deadline - previousDeadline)
+                previousDeadline = deadline
                 guard !Task.isCancelled else { return }
                 let isPending = await MainActor.run {
                     guard let self, self.fastDoorCommandInFlight == command else { return false }
@@ -96,11 +97,18 @@ extension DoorAdminStore {
                 }
                 guard isPending else { return }
             }
+            try? await Task.sleep(for: DoorCommandConfirmationPolicy.failureDeadline - previousDeadline)
+            guard !Task.isCancelled else { return }
             await MainActor.run {
                 guard let self, self.fastDoorCommandInFlight == command else { return }
                 self.fastDoorCommandInFlight = nil
                 self.wirelessDoorCommandConfirmationTask = nil
                 let action = command == .unlock ? "unlock" : "lock"
+                self.recordRuntimeTelemetry(
+                    "door_command_confirmation_failed",
+                    details: command.rawValue,
+                    once: false
+                )
                 self.lastError = "Controller did not confirm \(action)."
             }
         }
@@ -125,6 +133,11 @@ extension DoorAdminStore {
                 state,
                 satisfiesUnlockedTarget: inFlightCommand == .unlock
            ) {
+            recordRuntimeTelemetry(
+                "door_command_confirmed",
+                details: "\(inFlightCommand.rawValue) state=\(state)",
+                once: false
+            )
             fastDoorCommandInFlight = nil
             stopWirelessDoorCommandConfirmation()
             lastError = nil

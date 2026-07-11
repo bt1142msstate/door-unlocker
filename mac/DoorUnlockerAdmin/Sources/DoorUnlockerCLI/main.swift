@@ -109,6 +109,8 @@ enum DoorUnlockerCLI {
             try runStatusCommand("app rename \(command[1]) \(name)", connection: connection)
         case "clear":
             try runStatusCommand("app clear pairs", connection: connection)
+        case "repair-storage":
+            try runStatusCommand("app storage repair", connection: connection)
         case "trust-mac":
             let deviceName = Host.current().localizedName ?? "Mac"
             let payloadHex = try DoorCommandAuthenticator.pairingPayloadHex(deviceName: deviceName)
@@ -181,6 +183,7 @@ enum DoorUnlockerCLI {
               remove SLOT_OR_FINGERPRINT
               rename SLOT_OR_FINGERPRINT NAME
               clear
+              repair-storage
               trust-mac
               bootloader | uf2
               firmware ZIP_PATH

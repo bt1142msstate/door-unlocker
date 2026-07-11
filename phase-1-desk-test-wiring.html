@@ -294,7 +294,7 @@
     .stage {
       position: relative;
       width: 1120px;
-      height: 1900px;
+      height: 2160px;
       margin: 0 auto;
       background: transparent;
     }
@@ -305,7 +305,7 @@
       left: 300px;
       top: 35px;
       width: 760px;
-      height: 1845px;
+      height: 2105px;
       border: 2px solid rgba(117,217,159,.28);
       border-radius: 28px;
       background: linear-gradient(180deg, rgba(37,49,40,.42), rgba(17,22,18,.30));
@@ -347,7 +347,7 @@
 
     .housing-zone.servo-zone { top: 48px; height: 342px; }
     .housing-zone.service-zone { top: 390px; height: 1050px; }
-    .housing-zone.battery-zone { top: 1440px; height: 370px; }
+    .housing-zone.battery-zone { top: 1440px; height: 630px; }
 
     .stage > svg {
       position: absolute;
@@ -570,21 +570,13 @@
     .controller-callout { left: 330px; top: 548px; width: 212px; }
     .buck-callout { left: 350px; top: 858px; width: 206px; }
     .splitters-callout { left: 810px; top: 1248px; width: 206px; }
-    .xt30-callout { left: 810px; top: 1458px; }
-    .battery-callout { left: 810px; top: 1648px; width: 206px; }
+    .battery-callout { left: 810px; top: 1770px; width: 206px; }
 
     .battery-card {
-      left: 570px;
-      top: 1530px;
-      width: 220px;
-      height: 350px;
-    }
-
-    .xt30-card {
-      left: 555px;
-      top: 1460px;
-      width: 250px;
-      height: 150px;
+      left: 420px;
+      top: 1370px;
+      width: 520px;
+      height: 730px;
     }
 
     .splitter-card {
@@ -604,10 +596,10 @@
     }
 
     .servo-card {
-      left: 545px;
-      top: 52px;
-      width: 270px;
-      height: 390px;
+      left: 520px;
+      top: 30px;
+      width: 320px;
+      height: 460px;
     }
 
     .buck-card {
@@ -649,20 +641,11 @@
       object-position: center;
     }
 
-    .xt30-visual {
-      width: auto;
-      height: 88px;
-      margin: 0;
-      justify-self: center;
-      object-fit: contain;
-    }
-
     .battery-visual {
       width: auto;
-      height: 300px;
+      height: 730px;
       margin: 0 auto;
       object-fit: contain;
-      transform: translateX(7px);
     }
 
     .splitter-visual {
@@ -687,7 +670,7 @@
 
     .servo-visual {
       width: auto;
-      height: 380px;
+      height: 460px;
       margin: 0 auto;
     }
 
@@ -1901,7 +1884,7 @@
 
       .stage {
         width: 1120px;
-        height: 1900px;
+        height: 2160px;
         margin: 0;
         transform: scale(.34);
         transform-origin: top left;
@@ -2102,6 +2085,7 @@
           <div>
             <h2>Clean bench wiring map</h2>
             <p>Unframed parts follow the planned enclosure stack; separate side callouts identify each component and connection.</p>
+            <p>Component bodies use one approximately consistent 4-5 px/mm scale from the measured CAD envelopes; flexible wire lengths are diagrammatic.</p>
             <p class="mode-copy" id="modeHint">Buck mode: battery powers the servo and the XIAO through the buck after the output is set to 5.0V.</p>
             <p class="mode-warning" id="modeWarning">Do not plug USB-C into the XIAO while buck 5V is connected to 5V/VBUS.</p>
           </div>
@@ -2118,15 +2102,15 @@
             <div class="housing-outline" aria-hidden="true">
               <div class="housing-zone servo-zone"><span>Servo / actuator bay</span></div>
               <div class="housing-zone service-zone"><span>Controller + power service bay</span></div>
-              <div class="housing-zone battery-zone"><span>Battery + XT30 dock</span></div>
+              <div class="housing-zone battery-zone"><span>Battery + connected XT30 pigtail</span></div>
             </div>
 
-            <svg viewBox="0 0 1120 1900" role="img" aria-labelledby="diagramTitle diagramDesc">
+            <svg viewBox="0 0 1120 2160" role="img" aria-labelledby="diagramTitle diagramDesc">
               <title id="diagramTitle">No-solder desk test wiring arranged like the planned enclosure</title>
-              <desc id="diagramDesc">The physical layout forms one centered vertical chain: servo, XIAO on its breadboard, LM2596 buck, paired inline splitters, fixed XT30 dock, and slide-out battery. The battery mates directly upward into the XT30 dock, whose short positive and ground leads enter the splitters immediately above it. The splitters feed the servo through a dedicated right-side trunk and, in buck mode, feed the buck directly above them. The buck feeds the controller immediately above it while USB-C is unplugged. In USB-first mode, USB-C powers the XIAO, the buck is skipped, and splitter ground continues to the controller. PWM leaves the breadboard assembly on the left and travels upward to the servo.</desc>
+              <desc id="diagramDesc">The physical layout forms one centered vertical chain: servo, XIAO on its breadboard, LM2596 buck, paired inline splitters, and a slide-out battery with its XT30 pigtail already connected. The pigtail's red and black leads enter the splitters directly. The splitters feed the servo through a dedicated right-side trunk and, in buck mode, feed the buck directly above them. The buck feeds the controller immediately above it while USB-C is unplugged. In USB-first mode, USB-C powers the XIAO, the buck is skipped, and splitter ground continues to the controller. PWM leaves the breadboard assembly on the left and travels upward to the servo. Component bodies are shown at one approximately consistent real-size scale; flexible lead lengths are diagrammatic.</desc>
 
-              <path id="xt30PositiveWire" class="wire red" data-parts="battery xt30 splitter-positive" />
-              <path id="xt30GroundWire" class="wire ground" data-parts="battery xt30 splitter-ground" />
+              <path id="xt30PositiveWire" class="wire red" data-parts="battery splitter-positive" />
+              <path id="xt30GroundWire" class="wire ground" data-parts="battery splitter-ground" />
               <path id="servoPositiveWire" class="wire red" data-parts="splitter-positive servo" />
               <path id="servoGroundWire" class="wire ground" data-parts="splitter-ground servo" />
               <path id="buckInputPositiveWire" class="wire red buck-wire" data-parts="splitter-positive buck" />
@@ -2142,13 +2126,7 @@
 
             <article class="component battery-card power" data-node="battery" tabindex="0" aria-label="2S battery">
               <div class="component-visual">
-                <img class="part-raster battery-visual" src="assets/component-battery-full-harness.png" alt="" aria-hidden="true" />
-              </div>
-            </article>
-
-            <article class="component xt30-card power" data-node="xt30" tabindex="0" aria-label="XT30 pigtail">
-              <div class="component-visual">
-                <img class="part-raster xt30-visual" src="assets/component-xt30-pigtail-vertical.png" alt="" aria-hidden="true" />
+                <img class="part-raster battery-visual" src="assets/components/battery-with-xt30-pigtail.png" alt="" aria-hidden="true" />
               </div>
             </article>
 
@@ -2245,22 +2223,10 @@
               </div>
             </aside>
 
-            <aside class="diagram-callout xt30-callout" data-callout-for="xt30">
-              <div class="callout-head">
-                <strong>XT30 pigtail</strong>
-                <span>16 AWG adapter between the battery and splitters.</span>
-                <button class="detail-button" type="button" data-part="xt30" title="Open XT30 pigtail details">i</button>
-              </div>
-              <div class="callout-ports">
-                <div class="port-row">red lead <i class="port red"></i></div>
-                <div class="port-row">black lead <i class="port ground"></i></div>
-              </div>
-            </aside>
-
             <aside class="diagram-callout battery-callout" data-callout-for="battery">
               <div class="callout-head">
                 <strong>2S battery</strong>
-                <span>Full battery harness; only the yellow XT30 branch powers this build.</span>
+                <span>Full-size battery assembly with its XT30 pigtail connected.</span>
                 <button class="detail-button" type="button" data-part="battery" title="Open battery details">i</button>
               </div>
               <div class="callout-ports">
@@ -2324,7 +2290,6 @@
               <tr><td><button class="part-link" type="button" data-part="xiao">XIAO Sense</button></td><td><span class="pill good">Use</span></td></tr>
               <tr><td><button class="part-link" type="button" data-part="buck">LM2596 buck</button></td><td><span class="pill warn">Skip in USB</span></td></tr>
               <tr><td><button class="part-link" type="button" data-part="splitter">1-in/2-out splitters</button></td><td><span class="pill good">Use</span></td></tr>
-              <tr><td><button class="part-link" type="button" data-part="xt30">XT30 pigtail</button></td><td><span class="pill good">Use</span></td></tr>
               <tr><td><button class="part-link" type="button" data-part="servo-power-switch">Servo power switch</button></td><td><span class="pill warn">Phase 2</span></td></tr>
               <tr><td><button class="part-link" type="button" data-part="solar">Solar panel kit</button></td><td><span class="pill warn">Phase 2</span></td></tr>
               <tr><td><button class="part-link" type="button" data-part="breadboards">Mini breadboards</button></td><td><span class="pill warn">Logic only</span></td></tr>
@@ -2848,10 +2813,10 @@
         price: "$27.81",
         weight: "151 g",
         full: "sea jump 7.4V 5000mAh 2S Li-ion Battery with JST Plug and XT30 Plug with USB Charging Cable Suitable for TX16S, TX18S, RC4GS, RC6GS, TX12 RC Transmitter RC Car Truck Engineering Vehicle Battery",
-        image: "assets/component-battery-full-harness.png",
-        description: "Rechargeable 2S Li-ion pack with its complete attached harness: the main XT30 branch plus the unused white and red auxiliary connectors.",
-        role: "Main 2S battery source. The yellow XT30 branch mates to the pigtail for this build; the auxiliary connectors remain disconnected.",
-        specs: ["7.4V nominal 2S pack", "8.4V when fully charged", "5000mAh listed capacity", "37.00Wh listed energy", "Main XT30 output branch", "White 2-pin and small red auxiliary connectors remain unused"],
+        image: "assets/components/battery-with-xt30-pigtail.png",
+        description: "Rechargeable 2S Li-ion pack shown with the separate XT30 pigtail already connected, plus the unused white and red auxiliary battery connectors.",
+        role: "Main 2S battery source. The connected pigtail's bare red and black ends feed the two inline splitters; the auxiliary connectors remain disconnected.",
+        specs: ["7.4V nominal 2S pack", "8.4V when fully charged", "5000mAh listed capacity", "37.00Wh listed energy", "Connected XT30 pigtail with 16 AWG red/black leads", "White 2-pin and small red auxiliary connectors remain unused", "Battery body planning envelope: 43 x 75 x 22mm"],
         link: "https://www.amazon.com/dp/B0DPX3FXN9"
       },
       xiao: {
@@ -2886,17 +2851,6 @@
         role: "No-solder power distribution: one splitter for battery positive and one for common ground.",
         specs: ["Use two connectors: one positive and one ground", "Planning envelope per connector: 32 x 13 x 13.5mm", "Flexible/stranded wire range: 24-14 AWG", "10mm listed wire strip length", "Use 16 AWG for battery and servo power; 22 AWG for low-current branches", "Rated 32A and 250V by the listing", "Reusable pure-copper/stainless-steel lever clamp construction", "Pull-test every conductor before connecting the battery"],
         link: "https://www.amazon.com/dp/B0B28GYYL2"
-      },
-      xt30: {
-        short: "XT30 pigtail",
-        price: "Pending exact order total",
-        weight: "Estimated 8-10 g per short 16 AWG connector lead",
-        full: "5 Pairs XT30 Pigtail, XT30 Male and Female Plug, XT30 Connector Adapter with 10cm 16 AWG Silicone Wire for RC Lipo Battery FPV Racing Drone",
-        image: "assets/component-xt30-pigtail-vertical.png",
-        description: "Connector lead that adapts the battery XT30 plug to bare red and black wires for the inline splitter pair.",
-        role: "Adapts the battery XT30 connector to the positive and ground inline splitters.",
-        specs: ["XT30 connector pair/pigtail style", "10cm listed silicone leads", "16 AWG listed wire size", "Bare red/black ends land in the single-input ports of the two splitters"],
-        link: "https://www.amazon.com/WOODGUILIN-Connector-connector-connection-quadcopter/dp/B0FK4Z5CTK"
       },
       "servo-power-switch": {
         short: "Servo power switch",
@@ -3009,7 +2963,7 @@
       buck: document.querySelector(".buck-visual"),
       positiveSplitter: document.querySelector(".positive-splitter-card .splitter-visual"),
       groundSplitter: document.querySelector(".ground-splitter-card .splitter-visual"),
-      xt30: document.querySelector(".xt30-visual"),
+      battery: document.querySelector(".battery-visual"),
       usb: document.querySelector(".usb-card"),
     };
     const wiringPaths = {
@@ -3048,16 +3002,16 @@
       const buckRect = rectFor(wiringElements.buck);
       const positiveSplitterRect = rectFor(wiringElements.positiveSplitter);
       const groundSplitterRect = rectFor(wiringElements.groundSplitter);
-      const xt30Rect = rectFor(wiringElements.xt30);
+      const batteryRect = rectFor(wiringElements.battery);
       const usbRect = rectFor(wiringElements.usb);
 
-      const xt30TopRed = point(xt30Rect, 0.292, 0);
-      const xt30TopGround = point(xt30Rect, 0.689, 0);
+      const batteryPigtailRed = point(batteryRect, 0.42, 0.016);
+      const batteryPigtailGround = point(batteryRect, 0.465, 0.016);
       const positiveInput = point(positiveSplitterRect, 0.504, 0.963);
       const groundInput = point(groundSplitterRect, 0.504, 0.963);
-      const xt30MidY = (xt30TopRed[1] + positiveInput[1]) / 2;
-      wiringPaths.xt30Positive.setAttribute("d", `M${pathPoint(xt30TopRed)} V${xt30MidY.toFixed(1)} H${positiveInput[0].toFixed(1)} V${positiveInput[1].toFixed(1)}`);
-      wiringPaths.xt30Ground.setAttribute("d", `M${pathPoint(xt30TopGround)} V${(xt30MidY - 18).toFixed(1)} H${groundInput[0].toFixed(1)} V${groundInput[1].toFixed(1)}`);
+      const batteryLeadMidY = Math.min(batteryPigtailRed[1], positiveInput[1]) - 12;
+      wiringPaths.xt30Positive.setAttribute("d", `M${pathPoint(batteryPigtailRed)} V${batteryLeadMidY.toFixed(1)} H${positiveInput[0].toFixed(1)} V${positiveInput[1].toFixed(1)}`);
+      wiringPaths.xt30Ground.setAttribute("d", `M${pathPoint(batteryPigtailGround)} V${(batteryLeadMidY - 18).toFixed(1)} H${groundInput[0].toFixed(1)} V${groundInput[1].toFixed(1)}`);
 
       const positiveOutputBuck = point(positiveSplitterRect, 0.319, 0.061);
       const positiveOutputServo = point(positiveSplitterRect, 0.662, 0.061);

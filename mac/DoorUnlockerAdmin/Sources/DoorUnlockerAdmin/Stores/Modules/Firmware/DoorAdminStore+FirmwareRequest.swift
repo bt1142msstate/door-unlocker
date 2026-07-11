@@ -122,7 +122,7 @@ extension DoorAdminStore {
     func scheduleFirmwareUpdateCommandWatchdog() {
         firmwareUpdateWatchdogTask?.cancel()
         firmwareUpdateWatchdogTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 25_000_000_000)
+            do { try await Task.sleep(nanoseconds: 25_000_000_000) } catch { return }
             await MainActor.run {
                 guard let self,
                       self.isFirmwareUpdateRunning,

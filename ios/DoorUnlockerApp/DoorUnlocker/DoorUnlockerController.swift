@@ -36,6 +36,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     }
     @Published var pairingApprovalCode: String?
     @Published var pairingAdminApprovalCode = ""
+    @Published var requiresPairingRecovery = false
     @Published var activePairingInvite: PairingInvite?
     @Published var isAuthenticatingUnlock = false
     @Published var isAuthenticatingSettings = false
@@ -127,6 +128,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     var queuedServoAngles: ServoAngles?
     var queuedPairingAdminCommand: String?
     var shouldPairFromInviteWhenReady = false
+    var didSubmitPairingRecoveryRequest = false
     var controllerSettingConfirmationTask: Task<Void, Never>?
     var controllerSettingConfirmation = DoorControllerSettingConfirmationState()
     var inFlightControllerSetting: ControllerSettingOperation? {

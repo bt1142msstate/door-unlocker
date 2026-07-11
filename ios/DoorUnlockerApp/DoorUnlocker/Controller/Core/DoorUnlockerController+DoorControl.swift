@@ -136,6 +136,9 @@ extension DoorUnlockerController {
 
     @discardableResult
     func sendAuthenticated(_ command: Command, origin: DoorCommandOrigin = .manual) -> Bool {
+#if DEBUG
+        recordStartupTelemetry("door_command_requested", details: command.rawValue, once: false)
+#endif
         cancelPostReadySync()
         return sendDoorCommandAttempt(
             command,
@@ -152,6 +155,9 @@ extension DoorUnlockerController {
         let commandText = command.commandText
         let didWrite = writeAuthenticatedCommand(commandText, intent: .doorCommand(command, unlockSentAt, origin))
         if didWrite {
+#if DEBUG
+            recordStartupTelemetry("door_command_sent", details: command.rawValue, once: false)
+#endif
             optimisticDoorCommand = command
             optimisticDoorCommandOrigin = origin
             optimisticDoorCommandSentAt = commandSentAt

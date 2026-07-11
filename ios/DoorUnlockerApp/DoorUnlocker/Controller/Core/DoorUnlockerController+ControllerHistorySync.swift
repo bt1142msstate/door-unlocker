@@ -110,9 +110,23 @@ extension DoorUnlockerController {
         switch (optimisticDoorCommand, incomingState) {
         case (.unlock, "unlocking"),
              (.lock, "locking"):
+#if DEBUG
+            recordStartupTelemetry(
+                "door_command_confirmed",
+                details: "\(optimisticDoorCommand.rawValue) state=\(incomingState)",
+                once: false
+            )
+#endif
             optimisticDoorCommandAcknowledged = true
             lastError = nil
         case (.unlock, "unlocked"):
+#if DEBUG
+            recordStartupTelemetry(
+                "door_command_confirmed",
+                details: "\(optimisticDoorCommand.rawValue) state=\(incomingState)",
+                once: false
+            )
+#endif
             let origin = optimisticDoorCommandOrigin
             if let optimisticDoorCommandSentAt {
                 applyKnownLastUnlock(
@@ -127,6 +141,13 @@ extension DoorUnlockerController {
                 endProximityUnlockBackgroundTask()
             }
         case (.lock, "locked"):
+#if DEBUG
+            recordStartupTelemetry(
+                "door_command_confirmed",
+                details: "\(optimisticDoorCommand.rawValue) state=\(incomingState)",
+                once: false
+            )
+#endif
             let origin = optimisticDoorCommandOrigin
             lastError = nil
             clearOptimisticDoorCommand()
@@ -136,6 +157,13 @@ extension DoorUnlockerController {
         case (_, "rejected"),
              (_, "unpaired"),
              (_, "pairing_locked"):
+#if DEBUG
+            recordStartupTelemetry(
+                "door_command_rejected",
+                details: "\(optimisticDoorCommand.rawValue) state=\(incomingState)",
+                once: false
+            )
+#endif
             let origin = optimisticDoorCommandOrigin
             clearOptimisticDoorCommand()
             if origin == .proximity {

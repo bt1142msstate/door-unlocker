@@ -41,7 +41,7 @@ static const uint16_t MIN_UNLOCK_HOLD_TIMEOUT_SECONDS = 5;
 static const uint16_t MAX_UNLOCK_HOLD_TIMEOUT_SECONDS = 120;
 static const char DEFAULT_LOCK_NAME[] = "My Lock";
 static const char CONTROLLER_MODEL_NAME[] = "DoorUnlocker-XIAO-v4";
-static const char CONTROLLER_FIRMWARE_VERSION[] = "0.1.9";
+static const char CONTROLLER_FIRMWARE_VERSION[] = "0.1.12";
 // Fresh random-static BLE identity for the app-layer-security firmware. This
 // avoids stale iOS/macOS OS-level bond records from the earlier encrypted-GATT
 // builds while preserving trusted app keys in LittleFS.
@@ -58,14 +58,29 @@ static const char STATE_CHAR_UUID[]   = "7A5A2002-2B8D-4C3E-94E7-0B3C0DDAAF10";
 static const char PAIRING_CHAR_UUID[] = "7A5A2003-2B8D-4C3E-94E7-0B3C0DDAAF10";
 static const char CONTROL_CHAR_UUID[]     = "7A5A2004-2B8D-4C3E-94E7-0B3C0DDAAF10";
 static const char PAIRINGS_FILENAME[] = "/door-pairings.bin";
+static const char PAIRINGS_SLOT_A_FILENAME[] = "/door-pairings-a.bin";
+static const char PAIRINGS_SLOT_B_FILENAME[] = "/door-pairings-b.bin";
+static const char PAIRINGS_TEMP_FILENAME[] = "/door-pairings-tmp.bin";
+static const uint8_t PAIRINGS_FILE_MAGIC[4] = {'D', 'U', 'P', '2'};
+static const uint8_t PAIRINGS_FILE_VERSION = 1;
+static const size_t PAIRINGS_FILE_HEADER_LEN = 20;
 static const char UNLOCK_TIMEOUT_FILENAME[] = "/unlock-timeout.txt";
+static const char UNLOCK_TIMEOUT_BACKUP_FILENAME[] = "/unlock-timeout.bak";
+static const char UNLOCK_TIMEOUT_TEMP_FILENAME[] = "/unlock-timeout.tmp";
 static const char LOCK_NAME_FILENAME[] = "/lock-name.txt";
+static const char LOCK_NAME_BACKUP_FILENAME[] = "/lock-name.bak";
+static const char LOCK_NAME_TEMP_FILENAME[] = "/lock-name.tmp";
 static const char SERVO_ANGLES_FILENAME[] = "/servo-angles.txt";
+static const char SERVO_ANGLES_BACKUP_FILENAME[] = "/servo-angles.bak";
+static const char SERVO_ANGLES_TEMP_FILENAME[] = "/servo-angles.tmp";
 static const char LAST_UNLOCK_FILENAME[] = "/last-unlock.txt";
+static const char LAST_UNLOCK_BACKUP_FILENAME[] = "/last-unlock.bak";
+static const char LAST_UNLOCK_TEMP_FILENAME[] = "/last-unlock.tmp";
 static const uint16_t SECURE_COMMAND_MAX_LEN = 220;
 static const uint16_t PAIRING_MAX_LEN = 100;
 static const uint16_t SERIAL_COMMAND_MAX_LEN = 260;
 static const uint8_t BLE_COMMAND_QUEUE_CAPACITY = 8;
+static const uint8_t BLE_COMMAND_QUEUE_PER_CONNECTION_LIMIT = 2;
 static const size_t BLE_REJECT_REASON_LEN = 40;
 static const size_t STATE_PAYLOAD_MAX_LEN = 124;
 static const size_t V3_KEY_FINGERPRINT_LEN = 8;
@@ -138,6 +153,8 @@ uint8_t pendingPairingPublicKey[P256_PUBLIC_KEY_LEN] = {0};
 char pendingPairingDeviceName[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
 uint16_t pendingPairingConnHandle = BLE_CONN_HANDLE_INVALID;
 uint8_t pairedPublicKeyCount = 0;
+uint32_t pairingsGeneration = 0;
+char activePairingsSlot = 0;
 uint8_t pairedPublicKeys[MAX_PAIRED_PHONES][P256_PUBLIC_KEY_LEN] = {{0}};
 uint64_t pairedCounters[MAX_PAIRED_PHONES] = {0};
 char pairedDeviceNames[MAX_PAIRED_PHONES][PAIRED_DEVICE_NAME_STORAGE_LEN] = {{0}};
@@ -160,12 +177,21 @@ struct BleCommandJob {
   char rejectReason[BLE_REJECT_REASON_LEN];
 };
 
+struct PairingsSnapshot {
+  uint8_t count;
+  uint32_t generation;
+  uint8_t keys[MAX_PAIRED_PHONES][P256_PUBLIC_KEY_LEN];
+  uint64_t counters[MAX_PAIRED_PHONES];
+  char names[MAX_PAIRED_PHONES][PAIRED_DEVICE_NAME_STORAGE_LEN];
+};
+
 BleCommandJob bleCommandQueue[BLE_COMMAND_QUEUE_CAPACITY];
 volatile uint8_t bleCommandQueueHead = 0;
 volatile uint8_t bleCommandQueueTail = 0;
 volatile uint8_t bleCommandQueueCount = 0;
-volatile bool bleCommandQueueOverflowPending = false;
-uint16_t bleCommandQueueOverflowConnHandle = BLE_CONN_HANDLE_INVALID;
+uint16_t bleCommandQueueOverflowHandles[MAX_BLE_CONNECTIONS] = {0};
+volatile uint8_t bleCommandQueueOverflowCount = 0;
+bool bleCommandQueueServeOverflowNext = false;
 
 bool parseUnsigned64Range(const char* start, const char* end, uint64_t* value) {
   if (start == nullptr || end == nullptr || start >= end) {
@@ -250,6 +276,75 @@ bool ensureInternalFS() {
   }
 
   return internalFsReady;
+}
+
+bool readFileBytes(const char* filename, uint8_t* output, size_t capacity, size_t* outputLen) {
+  if (output == nullptr || outputLen == nullptr || capacity == 0 || !InternalFS.exists(filename)) {
+    return false;
+  }
+  File file(InternalFS);
+  if (!file.open(filename, FILE_O_READ) || file.size() > capacity) {
+    file.close();
+    return false;
+  }
+  size_t fileSize = file.size();
+  size_t readLen = file.read(output, fileSize);
+  file.close();
+  if (readLen != fileSize) {
+    return false;
+  }
+  *outputLen = readLen;
+  return true;
+}
+
+bool writeProtectedBytes(
+  const char* primary,
+  const char* backup,
+  const char* temporary,
+  const uint8_t* data,
+  size_t len
+) {
+  if (!ensureInternalFS() || data == nullptr || len == 0) {
+    return false;
+  }
+  InternalFS.remove(temporary);
+  File file(InternalFS);
+  if (!file.open(temporary, FILE_O_WRITE) || file.write(data, len) != len) {
+    file.close();
+    InternalFS.remove(temporary);
+    return false;
+  }
+  file.close();
+
+  uint8_t verification[128] = {0};
+  size_t verificationLen = 0;
+  if (len > sizeof(verification)
+      || !readFileBytes(temporary, verification, sizeof(verification), &verificationLen)
+      || verificationLen != len
+      || memcmp(verification, data, len) != 0) {
+    InternalFS.remove(temporary);
+    return false;
+  }
+
+  if (InternalFS.exists(primary)) {
+    InternalFS.remove(backup);
+    if (!InternalFS.rename(primary, backup)) {
+      InternalFS.remove(temporary);
+      return false;
+    }
+  }
+  if (!InternalFS.rename(temporary, primary)) {
+    return false;
+  }
+  return true;
+}
+
+void restoreProtectedBackup(const char* primary, const char* backup) {
+  if (!InternalFS.exists(backup)) {
+    return;
+  }
+  InternalFS.remove(primary);
+  InternalFS.rename(backup, primary);
 }
 
 bool buildPublicKeyFromRaw(const uint8_t* rawKey, CRYS_ECPKI_UserPublKey_t* publicKey) {
@@ -562,22 +657,13 @@ void copyLockName(const char* name, char* output, size_t outputLen) {
 }
 
 bool saveLockName() {
-  if (!ensureInternalFS()) {
-    return false;
-  }
-
-  if (InternalFS.exists(LOCK_NAME_FILENAME)) {
-    InternalFS.remove(LOCK_NAME_FILENAME);
-  }
-
-  File file(InternalFS);
-  if (!file.open(LOCK_NAME_FILENAME, FILE_O_WRITE)) {
-    return false;
-  }
-
-  file.write((uint8_t*) controllerLockName, strlen(controllerLockName));
-  file.close();
-  return true;
+  return writeProtectedBytes(
+    LOCK_NAME_FILENAME,
+    LOCK_NAME_BACKUP_FILENAME,
+    LOCK_NAME_TEMP_FILENAME,
+    (uint8_t*) controllerLockName,
+    strlen(controllerLockName)
+  );
 }
 
 void loadLockName() {
@@ -587,22 +673,23 @@ void loadLockName() {
     return;
   }
 
-  File file(InternalFS);
-  if (!file.open(LOCK_NAME_FILENAME, FILE_O_READ)) {
-    return;
-  }
-
-  char buffer[LOCK_NAME_STORAGE_LEN] = {0};
-  uint32_t readLen = file.read(buffer, sizeof(buffer) - 1);
-  file.close();
-  buffer[min<uint32_t>(readLen, sizeof(buffer) - 1)] = 0;
-
-  char sanitizedName[LOCK_NAME_STORAGE_LEN] = {0};
-  copyLockName(buffer, sanitizedName, sizeof(sanitizedName));
-  if (sanitizedName[0] == 0) {
-    InternalFS.remove(LOCK_NAME_FILENAME);
-  } else {
-    copyLockName(sanitizedName, controllerLockName, sizeof(controllerLockName));
+  const char* candidates[] = {LOCK_NAME_FILENAME, LOCK_NAME_BACKUP_FILENAME};
+  for (uint8_t candidate = 0; candidate < 2; candidate++) {
+    char buffer[LOCK_NAME_STORAGE_LEN] = {0};
+    size_t readLen = 0;
+    if (!readFileBytes(candidates[candidate], (uint8_t*) buffer, sizeof(buffer) - 1, &readLen)) {
+      continue;
+    }
+    buffer[readLen] = 0;
+    char sanitizedName[LOCK_NAME_STORAGE_LEN] = {0};
+    copyLockName(buffer, sanitizedName, sizeof(sanitizedName));
+    if (sanitizedName[0] != 0) {
+      copyLockName(sanitizedName, controllerLockName, sizeof(controllerLockName));
+      if (candidate == 1) {
+        restoreProtectedBackup(LOCK_NAME_FILENAME, LOCK_NAME_BACKUP_FILENAME);
+      }
+      return;
+    }
   }
 }
 
@@ -705,24 +792,15 @@ bool parseServoAnglesText(const char* text, uint16_t* requestedLockAngle, uint16
 }
 
 bool saveServoAngles() {
-  if (!ensureInternalFS()) {
-    return false;
-  }
-
-  if (InternalFS.exists(SERVO_ANGLES_FILENAME)) {
-    InternalFS.remove(SERVO_ANGLES_FILENAME);
-  }
-
-  File file(InternalFS);
-  if (!file.open(SERVO_ANGLES_FILENAME, FILE_O_WRITE)) {
-    return false;
-  }
-
   char buffer[12] = {0};
   snprintf(buffer, sizeof(buffer), "%u,%u", lockAngle, unlockAngle);
-  file.write((uint8_t*) buffer, strlen(buffer));
-  file.close();
-  return true;
+  return writeProtectedBytes(
+    SERVO_ANGLES_FILENAME,
+    SERVO_ANGLES_BACKUP_FILENAME,
+    SERVO_ANGLES_TEMP_FILENAME,
+    (uint8_t*) buffer,
+    strlen(buffer)
+  );
 }
 
 void loadServoAngles() {
@@ -733,23 +811,24 @@ void loadServoAngles() {
     return;
   }
 
-  File file(InternalFS);
-  if (!file.open(SERVO_ANGLES_FILENAME, FILE_O_READ)) {
-    return;
-  }
-
-  char buffer[16] = {0};
-  uint32_t readLen = file.read(buffer, sizeof(buffer) - 1);
-  file.close();
-  buffer[min<uint32_t>(readLen, sizeof(buffer) - 1)] = 0;
-
-  uint16_t storedLockAngle = 0;
-  uint16_t storedUnlockAngle = 0;
-  if (parseServoAnglesText(buffer, &storedLockAngle, &storedUnlockAngle)) {
-    lockAngle = (uint8_t) storedLockAngle;
-    unlockAngle = (uint8_t) storedUnlockAngle;
-  } else {
-    InternalFS.remove(SERVO_ANGLES_FILENAME);
+  const char* candidates[] = {SERVO_ANGLES_FILENAME, SERVO_ANGLES_BACKUP_FILENAME};
+  for (uint8_t candidate = 0; candidate < 2; candidate++) {
+    char buffer[16] = {0};
+    size_t readLen = 0;
+    if (!readFileBytes(candidates[candidate], (uint8_t*) buffer, sizeof(buffer) - 1, &readLen)) {
+      continue;
+    }
+    buffer[readLen] = 0;
+    uint16_t storedLockAngle = 0;
+    uint16_t storedUnlockAngle = 0;
+    if (parseServoAnglesText(buffer, &storedLockAngle, &storedUnlockAngle)) {
+      lockAngle = (uint8_t) storedLockAngle;
+      unlockAngle = (uint8_t) storedUnlockAngle;
+      if (candidate == 1) {
+        restoreProtectedBackup(SERVO_ANGLES_FILENAME, SERVO_ANGLES_BACKUP_FILENAME);
+      }
+      return;
+    }
   }
 }
 
@@ -776,19 +855,6 @@ bool setServoAngles(uint16_t requestedLockAngle, uint16_t requestedUnlockAngle) 
 }
 
 bool saveLastUnlockRecord() {
-  if (!ensureInternalFS()) {
-    return false;
-  }
-
-  if (InternalFS.exists(LAST_UNLOCK_FILENAME)) {
-    InternalFS.remove(LAST_UNLOCK_FILENAME);
-  }
-
-  File file(InternalFS);
-  if (!file.open(LAST_UNLOCK_FILENAME, FILE_O_WRITE)) {
-    return false;
-  }
-
   char buffer[96] = {0};
   if (lastUnlockDeviceFingerprint[0] != 0) {
     snprintf(
@@ -810,9 +876,13 @@ bool saveLastUnlockRecord() {
   } else {
     snprintf(buffer, sizeof(buffer), "%llu", (unsigned long long) lastUnlockEpochSeconds);
   }
-  file.write((uint8_t*) buffer, strlen(buffer));
-  file.close();
-  return true;
+  return writeProtectedBytes(
+    LAST_UNLOCK_FILENAME,
+    LAST_UNLOCK_BACKUP_FILENAME,
+    LAST_UNLOCK_TEMP_FILENAME,
+    (uint8_t*) buffer,
+    strlen(buffer)
+  );
 }
 
 void loadLastUnlockRecord() {
@@ -824,15 +894,16 @@ void loadLastUnlockRecord() {
     return;
   }
 
-  File file(InternalFS);
-  if (!file.open(LAST_UNLOCK_FILENAME, FILE_O_READ)) {
+  char buffer[96] = {0};
+  size_t readLen = 0;
+  bool loadedBackup = false;
+  if (!readFileBytes(LAST_UNLOCK_FILENAME, (uint8_t*) buffer, sizeof(buffer) - 1, &readLen)) {
+    loadedBackup = readFileBytes(LAST_UNLOCK_BACKUP_FILENAME, (uint8_t*) buffer, sizeof(buffer) - 1, &readLen);
+  }
+  if (readLen == 0) {
     return;
   }
-
-  char buffer[96] = {0};
-  uint32_t readLen = file.read(buffer, sizeof(buffer) - 1);
-  file.close();
-  buffer[min<uint32_t>(readLen, sizeof(buffer) - 1)] = 0;
+  buffer[readLen] = 0;
 
   char* secondLine = strchr(buffer, '\n');
   if (secondLine != nullptr) {
@@ -870,8 +941,17 @@ void loadLastUnlockRecord() {
         copyDeviceName(secondLine, lastUnlockDeviceName, sizeof(lastUnlockDeviceName));
       }
     }
+    if (loadedBackup) {
+      restoreProtectedBackup(LAST_UNLOCK_FILENAME, LAST_UNLOCK_BACKUP_FILENAME);
+    }
   } else {
-    InternalFS.remove(LAST_UNLOCK_FILENAME);
+    memset(buffer, 0, sizeof(buffer));
+    readLen = 0;
+    if (!loadedBackup
+        && readFileBytes(LAST_UNLOCK_BACKUP_FILENAME, (uint8_t*) buffer, sizeof(buffer) - 1, &readLen)) {
+      restoreProtectedBackup(LAST_UNLOCK_FILENAME, LAST_UNLOCK_BACKUP_FILENAME);
+      loadLastUnlockRecord();
+    }
   }
 }
 
@@ -987,24 +1067,15 @@ bool isValidUnlockHoldTimeout(uint64_t seconds) {
 }
 
 bool saveUnlockHoldTimeout() {
-  if (!ensureInternalFS()) {
-    return false;
-  }
-
-  if (InternalFS.exists(UNLOCK_TIMEOUT_FILENAME)) {
-    InternalFS.remove(UNLOCK_TIMEOUT_FILENAME);
-  }
-
-  File file(InternalFS);
-  if (!file.open(UNLOCK_TIMEOUT_FILENAME, FILE_O_WRITE)) {
-    return false;
-  }
-
   char buffer[8] = {0};
   snprintf(buffer, sizeof(buffer), "%u", unlockHoldTimeoutSeconds);
-  file.write((uint8_t*) buffer, strlen(buffer));
-  file.close();
-  return true;
+  return writeProtectedBytes(
+    UNLOCK_TIMEOUT_FILENAME,
+    UNLOCK_TIMEOUT_BACKUP_FILENAME,
+    UNLOCK_TIMEOUT_TEMP_FILENAME,
+    (uint8_t*) buffer,
+    strlen(buffer)
+  );
 }
 
 void loadUnlockHoldTimeout() {
@@ -1014,21 +1085,22 @@ void loadUnlockHoldTimeout() {
     return;
   }
 
-  File file(InternalFS);
-  if (!file.open(UNLOCK_TIMEOUT_FILENAME, FILE_O_READ)) {
-    return;
-  }
-
-  char buffer[8] = {0};
-  uint32_t readLen = file.read(buffer, sizeof(buffer) - 1);
-  file.close();
-  buffer[min<uint32_t>(readLen, sizeof(buffer) - 1)] = 0;
-
-  uint64_t seconds = 0;
-  if (parseUnsigned64Text(buffer, &seconds) && isValidUnlockHoldTimeout(seconds)) {
-    unlockHoldTimeoutSeconds = seconds;
-  } else {
-    InternalFS.remove(UNLOCK_TIMEOUT_FILENAME);
+  const char* candidates[] = {UNLOCK_TIMEOUT_FILENAME, UNLOCK_TIMEOUT_BACKUP_FILENAME};
+  for (uint8_t candidate = 0; candidate < 2; candidate++) {
+    char buffer[8] = {0};
+    size_t readLen = 0;
+    if (!readFileBytes(candidates[candidate], (uint8_t*) buffer, sizeof(buffer) - 1, &readLen)) {
+      continue;
+    }
+    buffer[readLen] = 0;
+    uint64_t seconds = 0;
+    if (parseUnsigned64Text(buffer, &seconds) && isValidUnlockHoldTimeout(seconds)) {
+      unlockHoldTimeoutSeconds = seconds;
+      if (candidate == 1) {
+        restoreProtectedBackup(UNLOCK_TIMEOUT_FILENAME, UNLOCK_TIMEOUT_BACKUP_FILENAME);
+      }
+      return;
+    }
   }
 }
 
@@ -1081,34 +1153,214 @@ int8_t pairedPublicKeyIndexForToken(const char* token) {
   return pairedPublicKeyIndexForFingerprint(token);
 }
 
+uint32_t pairingsCrc32Update(uint32_t crc, const uint8_t* data, size_t len) {
+  for (size_t index = 0; index < len; index++) {
+    crc ^= data[index];
+    for (uint8_t bit = 0; bit < 8; bit++) {
+      crc = (crc >> 1) ^ (0xEDB88320UL & (uint32_t)(-(int32_t)(crc & 1)));
+    }
+  }
+  return crc;
+}
+
+void encodeUnsigned32(uint32_t value, uint8_t* output) {
+  for (uint8_t index = 0; index < 4; index++) {
+    output[index] = (uint8_t)(value >> (index * 8));
+  }
+}
+
+uint32_t decodeUnsigned32(const uint8_t* input) {
+  uint32_t value = 0;
+  for (uint8_t index = 0; index < 4; index++) {
+    value |= ((uint32_t) input[index]) << (index * 8);
+  }
+  return value;
+}
+
+bool readPairingsSnapshot(const char* filename, PairingsSnapshot* snapshot) {
+  if (snapshot == nullptr || !InternalFS.exists(filename)) {
+    return false;
+  }
+
+  File file(InternalFS);
+  if (!file.open(filename, FILE_O_READ)) {
+    return false;
+  }
+
+  uint8_t header[PAIRINGS_FILE_HEADER_LEN] = {0};
+  if (file.read(header, sizeof(header)) != sizeof(header)
+      || memcmp(header, PAIRINGS_FILE_MAGIC, sizeof(PAIRINGS_FILE_MAGIC)) != 0
+      || header[4] != PAIRINGS_FILE_VERSION
+      || header[5] > MAX_PAIRED_PHONES) {
+    file.close();
+    return false;
+  }
+
+  uint8_t count = header[5];
+  uint16_t payloadLen = (uint16_t) header[12] | ((uint16_t) header[13] << 8);
+  uint32_t expectedCrc = decodeUnsigned32(header + 16);
+  if (payloadLen != count * PAIRING_RECORD_LEN
+      || file.size() != PAIRINGS_FILE_HEADER_LEN + payloadLen) {
+    file.close();
+    return false;
+  }
+
+  PairingsSnapshot candidate = {};
+  candidate.count = count;
+  candidate.generation = decodeUnsigned32(header + 8);
+  uint32_t crc = pairingsCrc32Update(0xFFFFFFFFUL, header, 16);
+
+  for (uint8_t index = 0; index < count; index++) {
+    uint8_t counterBytes[8] = {0};
+    if (file.read(candidate.keys[index], P256_PUBLIC_KEY_LEN) != P256_PUBLIC_KEY_LEN
+        || file.read(counterBytes, sizeof(counterBytes)) != sizeof(counterBytes)
+        || file.read((uint8_t*) candidate.names[index], PAIRED_DEVICE_NAME_STORAGE_LEN) != PAIRED_DEVICE_NAME_STORAGE_LEN) {
+      file.close();
+      return false;
+    }
+    candidate.names[index][PAIRED_DEVICE_NAME_LEN] = 0;
+    candidate.counters[index] = decodeUnsigned64(counterBytes);
+    crc = pairingsCrc32Update(crc, candidate.keys[index], P256_PUBLIC_KEY_LEN);
+    crc = pairingsCrc32Update(crc, counterBytes, sizeof(counterBytes));
+    crc = pairingsCrc32Update(crc, (uint8_t*) candidate.names[index], PAIRED_DEVICE_NAME_STORAGE_LEN);
+    if (!isValidPublicKey(candidate.keys[index])) {
+      file.close();
+      return false;
+    }
+    for (uint8_t previous = 0; previous < index; previous++) {
+      if (memcmp(candidate.keys[previous], candidate.keys[index], P256_PUBLIC_KEY_LEN) == 0) {
+        file.close();
+        return false;
+      }
+    }
+  }
+
+  file.close();
+  if ((crc ^ 0xFFFFFFFFUL) != expectedCrc) {
+    return false;
+  }
+  *snapshot = candidate;
+  return true;
+}
+
+bool writePairingsSnapshot(const char* filename, uint32_t generation) {
+  if (InternalFS.exists(filename)) {
+    InternalFS.remove(filename);
+  }
+
+  File file(InternalFS);
+  if (!file.open(filename, FILE_O_WRITE)) {
+    return false;
+  }
+
+  uint8_t header[PAIRINGS_FILE_HEADER_LEN] = {0};
+  memcpy(header, PAIRINGS_FILE_MAGIC, sizeof(PAIRINGS_FILE_MAGIC));
+  header[4] = PAIRINGS_FILE_VERSION;
+  header[5] = pairedPublicKeyCount;
+  encodeUnsigned32(generation, header + 8);
+  uint16_t payloadLen = pairedPublicKeyCount * PAIRING_RECORD_LEN;
+  header[12] = (uint8_t) payloadLen;
+  header[13] = (uint8_t)(payloadLen >> 8);
+  uint32_t crc = pairingsCrc32Update(0xFFFFFFFFUL, header, 16);
+  for (uint8_t index = 0; index < pairedPublicKeyCount; index++) {
+    uint8_t counterBytes[8] = {0};
+    encodeUnsigned64(pairedCounters[index], counterBytes);
+    crc = pairingsCrc32Update(crc, pairedPublicKeys[index], P256_PUBLIC_KEY_LEN);
+    crc = pairingsCrc32Update(crc, counterBytes, sizeof(counterBytes));
+    crc = pairingsCrc32Update(crc, (uint8_t*) pairedDeviceNames[index], PAIRED_DEVICE_NAME_STORAGE_LEN);
+  }
+  encodeUnsigned32(crc ^ 0xFFFFFFFFUL, header + 16);
+  if (file.write(header, sizeof(header)) != sizeof(header)) {
+    file.close();
+    return false;
+  }
+  for (uint8_t index = 0; index < pairedPublicKeyCount; index++) {
+    uint8_t counterBytes[8] = {0};
+    encodeUnsigned64(pairedCounters[index], counterBytes);
+    if (file.write(pairedPublicKeys[index], P256_PUBLIC_KEY_LEN) != P256_PUBLIC_KEY_LEN
+        || file.write(counterBytes, sizeof(counterBytes)) != sizeof(counterBytes)
+        || file.write((uint8_t*) pairedDeviceNames[index], PAIRED_DEVICE_NAME_STORAGE_LEN) != PAIRED_DEVICE_NAME_STORAGE_LEN) {
+      file.close();
+      return false;
+    }
+  }
+  file.close();
+  return true;
+}
+
+void applyPairingsSnapshot(const PairingsSnapshot& snapshot) {
+  pairedPublicKeyCount = snapshot.count;
+  pairingsGeneration = snapshot.generation;
+  memcpy(pairedPublicKeys, snapshot.keys, sizeof(pairedPublicKeys));
+  memcpy(pairedCounters, snapshot.counters, sizeof(pairedCounters));
+  memcpy(pairedDeviceNames, snapshot.names, sizeof(pairedDeviceNames));
+}
+
 bool savePairings() {
   if (!ensureInternalFS()) {
     return false;
   }
 
-  if (InternalFS.exists(PAIRINGS_FILENAME)) {
-    InternalFS.remove(PAIRINGS_FILENAME);
+  uint32_t nextGeneration = pairingsGeneration + 1;
+  if (nextGeneration == 0) {
+    nextGeneration = 1;
   }
+  const char* target = activePairingsSlot == 'A' ? PAIRINGS_SLOT_B_FILENAME : PAIRINGS_SLOT_A_FILENAME;
+  char targetSlot = activePairingsSlot == 'A' ? 'B' : 'A';
 
-  if (pairedPublicKeyCount == 0) {
-    return true;
+  if (!writePairingsSnapshot(PAIRINGS_TEMP_FILENAME, nextGeneration)) {
+    InternalFS.remove(PAIRINGS_TEMP_FILENAME);
+    return false;
   }
-
-  File file(InternalFS);
-  if (!file.open(PAIRINGS_FILENAME, FILE_O_WRITE)) {
+  PairingsSnapshot verified = {};
+  if (!readPairingsSnapshot(PAIRINGS_TEMP_FILENAME, &verified)
+      || verified.generation != nextGeneration
+      || verified.count != pairedPublicKeyCount) {
+    InternalFS.remove(PAIRINGS_TEMP_FILENAME);
     return false;
   }
 
-  for (uint8_t index = 0; index < pairedPublicKeyCount; index++) {
-    uint8_t counterBytes[8] = {0};
-    encodeUnsigned64(pairedCounters[index], counterBytes);
-    file.write(pairedPublicKeys[index], P256_PUBLIC_KEY_LEN);
-    file.write(counterBytes, sizeof(counterBytes));
-    file.write((uint8_t*) pairedDeviceNames[index], PAIRED_DEVICE_NAME_STORAGE_LEN);
+  if (InternalFS.exists(target)) {
+    InternalFS.remove(target);
+  }
+  if (!InternalFS.rename(PAIRINGS_TEMP_FILENAME, target)) {
+    InternalFS.remove(PAIRINGS_TEMP_FILENAME);
+    return false;
   }
 
-  file.close();
+  pairingsGeneration = nextGeneration;
+  activePairingsSlot = targetSlot;
   return true;
+}
+
+bool loadLegacyPairings() {
+  File file(InternalFS);
+  if (!file.open(PAIRINGS_FILENAME, FILE_O_READ)) {
+    return false;
+  }
+  uint32_t fileSize = file.size();
+  if (fileSize == 0 || fileSize % PAIRING_RECORD_LEN != 0
+      || fileSize / PAIRING_RECORD_LEN > MAX_PAIRED_PHONES) {
+    file.close();
+    return false;
+  }
+
+  while (pairedPublicKeyCount < fileSize / PAIRING_RECORD_LEN) {
+    uint8_t counterBytes[8] = {0};
+    uint8_t index = pairedPublicKeyCount;
+    if (file.read(pairedPublicKeys[index], P256_PUBLIC_KEY_LEN) != P256_PUBLIC_KEY_LEN
+        || file.read(counterBytes, sizeof(counterBytes)) != sizeof(counterBytes)
+        || file.read((uint8_t*) pairedDeviceNames[index], PAIRED_DEVICE_NAME_STORAGE_LEN) != PAIRED_DEVICE_NAME_STORAGE_LEN
+        || !isValidPublicKey(pairedPublicKeys[index])) {
+      file.close();
+      return false;
+    }
+    pairedDeviceNames[index][PAIRED_DEVICE_NAME_LEN] = 0;
+    pairedCounters[index] = decodeUnsigned64(counterBytes);
+    pairedPublicKeyCount++;
+  }
+  file.close();
+  return pairedPublicKeyCount > 0;
 }
 
 void loadPairings() {
@@ -1117,68 +1369,36 @@ void loadPairings() {
   }
 
   pairedPublicKeyCount = 0;
+  pairingsGeneration = 0;
+  activePairingsSlot = 0;
   memset(pairedPublicKeys, 0, sizeof(pairedPublicKeys));
   memset(pairedCounters, 0, sizeof(pairedCounters));
   memset(pairedDeviceNames, 0, sizeof(pairedDeviceNames));
 
-  File file(InternalFS);
-  if (file.open(PAIRINGS_FILENAME, FILE_O_READ)) {
-    bool needsRepair = false;
-    uint32_t fileSize = file.size();
-    if (fileSize > 0 && fileSize % PAIRING_RECORD_LEN != 0) {
-      needsRepair = true;
+  PairingsSnapshot slotA = {};
+  PairingsSnapshot slotB = {};
+  bool validA = readPairingsSnapshot(PAIRINGS_SLOT_A_FILENAME, &slotA);
+  bool validB = readPairingsSnapshot(PAIRINGS_SLOT_B_FILENAME, &slotB);
+  if (validA || validB) {
+    bool useA = validA && (!validB || (int32_t)(slotA.generation - slotB.generation) > 0);
+    applyPairingsSnapshot(useA ? slotA : slotB);
+    activePairingsSlot = useA ? 'A' : 'B';
+    Serial.print("Loaded protected paired devices from slot ");
+    Serial.println(activePairingsSlot);
+  } else if (loadLegacyPairings()) {
+    Serial.println("Migrating legacy paired device table to protected storage");
+    if (savePairings()) {
+      InternalFS.remove(PAIRINGS_FILENAME);
     }
-
-    while (pairedPublicKeyCount < MAX_PAIRED_PHONES) {
-      uint8_t rawKey[P256_PUBLIC_KEY_LEN] = {0};
-      uint8_t counterBytes[8] = {0};
-      char deviceName[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
-      uint32_t keyReadLen = file.read(rawKey, sizeof(rawKey));
-      if (keyReadLen == 0) {
-        break;
-      }
-      if (keyReadLen != sizeof(rawKey)) {
-        needsRepair = true;
-        break;
-      }
-
-      uint32_t counterReadLen = file.read(counterBytes, sizeof(counterBytes));
-      if (counterReadLen != sizeof(counterBytes)) {
-        needsRepair = true;
-        break;
-      }
-
-      uint32_t nameReadLen = file.read((uint8_t*) deviceName, PAIRED_DEVICE_NAME_STORAGE_LEN);
-      if (nameReadLen != PAIRED_DEVICE_NAME_STORAGE_LEN) {
-        needsRepair = true;
-        break;
-      }
-      deviceName[PAIRED_DEVICE_NAME_LEN] = 0;
-
-      if (isValidPublicKey(rawKey) && !pairedPublicKeyExists(rawKey)) {
-        memcpy(pairedPublicKeys[pairedPublicKeyCount], rawKey, P256_PUBLIC_KEY_LEN);
-        pairedCounters[pairedPublicKeyCount] = decodeUnsigned64(counterBytes);
-        copyDeviceName(deviceName, pairedDeviceNames[pairedPublicKeyCount], PAIRED_DEVICE_NAME_STORAGE_LEN);
-        pairedPublicKeyCount++;
-      } else {
-        needsRepair = true;
-      }
-    }
-    file.close();
-
-    if (needsRepair) {
-      savePairings();
-      Serial.println("Repaired paired device table");
-    }
-
-    Serial.print("Loaded paired devices: ");
-    Serial.print(pairedPublicKeyCount);
-    Serial.print("/");
-    Serial.println(MAX_PAIRED_PHONES);
-    return;
+  } else {
+    Serial.println("No valid paired device keys yet");
   }
 
-  Serial.println("No paired device keys yet");
+  InternalFS.remove(PAIRINGS_TEMP_FILENAME);
+  Serial.print("Loaded paired devices: ");
+  Serial.print(pairedPublicKeyCount);
+  Serial.print("/");
+  Serial.println(MAX_PAIRED_PHONES);
 }
 
 bool appendPairedPublicKey(const uint8_t* rawKey, const char* deviceName) {
@@ -1253,10 +1473,41 @@ void clearPairings() {
   memset(pairedPublicKeys, 0, sizeof(pairedPublicKeys));
   memset(pairedCounters, 0, sizeof(pairedCounters));
   memset(pairedDeviceNames, 0, sizeof(pairedDeviceNames));
+  pairingsGeneration = 0;
+  activePairingsSlot = 0;
 
   if (ensureInternalFS()) {
     InternalFS.remove(PAIRINGS_FILENAME);
+    InternalFS.remove(PAIRINGS_SLOT_A_FILENAME);
+    InternalFS.remove(PAIRINGS_SLOT_B_FILENAME);
+    InternalFS.remove(PAIRINGS_TEMP_FILENAME);
   }
+}
+
+bool repairInternalStorage() {
+  clearPendingPairing();
+  pairingModeEnabled = false;
+  pairedPublicKeyCount = 0;
+  memset(pairedPublicKeys, 0, sizeof(pairedPublicKeys));
+  memset(pairedCounters, 0, sizeof(pairedCounters));
+  memset(pairedDeviceNames, 0, sizeof(pairedDeviceNames));
+  pairingsGeneration = 0;
+  activePairingsSlot = 0;
+
+  if (!ensureInternalFS() || !InternalFS.format()) {
+    internalFsReady = false;
+    return false;
+  }
+  internalFsReady = true;
+
+  bool restored = saveLockName()
+    && saveServoAngles()
+    && saveUnlockHoldTimeout()
+    && savePairings();
+  if (restored && lastUnlockEpochSeconds > 0) {
+    restored = saveLastUnlockRecord();
+  }
+  return restored;
 }
 
 int8_t hexNibble(char value) {
@@ -2431,13 +2682,34 @@ void handleV3Command(const uint8_t* packet, uint16_t packetLen, uint16_t connHan
   }
 }
 
+uint8_t queuedBleCommandCountForHandleLocked(uint16_t connHandle) {
+  uint8_t count = 0;
+  for (uint8_t offset = 0; offset < bleCommandQueueCount; offset++) {
+    uint8_t index = (bleCommandQueueTail + offset) % BLE_COMMAND_QUEUE_CAPACITY;
+    if (bleCommandQueue[index].connHandle == connHandle) {
+      count++;
+    }
+  }
+  return count;
+}
+
+void markBleCommandQueueOverflowLocked(uint16_t connHandle) {
+  for (uint8_t index = 0; index < bleCommandQueueOverflowCount; index++) {
+    if (bleCommandQueueOverflowHandles[index] == connHandle) {
+      return;
+    }
+  }
+
+  if (bleCommandQueueOverflowCount < MAX_BLE_CONNECTIONS) {
+    bleCommandQueueOverflowHandles[bleCommandQueueOverflowCount++] = connHandle;
+  }
+}
+
 bool enqueueBleCommandJob(uint16_t connHandle, const uint8_t* data, uint16_t len, bool isReject, const char* rejectReason = nullptr) {
   taskENTER_CRITICAL();
-  if (bleCommandQueueCount >= BLE_COMMAND_QUEUE_CAPACITY) {
-    if (!bleCommandQueueOverflowPending) {
-      bleCommandQueueOverflowConnHandle = connHandle;
-      bleCommandQueueOverflowPending = true;
-    }
+  if (bleCommandQueueCount >= BLE_COMMAND_QUEUE_CAPACITY
+      || queuedBleCommandCountForHandleLocked(connHandle) >= BLE_COMMAND_QUEUE_PER_CONNECTION_LIMIT) {
+    markBleCommandQueueOverflowLocked(connHandle);
     taskEXIT_CRITICAL();
     return false;
   }
@@ -2499,16 +2771,53 @@ bool popBleCommandQueueOverflow(uint16_t* connHandle) {
   }
 
   taskENTER_CRITICAL();
-  if (!bleCommandQueueOverflowPending) {
+  if (bleCommandQueueOverflowCount == 0) {
     taskEXIT_CRITICAL();
     return false;
   }
 
-  *connHandle = bleCommandQueueOverflowConnHandle;
-  bleCommandQueueOverflowConnHandle = BLE_CONN_HANDLE_INVALID;
-  bleCommandQueueOverflowPending = false;
+  *connHandle = bleCommandQueueOverflowHandles[0];
+  for (uint8_t index = 1; index < bleCommandQueueOverflowCount; index++) {
+    bleCommandQueueOverflowHandles[index - 1] = bleCommandQueueOverflowHandles[index];
+  }
+  bleCommandQueueOverflowCount--;
+  bleCommandQueueOverflowHandles[bleCommandQueueOverflowCount] = BLE_CONN_HANDLE_INVALID;
   taskEXIT_CRITICAL();
   return true;
+}
+
+void discardBleCommandsForHandle(uint16_t connHandle) {
+  taskENTER_CRITICAL();
+
+  uint8_t originalCount = bleCommandQueueCount;
+  uint8_t keptCount = 0;
+  for (uint8_t offset = 0; offset < originalCount; offset++) {
+    uint8_t readIndex = (bleCommandQueueTail + offset) % BLE_COMMAND_QUEUE_CAPACITY;
+    if (bleCommandQueue[readIndex].connHandle == connHandle) {
+      continue;
+    }
+
+    uint8_t writeIndex = (bleCommandQueueTail + keptCount) % BLE_COMMAND_QUEUE_CAPACITY;
+    if (writeIndex != readIndex) {
+      bleCommandQueue[writeIndex] = bleCommandQueue[readIndex];
+    }
+    keptCount++;
+  }
+  bleCommandQueueCount = keptCount;
+  bleCommandQueueHead = (bleCommandQueueTail + keptCount) % BLE_COMMAND_QUEUE_CAPACITY;
+
+  uint8_t overflowWriteIndex = 0;
+  for (uint8_t index = 0; index < bleCommandQueueOverflowCount; index++) {
+    if (bleCommandQueueOverflowHandles[index] != connHandle) {
+      bleCommandQueueOverflowHandles[overflowWriteIndex++] = bleCommandQueueOverflowHandles[index];
+    }
+  }
+  bleCommandQueueOverflowCount = overflowWriteIndex;
+  for (uint8_t index = overflowWriteIndex; index < MAX_BLE_CONNECTIONS; index++) {
+    bleCommandQueueOverflowHandles[index] = BLE_CONN_HANDLE_INVALID;
+  }
+
+  taskEXIT_CRITICAL();
 }
 
 void commandWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint8_t* data, uint16_t len) {
@@ -2544,15 +2853,21 @@ void controlCccdWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uin
 
 void processPendingBleCommand() {
   uint16_t connHandle = BLE_CONN_HANDLE_INVALID;
-  if (popBleCommandQueueOverflow(&connHandle)) {
-    rejectCommandFor(connHandle, "controller busy");
+  if (bleCommandQueueServeOverflowNext && popBleCommandQueueOverflow(&connHandle)) {
+    bleCommandQueueServeOverflowNext = false;
+    publishControlRejectTo(connHandle, "controller_busy");
     return;
   }
 
   BleCommandJob job;
   if (!popBleCommandJob(&job)) {
+    if (popBleCommandQueueOverflow(&connHandle)) {
+      bleCommandQueueServeOverflowNext = false;
+      publishControlRejectTo(connHandle, "controller_busy");
+    }
     return;
   }
+  bleCommandQueueServeOverflowNext = true;
 
   if (job.isReject) {
     rejectCommandFor(job.connHandle, job.rejectReason);
@@ -3150,6 +3465,15 @@ bool handleAppCommand(char* command) {
     updateStatusLed();
     printAppOk("cleared=yes");
     printAppStatus();
+  } else if (serialCommandEquals(subcommand, "storage repair")) {
+    if (repairInternalStorage()) {
+      publishState(currentStateText());
+      updateStatusLed();
+      printAppOk("storage_repaired=yes");
+    } else {
+      printAppError("reason=storage_repair_failed");
+    }
+    printAppStatus();
   } else if (serialCommandEquals(subcommand, "cleanup untrusted") || serialCommandEquals(subcommand, "disconnect untrusted")) {
     uint8_t disconnectedCount = disconnectUntrustedLockedConnections(true);
     Serial.print("APP_OK untrusted_disconnected=");
@@ -3417,6 +3741,7 @@ void connectCallback(uint16_t connHandle) {
 void disconnectCallback(uint16_t connHandle, uint8_t reason) {
   (void) reason;
   Serial.println("Disconnected; advertising");
+  discardBleCommandsForHandle(connHandle);
   clearConnectedDevice(connHandle);
   publishConnectionsState();
   restartAdvertisingIfConnectionSlotAvailable();

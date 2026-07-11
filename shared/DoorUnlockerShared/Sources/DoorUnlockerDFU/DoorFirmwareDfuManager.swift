@@ -19,6 +19,7 @@ public struct DoorFirmwareDfuUpdate: Equatable, Sendable {
 @MainActor
 public protocol DoorFirmwareDfuManagerDelegate: AnyObject {
     func firmwareDfuManagerDidUpdate(_ update: DoorFirmwareDfuUpdate)
+    func firmwareDfuManagerDidDetectControllerFirmware()
     func firmwareDfuManagerDidFinish()
     func firmwareDfuManagerDidFail(_ message: String)
 }
@@ -26,6 +27,7 @@ public protocol DoorFirmwareDfuManagerDelegate: AnyObject {
 public final class DoorFirmwareDfuManager: NSObject {
     private let secureDfuServiceUUID = CBUUID(string: "FE59")
     private let bootloaderDfuServiceUUID = CBUUID(string: "00001530-1212-EFDE-1523-785FEABCD123")
+    private let controllerServiceUUID = CBUUID(string: "7A5A2000-2B8D-4C3E-94E7-0B3C0DDAAF10")
     private let dfuNameFragments = ["dfu", "adadfu", "dfutarg"]
     private let dfuQueue: DispatchQueue
     private let log: Logger
@@ -256,17 +258,26 @@ extension DoorFirmwareDfuManager: CBCentralManagerDelegate {
         rssi RSSI: NSNumber
     ) {
         guard isActive else { return }
+        let advertisedServices = advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] ?? []
+        if advertisedServices.contains(controllerServiceUUID) {
+            log.info("Normal controller firmware detected during DFU recovery scan")
+            cancel()
+            Task { @MainActor [weak self] in
+                self?.delegate?.firmwareDfuManagerDidDetectControllerFirmware()
+            }
+            return
+        }
         let name = peripheral.name ?? advertisementData[CBAdvertisementDataLocalNameKey] as? String
         guard shouldUsePeripheral(name: name, advertisementData: advertisementData) else { return }
         let bootloaderName = name ?? "unknown"
         let peripheralID = peripheral.identifier.uuidString
         let rssi = RSSI.intValue
-        let advertisedServices = serviceList(from: advertisementData)
+        let advertisedServiceList = serviceList(from: advertisementData)
         log.info(
             """
             Selected DFU bootloader name=\(bootloaderName, privacy: .public) \
             id=\(peripheralID, privacy: .public) rssi=\(rssi, privacy: .public) \
-            services=\(advertisedServices, privacy: .public)
+            services=\(advertisedServiceList, privacy: .public)
             """
         )
         startDfu(target: peripheral)

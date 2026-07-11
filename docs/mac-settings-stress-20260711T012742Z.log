@@ -1,0 +1,6 @@
+2026-07-11T01:27:33Z DUMacStartup 21597ms wireless_command_sent auto-lock 30s
+2026-07-11T01:27:33Z DUMacStartup 21647ms wireless_state_received setting_applying:timeout:30
+2026-07-11T01:27:34Z DUMacStartup 22422ms wireless_state_received setting_applying:timeout:30
+2026-07-11T01:27:36Z DUMacStartup 24583ms wireless_state_received timeout_set:30
+2026-07-11T01:27:36Z DUMacStartup 24584ms controller_setting_confirmed autoLockTimeout(30)
+2026-07-11T01:27:36Z DUMacStartup 24642ms wireless_state_received locked

@@ -134,7 +134,7 @@ extension DoorAdminStore: CBCentralManagerDelegate {
             wirelessConnectionState = "Reconnecting"
             lastError = nil
             if central.state == .poweredOn && canUseWirelessFallback {
-                scheduleWirelessReconnect(after: 6)
+                scheduleWirelessReconnect(after: nextWirelessReconnectDelay())
             }
             return
         }

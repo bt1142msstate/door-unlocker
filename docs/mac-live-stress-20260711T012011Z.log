@@ -1,0 +1,22 @@
+started_at=2026-07-11T01:20:11Z
+iteration=1 command=unlock cli_ms=23 exit=0 result=sent_to_app=unlock
+iteration=1 command=lock cli_ms=28 exit=0 result=sent_to_app=lock
+iteration=2 command=unlock cli_ms=31 exit=0 result=sent_to_app=unlock
+iteration=2 command=lock cli_ms=23 exit=0 result=sent_to_app=lock
+iteration=3 command=unlock cli_ms=24 exit=0 result=sent_to_app=unlock
+iteration=3 command=lock cli_ms=26 exit=0 result=sent_to_app=lock
+iteration=4 command=unlock cli_ms=31 exit=0 result=sent_to_app=unlock
+iteration=4 command=lock cli_ms=30 exit=0 result=sent_to_app=lock
+iteration=5 command=unlock cli_ms=28 exit=0 result=sent_to_app=unlock
+iteration=5 command=lock cli_ms=29 exit=0 result=sent_to_app=lock
+iteration=6 command=unlock cli_ms=30 exit=0 result=sent_to_app=unlock
+iteration=6 command=lock cli_ms=30 exit=0 result=sent_to_app=lock
+iteration=7 command=unlock cli_ms=30 exit=0 result=sent_to_app=unlock
+iteration=7 command=lock cli_ms=30 exit=0 result=sent_to_app=lock
+iteration=8 command=unlock cli_ms=30 exit=0 result=sent_to_app=unlock
+iteration=8 command=lock cli_ms=25 exit=0 result=sent_to_app=lock
+iteration=9 command=unlock cli_ms=29 exit=0 result=sent_to_app=unlock
+iteration=9 command=lock cli_ms=30 exit=0 result=sent_to_app=lock
+iteration=10 command=unlock cli_ms=29 exit=0 result=sent_to_app=unlock
+iteration=10 command=lock cli_ms=31 exit=0 result=sent_to_app=lock
+finished_at=2026-07-11T01:20:19Z

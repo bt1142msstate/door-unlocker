@@ -208,6 +208,13 @@ extension DoorUnlockerController {
         if proximityUnlockEnabled {
             startRSSIMonitoringIfNeeded()
         }
+        // A reinstall can lose the UI's cached trust bit while the signing key
+        // remains in Keychain and the controller still trusts that key. Allow one
+        // signed link-auth probe; an explicit controller `unpaired` rejection is
+        // authoritative and immediately revokes this provisional trust.
+        if !hasKnownPairedController && !hasRejectedCurrentSecurePairing {
+            setKnownPairedController(true)
+        }
         _ = promoteKnownControllerPairingIfNeeded()
         requestFreshSecureControlNonce()
         scheduleStateSnapshotFallbackRead()

@@ -7,6 +7,7 @@ import os
 
 extension DoorAdminStore {
     func applyWirelessState(_ newState: String) {
+        recordRuntimeTelemetry("wireless_state_received", details: newState, once: false)
         if let applying = ControllerStateParser.settingApplying(from: newState) {
             applyRemoteSettingApplying(kind: applying.kind, value: applying.value)
             updateWirelessPairingState(from: "paired")

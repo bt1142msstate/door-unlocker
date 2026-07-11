@@ -64,8 +64,10 @@ enum DoorCommandAuthenticator {
     }
 
     private static let keychainService = "DoorUnlocker.SigningIdentity"
-    private static let secureEnclaveAccount = "secure-enclave-p256"
-    private static let softwareAccount = "software-p256"
+    // v2 keys are accessible after the first device unlock so background BLE
+    // restoration can sign without rotating identity while the screen is locked.
+    private static let secureEnclaveAccount = "secure-enclave-p256-v2"
+    private static let softwareAccount = "software-p256-v2"
     private static let cache = AuthCache()
 
     static func prewarm() {
@@ -146,17 +148,23 @@ enum DoorCommandAuthenticator {
 
     private static func loadIdentity() throws -> SigningIdentity {
         if let data = try readKeychainData(account: secureEnclaveAccount) {
-            if let key = try? SecureEnclave.P256.Signing.PrivateKey(dataRepresentation: data) {
+            do {
+                let key = try SecureEnclave.P256.Signing.PrivateKey(dataRepresentation: data)
                 return .secureEnclave(key)
+            } catch {
+                // A locked device or temporarily unavailable Secure Enclave is
+                // not evidence of corruption. Never delete or replace identity.
+                throw AuthError.signingKeyUnavailable
             }
-            deleteKeychainData(account: secureEnclaveAccount)
         }
 
         if let data = try readKeychainData(account: softwareAccount) {
-            if let key = try? P256.Signing.PrivateKey(rawRepresentation: data) {
+            do {
+                let key = try P256.Signing.PrivateKey(rawRepresentation: data)
                 return .software(key)
+            } catch {
+                throw AuthError.signingKeyUnavailable
             }
-            deleteKeychainData(account: softwareAccount)
         }
 
         if let secureEnclaveKey = try? createSecureEnclaveKey() {
@@ -180,7 +188,7 @@ enum DoorCommandAuthenticator {
         var accessError: Unmanaged<CFError>?
         guard let accessControl = SecAccessControlCreateWithFlags(
             nil,
-            kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
             [.privateKeyUsage],
             &accessError
         ) else {

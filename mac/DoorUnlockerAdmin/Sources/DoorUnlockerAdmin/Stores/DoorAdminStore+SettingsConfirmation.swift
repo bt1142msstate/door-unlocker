@@ -27,6 +27,11 @@ extension DoorAdminStore {
         guard controllerSettingConfirmation.complete(operation) else { return }
         controllerSettingConfirmationTask?.cancel()
         controllerSettingConfirmationTask = nil
+        recordRuntimeTelemetry(
+            "controller_setting_confirmed",
+            details: String(describing: operation),
+            once: false
+        )
     }
 
     func handleControllerSettingRejectIfNeeded(_ rejection: DoorSecureCommandRejection) -> Bool {
@@ -51,6 +56,11 @@ extension DoorAdminStore {
     }
 
     func failControllerSetting(_ operation: ControllerSettingOperation, reason: String) {
+        recordRuntimeTelemetry(
+            "controller_setting_failed",
+            details: "\(String(describing: operation)) reason=\(reason)",
+            once: false
+        )
         if controllerSettingConfirmation.complete(operation) {
             controllerSettingConfirmationTask?.cancel()
             controllerSettingConfirmationTask = nil

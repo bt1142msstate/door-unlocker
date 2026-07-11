@@ -59,5 +59,10 @@ final class DoorControllerSettingConfirmationTests: XCTestCase {
             DoorControllerSettingConfirmationPolicy.controllerIssuedNonceReadDelayNanoseconds,
             DoorControllerSettingConfirmationPolicy.explicitNonceFallbackDelayNanoseconds
         )
+        XCTAssertGreaterThanOrEqual(
+            DoorControllerSettingConfirmationPolicy.stateReadDelayNanoseconds
+                + DoorControllerSettingConfirmationPolicy.completionGraceNanoseconds,
+            5_000_000_000
+        )
     }
 }

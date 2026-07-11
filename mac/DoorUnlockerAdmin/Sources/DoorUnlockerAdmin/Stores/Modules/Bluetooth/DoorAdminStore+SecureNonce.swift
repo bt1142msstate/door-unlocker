@@ -96,7 +96,7 @@ extension DoorAdminStore {
         wirelessControlNonceRequestTimeoutTask?.cancel()
         wirelessControlNonceRequestTimeoutTask = Task { [weak self] in
             let delay = UInt64(Self.wirelessControlNonceRequestTimeout * 1_000_000_000)
-            try? await Task.sleep(nanoseconds: delay)
+            do { try await Task.sleep(nanoseconds: delay) } catch { return }
             await MainActor.run {
                 guard let self,
                       self.wirelessControlNonceRequestGeneration == generation,

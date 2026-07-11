@@ -33,11 +33,17 @@ extension DoorUnlockerController {
                 }
 
                 if let rejectReason = DoorControllerStateParser.fastCommandRejectReason(from: rawState) {
+#if DEBUG
+                    recordStartupTelemetry("secure_command_rejected", details: rejectReason, once: false)
+#endif
                     controlUpdateGeneration += 1
                     controlNonceRecoveryTask?.cancel()
                     controlNonceRecoveryTask = nil
                     handleFastCommandReject(reason: rejectReason)
-                    updatePairingState(from: rejectReason == "unpaired" ? "unpaired" : "paired")
+                    updatePairingState(
+                        from: rejectReason == "unpaired" ? "unpaired" : "paired",
+                        authoritative: rejectReason == "unpaired"
+                    )
                     return
                 }
 
@@ -45,6 +51,7 @@ extension DoorUnlockerController {
                     connectedDeviceCount = connections.count
                     maximumConnectedDeviceCount = connections.max
                     connectedDevices = connections.devices
+                    confirmCurrentDeviceTrustIfListed(in: connections.devices)
                     if pairingState == "Unknown" {
                         promoteKnownControllerPairingIfNeeded()
                     }
@@ -122,12 +129,13 @@ extension DoorUnlockerController {
                 return
             }
 
-            if let connections = DoorControllerStateParser.connectedDevices(from: rawState) {
-                connectedDeviceCount = connections.count
-                maximumConnectedDeviceCount = connections.max
-                connectedDevices = connections.devices
-                if pairingState == "Unknown" {
-                    promoteKnownControllerPairingIfNeeded()
+                if let connections = DoorControllerStateParser.connectedDevices(from: rawState) {
+                    connectedDeviceCount = connections.count
+                    maximumConnectedDeviceCount = connections.max
+                    connectedDevices = connections.devices
+                    confirmCurrentDeviceTrustIfListed(in: connections.devices)
+                    if pairingState == "Unknown" {
+                        promoteKnownControllerPairingIfNeeded()
                 }
                 return
             }
@@ -151,7 +159,7 @@ extension DoorUnlockerController {
 
             if parsedState.state == "paired" {
                 clearRemoteSettingApplying()
-                updatePairingState(from: parsedState.state)
+                updatePairingState(from: parsedState.state, authoritative: true)
                 confirmDeviceDisplayNameSyncIfNeeded()
                 syncLockNameIfReady()
                 syncDeviceDisplayNameIfReady()
@@ -171,7 +179,13 @@ extension DoorUnlockerController {
 
             servoState = parsedState.state
             reconcileOptimisticDoorCommand(with: parsedState.state)
-            updatePairingState(from: parsedState.state)
+            let isAuthoritativePairingState = [
+                "pairing_enabled",
+                "pairing_pending",
+                "pairing_locked",
+                "unpaired"
+            ].contains(parsedState.state)
+            updatePairingState(from: parsedState.state, authoritative: isAuthoritativePairingState)
             publishWidgetState(parsedState.state, controllerRemainingSeconds: parsedState.remainingSeconds)
             sendPendingSystemCommandIfReady()
             syncLockNameIfReady()

@@ -17,11 +17,12 @@ extension DoorAdminStore {
         wirelessConnectionState = stateTitle
         wirelessReconnectTask = Task { [weak self] in
             let nanoseconds = UInt64(max(0, delay) * 1_000_000_000)
-            try? await Task.sleep(nanoseconds: nanoseconds)
+            do { try await Task.sleep(nanoseconds: nanoseconds) } catch { return }
             await MainActor.run {
                 guard let self,
                       self.central?.state == .poweredOn,
                       self.canUseWirelessFallback,
+                      !self.isFirmwareUpdateRunning,
                       !self.isWirelessGattReady else {
                     return
                 }
@@ -41,7 +42,7 @@ extension DoorAdminStore {
 
         wirelessIdleDisconnectTask = Task { [weak self] in
             let nanoseconds = UInt64(max(0, delay) * 1_000_000_000)
-            try? await Task.sleep(nanoseconds: nanoseconds)
+            do { try await Task.sleep(nanoseconds: nanoseconds) } catch { return }
             await MainActor.run {
                 guard let self,
                       !self.isConnected,
@@ -133,7 +134,7 @@ extension DoorAdminStore {
         let generation = wirelessStateUpdateGeneration
         wirelessStateSnapshotFallbackTask = Task { [weak self] in
             let nanoseconds = UInt64(max(0, delay) * 1_000_000_000)
-            try? await Task.sleep(nanoseconds: nanoseconds)
+            do { try await Task.sleep(nanoseconds: nanoseconds) } catch { return }
             await MainActor.run {
                 guard let self,
                       self.wirelessStateUpdateGeneration == generation,

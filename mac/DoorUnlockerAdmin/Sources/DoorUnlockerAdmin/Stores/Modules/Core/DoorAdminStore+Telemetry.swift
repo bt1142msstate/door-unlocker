@@ -69,7 +69,7 @@ extension DoorAdminStore {
     func scheduleStartupHousekeeping() {
         startupHousekeepingTask?.cancel()
         startupHousekeepingTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 350_000_000)
+            do { try await Task.sleep(nanoseconds: 350_000_000) } catch { return }
             let encodedPublicKey = await Task.detached(priority: .utility) {
                 try? DoorCommandAuthenticator.publicKeyX963Representation().base64EncodedString()
             }.value

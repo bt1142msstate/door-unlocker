@@ -64,7 +64,7 @@ extension DoorAdminStore {
     static let wirelessStatePollInterval: TimeInterval = 10
     static let wirelessReconnectDelays: [TimeInterval] = [0.15, 0.45, 0.9, 1.8, 3.5]
     static let wirelessEncryptionRecoveryDelay: TimeInterval = 3
-    static let knownPeripheralDiscoveryRetryDelay: TimeInterval = 0.15
+    static let knownPeripheralConnectionDeadline: TimeInterval = 5
     static let wirelessControlNonceRequestMinimumInterval: TimeInterval = 0.22
     static let wirelessControlNonceRequestTimeout: TimeInterval = 1.0
     static let usbStartupSyncGraceNanoseconds: UInt64 = 75_000_000

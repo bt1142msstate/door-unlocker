@@ -6,9 +6,10 @@ import Foundation
 import os
 
 extension DoorAdminStore {
-    static let wirelessConnectOptions: [String: Any] = [
-        CBConnectPeripheralOptionEnableAutoReconnect: true
-    ]
+    // Reconnection has exactly one owner: the app's bounded backoff scheduler.
+    // Mixing CoreBluetooth auto-reconnect with that scheduler produced competing
+    // connection attempts and a fixed six-second recovery path.
+    static let wirelessConnectOptions: [String: Any] = [:]
 
     func connect(to peripheral: CBPeripheral) {
         guard let central else { return }
@@ -124,12 +125,13 @@ extension DoorAdminStore {
     func scheduleKnownPeripheralDiscoveryRetry() {
         wirelessKnownPeripheralFallbackTask?.cancel()
         wirelessKnownPeripheralFallbackTask = Task { [weak self] in
-            let nanoseconds = UInt64(Self.knownPeripheralDiscoveryRetryDelay * 1_000_000_000)
-            try? await Task.sleep(nanoseconds: nanoseconds)
+            let nanoseconds = UInt64(Self.knownPeripheralConnectionDeadline * 1_000_000_000)
+            do { try await Task.sleep(nanoseconds: nanoseconds) } catch { return }
             await MainActor.run {
                 guard let self,
                       self.central?.state == .poweredOn,
                       self.canUseWirelessFallback,
+                      !self.isFirmwareUpdateRunning,
                       !self.isWirelessGattReady else {
                     return
                 }
@@ -142,8 +144,14 @@ extension DoorAdminStore {
 
                 if let peripheral = self.peripheral,
                    peripheral.state == .connecting {
-                    self.wirelessConnectionState = "Connecting"
-                    self.scheduleKnownPeripheralDiscoveryRetry()
+                    self.recordRuntimeTelemetry(
+                        "connect_deadline_exceeded",
+                        details: "peripheral=\(peripheral.identifier.uuidString)",
+                        once: false
+                    )
+                    self.wirelessConnectionState = "Reconnecting"
+                    self.central?.cancelPeripheralConnection(peripheral)
+                    self.scheduleWirelessReconnect(after: self.nextWirelessReconnectDelay())
                     return
                 }
 

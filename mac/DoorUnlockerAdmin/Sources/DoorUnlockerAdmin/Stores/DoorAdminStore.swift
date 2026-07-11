@@ -254,10 +254,10 @@ final class DoorAdminStore: NSObject, ObservableObject {
             name: DoorLocalCommandBridge.notificationName,
             object: DoorLocalCommandBridge.sender
         )
+        // Bluetooth startup is independent of serial discovery and should begin
+        // immediately. USB remains the preferred transport once discovered.
+        ensureBluetoothCentral()
         refreshPorts()
-        if !isConnected && !isUSBConnectInFlight {
-            ensureBluetoothCentral()
-        }
         startStateSyncLoop()
     }
 

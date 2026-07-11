@@ -13,9 +13,10 @@ extension DoorUnlockerController {
     func scheduleDoorCommandRecovery(_ command: Command, sentAt: Date, attempt: Int, origin: DoorCommandOrigin) {
         doorCommandRecoveryTask?.cancel()
         doorCommandRecoveryTask = Task { [weak self] in
-            let readDelays: [UInt64] = [250_000_000, 350_000_000, 800_000_000, 1_600_000_000]
-            for delay in readDelays {
-                try? await Task.sleep(nanoseconds: delay)
+            var previousDeadline: Duration = .zero
+            for deadline in DoorCommandConfirmationPolicy.fallbackReadDeadlines {
+                try? await Task.sleep(for: deadline - previousDeadline)
+                previousDeadline = deadline
                 guard !Task.isCancelled else { return }
 
                 let shouldContinue = await MainActor.run {
@@ -40,7 +41,7 @@ extension DoorUnlockerController {
                 }
             }
 
-            try? await Task.sleep(for: .seconds(2))
+            try? await Task.sleep(for: DoorCommandConfirmationPolicy.failureDeadline - previousDeadline)
             guard !Task.isCancelled else { return }
 
             await MainActor.run {
@@ -58,6 +59,13 @@ extension DoorUnlockerController {
                 }
 
                 let restoredState = self.stableRestoredDoorState()
+#if DEBUG
+                self.recordStartupTelemetry(
+                    "door_command_confirmation_failed",
+                    details: command.rawValue,
+                    once: false
+                )
+#endif
                 self.clearOptimisticDoorCommand()
                 self.servoState = restoredState
                 self.lastError = "Controller did not confirm \(command == .unlock ? "unlock" : "lock")."

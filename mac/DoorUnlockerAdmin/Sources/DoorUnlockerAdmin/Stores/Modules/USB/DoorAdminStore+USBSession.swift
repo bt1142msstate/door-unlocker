@@ -142,6 +142,7 @@ extension DoorAdminStore {
 
         let deviceName = localMacDeviceName
         if hasTrustedMacController,
+           status.pairedCount > 0,
            pairedDevices.contains(where: { Self.deviceName($0.displayName, matches: deviceName) }) {
             setTrustedMacController(true)
             didTrustMacDuringUSBSession = true

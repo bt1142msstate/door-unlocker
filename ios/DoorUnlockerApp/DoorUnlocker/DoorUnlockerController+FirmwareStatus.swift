@@ -106,11 +106,12 @@ extension DoorUnlockerController {
     }
 
     func scheduleFirmwareVersionSnapshotRetry(delay: Duration = .milliseconds(420)) {
+        guard firmwareVersion == "Unknown" else { return }
         firmwareVersionSnapshotRetryTask?.cancel()
         firmwareVersionSnapshotRetryTask = Task { [weak self] in
             try? await Task.sleep(for: delay)
             await MainActor.run {
-                guard let self, self.isReady else {
+                guard let self, self.isReady, self.firmwareVersion == "Unknown" else {
                     return
                 }
 
@@ -121,33 +122,9 @@ extension DoorUnlockerController {
     }
 
     func requestStateNotificationSnapshotReplay() {
-        guard let peripheral,
-              let stateCharacteristic,
-              stateCharacteristic.properties.contains(.notify) || stateCharacteristic.properties.contains(.indicate) else {
-            _ = readStateIfPermitted()
-            return
-        }
-
-        if stateCharacteristic.isNotifying {
-            peripheral.setNotifyValue(false, for: stateCharacteristic)
-            Task { [weak self, weak peripheral, weak stateCharacteristic] in
-                try? await Task.sleep(for: .milliseconds(90))
-                await MainActor.run {
-                    guard let self,
-                          let peripheral,
-                          let stateCharacteristic,
-                          self.isCurrentPeripheral(peripheral),
-                          self.stateCharacteristic?.uuid == stateCharacteristic.uuid,
-                          peripheral.state == .connected else {
-                        return
-                    }
-
-                    peripheral.setNotifyValue(true, for: stateCharacteristic)
-                }
-            }
-        } else {
-            peripheral.setNotifyValue(true, for: stateCharacteristic)
-        }
+        // Toggling notifications asks the controller to replay its entire startup
+        // snapshot. Repeating that fallback can starve command confirmations.
+        _ = readStateIfPermitted()
     }
 
     var shouldShowFirmwareUpdateBanner: Bool {

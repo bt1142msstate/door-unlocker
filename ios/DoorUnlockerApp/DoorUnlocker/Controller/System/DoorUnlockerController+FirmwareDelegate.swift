@@ -16,6 +16,20 @@ extension DoorUnlockerController: DoorFirmwareDfuManagerDelegate {
         firmwareUpdateEstimatedSecondsRemaining = update.estimatedSecondsRemaining
     }
 
+    func firmwareDfuManagerDidDetectControllerFirmware() {
+#if DEBUG
+        recordStartupTelemetry("firmware_recovery_normal_mode_detected", once: false)
+#endif
+        firmwareUpdateStatus = "Controller firmware found. Reconnecting..."
+        firmwareUpdateProgress = nil
+        firmwareUpdateEstimatedSecondsRemaining = nil
+        isFirmwareUpdateRunning = false
+        firmwareUpdateEntryCommandSent = false
+        firmwareDfuStartFallbackTask?.cancel()
+        firmwareDfuStartFallbackTask = nil
+        scan()
+    }
+
     func firmwareDfuManagerDidFinish() {
         cancelFirmwareUpdateSuccessReset()
         firmwareUpdateStatus = "Update complete. Verifying..."

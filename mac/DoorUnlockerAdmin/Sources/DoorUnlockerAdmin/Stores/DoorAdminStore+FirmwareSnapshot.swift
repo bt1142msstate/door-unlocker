@@ -3,11 +3,14 @@ import Foundation
 
 extension DoorAdminStore {
     func scheduleWirelessFirmwareVersionSnapshotRetry(after delay: TimeInterval = 0.42) {
+        guard status.firmwareVersion == "Unknown" || firmwareUpdateStatus == "Update complete. Verifying..." else {
+            return
+        }
         wirelessFirmwareVersionSnapshotRetryTask?.cancel()
         let generation = wirelessStateUpdateGeneration
         wirelessFirmwareVersionSnapshotRetryTask = Task { [weak self] in
             let nanoseconds = UInt64(max(0, delay) * 1_000_000_000)
-            try? await Task.sleep(nanoseconds: nanoseconds)
+            do { try await Task.sleep(nanoseconds: nanoseconds) } catch { return }
             await MainActor.run {
                 guard let self,
                       self.isWirelessGattReady,
@@ -26,32 +29,9 @@ extension DoorAdminStore {
     }
 
     func requestWirelessStateNotificationSnapshotReplay() {
-        guard let peripheral,
-              let stateCharacteristic,
-              stateCharacteristic.properties.contains(.notify) || stateCharacteristic.properties.contains(.indicate) else {
-            readStateIfPossible()
-            return
-        }
-
-        if stateCharacteristic.isNotifying {
-            peripheral.setNotifyValue(false, for: stateCharacteristic)
-            Task { [weak self, weak peripheral, weak stateCharacteristic] in
-                try? await Task.sleep(nanoseconds: 90_000_000)
-                await MainActor.run {
-                    guard let self,
-                          let peripheral,
-                          let stateCharacteristic,
-                          self.isCurrentPeripheral(peripheral),
-                          self.stateCharacteristic?.uuid == stateCharacteristic.uuid,
-                          peripheral.state == .connected else {
-                        return
-                    }
-
-                    peripheral.setNotifyValue(true, for: stateCharacteristic)
-                }
-            }
-        } else {
-            peripheral.setNotifyValue(true, for: stateCharacteristic)
-        }
+        // Re-enabling state notifications makes the controller replay its full
+        // startup snapshot. Repeating that fallback can bury command confirmations
+        // and disrupt other connected clients, so recovery is read-only.
+        readStateIfPossible()
     }
 }

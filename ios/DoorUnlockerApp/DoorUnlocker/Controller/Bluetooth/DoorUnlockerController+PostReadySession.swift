@@ -36,12 +36,14 @@ extension DoorUnlockerController {
             await MainActor.run {
                 guard let self,
                       self.stateUpdateGeneration == generation,
-                      self.isReady else {
+                      self.connectionState == "Ready",
+                      self.peripheral?.state == .connected,
+                      self.stateCharacteristic != nil else {
                     return
                 }
 
                 self.stateSnapshotFallbackTask = nil
-                _ = self.readStateIfPermitted()
+                self.requestStateNotificationSnapshotReplay()
             }
         }
     }
