@@ -66,7 +66,8 @@ discover_usb_port() {
 }
 
 close_admin_app_for_serial_recovery() {
-  osascript -e 'tell application "DoorUnlockerAdmin" to quit' >/dev/null 2>&1 || true
+  osascript -e 'tell application id "io.github.bt1142msstate.DoorUnlockerAdmin" to quit' >/dev/null 2>&1 || true
+  pkill -x DoorUnlocker >/dev/null 2>&1 || true
   pkill -x DoorUnlockerAdmin >/dev/null 2>&1 || true
   sleep 1
 }

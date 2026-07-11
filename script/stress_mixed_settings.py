@@ -119,7 +119,7 @@ def main() -> int:
     if args.count < 2 or args.count % 2 != 0:
         raise SystemExit("--count must be an even number of at least 2")
 
-    subprocess.run(["open", "-a", str(Path.home() / "Applications/DoorUnlockerAdmin.app")], check=True)
+    subprocess.run(["open", "-a", str(Path.home() / "Applications/Door Unlocker.app")], check=True)
     device = device_identifier()
     console = IOSConsole(device)
     results: list[dict[str, int | str]] = []

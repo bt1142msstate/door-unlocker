@@ -19,7 +19,7 @@ Validation run:
 - Mac admin package build passed with `swift build --package-path mac/DoorUnlockerAdmin`.
 - Mac admin build/run install path passed with `script/build_and_run.sh --install`.
 - Full 24-step release campaign passed: 19 base quality gates, 121 shared tests, 19 Mac tests, 8 iOS adapter tests, firmware compile/package verification, both app builds, physical cold/warm launch proof, three live two-client hardware gates, both final app installations, persistence and per-subscriber delivery contracts, and all wiring/CAD model gates.
-- Physical iPhone launch gate passed 10 cold and 10 warm samples: cold median `307.5 ms`, cold p95/max `400 ms`, warm median/p95 `0 ms` from scene activation to secure command readiness.
+- Physical iPhone launch gate passed 10 cold and 10 warm samples: cold median `277.5 ms`, cold p95/max `315 ms`, warm median/p95 `0 ms` from scene activation to secure command readiness.
 - Live release checks passed 10 repeated app relaunch cycles, 20 alternating iPhone/Mac commands, and 4 cross-client setting changes without a failed confirmation.
 - Quality scores: maintainability `92.2/100`, shared parity `100/100`, iOS modularity `96.7/100`, and Mac modularity `98.4/100`.
 
@@ -73,7 +73,7 @@ With the XIAO component side facing up and the USB-C connector at the top:
 assets/                         Rendered hardware images used by the wiring page
 firmware/DoorUnlockerXiao/       Arduino firmware for the XIAO nRF52840
 ios/DoorUnlockerApp/             SwiftUI iPhone app, widget, and control extension
-mac/DoorUnlockerAdmin/           SwiftUI Mac admin app for USB-C controller management
+mac/DoorUnlockerAdmin/           SwiftUI Mac app with wireless and USB-C administration
 shared/DoorUnlockerShared/       Cross-platform command, BLE policy, parser, signing, and DFU modules
 cad/                            Parametric Phase 2 enclosure and mounting models
 docs/                           Architecture, validation, power, fit, and force documentation
@@ -170,9 +170,9 @@ The app provides:
 - A Control Widget so the project can appear in iOS Controls and be assigned to the Action Button on supported iPhones.
 - Original, monochrome, gold, aurora, pink, red, ember, and violet color themes.
 
-## Mac Admin App Notes
+## Mac App Notes
 
-The Mac admin app is in `mac/DoorUnlockerAdmin`. It automatically connects to the XIAO over USB-C serial at 115200 baud when the controller is plugged in, trusts the Mac over that USB-C admin channel, and auto-connects over Bluetooth when wireless control is available.
+The Mac app is named **Door Unlocker**, matching the iPhone app. Its source package remains in `mac/DoorUnlockerAdmin` because it owns the additional trusted-device and USB-C administration features. It automatically connects to the XIAO over USB-C serial at 115200 baud when the controller is plugged in, trusts the Mac over that USB-C admin channel, and auto-connects over Bluetooth when wireless control is available.
 
 - Show controller model, state, pairing mode, auto-lock timeout, live auto-lock countdown, and trusted-device count.
 - List trusted devices by friendly name when known, plus slot and public-key fingerprint.
@@ -185,9 +185,9 @@ The Mac admin app is in `mac/DoorUnlockerAdmin`. It automatically connects to th
 - Show controller firmware and connected-device state, and install the same BLE DFU package used by iPhone.
 - Provide a local CLI for scripts and automation.
 
-The Mac admin app does not display pending approval codes or pending public-key fingerprints. Device names are stored by the firmware for new pairings. Existing pairings made before this feature may show as `Device 1`, `Device 2`, and so on until that device is paired again.
+The Mac app does not display pending approval codes or pending public-key fingerprints. Device names are stored by the firmware for new pairings. Existing pairings made before this feature may show as `Device 1`, `Device 2`, and so on until that device is paired again.
 
-`./script/build_and_run.sh --install` replaces the canonical local bundle at `~/Applications/DoorUnlockerAdmin.app`; keep that one installed copy in the Dock rather than running staging copies from the repository or `/tmp`.
+`./script/build_and_run.sh --install` replaces the canonical local bundle at `~/Applications/Door Unlocker.app`. The installer preserves the existing trusted bundle identity and local data while removing the legacy `DoorUnlockerAdmin.app` bundle after the replacement verifies successfully.
 
 iOS may hide the user-assigned system device name from apps, so the iPhone app keeps its own Door Unlocker display name. Updating that name sends an authenticated rename command to the controller; it does not require deleting or re-pairing the phone.
 

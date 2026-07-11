@@ -6,7 +6,10 @@ set -euo pipefail
 # app does not require approving Bluetooth again.
 
 MODE="${1:-run}"
-APP_NAME="DoorUnlockerAdmin"
+APP_NAME="DoorUnlocker"
+APP_PRODUCT_NAME="DoorUnlockerAdmin"
+APP_DISPLAY_NAME="Door Unlocker"
+LEGACY_APP_NAME="DoorUnlockerAdmin"
 CLI_NAME="door-unlocker"
 BUNDLE_ID="io.github.bt1142msstate.DoorUnlockerAdmin"
 MIN_SYSTEM_VERSION="14.0"
@@ -15,7 +18,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACKAGE_DIR="$ROOT_DIR/mac/DoorUnlockerAdmin"
 DIST_DIR="$ROOT_DIR/dist"
 STAGING_DIR="${TMPDIR:-/tmp}/door-unlocker-admin-build/staging"
-APP_BUNDLE="$STAGING_DIR/$APP_NAME.app"
+APP_BUNDLE="$STAGING_DIR/$APP_DISPLAY_NAME.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
 APP_RESOURCES="$APP_CONTENTS/Resources"
@@ -25,8 +28,9 @@ INFO_PLIST="$APP_CONTENTS/Info.plist"
 ICON_SOURCE="$ROOT_DIR/mac/DoorUnlockerAdmin/Resources/AppIcon.icns"
 ICON_FILE_NAME="AppIcon.icns"
 INSTALL_DIR="$HOME/Applications"
-INSTALL_PATH="$INSTALL_DIR/$APP_NAME.app"
+INSTALL_PATH="$INSTALL_DIR/$APP_DISPLAY_NAME.app"
 INSTALL_BINARY="$INSTALL_PATH/Contents/MacOS/$APP_NAME"
+LEGACY_INSTALL_PATH="$INSTALL_DIR/$LEGACY_APP_NAME.app"
 SIGNING_IDENTITY="${DOOR_UNLOCKER_ADMIN_SIGNING_IDENTITY:-Door Unlocker Admin Local Signing}"
 SIGNING_DIR="${DOOR_UNLOCKER_ADMIN_SIGNING_DIR:-$HOME/Library/Application Support/Door Unlocker Admin/CodeSigning}"
 SIGNING_KEYCHAIN="$SIGNING_DIR/door-unlocker-admin-signing.keychain-db"
@@ -41,12 +45,17 @@ usage() {
 
 kill_running_app() {
   pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+  pkill -x "$LEGACY_APP_NAME" >/dev/null 2>&1 || true
 }
 
 cleanup_duplicate_build_artifacts() {
   rm -rf \
     "$DIST_DIR/$APP_NAME.app" \
+    "$DIST_DIR/$APP_DISPLAY_NAME.app" \
+    "$DIST_DIR/$LEGACY_APP_NAME.app" \
     "$DIST_DIR/macos/$APP_NAME.app" \
+    "$DIST_DIR/macos/$APP_DISPLAY_NAME.app" \
+    "$DIST_DIR/macos/$LEGACY_APP_NAME.app" \
     "$STAGING_DIR"
 }
 
@@ -186,7 +195,7 @@ verify_designated_requirement_stability() {
   fi
 
   cat >&2 <<MESSAGE
-Refusing to install $APP_NAME because its designated requirement changed.
+Refusing to install $APP_DISPLAY_NAME because its designated requirement changed.
 
 This would make macOS treat the update as a different app and can reset
 Bluetooth permission.
@@ -213,7 +222,7 @@ build_bundle() {
   swift build --package-path "$PACKAGE_DIR"
   local build_dir
   build_dir="$(swift build --package-path "$PACKAGE_DIR" --show-bin-path)"
-  local build_binary="$build_dir/$APP_NAME"
+  local build_binary="$build_dir/$APP_PRODUCT_NAME"
 
   mkdir -p "$DIST_DIR" "$STAGING_DIR"
   rm -rf "$APP_BUNDLE"
@@ -241,13 +250,13 @@ build_bundle() {
   <key>CFBundleExecutable</key>
   <string>$APP_NAME</string>
   <key>CFBundleDisplayName</key>
-  <string>Door Unlocker Admin</string>
+  <string>$APP_DISPLAY_NAME</string>
   <key>CFBundleIdentifier</key>
   <string>$BUNDLE_ID</string>
   <key>CFBundleIconFile</key>
   <string>AppIcon</string>
   <key>CFBundleName</key>
-  <string>Door Unlocker Admin</string>
+  <string>$APP_DISPLAY_NAME</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
@@ -279,6 +288,16 @@ install_app() {
   rm -rf "$STAGING_DIR"
 }
 
+remove_legacy_app() {
+  if [[ "$LEGACY_INSTALL_PATH" == "$INSTALL_PATH" || ! -d "$LEGACY_INSTALL_PATH" ]]; then
+    return
+  fi
+
+  /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
+    -u "$LEGACY_INSTALL_PATH" >/dev/null 2>&1 || true
+  rm -rf "$LEGACY_INSTALL_PATH"
+}
+
 verify_installed_app() {
   codesign --verify --deep --strict "$INSTALL_PATH"
   if [[ -f "$CLI_BINARY" ]]; then
@@ -298,12 +317,13 @@ verify_installed_app() {
 verify_no_duplicate_app_bundles() {
   local duplicates
   duplicates="$(
-    find "$ROOT_DIR" /Applications "$HOME/Applications" -maxdepth 4 -name "$APP_NAME.app" -print 2>/dev/null \
+    find "$ROOT_DIR" /Applications "$HOME/Applications" -maxdepth 4 \
+      -type d \( -name "$APP_DISPLAY_NAME.app" -o -name "$LEGACY_APP_NAME.app" \) -print 2>/dev/null \
       | grep -Fv "$INSTALL_PATH" || true
   )"
 
   if [[ -n "$duplicates" ]]; then
-    echo "Warning: found another $APP_NAME.app outside $INSTALL_PATH." >&2
+    echo "Warning: found another Door Unlocker Mac app outside $INSTALL_PATH." >&2
     printf '%s\n' "$duplicates" >&2
   fi
 }
@@ -318,6 +338,7 @@ verify_designated_requirement_stability
 kill_running_app
 install_app
 verify_installed_app
+remove_legacy_app
 verify_no_duplicate_app_bundles
 
 case "$MODE" in

@@ -28,23 +28,23 @@ from stress_mixed_clients import (
 
 
 REPORT = ROOT / "docs/client-relaunch-stress-last-run.json"
-MAC_APP = Path.home() / "Applications/DoorUnlockerAdmin.app"
+MAC_APP = Path.home() / "Applications/Door Unlocker.app"
 
 
 def quit_mac() -> None:
     subprocess.run(
-        ["/usr/bin/osascript", "-e", 'tell application "DoorUnlockerAdmin" to quit'],
+        ["/usr/bin/osascript", "-e", 'tell application id "io.github.bt1142msstate.DoorUnlockerAdmin" to quit'],
         check=False,
         capture_output=True,
         text=True,
     )
     deadline = time.monotonic() + 4
     while time.monotonic() < deadline:
-        result = subprocess.run(["/usr/bin/pgrep", "-x", "DoorUnlockerAdmin"], capture_output=True)
+        result = subprocess.run(["/usr/bin/pgrep", "-x", "DoorUnlocker"], capture_output=True)
         if result.returncode != 0:
             return
         time.sleep(0.05)
-    subprocess.run(["/usr/bin/pkill", "-x", "DoorUnlockerAdmin"], check=False)
+    subprocess.run(["/usr/bin/pkill", "-x", "DoorUnlocker"], check=False)
 
 
 def launch_mac() -> None:

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_NAME="DoorUnlockerAdmin"
-APP_PATH="${HOME}/Applications/${APP_NAME}.app"
+APP_NAME="DoorUnlocker"
+APP_PATH="${HOME}/Applications/Door Unlocker.app"
 TRACE_FILE="${HOME}/Library/Application Support/DoorUnlockerAdmin/startup-timing.log"
 
 if [[ ! -d "${APP_PATH}" ]]; then
-  echo "DoorUnlockerAdmin.app is not installed at ${APP_PATH}" >&2
+  echo "Door Unlocker.app is not installed at ${APP_PATH}" >&2
   echo "Run ./script/build_and_run.sh --install first." >&2
   exit 1
 fi
@@ -21,8 +21,8 @@ fi
 
 if ! /usr/bin/osascript <<'APPLESCRIPT'
 tell application "System Events"
-  if not (exists process "DoorUnlockerAdmin") then error "DoorUnlockerAdmin process is not running"
-  tell process "DoorUnlockerAdmin"
+  if not (exists process "DoorUnlocker") then error "DoorUnlocker process is not running"
+  tell process "DoorUnlocker"
     set frontmost to true
     if (count of windows) is 0 then
       try

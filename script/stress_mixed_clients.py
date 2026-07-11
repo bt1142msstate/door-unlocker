@@ -166,7 +166,7 @@ def launch_iphone_command(device: str, command: str) -> int:
 def click_mac_door_command() -> None:
     script = r'''
 tell application "System Events"
-  tell process "DoorUnlockerAdmin"
+  tell process "DoorUnlocker"
     set frontmost to true
     repeat 40 times
       repeat with candidate in menu items of menu "Controller" of menu bar item "Controller" of menu bar 1
@@ -279,7 +279,7 @@ def main() -> int:
     if args.count < 4:
         raise SystemExit("--count must be at least 4")
 
-    subprocess.run(["open", "-a", str(Path.home() / "Applications/DoorUnlockerAdmin.app")], check=True)
+    subprocess.run(["open", "-a", str(Path.home() / "Applications/Door Unlocker.app")], check=True)
     device = device_identifier()
     console = IOSConsole(device)
     mac_start = len(mac_lines())
