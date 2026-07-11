@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check the visible bench-map wire lanes for crossings and visual overlap."""
+"""Check bench-map lanes, allowing only explicitly rendered crossing bridges."""
 
 from __future__ import annotations
 
@@ -56,6 +56,7 @@ class WireParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
         self.paths: list[WirePath] = []
+        self.bridges: list[WirePath] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag != "path":
@@ -66,10 +67,11 @@ class WireParser(HTMLParser):
             return
         if not values.get("d"):
             raise AssertionError(f"Runtime wire path {values.get('id', 'unlabeled')} has no geometry")
-        if "wire-bridge" in classes:
-            raise AssertionError("Bench map should not contain an intentional wire-crossing bridge")
         path = WirePath(values.get("data-parts", "unlabeled"), classes, values["d"])
-        self.paths.append(path)
+        if "wire-bridge" in classes:
+            self.bridges.append(path)
+        else:
+            self.paths.append(path)
 
 
 def segments_for(path: WirePath) -> list[Segment]:
@@ -145,7 +147,20 @@ def intersection_point(first: Segment, second: Segment) -> tuple[float, float] |
     return x, y
 
 
-def issues_for_mode(paths: list[WirePath], mode: str) -> list[str]:
+def bridge_covers(bridges: list[WirePath], wire: WirePath, x: float, y: float) -> bool:
+    for bridge in bridges:
+        if bridge.label != wire.label:
+            continue
+        for segment in segments_for(bridge):
+            if (
+                segment.min_x - 0.1 <= x <= segment.max_x + 0.1
+                and segment.min_y - 0.1 <= y <= segment.max_y + 0.1
+            ):
+                return True
+    return False
+
+
+def issues_for_mode(paths: list[WirePath], bridges: list[WirePath], mode: str) -> list[str]:
     segments = [segment for path in paths if visible(path, mode) for segment in segments_for(path)]
     issues: list[str] = []
     for index, first in enumerate(segments):
@@ -173,7 +188,11 @@ def issues_for_mode(paths: list[WirePath], mode: str) -> list[str]:
             intersection = intersection_point(first, second)
             if intersection:
                 x, y = intersection
-                issues.append(f"wire crossing: {pair} at ({x:g}, {y:g})")
+                if not (
+                    bridge_covers(bridges, first.wire, x, y)
+                    or bridge_covers(bridges, second.wire, x, y)
+                ):
+                    issues.append(f"wire crossing: {pair} at ({x:g}, {y:g})")
     return sorted(set(issues))
 
 
@@ -185,7 +204,7 @@ def main() -> int:
 
     failures: list[str] = []
     for mode in ("buck", "usb"):
-        issues = issues_for_mode(parser.paths, mode)
+        issues = issues_for_mode(parser.paths, parser.bridges, mode)
         print(f"{mode} mode: {len(parser.paths) - sum(not visible(path, mode) for path in parser.paths)} visible paths")
         if issues:
             failures.extend(f"{mode}: {issue}" for issue in issues)
@@ -194,7 +213,10 @@ def main() -> int:
 
     if failures:
         raise AssertionError("\n".join(failures))
-    print("- no intentional crossing bridges required")
+    if parser.bridges:
+        print(f"- {len(parser.bridges)} explicit crossing bridge segments rendered")
+    else:
+        print("- no crossing bridges needed in the current layout; bridge support remains available")
     print("Bench wiring path validation: PASS")
     return 0
 

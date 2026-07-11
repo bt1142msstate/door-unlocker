@@ -378,6 +378,19 @@
       filter: none;
     }
 
+    /* Pair with a colored .wire-bridge segment only when a crossing cannot be routed away. */
+    .wire-bridge-underlay {
+      fill: none;
+      stroke: #101712;
+      stroke-width: 15;
+      stroke-linecap: round;
+      pointer-events: none;
+    }
+
+    .wire-bridge {
+      pointer-events: none;
+    }
+
     .stage.has-active .wire {
       opacity: .18;
       filter: none;
