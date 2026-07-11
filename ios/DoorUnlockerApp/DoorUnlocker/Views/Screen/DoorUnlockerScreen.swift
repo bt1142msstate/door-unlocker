@@ -91,12 +91,9 @@ struct DoorUnlockerScreen: View {
             controller.cancelForceQuitReliabilityWarning()
             refreshForegroundController()
             controller.refreshNotificationSettings()
-        } else if phase == .background {
+        } else if SettingsSceneSecurityPolicy.shouldLockSettings(for: phase) {
             isLockZoneMapExpanded = false
             controller.prepareForceQuitReliabilityWarningIfNeeded()
-            closeSettings()
-        } else {
-            isLockZoneMapExpanded = false
             closeSettings()
         }
     }

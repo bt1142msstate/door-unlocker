@@ -37,6 +37,16 @@ public enum DoorControllerSessionPhase: String, CaseIterable, Sendable {
     case preparingSecureControl
     case ready
     case updatingFirmware
+
+    public var isKnownControllerConnectionInProgress: Bool {
+        switch self {
+        case .connecting, .discovering, .restoring, .authenticating,
+             .synchronizing, .preparingSecureControl:
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 public struct DoorControllerSessionFacts: Equatable, Sendable {
@@ -45,6 +55,8 @@ public struct DoorControllerSessionFacts: Equatable, Sendable {
     public var isTransportConnected: Bool
     public var isGattReady: Bool
     public var isTrusted: Bool
+    public var isControllerHealthKnown: Bool
+    public var isControllerHealthy: Bool
     public var isLinkAuthenticated: Bool
     public var hasCurrentStateSnapshot: Bool
     public var hasFreshCommandMaterial: Bool
@@ -56,6 +68,8 @@ public struct DoorControllerSessionFacts: Equatable, Sendable {
         isTransportConnected: Bool = false,
         isGattReady: Bool = false,
         isTrusted: Bool = false,
+        isControllerHealthKnown: Bool = true,
+        isControllerHealthy: Bool = true,
         isLinkAuthenticated: Bool = false,
         hasCurrentStateSnapshot: Bool = false,
         hasFreshCommandMaterial: Bool = false,
@@ -66,6 +80,8 @@ public struct DoorControllerSessionFacts: Equatable, Sendable {
         self.isTransportConnected = isTransportConnected
         self.isGattReady = isGattReady
         self.isTrusted = isTrusted
+        self.isControllerHealthKnown = isControllerHealthKnown
+        self.isControllerHealthy = isControllerHealthy
         self.isLinkAuthenticated = isLinkAuthenticated
         self.hasCurrentStateSnapshot = hasCurrentStateSnapshot
         self.hasFreshCommandMaterial = hasFreshCommandMaterial
@@ -83,7 +99,11 @@ public struct DoorControllerSessionAssessment: Equatable, Sendable {
     public static func assess(_ facts: DoorControllerSessionFacts) -> Self {
         let phase = phase(for: facts)
         let online = facts.bluetooth == .available && facts.isTransportConnected
-        let authoritative = online && facts.isGattReady && facts.hasCurrentStateSnapshot
+        let authoritative = online &&
+            facts.isGattReady &&
+            facts.isControllerHealthKnown &&
+            facts.isControllerHealthy &&
+            facts.hasCurrentStateSnapshot
         let immediate = phase == .ready
 
         return Self(
@@ -138,6 +158,10 @@ public struct DoorControllerSessionAssessment: Equatable, Sendable {
 
         guard facts.isTrusted else {
             return .pairingRequired
+        }
+
+        guard facts.isControllerHealthKnown, facts.isControllerHealthy else {
+            return .synchronizing
         }
 
         guard facts.isLinkAuthenticated else {

@@ -87,12 +87,6 @@ final class DoorAdminStore: NSObject, ObservableObject {
         (pendingWirelessPredictedCommand != nil || fastDoorCommandInFlight != nil) && !isChangingDoorState
     }
 
-    var queuedDoorCommandActionTitle: String? {
-        guard let command = pendingWirelessPredictedCommand ?? fastDoorCommandInFlight,
-              !isChangingDoorState else { return nil }
-        return command == .unlock ? "Preparing unlock..." : "Preparing lock..."
-    }
-
     var visibleLastError: String? {
         guard let lastError else { return nil }
 

@@ -19,8 +19,6 @@ public struct DoorControlPresentationInput: Equatable, Sendable {
     public var activationVerb: DoorControlActivationVerb
     public var controllerSettingApplyTitle: String
     public var firmwareUpdateActionTitle: String
-    public var queuedDoorCommandActionTitle: String?
-    public var secureLinkActionTitle: String
     public var disconnectedActionTitle: String
 
     public init(
@@ -39,8 +37,6 @@ public struct DoorControlPresentationInput: Equatable, Sendable {
         activationVerb: DoorControlActivationVerb,
         controllerSettingApplyTitle: String,
         firmwareUpdateActionTitle: String = "Updating firmware...",
-        queuedDoorCommandActionTitle: String? = nil,
-        secureLinkActionTitle: String = "Preparing control...",
         disconnectedActionTitle: String = "Connect first"
     ) {
         self.servoState = servoState
@@ -58,8 +54,6 @@ public struct DoorControlPresentationInput: Equatable, Sendable {
         self.activationVerb = activationVerb
         self.controllerSettingApplyTitle = controllerSettingApplyTitle
         self.firmwareUpdateActionTitle = firmwareUpdateActionTitle
-        self.queuedDoorCommandActionTitle = queuedDoorCommandActionTitle
-        self.secureLinkActionTitle = secureLinkActionTitle
         self.disconnectedActionTitle = disconnectedActionTitle
     }
 }
@@ -151,13 +145,11 @@ public enum DoorControlPresentationPolicy {
     ) -> String {
         if input.isAuthenticatingUnlock { return "Authenticating..." }
         if isChangingState {
-            if input.servoState == "locking" { return "Locking..." }
-            if input.servoState == "unlocking" { return "Unlocking..." }
-            return input.isUnlocked ? "Locking..." : "Unlocking..."
+            return stableActionTitle(for: input)
         }
         if isApplyingSettingsOnly { return input.controllerSettingApplyTitle }
-        if let queuedTitle = input.queuedDoorCommandActionTitle {
-            return queuedTitle
+        if input.isDoorCommandQueuedForSecureLink {
+            return stableActionTitle(for: input)
         }
         if input.isPreparingKnownController && !input.canAcceptDoorCommand {
             return "Preparing controller..."
@@ -168,6 +160,12 @@ public enum DoorControlPresentationPolicy {
         if input.requiresHoldToUnlock && !input.isUnlocked {
             return input.isUnlockHoldActive ? "Keep holding" : "Hold to unlock"
         }
-        return input.isUnlocked ? "\(input.activationVerb.rawValue) to lock" : "\(input.activationVerb.rawValue) to unlock"
+        return stableActionTitle(for: input)
+    }
+
+    private static func stableActionTitle(for input: DoorControlPresentationInput) -> String {
+        input.isUnlocked
+            ? "\(input.activationVerb.rawValue) to lock"
+            : "\(input.activationVerb.rawValue) to unlock"
     }
 }

@@ -84,33 +84,6 @@ extension DoorUnlockerController {
         pendingFreshNonceDoorCommand != nil
     }
 
-    var queuedDoorCommandActionTitle: String {
-        switch pendingFreshNonceDoorCommand?.command {
-        case .lock:
-            return "Preparing lock..."
-        case .unlock:
-            return "Preparing unlock..."
-        case nil:
-            return isUnlocked ? "Tap to lock" : "Tap to unlock"
-        }
-    }
-
-    var secureLinkActionTitle: String {
-        guard isReady, !isDoorCommandReady else {
-            return isUnlocked ? "Tap to lock" : "Tap to unlock"
-        }
-
-        if controlCharacteristic == nil {
-            return "Opening secure control..."
-        }
-
-        if fastCommandNonce == nil {
-            return "Preparing control..."
-        }
-
-        return "Preparing control..."
-    }
-
     var secureLinkStatusTitle: String {
         guard isReady, !isDoorCommandReady else { return "Controller is ready." }
 

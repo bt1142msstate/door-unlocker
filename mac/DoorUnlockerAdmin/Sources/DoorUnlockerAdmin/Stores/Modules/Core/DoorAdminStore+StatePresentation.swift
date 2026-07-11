@@ -22,6 +22,9 @@ extension DoorAdminStore {
         if controllerHealthStatus == "storage_fault" { return "Controller storage needs service" }
         if status.hasPendingRequest { return "Pairing request" }
         if isConnected && !isUSBControllerValidated { return "Validating USB-C controller" }
+        if sessionAssessment.phase.isKnownControllerConnectionInProgress {
+            return "Connecting to the controller"
+        }
 
         switch sessionAssessment.phase {
         case .starting: return "Bluetooth is starting"
@@ -29,15 +32,11 @@ extension DoorAdminStore {
         case .permissionNeeded: return "Bluetooth access is needed"
         case .unsupported: return "Bluetooth is not supported"
         case .bluetoothResetting: return "Bluetooth is resetting"
-        case .offline: return "Controller is offline"
+        case .offline: return "Not connected to the controller"
         case .scanning: return "Looking for the controller"
-        case .connecting: return "Connecting to the controller"
-        case .discovering: return "Checking controller features"
-        case .restoring: return "Restoring the controller link"
+        case .connecting, .discovering, .restoring: return "Connecting to the controller"
         case .pairingRequired: return "Pairing is required"
-        case .authenticating: return "Verifying the secure link"
-        case .synchronizing: return "Syncing the controller state"
-        case .preparingSecureControl: return "Preparing secure control"
+        case .authenticating, .synchronizing, .preparingSecureControl: return "Connecting to the controller"
         case .ready: return "Controller ready"
         case .updatingFirmware: return "Updating the controller"
         }
@@ -49,6 +48,9 @@ extension DoorAdminStore {
         }
         if isConnected && !isUSBControllerValidated {
             return "The serial link is open. Waiting for the Door Unlocker protocol response."
+        }
+        if sessionAssessment.phase.isKnownControllerConnectionInProgress {
+            return "Opening your saved secure controller connection."
         }
 
         switch sessionAssessment.phase {
@@ -62,16 +64,8 @@ extension DoorAdminStore {
             return "The displayed lock state is not current. The app will reconnect automatically."
         case .scanning:
             return "The app is scanning for the saved controller nearby."
-        case .connecting:
-            return "The controller was found and the Bluetooth link is opening."
-        case .discovering:
-            return "The app is preparing the controller's secure control channels."
-        case .authenticating:
-            return "The controller is connected while the Mac verifies its trusted signing key."
-        case .synchronizing:
-            return "The secure link is open. Waiting for the controller's current lock state."
-        case .preparingSecureControl:
-            return "The current state is synced. Requesting fresh one-time command material."
+        case .connecting, .discovering, .authenticating, .synchronizing, .preparingSecureControl:
+            return "Opening your saved secure controller connection."
         case .pairingRequired:
             return "Connect USB-C or use another trusted device to approve this Mac."
         case .updatingFirmware:

@@ -33,9 +33,7 @@ struct LockControlButton: View {
                 isUnlockHoldActive: isUnlockHoldActive,
                 activationVerb: .tap,
                 controllerSettingApplyTitle: controller.controllerSettingApplyTitle,
-                firmwareUpdateActionTitle: controller.firmwareUpdateControlTitle,
-                queuedDoorCommandActionTitle: controller.queuedDoorCommandActionTitle,
-                secureLinkActionTitle: controller.secureLinkActionTitle
+                firmwareUpdateActionTitle: controller.firmwareUpdateControlTitle
             )
         )
     }

@@ -27,8 +27,7 @@ extension DoorAdminStore {
                 isDoorCommandReady: isWirelessDoorCommandReady || isConnected,
                 activationVerb: .click,
                 controllerSettingApplyTitle: controllerSettingApplyTitle,
-                firmwareUpdateActionTitle: "Updating firmware...",
-                queuedDoorCommandActionTitle: queuedDoorCommandActionTitle
+                firmwareUpdateActionTitle: "Updating firmware..."
             )
         )
     }

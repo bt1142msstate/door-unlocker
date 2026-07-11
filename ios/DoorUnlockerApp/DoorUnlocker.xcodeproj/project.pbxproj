@@ -18,6 +18,7 @@
 		13117BF47FDF80271E09D111 /* DoorAppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51FB1C24F9C5AFB63AAC9A18 /* DoorAppTheme.swift */; };
 		1CE118D0124605B28CF5CDB3 /* DoorCommandAuthenticator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F822EC57202B5EA172B5EFB0 /* DoorCommandAuthenticator.swift */; };
 		1E3F7B49C05E4D1C41F94B6D /* DoorControlIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD6F9EBB41A928D4DE3C0AB8 /* DoorControlIntents.swift */; };
+		211284FD6A08C1E254E6EC98 /* SettingsSceneSecurityPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D63BC68123BC6D4CB195648 /* SettingsSceneSecurityPolicy.swift */; };
 		21E6AEEBAD98D7FA409F4E7C /* DoorUnlockerController+ControllerStateSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88D79B4500313051F70E518B /* DoorUnlockerController+ControllerStateSync.swift */; };
 		287242EBEF3523FD61AF8C2D /* DoorStatusStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBB6997B63AE0BDFABE531E0 /* DoorStatusStore.swift */; };
 		2A549BC6CA1FE480DAC8A6AB /* DoorUnlockerController+FastCommandPreparation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DFA452D7993974F35F85AE6 /* DoorUnlockerController+FastCommandPreparation.swift */; };
@@ -62,6 +63,7 @@
 		960ACC43FF50B735CB6DA559 /* DoorUnlockerLiveActivityViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9EE6BC03F432A8A3B1626C8 /* DoorUnlockerLiveActivityViews.swift */; };
 		962FE6D549B119207C59692A /* DoorUnlockerController+BundledFirmware.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95229929735E06AD17C10A87 /* DoorUnlockerController+BundledFirmware.swift */; };
 		972FED101E8CBA0F83A3D193 /* DoorUnlockerController+PeripheralCommandQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C783485E40FBFF4B2C511BB /* DoorUnlockerController+PeripheralCommandQueue.swift */; };
+		9ADB638FA398C712D0645835 /* SettingsSceneSecurityPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6C464A4A18BF61F78AFC48D /* SettingsSceneSecurityPolicyTests.swift */; };
 		9B6AA369AF953CC2F22E182B /* DoorUnlockerController+AutomationSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85F6D0321443AD217A326D63 /* DoorUnlockerController+AutomationSettings.swift */; };
 		9D91CD674885F0B825A28420 /* SettingsApplyViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED434DED3629940CF1D1E248 /* SettingsApplyViews.swift */; };
 		A21C31C431F73AAC771270E2 /* ControllerStatusPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0D58FCD277DBEF647C0B3CB /* ControllerStatusPresentation.swift */; };
@@ -165,6 +167,7 @@
 		3CACBEE5D0678FD9A3D72D58 /* AppearanceThemeControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceThemeControl.swift; sourceTree = "<group>"; };
 		3CDC3EC86CBF3CC7E8D9ADE7 /* FirmwareStatusViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirmwareStatusViews.swift; sourceTree = "<group>"; };
 		3D5E4E0AF8E889125D1FFBC4 /* DoorUnlockerController+SecureCommandRejection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DoorUnlockerController+SecureCommandRejection.swift"; sourceTree = "<group>"; };
+		3D63BC68123BC6D4CB195648 /* SettingsSceneSecurityPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSceneSecurityPolicy.swift; sourceTree = "<group>"; };
 		3D6F3C17E0BCF6C3677B1E76 /* DoorUnlockerScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoorUnlockerScreen.swift; sourceTree = "<group>"; };
 		4A511BE444CD94D11D93BCE1 /* DoorUnlockerController+AutoLockPrediction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DoorUnlockerController+AutoLockPrediction.swift"; sourceTree = "<group>"; };
 		4AFD437A58B60D597D5F11EF /* ConnectedDevicesSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectedDevicesSummaryView.swift; sourceTree = "<group>"; };
@@ -209,6 +212,7 @@
 		B413268BCB572637125E2547 /* FirmwareSettingsControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirmwareSettingsControl.swift; sourceTree = "<group>"; };
 		B422530FE77703E4CFD14BA2 /* DoorUnlockerController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoorUnlockerController.swift; sourceTree = "<group>"; };
 		B554CC98920C40E07751FC00 /* DoorUnlockerController+ControllerSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DoorUnlockerController+ControllerSettings.swift"; sourceTree = "<group>"; };
+		B6C464A4A18BF61F78AFC48D /* SettingsSceneSecurityPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSceneSecurityPolicyTests.swift; sourceTree = "<group>"; };
 		B7577762695A9E4300FEDDA5 /* DoorUnlockerController+DoorCommandRecovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DoorUnlockerController+DoorCommandRecovery.swift"; sourceTree = "<group>"; };
 		BAB63557413F5684664410DC /* DoorUnlockerController+PeripheralDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DoorUnlockerController+PeripheralDiscovery.swift"; sourceTree = "<group>"; };
 		C17376A5E6020A3B6A028091 /* DoorUnlockerController+BluetoothSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DoorUnlockerController+BluetoothSession.swift"; sourceTree = "<group>"; };
@@ -280,6 +284,7 @@
 				F97EDB639E6172371E2D514F /* ControllerSettingsView.swift */,
 				B413268BCB572637125E2547 /* FirmwareSettingsControl.swift */,
 				032DD45DC2B25EFA788B5903 /* IdentitySettingsControls.swift */,
+				3D63BC68123BC6D4CB195648 /* SettingsSceneSecurityPolicy.swift */,
 				1AE88DEBD1B8F8A1B2A92860 /* StartupTelemetryControl.swift */,
 				55A9F48013EB4302EE6C7F00 /* UnlockSettingsControls.swift */,
 			);
@@ -479,6 +484,7 @@
 			children = (
 				5EF5E717D7A99F418F0FA23C /* DoorCommandAuthenticatorParityTests.swift */,
 				03E6CBB318656F9FD520028F /* DoorControllerStateParserParityTests.swift */,
+				B6C464A4A18BF61F78AFC48D /* SettingsSceneSecurityPolicyTests.swift */,
 			);
 			path = DoorUnlockerTests;
 			sourceTree = "<group>";
@@ -735,6 +741,7 @@
 				ABDA98099E6B39035CF28EB7 /* LockZoneSettingsCard.swift in Sources */,
 				49571D6C5D94C8C4793DDA14 /* PairingGuidanceView.swift in Sources */,
 				9D91CD674885F0B825A28420 /* SettingsApplyViews.swift in Sources */,
+				211284FD6A08C1E254E6EC98 /* SettingsSceneSecurityPolicy.swift in Sources */,
 				A430B133765DBACFCC1AF655 /* StartupTelemetryControl.swift in Sources */,
 				071FEF162869FF4E4C09D223 /* ThemeSwatchButton.swift in Sources */,
 				1264E31B3AE1A3968472E5E3 /* UnlockSettingsControls.swift in Sources */,
@@ -763,6 +770,7 @@
 			files = (
 				C85F8C8C924D92372951D1D6 /* DoorCommandAuthenticatorParityTests.swift in Sources */,
 				B98509ED580EFC71318607CE /* DoorControllerStateParserParityTests.swift in Sources */,
+				9ADB638FA398C712D0645835 /* SettingsSceneSecurityPolicyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

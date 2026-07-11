@@ -50,6 +50,9 @@ struct ControllerStatusPresentation {
         if controller.controllerHealthStatus == "storage_fault" {
             return "Controller storage needs service."
         }
+        if phase.isKnownControllerConnectionInProgress {
+            return "Connecting to the controller."
+        }
         switch phase {
         case .starting:
             return "Bluetooth is starting."
@@ -62,15 +65,11 @@ struct ControllerStatusPresentation {
         case .bluetoothResetting:
             return "Bluetooth is resetting."
         case .offline:
-            return "The controller is offline."
+            return "Not connected to the controller."
         case .scanning:
             return "Looking for the controller."
-        case .connecting:
+        case .connecting, .discovering, .restoring:
             return "Connecting to the controller."
-        case .discovering:
-            return "Checking controller features."
-        case .restoring:
-            return "Restoring the controller link."
         case .pairingRequired:
             if controller.isPairingPending {
                 return "Waiting for pairing approval."
@@ -79,12 +78,8 @@ struct ControllerStatusPresentation {
                 return "This iPhone can pair now."
             }
             return "Pairing is required."
-        case .authenticating:
-            return "Verifying the secure link."
-        case .synchronizing:
-            return "Syncing the controller state."
-        case .preparingSecureControl:
-            return "Preparing secure control."
+        case .authenticating, .synchronizing, .preparingSecureControl:
+            return "Connecting to the controller."
         case .ready:
             return "Controller is ready."
         case .updatingFirmware:
@@ -98,6 +93,9 @@ struct ControllerStatusPresentation {
     ) -> String {
         if controller.controllerHealthStatus == "storage_fault" {
             return "Secure control is disabled because trusted-device storage is unavailable. Connect USB-C and repair storage."
+        }
+        if phase.isKnownControllerConnectionInProgress {
+            return "Opening your saved secure controller connection."
         }
         switch phase {
         case .starting:
@@ -114,12 +112,8 @@ struct ControllerStatusPresentation {
             return "The last displayed lock state is not current. The app will reconnect automatically."
         case .scanning:
             return "The app is scanning for your saved lock nearby."
-        case .connecting:
-            return "The controller was found and the Bluetooth link is opening."
-        case .discovering:
-            return "The app is preparing the controller's secure control channels."
-        case .restoring:
-            return "iOS is restoring the saved Bluetooth session."
+        case .connecting, .discovering, .restoring:
+            return "Opening your saved secure controller connection."
         case .pairingRequired:
             if controller.isPairingPending {
                 return controller.isPairingThisPhone
@@ -127,12 +121,8 @@ struct ControllerStatusPresentation {
                     : "Enter the code shown on the new device to approve pairing."
             }
             return "Use a trusted device or USB-C to approve this iPhone."
-        case .authenticating:
-            return "The controller is connected while the app verifies its trusted signing key."
-        case .synchronizing:
-            return "The secure link is open. Waiting for the controller's current lock state."
-        case .preparingSecureControl:
-            return "The current state is synced. Requesting fresh one-time command material."
+        case .authenticating, .synchronizing, .preparingSecureControl:
+            return "Opening your saved secure controller connection."
         case .ready:
             return "The current lock state is synced and secure control is ready."
         case .updatingFirmware:

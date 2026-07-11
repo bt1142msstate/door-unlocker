@@ -14,21 +14,43 @@ final class DoorControlPresentationPolicyTests: XCTestCase {
         XCTAssertEqual(click.actionTitle, "Click to lock")
     }
 
-    func testQueuedDoorCommandTitleWinsUntilChangingStarts() {
+    func testQueuedDoorCommandKeepsStableActionTitleUntilChangingStarts() {
         let queued = DoorControlPresentationPolicy.presentation(
-            for: input(isDoorCommandQueuedForSecureLink: true, queuedDoorCommandActionTitle: "Preparing lock...")
+            for: input(
+                canAcceptDoorCommand: false,
+                isDoorCommandQueuedForSecureLink: true,
+                isPreparingKnownController: true
+            )
         )
         let changing = DoorControlPresentationPolicy.presentation(
             for: input(
-                servoState: "locking",
-                isUnlocked: false,
-                isDoorCommandQueuedForSecureLink: true,
-                queuedDoorCommandActionTitle: "Preparing lock..."
+                servoState: "unlocking",
+                isUnlocked: true,
+                isDoorCommandQueuedForSecureLink: true
             )
         )
 
-        XCTAssertEqual(queued.actionTitle, "Preparing lock...")
-        XCTAssertEqual(changing.actionTitle, "Locking...")
+        XCTAssertEqual(queued.actionTitle, "Tap to unlock")
+        XCTAssertEqual(changing.actionTitle, "Tap to lock")
+    }
+
+    func testQueuedDoorCommandsNeverExposeTransportPreparationOnPrimaryAction() {
+        for isUnlocked in [false, true] {
+            let presentation = DoorControlPresentationPolicy.presentation(
+                for: input(
+                    isUnlocked: isUnlocked,
+                    canAcceptDoorCommand: false,
+                    isDoorCommandQueuedForSecureLink: true,
+                    isPreparingKnownController: true
+                )
+            )
+
+            XCTAssertEqual(
+                presentation.actionTitle,
+                isUnlocked ? "Tap to lock" : "Tap to unlock"
+            )
+            XCTAssertFalse(presentation.actionTitle.localizedCaseInsensitiveContains("prepar"))
+        }
     }
 
     func testSettingsOnlyPresentation() {
@@ -62,7 +84,7 @@ final class DoorControlPresentationPolicyTests: XCTestCase {
 
     func testUnavailableSecureNonceDoesNotReplacePrimaryActionTitle() {
         let presentation = DoorControlPresentationPolicy.presentation(
-            for: input(isUnlocked: false, isDoorCommandReady: false, secureLinkActionTitle: "Preparing control...")
+            for: input(isUnlocked: false, isDoorCommandReady: false)
         )
 
         XCTAssertEqual(presentation.actionTitle, "Tap to unlock")
@@ -76,13 +98,34 @@ final class DoorControlPresentationPolicyTests: XCTestCase {
         XCTAssertFalse(presentation.isPrimaryActionEnabled)
     }
 
+    func testDisconnectedSessionHidesTheLockControl() {
+        let presentation = DoorControlPresentationPolicy.presentation(
+            for: input(canAcceptDoorCommand: false)
+        )
+
+        XCTAssertFalse(presentation.shouldShowLockControl)
+        XCTAssertFalse(presentation.isPrimaryActionEnabled)
+    }
+
     func testChangingStateDisablesRepeatedActionUntilControllerConfirmation() {
         let presentation = DoorControlPresentationPolicy.presentation(
             for: input(servoState: "unlocking", isUnlocked: true)
         )
 
         XCTAssertFalse(presentation.isPrimaryActionEnabled)
-        XCTAssertEqual(presentation.actionTitle, "Unlocking...")
+        XCTAssertEqual(presentation.actionTitle, "Tap to lock")
+    }
+
+    func testDoorTransitionsNeverAddAThirdPrimaryActionLabel() {
+        let locking = DoorControlPresentationPolicy.presentation(
+            for: input(servoState: "locking", isUnlocked: false)
+        )
+        let unlocking = DoorControlPresentationPolicy.presentation(
+            for: input(servoState: "unlocking", isUnlocked: true)
+        )
+
+        XCTAssertEqual(locking.actionTitle, "Tap to unlock")
+        XCTAssertEqual(unlocking.actionTitle, "Tap to lock")
     }
 
     func testDoorStateHelpersCoverFinalAndTransientStates() {
@@ -130,8 +173,6 @@ final class DoorControlPresentationPolicyTests: XCTestCase {
         activationVerb: DoorControlActivationVerb = .tap,
         controllerSettingApplyTitle: String = "Applying setting",
         firmwareUpdateActionTitle: String = "Updating firmware...",
-        queuedDoorCommandActionTitle: String? = nil,
-        secureLinkActionTitle: String = "Preparing control...",
         disconnectedActionTitle: String = "Connect first"
     ) -> DoorControlPresentationInput {
         DoorControlPresentationInput(
@@ -150,8 +191,6 @@ final class DoorControlPresentationPolicyTests: XCTestCase {
             activationVerb: activationVerb,
             controllerSettingApplyTitle: controllerSettingApplyTitle,
             firmwareUpdateActionTitle: firmwareUpdateActionTitle,
-            queuedDoorCommandActionTitle: queuedDoorCommandActionTitle,
-            secureLinkActionTitle: secureLinkActionTitle,
             disconnectedActionTitle: disconnectedActionTitle
         )
     }

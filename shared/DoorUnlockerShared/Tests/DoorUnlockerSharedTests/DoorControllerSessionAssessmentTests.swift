@@ -45,6 +45,55 @@ final class DoorControllerSessionAssessmentTests: XCTestCase {
         XCTAssertEqual(DoorControllerSessionAssessment.assess(facts).phase, .preparingSecureControl)
     }
 
+    func testUnknownControllerHealthDoesNotMasqueradeAsPairingFailure() {
+        var facts = readyFacts()
+        facts.isControllerHealthKnown = false
+        facts.isControllerHealthy = false
+
+        let assessment = DoorControllerSessionAssessment.assess(facts)
+
+        XCTAssertEqual(assessment.phase, .synchronizing)
+        XCTAssertFalse(assessment.isDisplayedStateAuthoritative)
+        XCTAssertFalse(assessment.canDispatchImmediately)
+    }
+
+    func testKnownControllerStartupSequenceNeverReportsPairingRequired() {
+        var facts = readyFacts()
+        let sequence: [(DoorControllerLinkPhase, Bool, Bool, Bool, Bool, Bool, Bool)] = [
+            (.scanning, false, false, false, false, false, false),
+            (.connected, true, false, false, false, false, false),
+            (.connected, true, true, false, false, false, false),
+            (.connected, true, true, true, false, false, false),
+            (.connected, true, true, true, true, false, false),
+            (.connected, true, true, true, true, true, false),
+            (.connected, true, true, true, true, true, true)
+        ]
+
+        for (link, connected, gatt, healthKnown, authenticated, snapshot, commandMaterial) in sequence {
+            facts.link = link
+            facts.isTransportConnected = connected
+            facts.isGattReady = gatt
+            facts.isControllerHealthKnown = healthKnown
+            facts.isControllerHealthy = healthKnown
+            facts.isLinkAuthenticated = authenticated
+            facts.hasCurrentStateSnapshot = snapshot
+            facts.hasFreshCommandMaterial = commandMaterial
+
+            XCTAssertNotEqual(DoorControllerSessionAssessment.assess(facts).phase, .pairingRequired)
+        }
+    }
+
+    func testConnectionPreparationPhasesShareOnePresentationCategory() {
+        let grouped: Set<DoorControllerSessionPhase> = [
+            .connecting, .discovering, .restoring, .authenticating,
+            .synchronizing, .preparingSecureControl
+        ]
+
+        for phase in DoorControllerSessionPhase.allCases {
+            XCTAssertEqual(phase.isKnownControllerConnectionInProgress, grouped.contains(phase))
+        }
+    }
+
     func testBluetoothFailuresOverrideCachedTrustAndLinkHints() {
         for (availability, phase) in [
             (DoorBluetoothAvailability.poweredOff, DoorControllerSessionPhase.bluetoothOff),
@@ -80,23 +129,29 @@ final class DoorControllerSessionAssessmentTests: XCTestCase {
                 for connected in booleans {
                     for gatt in booleans {
                         for trusted in booleans {
-                            for authenticated in booleans {
-                                for snapshot in booleans {
-                                    for commandMaterial in booleans {
-                                        for queueable in booleans {
-                                            let facts = DoorControllerSessionFacts(
-                                                bluetooth: bluetooth,
-                                                link: link,
-                                                isTransportConnected: connected,
-                                                isGattReady: gatt,
-                                                isTrusted: trusted,
-                                                isLinkAuthenticated: authenticated,
-                                                hasCurrentStateSnapshot: snapshot,
-                                                hasFreshCommandMaterial: commandMaterial,
-                                                canQueueCommand: queueable
-                                            )
-                                            let assessment = DoorControllerSessionAssessment.assess(facts)
-                                            assertSafetyInvariants(assessment, facts: facts)
+                            for healthKnown in booleans {
+                                for healthy in booleans {
+                                    for authenticated in booleans {
+                                        for snapshot in booleans {
+                                            for commandMaterial in booleans {
+                                                for queueable in booleans {
+                                                    let facts = DoorControllerSessionFacts(
+                                                        bluetooth: bluetooth,
+                                                        link: link,
+                                                        isTransportConnected: connected,
+                                                        isGattReady: gatt,
+                                                        isTrusted: trusted,
+                                                        isControllerHealthKnown: healthKnown,
+                                                        isControllerHealthy: healthy,
+                                                        isLinkAuthenticated: authenticated,
+                                                        hasCurrentStateSnapshot: snapshot,
+                                                        hasFreshCommandMaterial: commandMaterial,
+                                                        canQueueCommand: queueable
+                                                    )
+                                                    let assessment = DoorControllerSessionAssessment.assess(facts)
+                                                    assertSafetyInvariants(assessment, facts: facts)
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -119,6 +174,8 @@ final class DoorControllerSessionAssessmentTests: XCTestCase {
             XCTAssertTrue(facts.isTransportConnected, file: file, line: line)
             XCTAssertTrue(facts.isGattReady, file: file, line: line)
             XCTAssertTrue(facts.isTrusted, file: file, line: line)
+            XCTAssertTrue(facts.isControllerHealthKnown, file: file, line: line)
+            XCTAssertTrue(facts.isControllerHealthy, file: file, line: line)
             XCTAssertTrue(facts.isLinkAuthenticated, file: file, line: line)
             XCTAssertTrue(facts.hasCurrentStateSnapshot, file: file, line: line)
             XCTAssertTrue(facts.hasFreshCommandMaterial, file: file, line: line)
@@ -126,6 +183,8 @@ final class DoorControllerSessionAssessmentTests: XCTestCase {
 
         if assessment.isDisplayedStateAuthoritative {
             XCTAssertTrue(assessment.isControllerOnline, file: file, line: line)
+            XCTAssertTrue(facts.isControllerHealthKnown, file: file, line: line)
+            XCTAssertTrue(facts.isControllerHealthy, file: file, line: line)
             XCTAssertTrue(facts.hasCurrentStateSnapshot, file: file, line: line)
         }
 
