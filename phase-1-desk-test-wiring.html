@@ -3017,8 +3017,8 @@
       const positiveOutputBuck = point(positiveSplitterRect, 0.662, 0.061);
       const groundOutputBuck = point(groundSplitterRect, 0.319, 0.061);
       const groundOutputServo = point(groundSplitterRect, 0.662, 0.061);
-      const buckInputPositive = point(buckRect, 0.447, 0.819);
-      const buckInputGround = point(buckRect, 0.545, 0.819);
+      const buckInputPositive = point(buckRect, 0.476, 0.842);
+      const buckInputGround = point(buckRect, 0.589, 0.842);
       wiringPaths.buckInputPositive.setAttribute("d", `M${pathPoint(positiveOutputBuck)} V1138 H${buckInputPositive[0].toFixed(1)} V${buckInputPositive[1].toFixed(1)}`);
       wiringPaths.buckInputGround.setAttribute("d", `M${pathPoint(groundOutputBuck)} V1118 H${buckInputGround[0].toFixed(1)} V${buckInputGround[1].toFixed(1)}`);
 
@@ -3033,8 +3033,8 @@
 
       const controllerPower = assemblyPoint(151, 1);
       const controllerGround = assemblyPoint(136, 1);
-      const buckOutputGround = point(buckRect, 0.447, 0.133);
-      const buckOutputPower = point(buckRect, 0.545, 0.133);
+      const buckOutputGround = point(buckRect, 0.589, 0.158);
+      const buckOutputPower = point(buckRect, 0.476, 0.158);
       wiringPaths.controllerPower.setAttribute("d", `M${pathPoint(buckOutputPower)} L${pathPoint(controllerPower)}`);
       wiringPaths.controllerGround.setAttribute("d", `M${pathPoint(buckOutputGround)} L${pathPoint(controllerGround)}`);
 
