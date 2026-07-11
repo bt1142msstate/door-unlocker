@@ -676,6 +676,7 @@
       width: auto;
       height: 285px;
       margin: 0 auto;
+      transform: rotate(180deg);
     }
 
     .servo-visual {
@@ -2127,6 +2128,12 @@
               <path id="buckInputGroundWire" class="wire ground buck-wire" data-parts="splitter-ground buck" />
               <path id="controllerPowerWire" class="wire red buck-wire assembly-power" data-parts="buck controller" />
               <path id="controllerGroundWire" class="wire ground buck-wire" data-parts="buck controller" />
+              <path class="wire-bridge-underlay buck-wire" d="M687 1132 H707" />
+              <path class="wire red wire-bridge buck-wire" data-parts="splitter-positive buck" d="M687 1132 H707" />
+              <path class="wire-bridge-underlay buck-wire" d="M620 840 V820" />
+              <path class="wire ground wire-bridge buck-wire" data-parts="buck controller" d="M620 840 V820" />
+              <path class="wire-bridge-underlay buck-wire" d="M740 860 V840" />
+              <path class="wire red wire-bridge buck-wire" data-parts="buck controller" d="M740 860 V840" />
               <path id="usbGroundWire" class="wire ground usb-ground-wire muted" data-parts="splitter-ground controller" />
               <path id="controllerSignalWire" class="wire signal" data-parts="controller servo" />
               <path id="usbControllerWire" class="wire logic usb-wire muted" data-parts="usb controller" />
@@ -3026,10 +3033,10 @@
       const positiveOutputBuck = point(positiveSplitterRect, 0.662, 0.061);
       const groundOutputBuck = point(groundSplitterRect, 0.319, 0.061);
       const groundOutputServo = point(groundSplitterRect, 0.662, 0.061);
-      const buckInputPositive = point(buckRect, 0.476, 0.842);
-      const buckInputGround = point(buckRect, 0.589, 0.842);
-      wiringPaths.buckInputPositive.setAttribute("d", `M${pathPoint(positiveOutputBuck)} V1138 H${buckInputPositive[0].toFixed(1)} V${buckInputPositive[1].toFixed(1)}`);
-      wiringPaths.buckInputGround.setAttribute("d", `M${pathPoint(groundOutputBuck)} V1118 H${buckInputGround[0].toFixed(1)} V${buckInputGround[1].toFixed(1)}`);
+      const buckInputPositive = point(buckRect, 0.524, 0.158);
+      const buckInputGround = point(buckRect, 0.411, 0.158);
+      wiringPaths.buckInputPositive.setAttribute("d", `M${pathPoint(positiveOutputBuck)} V1132 H770 V850 H${buckInputPositive[0].toFixed(1)} V${buckInputPositive[1].toFixed(1)}`);
+      wiringPaths.buckInputGround.setAttribute("d", `M${pathPoint(groundOutputBuck)} V1120 H590 V830 H${buckInputGround[0].toFixed(1)} V${buckInputGround[1].toFixed(1)}`);
 
       const servoSignal = point(servoRect, 0.254, 0.935);
       const servoRed = point(servoRect, 0.28, 0.935);
@@ -3038,14 +3045,14 @@
       const servoBranchLeftX = 566;
       const servoBranchRightX = 794;
       wiringPaths.servoPositive.setAttribute("d", `M${pathPoint(positiveOutputServo)} V${servoBranchTurnY} H${servoBranchLeftX} V532 H${(servoRed[0] - 12).toFixed(1)} L${pathPoint(servoRed)}`);
-      wiringPaths.servoGround.setAttribute("d", `M${pathPoint(groundOutputServo)} V${servoBranchTurnY} H${servoBranchRightX} V558 H${(servoGround[0] + 12).toFixed(1)} L${pathPoint(servoGround)}`);
+      wiringPaths.servoGround.setAttribute("d", `M${pathPoint(groundOutputServo)} V${servoBranchTurnY} H${servoBranchRightX} V532 H${(servoGround[0] + 12).toFixed(1)} L${pathPoint(servoGround)}`);
 
       const controllerPower = assemblyPoint(151, 1);
       const controllerGround = assemblyPoint(136, 1);
-      const buckOutputGround = point(buckRect, 0.589, 0.158);
-      const buckOutputPower = point(buckRect, 0.476, 0.158);
-      wiringPaths.controllerPower.setAttribute("d", `M${pathPoint(buckOutputPower)} L${pathPoint(controllerPower)}`);
-      wiringPaths.controllerGround.setAttribute("d", `M${pathPoint(buckOutputGround)} L${pathPoint(controllerGround)}`);
+      const buckOutputGround = point(buckRect, 0.411, 0.842);
+      const buckOutputPower = point(buckRect, 0.524, 0.842);
+      wiringPaths.controllerPower.setAttribute("d", `M${pathPoint(buckOutputPower)} H740 V790 H${controllerPower[0].toFixed(1)} V${controllerPower[1].toFixed(1)}`);
+      wiringPaths.controllerGround.setAttribute("d", `M${pathPoint(buckOutputGround)} H620 V770 H${controllerGround[0].toFixed(1)} V${controllerGround[1].toFixed(1)}`);
 
       const controllerSignal = assemblyPoint(2, 0);
       wiringPaths.controllerSignal.setAttribute("d", `M${pathPoint(controllerSignal)} V460 H${servoSignal[0].toFixed(1)} V${servoSignal[1].toFixed(1)}`);
@@ -3055,7 +3062,7 @@
       const usbMidY = (usbSource[1] + controllerUsb[1]) / 2;
       wiringPaths.usbController.setAttribute("d", `M${pathPoint(usbSource)} V${usbMidY.toFixed(1)} H${controllerUsb[0].toFixed(1)} V${controllerUsb[1].toFixed(1)}`);
 
-      const servoGroundApproach = [servoGround[0] + 12, 558];
+      const servoGroundApproach = [servoGround[0] + 12, 532];
       const groundXAtY = (y) => servoGround[0]
         + ((y - servoGround[1]) / (servoGroundApproach[1] - servoGround[1]))
         * (servoGroundApproach[0] - servoGround[0]);
