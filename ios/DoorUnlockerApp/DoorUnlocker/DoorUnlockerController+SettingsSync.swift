@@ -3,15 +3,34 @@ import DoorUnlockerShared
 
 extension DoorUnlockerController {
     func applyRemoteSettingApplying(kind: String, value: String?) {
+#if DEBUG
+        recordStartupTelemetry(
+            "controller_setting_applying",
+            details: value.map { "\(kind)=\($0)" } ?? kind,
+            once: false
+        )
+#endif
         remoteSettingApplyTask?.cancel()
         remoteSettingApplyValue = value
         remoteSettingApplyKind = kind
         remoteSettingApplyTask = Task { [weak self] in
             guard await DoorControllerSettingDelay.wait(
-                nanoseconds: DoorControllerSettingConfirmationPolicy.remoteApplyVisibilityNanoseconds
+                nanoseconds: DoorControllerSettingConfirmationPolicy.remoteSnapshotReplayDelayNanoseconds
             ) else { return }
             await MainActor.run {
-                self?.clearRemoteSettingApplying()
+                guard let self,
+                      self.remoteSettingApplyKind == kind,
+                      self.remoteSettingApplyValue == value else { return }
+                self.requestStateNotificationSnapshotReplay()
+            }
+            let remainingVisibility = DoorControllerSettingConfirmationPolicy.remoteApplyVisibilityNanoseconds
+                - DoorControllerSettingConfirmationPolicy.remoteSnapshotReplayDelayNanoseconds
+            guard await DoorControllerSettingDelay.wait(nanoseconds: remainingVisibility) else { return }
+            await MainActor.run {
+                guard let self,
+                      self.remoteSettingApplyKind == kind,
+                      self.remoteSettingApplyValue == value else { return }
+                self.clearRemoteSettingApplying()
             }
         }
     }
@@ -32,14 +51,16 @@ extension DoorUnlockerController {
             ) else { return }
             await MainActor.run {
                 guard let self, self.inFlightControllerSetting == operation else { return }
-                _ = self.readStateIfPermitted()
+                self.requestStateNotificationSnapshotReplay()
             }
 
             guard await DoorControllerSettingDelay.wait(
                 nanoseconds: DoorControllerSettingConfirmationPolicy.completionGraceNanoseconds
             ) else { return }
             await MainActor.run {
-                self?.finishUnconfirmedControllerSetting(operation)
+                guard let self,
+                      self.inFlightControllerSetting == operation else { return }
+                self.failControllerSetting(operation, reason: "Controller did not confirm the setting")
             }
         }
     }
@@ -48,59 +69,13 @@ extension DoorUnlockerController {
         guard controllerSettingConfirmation.complete(operation) else { return }
         controllerSettingConfirmationTask?.cancel()
         controllerSettingConfirmationTask = nil
-    }
-
-    private func finishUnconfirmedControllerSetting(_ operation: ControllerSettingOperation) {
-        guard controllerSettingConfirmation.complete(operation) else { return }
-
-        controllerSettingConfirmationTask?.cancel()
-        controllerSettingConfirmationTask = nil
-        clearRemoteSettingApplying()
-
-        switch operation {
-        case .autoLockTimeout(let seconds):
-            if pendingAutoLockTimeoutSeconds == seconds {
-                pendingAutoLockTimeoutSeconds = nil
-            }
-            if queuedAutoLockTimeoutSeconds == seconds {
-                queuedAutoLockTimeoutSeconds = nil
-            }
-            autoLockStatus = "Sent to controller"
-
-        case .servoAngles(let angles):
-            if pendingServoAngles == angles {
-                pendingServoAngles = nil
-            }
-            if queuedServoAngles == angles {
-                queuedServoAngles = nil
-            }
-            if sentServoAngles == angles {
-                sentServoAngles = nil
-            }
-            servoAnglesStatus = "Sent to controller"
-
-        case .lockName(let name):
-            lockNameSyncTask?.cancel()
-            lockNameSyncTask = nil
-            if pendingLockName == name {
-                pendingLockName = nil
-            }
-            if sentLockName == name {
-                sentLockName = nil
-            }
-            lockNameStatus = "Sent to controller"
-
-        case .deviceDisplayName(let name):
-            deviceDisplayNameSyncTask?.cancel()
-            deviceDisplayNameSyncTask = nil
-            if pendingDeviceDisplayName == name {
-                pendingDeviceDisplayName = nil
-            }
-            if sentDeviceDisplayName == name {
-                sentDeviceDisplayName = nil
-            }
-            deviceDisplayNameStatus = "Sent to controller"
-        }
+#if DEBUG
+        recordStartupTelemetry(
+            "controller_setting_confirmed",
+            details: String(describing: operation),
+            once: false
+        )
+#endif
     }
 
     @discardableResult
@@ -126,7 +101,7 @@ extension DoorUnlockerController {
         return true
     }
 
-    private func requeueControllerSettingAfterFreshNonce(_ operation: ControllerSettingOperation) {
+    func requeueControllerSettingAfterFreshNonce(_ operation: ControllerSettingOperation) {
         switch operation {
         case .autoLockTimeout(let seconds):
             pendingAutoLockTimeoutSeconds = nil
@@ -145,6 +120,25 @@ extension DoorUnlockerController {
             sentDeviceDisplayName = nil
             pendingDeviceDisplayName = name
             deviceDisplayNameStatus = "Retrying..."
+        }
+    }
+
+    func requeueControllerSettingAfterSessionInterruption() {
+        guard let operation = inFlightControllerSetting else { return }
+        _ = controllerSettingConfirmation.complete(operation)
+        controllerSettingConfirmationTask?.cancel()
+        controllerSettingConfirmationTask = nil
+        requeueControllerSettingAfterFreshNonce(operation)
+
+        switch operation {
+        case .autoLockTimeout:
+            autoLockStatus = "Waiting for controller"
+        case .servoAngles:
+            servoAnglesStatus = "Waiting for controller"
+        case .lockName:
+            lockNameStatus = "Waiting for controller"
+        case .deviceDisplayName:
+            deviceDisplayNameStatus = "Waiting for controller"
         }
     }
 

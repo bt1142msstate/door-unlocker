@@ -91,6 +91,7 @@ def main() -> int:
     mac_firmware_transport = ROOT / "mac/DoorUnlockerAdmin/Sources/DoorUnlockerAdmin/Stores/Modules/Firmware/DoorAdminStore+FirmwareTransport.swift"
     mac_firmware_request = ROOT / "mac/DoorUnlockerAdmin/Sources/DoorUnlockerAdmin/Stores/Modules/Firmware/DoorAdminStore+FirmwareRequest.swift"
     presentation = ROOT / "shared/DoorUnlockerShared/Sources/DoorUnlockerShared/DoorControlPresentationPolicy.swift"
+    firmware_snapshot_policy = ROOT / "shared/DoorUnlockerShared/Sources/DoorUnlockerShared/DoorFirmwareSnapshotPolicy.swift"
     firmware = ROOT / "firmware/DoorUnlockerXiao/DoorUnlockerXiao.ino"
 
     require(ios, [
@@ -99,6 +100,7 @@ def main() -> int:
         "peripheralIsReady(toSendWriteWithoutResponse",
         "clearQueuedDoorCommandIfSatisfied(by:",
         "if case .linkAuthentication = intent",
+        "optimisticDoorCommand == nil",
     ], failures)
     require(ios_recovery, [
         "scheduleDoorCommandTransportRecovery()",
@@ -123,6 +125,9 @@ def main() -> int:
         "case sent",
         "case queued",
         "case failed",
+        "fastDoorCommandInFlight == nil",
+        "hasAuthenticatedCurrentWirelessLink = true",
+        "clearPendingWirelessDoorCommandAfterDispatch()",
     ], failures)
     require(mac_format, ["DoorFastWritePolicy.action("], failures)
     require(mac_recovery, [
@@ -147,10 +152,32 @@ def main() -> int:
         "discardBleCommandsForHandle(connHandle);",
         "bleCommandQueueServeOverflowNext",
         'publishControlRejectTo(connHandle, "controller_busy")',
+        'handleServo.write(targetAngle);\n  // Begin physical movement before BLE notification backpressure.',
+        'publishState(transitionState);',
     ], failures)
     require(presentation, [
         "!input.isDoorCommandQueuedForSecureLink",
         "!isChangingState",
+    ], failures)
+    require(firmware_snapshot_policy, [
+        "case deferUntilCommandCompletes",
+        "hasQueuedDoorCommand",
+        "hasInFlightDoorCommand",
+        "hasControllerSettingOperation",
+    ], failures)
+    require(ios_snapshot, ["DoorFirmwareSnapshotPolicy.action("], failures)
+    require(mac_snapshot, ["DoorFirmwareSnapshotPolicy.action("], failures)
+    require(firmware, [
+        "stateCccdWrittenCallback",
+        "publishStateTo(connHandle, currentStateText());",
+    ], failures)
+    forbid(firmware, [
+        "void stateCccdWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint16_t value) {\n"
+        "  (void) chr;\n\n"
+        "  if (value == 0 || connHandle == BLE_CONN_HANDLE_INVALID || !Bluefruit.connected(connHandle)) {\n"
+        "    return;\n"
+        "  }\n\n"
+        "  publishStartupSnapshotTo(connHandle);",
     ], failures)
     forbid(ios, [
         "fastCommandMaterialMaxAge",

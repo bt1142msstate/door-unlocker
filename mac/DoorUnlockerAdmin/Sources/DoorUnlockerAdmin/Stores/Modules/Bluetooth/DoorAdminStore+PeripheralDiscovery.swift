@@ -118,11 +118,10 @@ extension DoorAdminStore {
                     if pendingWirelessCommandText != nil, !isWirelessDoorCommandReady {
                         message = "Preparing secure control"
                     }
-                    if needsFreshSecureNonce {
-                        requestWirelessControlNonceWithoutWatchdog()
-                    } else {
-                        scheduleWirelessControlNonceRecoveryIfNeeded(after: 0.06)
-                    }
+                    // The controller issues the initial nonce from its CCCD callback.
+                    // Give that notification a short head start before using the
+                    // explicit command fallback so startup never queues both.
+                    scheduleWirelessControlNonceRecoveryIfNeeded(after: 0.06)
                     startSecureLinkWatchdogIfNeeded()
                     scheduleWirelessStateSnapshotFallbackRead()
                 } else if let error {

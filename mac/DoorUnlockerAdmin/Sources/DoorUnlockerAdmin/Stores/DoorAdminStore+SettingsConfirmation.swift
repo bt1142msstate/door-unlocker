@@ -11,7 +11,7 @@ extension DoorAdminStore {
             ) else { return }
             await MainActor.run {
                 guard let self, self.inFlightControllerSetting == operation else { return }
-                self.readStateIfPossible()
+                self.requestWirelessStateNotificationSnapshotReplay()
             }
 
             guard await DoorControllerSettingDelay.wait(

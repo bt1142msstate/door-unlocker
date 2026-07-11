@@ -9,6 +9,7 @@ enum DoorAdminError: LocalizedError {
     case noPortSelected
     case notConnected
     case noDeviceSelected
+    case invalidController
 
     var errorDescription: String? {
         switch self {
@@ -18,6 +19,8 @@ enum DoorAdminError: LocalizedError {
             return "Connect to the controller first."
         case .noDeviceSelected:
             return "Select a paired device first."
+        case .invalidController:
+            return "The USB device did not return a valid Door Unlocker status response."
         }
     }
 }
@@ -43,6 +46,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
     @Published var ports: [SerialPortCandidate] = []
     @Published var selectedPortID: String?
     @Published var isConnected = false
+    @Published var isUSBControllerValidated = false
     @Published var bluetoothState = "Starting" {
         didSet { recordRuntimeStateChange("bluetooth_state", from: oldValue, to: bluetoothState) }
     }
@@ -54,6 +58,11 @@ final class DoorAdminStore: NSObject, ObservableObject {
     }
     @Published var isBusy = false
     @Published var status = DoorAdminStore.loadCachedStatus()
+    @Published var hasCurrentControllerSnapshot = false
+    @Published var hasCurrentConnectionRoster = false
+    @Published var lastControllerActivityAt: Date?
+    @Published var controllerBootSessionIdentifier: String?
+    @Published var controllerHealthStatus = "unknown"
     @Published var pairedDevices: [PairedDevice] = []
     @Published var selectedDeviceID: PairedDevice.ID?
     @Published var approvalCode = ""
@@ -199,7 +208,11 @@ final class DoorAdminStore: NSObject, ObservableObject {
     var pendingWirelessPredictedCommand: Command?
     var pendingWirelessCommandIntent: WirelessCommandWriteIntent?
     var fastDoorCommandInFlight: Command?
+    var fastDoorCommandPreviousStatus: ControllerStatus?
+    var pendingLocalDoorCommand: Command?
+    var controllerFreshness = DoorControllerFreshnessTracker()
     var fastCommandNonce: Data?
+    var lastConsumedFastCommandNonce: Data?
     var preparedFastDoorCommandPayloads: [Command: DoorCommandAuthenticator.SignedFastCommandPayload] = [:]
     var preparedFastDoorCommandTask: Task<Void, Never>?
     var preparedFastDoorCommandGeneration = 0
@@ -208,7 +221,10 @@ final class DoorAdminStore: NSObject, ObservableObject {
     var wirelessIdleDisconnectTask: Task<Void, Never>?
     var wirelessKnownPeripheralFallbackTask: Task<Void, Never>?
     var wirelessStateSnapshotFallbackTask: Task<Void, Never>?
+    var wirelessStateSnapshotRequestGate = DoorSingleFlightRequestGate()
+    var wirelessStateSnapshotRequestTimeoutTask: Task<Void, Never>?
     var wirelessFirmwareVersionSnapshotRetryTask: Task<Void, Never>?
+    var hasCurrentFirmwareVersionSnapshot = false
     var wirelessStateUpdateGeneration = 0
     var wirelessControlNonceRecoveryTask: Task<Void, Never>?
     var secureLinkWatchdogTask: Task<Void, Never>?
@@ -216,12 +232,14 @@ final class DoorAdminStore: NSObject, ObservableObject {
     var wirelessDoorCommandTransportRecoveryTask: Task<Void, Never>?
     var wirelessDoorCommandConfirmationTask: Task<Void, Never>?
     var wirelessControlUpdateGeneration = 0
-    var wirelessControlNonceRequestGeneration = 0
-    var lastWirelessControlNonceRequestUptime: TimeInterval = 0
-    var isWirelessControlNonceRequestInFlight = false
+    var wirelessControlNonceRequestGate = DoorSingleFlightRequestGate()
     var wirelessControlNonceRequestTimeoutTask: Task<Void, Never>?
+    var wirelessControllerNonceHandoffGate = DoorSingleFlightRequestGate()
+    var wirelessControllerNonceHandoffTimeoutTask: Task<Void, Never>?
     var hasAuthenticatedCurrentWirelessLink = false
     var wirelessLinkAuthenticationInFlight = false
+    var wirelessLinkAuthenticationAttemptCount = 0
+    var wirelessLinkAuthenticationTimeoutTask: Task<Void, Never>?
     var activeWirelessScanAllowsDuplicates: Bool?
     var pendingWirelessWriteIntents: [WirelessCommandWriteIntent] = []
     var firmwareUpdateWatchdogTask: Task<Void, Never>?
@@ -276,6 +294,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         wirelessFirmwareVersionSnapshotRetryTask?.cancel()
         wirelessControlNonceRecoveryTask?.cancel()
         wirelessControlNonceRequestTimeoutTask?.cancel()
+        wirelessLinkAuthenticationTimeoutTask?.cancel()
         secureLinkWatchdogTask?.cancel()
         firmwareUpdateWatchdogTask?.cancel()
         DistributedNotificationCenter.default().removeObserver(self)

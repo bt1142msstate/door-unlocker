@@ -56,7 +56,7 @@ extension DoorAdminStore {
             isFirmwareUpdateRunning = true
             lastError = nil
             switchUSBToWirelessFirmwareUpdateIfNeeded()
-            beginFirmwareDfuUpload(after: localPackageURL)
+            beginFirmwareDfuUpload(after: localPackageURL, detectsNormalControllerFirmware: true)
         } catch {
             lastError = error.localizedDescription
             firmwareUpdateStatus = "Could not prepare firmware package"

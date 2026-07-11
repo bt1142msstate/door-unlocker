@@ -26,7 +26,7 @@ targets:
         CFBundleDisplayName: Door Unlocker
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
-        DoorControllerFirmwareVersion: "0.1.12"
+        DoorControllerFirmwareVersion: "0.1.24"
         UILaunchScreen:
           UIColorName: LaunchBackground
         CFBundleURLTypes:

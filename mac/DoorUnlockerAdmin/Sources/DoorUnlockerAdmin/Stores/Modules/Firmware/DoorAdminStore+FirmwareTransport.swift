@@ -75,7 +75,7 @@ extension DoorAdminStore {
         return false
     }
 
-    func beginFirmwareDfuUpload(after packageURL: URL) {
+    func beginFirmwareDfuUpload(after packageURL: URL, detectsNormalControllerFirmware: Bool = false) {
         firmwareUpdateStatus = "Waiting for update bootloader"
         firmwareUpdateProgress = nil
         firmwareUpdateWatchdogTask?.cancel()
@@ -84,7 +84,10 @@ extension DoorAdminStore {
         firmwareDfuStartFallbackTask = nil
         firmwareLog.info("Starting Nordic DFU manager package=\(packageURL.path, privacy: .public)")
         prepareWirelessSessionForFirmwareDfu()
-        firmwareDfuManager.start(packageURL: packageURL)
+        firmwareDfuManager.start(
+            packageURL: packageURL,
+            detectsNormalControllerFirmware: detectsNormalControllerFirmware
+        )
     }
 
     func beginPendingFirmwareDfuUploadIfNeeded() {

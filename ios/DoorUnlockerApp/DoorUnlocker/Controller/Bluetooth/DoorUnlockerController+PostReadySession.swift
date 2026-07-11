@@ -156,28 +156,46 @@ extension DoorUnlockerController {
 
     var needsFreshSecureNonce: Bool {
         isReady &&
+            !controllerNonceHandoffGate.isInFlight &&
+            inFlightControllerSetting == nil &&
+            remoteSettingApplyKind == nil &&
             !hasFastCommandNonce &&
             !isDoorCommandReady &&
             ((pendingFirmwareUpdatePackageURL != nil && !firmwareUpdateEntryCommandSent) ||
                 pendingFreshNonceDoorCommand != nil ||
                 pendingSystemCommand != nil ||
+                hasControllerSettingAwaitingNonce ||
                 needsLinkAuthentication ||
                 needsFastCommandPreparation)
+    }
+
+    var hasControllerSettingAwaitingNonce: Bool {
+        inFlightControllerSetting == nil &&
+            (pendingAutoLockTimeoutSeconds != nil ||
+                queuedAutoLockTimeoutSeconds != nil ||
+                pendingServoAngles != nil ||
+                queuedServoAngles != nil ||
+                pendingLockName != nil ||
+                pendingDeviceDisplayName != nil)
     }
 
     var needsLinkAuthentication: Bool {
         !hasAuthenticatedCurrentLink &&
             !linkAuthenticationInFlight &&
+            optimisticDoorCommand == nil &&
             pendingFreshNonceDoorCommand == nil &&
             pendingSystemCommand == nil &&
-            pendingFirmwareUpdatePackageURL == nil
+            pendingFirmwareUpdatePackageURL == nil &&
+            !isApplyingControllerSetting
     }
 
     var needsFastCommandPreparation: Bool {
         hasAuthenticatedCurrentLink &&
+            optimisticDoorCommand == nil &&
             pendingFreshNonceDoorCommand == nil &&
             pendingSystemCommand == nil &&
             pendingFirmwareUpdatePackageURL == nil &&
+            !isApplyingControllerSetting &&
             !hasPreparedFastDoorCommandPayloads
     }
 }

@@ -9,7 +9,9 @@ final class DoorControllerStateParserParityTests: XCTestCase {
             "firmware_version:0.1.6",
             "firmware_update:complete",
             "reject:v3:stale_nonce",
-            "servo_angles:17,143"
+            "servo_angles:17,143",
+            "session:0011223344556677",
+            "health:storage_fault"
         ]
 
         for state in states {
@@ -32,6 +34,14 @@ final class DoorControllerStateParserParityTests: XCTestCase {
             XCTAssertEqual(
                 DoorControllerStateParser.servoAngles(from: state),
                 DoorControllerStateParsing.servoAngles(from: state)
+            )
+            XCTAssertEqual(
+                DoorControllerStateParsing.sessionIdentifier(from: state),
+                state.hasPrefix("session:") ? "0011223344556677" : nil
+            )
+            XCTAssertEqual(
+                DoorControllerStateParsing.healthState(from: state),
+                state.hasPrefix("health:") ? "storage_fault" : nil
             )
         }
     }

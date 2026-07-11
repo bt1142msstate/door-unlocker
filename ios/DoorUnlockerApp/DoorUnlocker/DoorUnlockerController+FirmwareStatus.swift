@@ -1,4 +1,5 @@
 import CoreBluetooth
+import DoorUnlockerShared
 import UIKit
 import UserNotifications
 
@@ -106,25 +107,100 @@ extension DoorUnlockerController {
     }
 
     func scheduleFirmwareVersionSnapshotRetry(delay: Duration = .milliseconds(420)) {
-        guard firmwareVersion == "Unknown" else { return }
+        guard !hasCompleteControllerMetadataSnapshot else {
+            firmwareVersionSnapshotRetryTask?.cancel()
+            firmwareVersionSnapshotRetryTask = nil
+            return
+        }
         firmwareVersionSnapshotRetryTask?.cancel()
         firmwareVersionSnapshotRetryTask = Task { [weak self] in
-            try? await Task.sleep(for: delay)
+            do {
+                try await Task.sleep(for: delay)
+            } catch {
+                return
+            }
             await MainActor.run {
-                guard let self, self.isReady, self.firmwareVersion == "Unknown" else {
-                    return
-                }
-
+                guard let self else { return }
                 self.firmwareVersionSnapshotRetryTask = nil
-                self.requestStateNotificationSnapshotReplay()
+                guard !self.hasCompleteControllerMetadataSnapshot else { return }
+                switch DoorFirmwareSnapshotPolicy.action(
+                    isControllerReady: self.isReady,
+                    hasQueuedDoorCommand: self.pendingFreshNonceDoorCommand != nil,
+                    hasInFlightDoorCommand: self.optimisticDoorCommand != nil,
+                    hasControllerSettingOperation: self.isApplyingControllerSetting
+                ) {
+                case .stop:
+                    return
+                case .deferUntilCommandCompletes:
+                    self.scheduleFirmwareVersionSnapshotRetry(delay: .milliseconds(250))
+                case .request:
+                    self.requestStateNotificationSnapshotReplay()
+                }
             }
         }
     }
 
     func requestStateNotificationSnapshotReplay() {
-        // Toggling notifications asks the controller to replay its entire startup
-        // snapshot. Repeating that fallback can starve command confirmations.
-        _ = readStateIfPermitted()
+        guard !hasCompleteControllerMetadataSnapshot else { return }
+        guard isDoorCommandReady,
+              !controllerNonceHandoffGate.isInFlight,
+              !linkAuthenticationInFlight,
+              pendingCommandWriteIntents.isEmpty else {
+            scheduleStateSnapshotFallbackRead(delay: .milliseconds(350))
+            scheduleFirmwareVersionSnapshotRetry(delay: .milliseconds(350))
+            return
+        }
+
+        guard let peripheral, let commandCharacteristic else {
+            _ = readStateIfPermitted()
+            return
+        }
+
+        let now = ProcessInfo.processInfo.systemUptime
+        guard let generation = stateSnapshotRequestGate.begin(at: now, minimumInterval: 0.8) else {
+            scheduleFirmwareVersionSnapshotRetry(delay: .milliseconds(350))
+            return
+        }
+        stateSnapshotRequestTimeoutTask?.cancel()
+        stateSnapshotRequestTimeoutTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(750))
+            await MainActor.run {
+                guard let self,
+                      self.stateSnapshotRequestGate.expire(generation: generation) else { return }
+                self.stateSnapshotRequestTimeoutTask = nil
+            }
+        }
+
+        let payload = Data("snapshot".utf8)
+        if commandCharacteristic.properties.contains(.write) {
+            peripheral.writeValue(payload, for: commandCharacteristic, type: .withResponse)
+        } else if commandCharacteristic.properties.contains(.writeWithoutResponse),
+                  peripheral.canSendWriteWithoutResponse {
+            peripheral.writeValue(payload, for: commandCharacteristic, type: .withoutResponse)
+        } else {
+            _ = readStateIfPermitted()
+            return
+        }
+#if DEBUG
+        recordStartupTelemetry("controller_snapshot_requested", once: false)
+#endif
+        // Continue until session, health, state, roster, and firmware are current.
+        scheduleFirmwareVersionSnapshotRetry(delay: .seconds(1.2))
+    }
+
+    var hasCompleteControllerMetadataSnapshot: Bool {
+        controllerFreshness.hasCompleteMetadataSnapshot(
+            hasCurrentFirmwareVersion: hasCurrentFirmwareVersionSnapshot
+        )
+    }
+
+    func refreshControllerMetadataSnapshotRetry() {
+        if hasCompleteControllerMetadataSnapshot {
+            firmwareVersionSnapshotRetryTask?.cancel()
+            firmwareVersionSnapshotRetryTask = nil
+        } else if isReady {
+            scheduleFirmwareVersionSnapshotRetry(delay: .milliseconds(350))
+        }
     }
 
     var shouldShowFirmwareUpdateBanner: Bool {

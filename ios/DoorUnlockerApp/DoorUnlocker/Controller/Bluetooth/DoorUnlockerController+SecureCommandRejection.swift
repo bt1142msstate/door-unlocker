@@ -11,6 +11,7 @@ import WidgetKit
 
 extension DoorUnlockerController {
     func handleFastCommandReject(reason: String) {
+        resetControlNonceRequest()
         let rejection = DoorSecureCommandRejection(rawReason: reason)
         invalidatePreparedFastDoorCommandPayloads(clearNonce: true)
         if linkAuthenticationInFlight {
@@ -103,6 +104,7 @@ extension DoorUnlockerController {
         optimisticDoorCommandAttempt = 0
         optimisticDoorCommandAcknowledged = false
         optimisticDoorPreviousServoState = nil
+        optimisticDoorCommandSessionGeneration = nil
         doorCommandRecoveryTask?.cancel()
         doorCommandRecoveryTask = nil
     }
@@ -110,6 +112,10 @@ extension DoorUnlockerController {
     @discardableResult
     func sendPendingFreshNonceDoorCommandIfReady() -> Bool {
         guard let pendingFreshNonceDoorCommand,
+              DoorCommandSchedulingPolicy.canDispatchQueuedCommand(
+                  isControllerChangingState: isChangingState,
+                  hasInFlightCommand: optimisticDoorCommand != nil
+              ),
               preparedFastDoorCommandPayloads[pendingFreshNonceDoorCommand.command] != nil else {
             return false
         }

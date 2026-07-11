@@ -12,6 +12,11 @@ docs/ota-benchmark-last-run.json
 docs/ota-telemetry/
 docs/ios-telemetry/
 docs/ota-benchmarks/
+docs/adverse-state-quality-fast.json
+docs/client-relaunch-stress-last-run.json
+docs/command-stress-last-run.json
+docs/mixed-client-settings-last-run.json
+docs/mixed-client-stress-last-run.json
 
 # Xcode local state
 *.xcuserstate

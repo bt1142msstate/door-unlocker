@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import datetime
+import json
 import sys
 import tempfile
 import unittest
@@ -204,6 +206,24 @@ class FirmwareReleaseProofGateTests(unittest.TestCase):
 
 
 class QualityReportAccuracyTests(unittest.TestCase):
+    def test_public_report_redacts_local_repository_and_home_paths(self) -> None:
+        step = quality_suite.SuiteStep(
+            name="Fixture",
+            command=[str(quality_suite.ROOT / "script/check.py")],
+            status="pass",
+            durationSeconds=0.1,
+            exitCode=0,
+            summary=str(quality_suite.ROOT / "artifact.zip"),
+            warningCount=1,
+            warnings=[str(Path.home() / "Library/tool.py")],
+        )
+        payload = quality_suite.public_step_payload(step)
+        serialized = json.dumps(payload)
+
+        self.assertNotIn(str(quality_suite.ROOT), serialized)
+        self.assertNotIn(str(Path.home()), serialized)
+        self.assertEqual(payload["summary"], "./artifact.zip")
+
     def test_fast_run_cannot_claim_full_or_platform_parity(self) -> None:
         class Arguments:
             fast = True
@@ -214,6 +234,7 @@ class QualityReportAccuracyTests(unittest.TestCase):
             install_mac = False
             install_ios = False
             no_launch_ios = False
+            live_mixed_client = False
 
         step = quality_suite.SuiteStep(
             name="Shared package independent tests",
@@ -232,6 +253,66 @@ class QualityReportAccuracyTests(unittest.TestCase):
         self.assertFalse(payload["fullSuitePassed"])
         self.assertFalse(payload["claims"]["platformAdapterVectorsVerified"])
         self.assertFalse(payload["claims"]["endToEndCrossPlatformBluetoothParityVerified"])
+
+    def test_live_mixed_client_evidence_must_be_current_complete_and_cross_platform(self) -> None:
+        not_before = datetime.datetime(2026, 7, 11, tzinfo=datetime.timezone.utc)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "evidence.json"
+            valid = {
+                "generatedAt": "2026-07-11T00:00:01+00:00",
+                "passed": True,
+                "commandCount": 4,
+                "crossSubscriberConfirmationCount": 4,
+                "simultaneousSubscribersVerified": True,
+                "commands": [
+                    {"origin": "iphone", "requestToConfirmationMs": 10},
+                    {"origin": "mac", "requestToConfirmationMs": 11},
+                    {"origin": "iphone", "requestToConfirmationMs": 12},
+                    {"origin": "mac", "requestToConfirmationMs": 13},
+                ],
+            }
+            path.write_text(json.dumps(valid), encoding="utf-8")
+            self.assertEqual(
+                quality_suite.validate_live_mixed_client_report(
+                    path,
+                    collection_key="commands",
+                    count_key="commandCount",
+                    minimum_count=4,
+                    not_before=not_before,
+                ),
+                [],
+            )
+
+            valid["generatedAt"] = "2026-07-10T23:59:59+00:00"
+            valid["commands"] = valid["commands"][:3]
+            path.write_text(json.dumps(valid), encoding="utf-8")
+            failures = quality_suite.validate_live_mixed_client_report(
+                path,
+                collection_key="commands",
+                count_key="commandCount",
+                minimum_count=4,
+                not_before=not_before,
+            )
+            self.assertTrue(any("not from this suite run" in failure for failure in failures))
+            self.assertTrue(any("requires at least 4" in failure for failure in failures))
+            self.assertTrue(any("does not match" in failure for failure in failures))
+
+    def test_live_mixed_client_steps_are_opt_in(self) -> None:
+        class Arguments:
+            fast = True
+            maintainability_threshold = 90
+            modularity_threshold = 95
+            shared_parity_threshold = 95
+            live_mac_ui = False
+            live_mixed_client = True
+            install_mac = False
+            install_ios = False
+            no_launch_ios = False
+            firmware_release = False
+
+        names = [name for name, _ in quality_suite.base_steps(Arguments())]
+        self.assertIn("Live mixed-client command stress", names)
+        self.assertIn("Live mixed-client settings stress", names)
 
 
 if __name__ == "__main__":

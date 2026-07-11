@@ -41,7 +41,7 @@ static const uint16_t MIN_UNLOCK_HOLD_TIMEOUT_SECONDS = 5;
 static const uint16_t MAX_UNLOCK_HOLD_TIMEOUT_SECONDS = 120;
 static const char DEFAULT_LOCK_NAME[] = "My Lock";
 static const char CONTROLLER_MODEL_NAME[] = "DoorUnlocker-XIAO-v4";
-static const char CONTROLLER_FIRMWARE_VERSION[] = "0.1.12";
+static const char CONTROLLER_FIRMWARE_VERSION[] = "0.1.24";
 // Fresh random-static BLE identity for the app-layer-security firmware. This
 // avoids stale iOS/macOS OS-level bond records from the earlier encrypted-GATT
 // builds while preserving trusted app keys in LittleFS.
@@ -81,6 +81,7 @@ static const uint16_t PAIRING_MAX_LEN = 100;
 static const uint16_t SERIAL_COMMAND_MAX_LEN = 260;
 static const uint8_t BLE_COMMAND_QUEUE_CAPACITY = 8;
 static const uint8_t BLE_COMMAND_QUEUE_PER_CONNECTION_LIMIT = 2;
+static const uint8_t STATE_NOTIFICATION_QUEUE_CAPACITY = 12;
 static const size_t BLE_REJECT_REASON_LEN = 40;
 static const size_t STATE_PAYLOAD_MAX_LEN = 124;
 static const size_t V3_KEY_FINGERPRINT_LEN = 8;
@@ -120,6 +121,7 @@ static const uint32_t V3_NONCE_RETRY_INTERVAL_MS = 500;
 static const uint32_t UNTRUSTED_REJECT_DISCONNECT_DELAY_MS = 400;
 static const uint32_t UNTRUSTED_IDLE_DISCONNECT_MS = 8000;
 static const uint32_t UNTRUSTED_CLEANUP_INTERVAL_MS = 500;
+static const uint32_t STATE_SUBSCRIPTION_SETTLE_MS = 250;
 
 BLEService doorService = BLEService(DOOR_SERVICE_UUID);
 BLECharacteristic commandCharacteristic = BLECharacteristic(COMMAND_CHAR_UUID);
@@ -166,6 +168,18 @@ bool connectedDeviceNonceValid[MAX_BLE_CONNECTIONS] = {false};
 uint8_t connectedDeviceNonces[MAX_BLE_CONNECTIONS][V3_NONCE_LEN] = {{0}};
 uint32_t connectedDeviceFirstSeenMs[MAX_BLE_CONNECTIONS] = {0};
 bool connectedDeviceRejected[MAX_BLE_CONNECTIONS] = {false};
+char stateNotificationQueues[MAX_BLE_CONNECTIONS][STATE_NOTIFICATION_QUEUE_CAPACITY][STATE_PAYLOAD_MAX_LEN] = {{{0}}};
+volatile uint8_t stateNotificationQueueHeads[MAX_BLE_CONNECTIONS] = {0};
+volatile uint8_t stateNotificationQueueTails[MAX_BLE_CONNECTIONS] = {0};
+volatile uint8_t stateNotificationQueueCounts[MAX_BLE_CONNECTIONS] = {0};
+volatile bool stateNotificationSending[MAX_BLE_CONNECTIONS] = {false};
+volatile bool stateNotificationQueueOverflowed[MAX_BLE_CONNECTIONS] = {false};
+volatile uint32_t stateNotificationQueueGenerations[MAX_BLE_CONNECTIONS] = {0};
+bool stateStartupSnapshotPending[MAX_BLE_CONNECTIONS] = {false};
+bool stateStartupSnapshotDelivered[MAX_BLE_CONNECTIONS] = {false};
+uint32_t stateStartupSnapshotDueMs[MAX_BLE_CONNECTIONS] = {0};
+uint32_t stateStartupSnapshotGenerations[MAX_BLE_CONNECTIONS] = {0};
+char controllerBootSessionId[17] = {0};
 uint32_t lastNonceRetryMs = 0;
 uint32_t lastUntrustedCleanupMs = 0;
 
@@ -1409,8 +1423,13 @@ bool appendPairedPublicKey(const uint8_t* rawKey, const char* deviceName) {
   int8_t existingIndex = pairedPublicKeyIndex(rawKey);
   if (existingIndex >= 0) {
     if (deviceName != nullptr && deviceName[0] != 0) {
+      char previousName[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
+      copyDeviceName(pairedDeviceNames[existingIndex], previousName, sizeof(previousName));
       copyDeviceName(deviceName, pairedDeviceNames[existingIndex], PAIRED_DEVICE_NAME_STORAGE_LEN);
-      return savePairings();
+      if (!savePairings()) {
+        copyDeviceName(previousName, pairedDeviceNames[existingIndex], PAIRED_DEVICE_NAME_STORAGE_LEN);
+        return false;
+      }
     }
     return true;
   }
@@ -1419,11 +1438,19 @@ bool appendPairedPublicKey(const uint8_t* rawKey, const char* deviceName) {
     return false;
   }
 
-  memcpy(pairedPublicKeys[pairedPublicKeyCount], rawKey, P256_PUBLIC_KEY_LEN);
-  copyDeviceName(deviceName, pairedDeviceNames[pairedPublicKeyCount], PAIRED_DEVICE_NAME_STORAGE_LEN);
-  pairedCounters[pairedPublicKeyCount] = 0;
+  uint8_t addedIndex = pairedPublicKeyCount;
+  memcpy(pairedPublicKeys[addedIndex], rawKey, P256_PUBLIC_KEY_LEN);
+  copyDeviceName(deviceName, pairedDeviceNames[addedIndex], PAIRED_DEVICE_NAME_STORAGE_LEN);
+  pairedCounters[addedIndex] = 0;
   pairedPublicKeyCount++;
-  return savePairings();
+  if (!savePairings()) {
+    pairedPublicKeyCount--;
+    memset(pairedPublicKeys[addedIndex], 0, P256_PUBLIC_KEY_LEN);
+    pairedCounters[addedIndex] = 0;
+    memset(pairedDeviceNames[addedIndex], 0, PAIRED_DEVICE_NAME_STORAGE_LEN);
+    return false;
+  }
+  return true;
 }
 
 bool removePairedPublicKeyAt(uint8_t removeIndex) {
@@ -1466,22 +1493,43 @@ bool removePairedPublicKeyAt(uint8_t removeIndex) {
   return true;
 }
 
-void clearPairings() {
+bool clearPairings() {
+  uint8_t originalCount = pairedPublicKeyCount;
+  uint32_t originalGeneration = pairingsGeneration;
+  char originalActiveSlot = activePairingsSlot;
+  uint8_t originalKeys[MAX_PAIRED_PHONES][P256_PUBLIC_KEY_LEN] = {{0}};
+  uint64_t originalCounters[MAX_PAIRED_PHONES] = {0};
+  char originalNames[MAX_PAIRED_PHONES][PAIRED_DEVICE_NAME_STORAGE_LEN] = {{0}};
+  memcpy(originalKeys, pairedPublicKeys, sizeof(pairedPublicKeys));
+  memcpy(originalCounters, pairedCounters, sizeof(pairedCounters));
+  memcpy(originalNames, pairedDeviceNames, sizeof(pairedDeviceNames));
+
   pairingModeEnabled = false;
   clearPendingPairing();
   pairedPublicKeyCount = 0;
   memset(pairedPublicKeys, 0, sizeof(pairedPublicKeys));
   memset(pairedCounters, 0, sizeof(pairedCounters));
   memset(pairedDeviceNames, 0, sizeof(pairedDeviceNames));
-  pairingsGeneration = 0;
-  activePairingsSlot = 0;
 
-  if (ensureInternalFS()) {
-    InternalFS.remove(PAIRINGS_FILENAME);
-    InternalFS.remove(PAIRINGS_SLOT_A_FILENAME);
-    InternalFS.remove(PAIRINGS_SLOT_B_FILENAME);
-    InternalFS.remove(PAIRINGS_TEMP_FILENAME);
+  // Commit an empty snapshot at a newer generation. If power fails before the
+  // atomic rename, the old trust table remains valid; after it, the empty table
+  // wins over every older slot and revoked keys cannot be resurrected.
+  if (!savePairings()) {
+    pairedPublicKeyCount = originalCount;
+    pairingsGeneration = originalGeneration;
+    activePairingsSlot = originalActiveSlot;
+    memcpy(pairedPublicKeys, originalKeys, sizeof(pairedPublicKeys));
+    memcpy(pairedCounters, originalCounters, sizeof(pairedCounters));
+    memcpy(pairedDeviceNames, originalNames, sizeof(pairedDeviceNames));
+    return false;
   }
+
+  InternalFS.remove(PAIRINGS_FILENAME);
+  for (uint8_t index = 0; index < MAX_BLE_CONNECTIONS; index++) {
+    connectedDeviceTrusted[index] = false;
+    connectedDeviceRejected[index] = false;
+  }
+  return true;
 }
 
 bool repairInternalStorage() {
@@ -1825,6 +1873,39 @@ void clearConnectedDeviceSlot(uint8_t slot) {
   memset(connectedDeviceNonces[slot], 0, sizeof(connectedDeviceNonces[slot]));
   connectedDeviceFirstSeenMs[slot] = 0;
   connectedDeviceRejected[slot] = false;
+  stateStartupSnapshotPending[slot] = false;
+  stateStartupSnapshotDelivered[slot] = false;
+  stateStartupSnapshotDueMs[slot] = 0;
+  stateStartupSnapshotGenerations[slot] = 0;
+  taskENTER_CRITICAL();
+  stateNotificationQueueHeads[slot] = 0;
+  stateNotificationQueueTails[slot] = 0;
+  stateNotificationQueueCounts[slot] = 0;
+  stateNotificationSending[slot] = false;
+  stateNotificationQueueOverflowed[slot] = false;
+  stateNotificationQueueGenerations[slot]++;
+  memset(stateNotificationQueues[slot], 0, sizeof(stateNotificationQueues[slot]));
+  taskEXIT_CRITICAL();
+}
+
+void resetStateNotificationSubscription(uint8_t slot) {
+  if (slot >= MAX_BLE_CONNECTIONS) {
+    return;
+  }
+
+  stateStartupSnapshotPending[slot] = false;
+  stateStartupSnapshotDelivered[slot] = false;
+  stateStartupSnapshotDueMs[slot] = 0;
+  stateStartupSnapshotGenerations[slot] = 0;
+  taskENTER_CRITICAL();
+  stateNotificationQueueHeads[slot] = 0;
+  stateNotificationQueueTails[slot] = 0;
+  stateNotificationQueueCounts[slot] = 0;
+  stateNotificationSending[slot] = false;
+  stateNotificationQueueOverflowed[slot] = false;
+  stateNotificationQueueGenerations[slot]++;
+  memset(stateNotificationQueues[slot], 0, sizeof(stateNotificationQueues[slot]));
+  taskEXIT_CRITICAL();
 }
 
 void initializeConnectedDeviceSlots() {
@@ -1905,6 +1986,22 @@ bool fillSecureRandomBytes(uint8_t* output, size_t outputLen) {
   return offset == outputLen;
 }
 
+void initializeControllerBootSession() {
+  uint8_t randomBytes[8] = {0};
+  if (fillSecureRandomBytes(randomBytes, sizeof(randomBytes))
+      && bytesToHex(randomBytes, sizeof(randomBytes), controllerBootSessionId, sizeof(controllerBootSessionId))) {
+    return;
+  }
+
+  snprintf(
+    controllerBootSessionId,
+    sizeof(controllerBootSessionId),
+    "%08lx%08lx",
+    (unsigned long) NRF_FICR->DEVICEID[0],
+    (unsigned long) micros()
+  );
+}
+
 bool publishControlTo(uint16_t connHandle, const char* payload) {
   if (connHandle == BLE_CONN_HANDLE_INVALID || payload == nullptr || !Bluefruit.connected(connHandle)) {
     return false;
@@ -1961,6 +2058,17 @@ bool issueV3NonceTo(uint16_t connHandle) {
   return true;
 }
 
+void rotateV3NonceFor(uint16_t connHandle) {
+  int8_t slot = connectedDeviceSlotForHandle(connHandle);
+  if (slot < 0) {
+    return;
+  }
+
+  connectedDeviceNonceValid[slot] = false;
+  memset(connectedDeviceNonces[slot], 0, sizeof(connectedDeviceNonces[slot]));
+  issueV3NonceTo(connHandle);
+}
+
 void retryMissingV3Nonces() {
   uint32_t now = millis();
   if ((uint32_t)(now - lastNonceRetryMs) < V3_NONCE_RETRY_INTERVAL_MS) {
@@ -1985,6 +2093,99 @@ void retryMissingV3Nonces() {
   }
 }
 
+bool enqueueStateNotification(uint8_t slot, const char* payload) {
+  if (slot >= MAX_BLE_CONNECTIONS || payload == nullptr || payload[0] == 0) {
+    return false;
+  }
+
+  taskENTER_CRITICAL();
+  if (stateNotificationQueueCounts[slot] >= STATE_NOTIFICATION_QUEUE_CAPACITY) {
+    stateNotificationQueueOverflowed[slot] = true;
+    taskEXIT_CRITICAL();
+    return false;
+  }
+
+  uint8_t index = stateNotificationQueueHeads[slot];
+  strncpy(stateNotificationQueues[slot][index], payload, STATE_PAYLOAD_MAX_LEN - 1);
+  stateNotificationQueues[slot][index][STATE_PAYLOAD_MAX_LEN - 1] = 0;
+  stateNotificationQueueHeads[slot] = (index + 1) % STATE_NOTIFICATION_QUEUE_CAPACITY;
+  stateNotificationQueueCounts[slot]++;
+  taskEXIT_CRITICAL();
+  return true;
+}
+
+void processStateNotificationForSlot(uint8_t slot) {
+  if (slot >= MAX_BLE_CONNECTIONS) {
+    return;
+  }
+
+  char payload[STATE_PAYLOAD_MAX_LEN] = {0};
+  uint16_t connHandle = BLE_CONN_HANDLE_INVALID;
+  uint8_t queueIndex = 0;
+  uint32_t generation = 0;
+
+  taskENTER_CRITICAL();
+  if (!connectedDeviceSlotsUsed[slot]
+      || stateNotificationQueueCounts[slot] == 0
+      || stateNotificationSending[slot]) {
+    taskEXIT_CRITICAL();
+    return;
+  }
+  connHandle = connectedDeviceHandles[slot];
+  queueIndex = stateNotificationQueueTails[slot];
+  generation = stateNotificationQueueGenerations[slot];
+  strncpy(payload, stateNotificationQueues[slot][queueIndex], sizeof(payload) - 1);
+  stateNotificationSending[slot] = true;
+  taskEXIT_CRITICAL();
+
+  bool sent = connHandle != BLE_CONN_HANDLE_INVALID
+    && Bluefruit.connected(connHandle)
+    && stateCharacteristic.notifyEnabled(connHandle)
+    && stateCharacteristic.notify(connHandle, payload);
+
+  taskENTER_CRITICAL();
+  if (stateNotificationQueueGenerations[slot] == generation) {
+    stateNotificationSending[slot] = false;
+    if (sent
+        && stateNotificationQueueCounts[slot] > 0
+        && stateNotificationQueueTails[slot] == queueIndex) {
+      memset(stateNotificationQueues[slot][queueIndex], 0, STATE_PAYLOAD_MAX_LEN);
+      stateNotificationQueueTails[slot] = (queueIndex + 1) % STATE_NOTIFICATION_QUEUE_CAPACITY;
+      stateNotificationQueueCounts[slot]--;
+    }
+  }
+  taskEXIT_CRITICAL();
+}
+
+void queueStateNotificationForHandle(uint16_t connHandle, const char* payload) {
+  if (connHandle == BLE_CONN_HANDLE_INVALID || !Bluefruit.connected(connHandle)) {
+    return;
+  }
+  int8_t slot = connectedDeviceSlotForHandle(connHandle);
+  if (slot < 0 || !stateCharacteristic.notifyEnabled(connHandle)) {
+    return;
+  }
+  if (enqueueStateNotification((uint8_t) slot, payload)) {
+    processStateNotificationForSlot((uint8_t) slot);
+  }
+}
+
+void processPendingStateNotifications() {
+  for (uint8_t slot = 0; slot < MAX_BLE_CONNECTIONS; slot++) {
+    if (stateNotificationQueueOverflowed[slot]) {
+      uint16_t connHandle = connectedDeviceHandles[slot];
+      Serial.println("State notification queue overflow; reconnecting subscriber for a fresh snapshot");
+      if (connHandle != BLE_CONN_HANDLE_INVALID && Bluefruit.connected(connHandle)) {
+        Bluefruit.disconnect(connHandle);
+      } else {
+        clearConnectedDeviceSlot(slot);
+      }
+      continue;
+    }
+    processStateNotificationForSlot(slot);
+  }
+}
+
 void notifyStateSubscribers(const char* payload) {
   if (payload == nullptr || !Bluefruit.connected()) {
     return;
@@ -1993,7 +2194,7 @@ void notifyStateSubscribers(const char* payload) {
   uint16_t handles[MAX_BLE_CONNECTIONS] = {0};
   uint8_t connectedCount = Bluefruit.getConnectedHandles(handles, MAX_BLE_CONNECTIONS);
   for (uint8_t index = 0; index < connectedCount; index++) {
-    stateCharacteristic.notify(handles[index], payload);
+    queueStateNotificationForHandle(handles[index], payload);
   }
 }
 
@@ -2007,11 +2208,7 @@ void notifyStateSubscriber(uint16_t connHandle, const char* payload) {
     return;
   }
 
-  if (!stateCharacteristic.notifyEnabled(connHandle)) {
-    return;
-  }
-
-  stateCharacteristic.notify(connHandle, payload);
+  queueStateNotificationForHandle(connHandle, payload);
 }
 
 void writeAndNotifyStatePayload(const char* payload) {
@@ -2149,10 +2346,14 @@ void publishStateTo(uint16_t connHandle, const char* state) {
 }
 
 void publishStartupSnapshotTo(uint16_t connHandle) {
+  char payload[STATE_PAYLOAD_MAX_LEN] = {0};
+  snprintf(payload, sizeof(payload), "session:%s", controllerBootSessionId);
+  notifyStateSubscriber(connHandle, payload);
+  snprintf(payload, sizeof(payload), "health:%s", internalFsReady ? "ok" : "storage_fault");
+  notifyStateSubscriber(connHandle, payload);
   publishConnectionsStateTo(connHandle);
   publishStateTo(connHandle, currentStateText());
 
-  char payload[STATE_PAYLOAD_MAX_LEN] = {0};
   snprintf(payload, sizeof(payload), "firmware_version:%s", CONTROLLER_FIRMWARE_VERSION);
   notifyStateSubscriber(connHandle, payload);
   Serial.print("State: ");
@@ -2167,6 +2368,42 @@ void publishStartupSnapshotTo(uint16_t connHandle) {
   notifyStateSubscriber(connHandle, payload);
   Serial.print("State: ");
   Serial.println(payload);
+
+  snprintf(payload, sizeof(payload), "timeout_set:%u", unlockHoldTimeoutSeconds);
+  notifyStateSubscriber(connHandle, payload);
+}
+
+void processPendingStateStartupSnapshots() {
+  uint32_t now = millis();
+  for (uint8_t slot = 0; slot < MAX_BLE_CONNECTIONS; slot++) {
+    if (!stateStartupSnapshotPending[slot]
+        || (int32_t)(now - stateStartupSnapshotDueMs[slot]) < 0) {
+      continue;
+    }
+
+    uint16_t connHandle = connectedDeviceHandles[slot];
+    uint32_t generation = stateStartupSnapshotGenerations[slot];
+    stateStartupSnapshotPending[slot] = false;
+    if (!connectedDeviceSlotsUsed[slot]
+        || stateNotificationQueueGenerations[slot] != generation
+        || connHandle == BLE_CONN_HANDLE_INVALID
+        || !Bluefruit.connected(connHandle)
+        || !stateCharacteristic.notifyEnabled(connHandle)) {
+      continue;
+    }
+
+    stateStartupSnapshotDelivered[slot] = true;
+    char payload[STATE_PAYLOAD_MAX_LEN] = {0};
+    snprintf(payload, sizeof(payload), "session:%s", controllerBootSessionId);
+    notifyStateSubscriber(connHandle, payload);
+    // The first notification after CCCD enable can be accepted by the stack
+    // before CoreBluetooth has completed local subscription setup. Repeat the
+    // small boot-session payload so freshness never depends on that boundary.
+    notifyStateSubscriber(connHandle, payload);
+    snprintf(payload, sizeof(payload), "health:%s", internalFsReady ? "ok" : "storage_fault");
+    notifyStateSubscriber(connHandle, payload);
+    publishStateTo(connHandle, currentStateText());
+  }
 }
 
 void publishFirmwareUpdateState(const char* state) {
@@ -2339,10 +2576,13 @@ void attachServoIfNeeded() {
   }
 }
 
-void moveServoTo(int targetAngle) {
+void moveServoTo(int targetAngle, const char* transitionState) {
   targetAngle = constrain(targetAngle, MIN_SAFE_SERVO_ANGLE, MAX_SAFE_SERVO_ANGLE);
   attachServoIfNeeded();
   handleServo.write(targetAngle);
+  // Begin physical movement before BLE notification backpressure. The state
+  // characteristic still reports the transition before the settle delay.
+  publishState(transitionState);
   if (currentAngle != targetAngle) {
     delay(SERVO_MOVE_SETTLE_MS);
   }
@@ -2358,8 +2598,7 @@ void lockRest() {
   unlockAutoLockActive = false;
   servoMoving = true;
   updateStatusLed();
-  publishState("locking");
-  moveServoTo(lockAngle);
+  moveServoTo(lockAngle, "locking");
   unlocked = false;
   servoMoving = false;
   publishState("locked");
@@ -2370,8 +2609,7 @@ void lockRest() {
 void unlockHold(uint64_t epochSeconds = 0, const char* deviceFingerprint = nullptr, const char* deviceName = nullptr) {
   servoMoving = true;
   updateStatusLed();
-  publishState("unlocking");
-  moveServoTo(unlockAngle);
+  moveServoTo(unlockAngle, "unlocking");
   unlockAutoLockStartedMs = millis();
   unlockAutoLockActive = true;
   unlocked = true;
@@ -2834,11 +3072,30 @@ void commandWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint8_t
 void stateCccdWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint16_t value) {
   (void) chr;
 
-  if (value == 0 || connHandle == BLE_CONN_HANDLE_INVALID || !Bluefruit.connected(connHandle)) {
+  if (connHandle == BLE_CONN_HANDLE_INVALID || !Bluefruit.connected(connHandle)) {
     return;
   }
 
-  publishStartupSnapshotTo(connHandle);
+  int8_t slot = connectedDeviceSlotForHandle(connHandle);
+  if (slot < 0) {
+    return;
+  }
+  if (value == 0) {
+    resetStateNotificationSubscription((uint8_t) slot);
+    return;
+  }
+  if (stateStartupSnapshotPending[slot]
+      || stateStartupSnapshotDelivered[slot]) {
+    return;
+  }
+
+  // CoreBluetooth can report subscription success just after the controller's
+  // CCCD callback. Defer the first authoritative payload so the subscriber does
+  // not lose the boot-session identifier while its local notification state is
+  // still settling. Slot generation prevents delivery to a recycled handle.
+  stateStartupSnapshotPending[slot] = true;
+  stateStartupSnapshotDueMs[slot] = millis() + STATE_SUBSCRIPTION_SETTLE_MS;
+  stateStartupSnapshotGenerations[slot] = stateNotificationQueueGenerations[slot];
 }
 
 void controlCccdWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint16_t value) {
@@ -2848,7 +3105,10 @@ void controlCccdWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uin
     return;
   }
 
-  issueV3NonceTo(connHandle);
+  int8_t slot = connectedDeviceSlotForHandle(connHandle);
+  if (slot >= 0 && !connectedDeviceNonceValid[slot]) {
+    issueV3NonceTo(connHandle);
+  }
 }
 
 void processPendingBleCommand() {
@@ -2856,6 +3116,7 @@ void processPendingBleCommand() {
   if (bleCommandQueueServeOverflowNext && popBleCommandQueueOverflow(&connHandle)) {
     bleCommandQueueServeOverflowNext = false;
     publishControlRejectTo(connHandle, "controller_busy");
+    rotateV3NonceFor(connHandle);
     return;
   }
 
@@ -2864,6 +3125,7 @@ void processPendingBleCommand() {
     if (popBleCommandQueueOverflow(&connHandle)) {
       bleCommandQueueServeOverflowNext = false;
       publishControlRejectTo(connHandle, "controller_busy");
+      rotateV3NonceFor(connHandle);
     }
     return;
   }
@@ -2881,6 +3143,11 @@ void processPendingBleCommand() {
 
   if (job.payloadLen == 5 && memcmp(job.payload, "nonce", 5) == 0) {
     issueV3NonceTo(job.connHandle);
+    return;
+  }
+
+  if (job.payloadLen == 8 && memcmp(job.payload, "snapshot", 8) == 0) {
+    publishStartupSnapshotTo(job.connHandle);
     return;
   }
 
@@ -2918,8 +3185,14 @@ void pairingWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint8_t
   int8_t existingIndex = pairedPublicKeyIndex(rawKey);
   if (existingIndex >= 0) {
     if (deviceName[0] != 0) {
+      char previousName[PAIRED_DEVICE_NAME_STORAGE_LEN] = {0};
+      copyDeviceName(pairedDeviceNames[existingIndex], previousName, sizeof(previousName));
       copyDeviceName(deviceName, pairedDeviceNames[existingIndex], PAIRED_DEVICE_NAME_STORAGE_LEN);
-      savePairings();
+      if (!savePairings()) {
+        copyDeviceName(previousName, pairedDeviceNames[existingIndex], PAIRED_DEVICE_NAME_STORAGE_LEN);
+        rejectCommandFor(connHandle, "pairing save failed");
+        return;
+      }
     }
     setConnectedDeviceName(connHandle, pairedDeviceNames[existingIndex], true);
     pairingModeEnabled = false;
@@ -3232,6 +3505,10 @@ void printAppError(const char* detail) {
 void printAppStatus() {
   Serial.println("APP_STATUS_BEGIN");
   Serial.println("protocol=1");
+  Serial.print("boot_session=");
+  Serial.println(controllerBootSessionId);
+  Serial.print("storage_health=");
+  Serial.println(internalFsReady ? "ok" : "fault");
   Serial.print("model=");
   Serial.println(CONTROLLER_MODEL_NAME);
   Serial.print("firmware_version=");
@@ -3460,10 +3737,14 @@ bool handleAppCommand(char* command) {
     }
     printAppStatus();
   } else if (serialCommandEquals(subcommand, "clear pairs") || serialCommandEquals(subcommand, "pairs clear")) {
-    clearPairings();
-    publishState(currentStateText());
-    updateStatusLed();
-    printAppOk("cleared=yes");
+    if (clearPairings()) {
+      publishConnectionsState();
+      publishState(currentStateText());
+      updateStatusLed();
+      printAppOk("cleared=yes");
+    } else {
+      printAppError("reason=pairing_clear_save_failed");
+    }
     printAppStatus();
   } else if (serialCommandEquals(subcommand, "storage repair")) {
     if (repairInternalStorage()) {
@@ -3741,6 +4022,10 @@ void connectCallback(uint16_t connHandle) {
 void disconnectCallback(uint16_t connHandle, uint8_t reason) {
   (void) reason;
   Serial.println("Disconnected; advertising");
+  if (pendingPairingExists && pendingPairingConnHandle == connHandle) {
+    clearPendingPairing();
+    Serial.println("Cancelled pairing request because its device disconnected");
+  }
   discardBleCommandsForHandle(connHandle);
   clearConnectedDevice(connHandle);
   publishConnectionsState();
@@ -3820,6 +4105,7 @@ void setup() {
   // normal 3.75 ms event rather than BANDWIDTH_HIGH's 7.5 ms on every link.
   Bluefruit.configPrphConn(128, MULTI_LINK_EVENT_LENGTH, 2, 1);
   Bluefruit.begin(MAX_BLE_CONNECTIONS, 0);
+  initializeControllerBootSession();
   applyBleIdentity();
   // App-approved P-256 keys are our trust source. Clear OS BLE bonds so stale
   // macOS/iOS link-encryption keys cannot destabilize multi-device control.
@@ -3860,6 +4146,8 @@ void setup() {
 void loop() {
   processSerialCommands();
   processPendingBleCommand();
+  processPendingStateStartupSnapshots();
+  processPendingStateNotifications();
   retryMissingV3Nonces();
   disconnectUntrustedLockedConnections();
   handleUnlockTimeout();

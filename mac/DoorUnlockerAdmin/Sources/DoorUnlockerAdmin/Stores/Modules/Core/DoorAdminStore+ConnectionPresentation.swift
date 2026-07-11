@@ -54,7 +54,8 @@ extension DoorAdminStore {
     }
 
     var canUseWirelessFallback: Bool {
-        !isConnected && !isUSBConnectInFlight && hasTrustedWirelessPairingForSecureCommand
+        !isConnected && !isUSBConnectInFlight &&
+            (hasTrustedWirelessPairingForSecureCommand || hasKnownWirelessController)
     }
 
     var hasTrustedWirelessPairingForSecureCommand: Bool {
@@ -141,33 +142,22 @@ extension DoorAdminStore {
     }
 
     var canSendDoorCommand: Bool {
-        isConnected || isWirelessReady || canQueueWirelessCommandForKnownController
+        sessionAssessment.canDispatchImmediately
     }
 
     var isWirelessQueueReady: Bool {
-        canSendDoorCommand && !isConnected && !isWirelessReady
+        sessionAssessment.canQueueCommand && !isConnected
     }
 
     var displayedStatus: ControllerStatus {
-        if isConnected || isUSBConnectInFlight {
+        if isUSBControllerValidated {
             return statusIncludingLocalUSBConnection(status)
         }
 
-        if isWirelessReady || isWirelessQueueReady {
-            var nextStatus = statusRemovingLocalUSBConnection(status)
-            nextStatus.connectedCount = max(nextStatus.connectedCount, 1)
-            nextStatus.maxConnections = max(nextStatus.maxConnections, 4)
-            return nextStatus
-        }
-
-        guard peripheral?.state == .connected else {
+        guard hasCurrentConnectionRoster else {
             return statusRemovingLocalUSBConnection(status)
         }
-
-        var nextStatus = statusRemovingLocalUSBConnection(status)
-        nextStatus.connectedCount = max(nextStatus.connectedCount, 1)
-        nextStatus.maxConnections = max(nextStatus.maxConnections, 4)
-        return nextStatus
+        return statusRemovingLocalUSBConnection(status)
     }
 
     var primaryConnectionTitle: String {

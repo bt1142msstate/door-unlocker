@@ -63,8 +63,7 @@ extension DoorUnlockerController {
     }
 
     var canAcceptDoorCommand: Bool {
-        pendingFreshNonceDoorCommand == nil &&
-            ((isReady && hasTrustedPairingForSecureCommand) || canQueueDoorCommandForKnownController)
+        pendingFreshNonceDoorCommand == nil && sessionAssessment.canDispatchImmediately
     }
 
     var visibleLastError: String? {
@@ -135,18 +134,17 @@ extension DoorUnlockerController {
     }
 
     var connectedDevicesTitle: String {
-        if canAcceptDoorCommand && !isReady {
-            return hasKnownController ? "Saved link ready" : "Trusted link ready"
+        guard hasCurrentConnectionRoster else {
+            return isControllerOnline ? "Connected devices syncing" : "Controller offline"
         }
-
-        return "\(displayedConnectedDeviceCount) of \(displayedMaximumConnectedDeviceCount) connected"
+        return "\(connectedDeviceCount) of \(displayedMaximumConnectedDeviceCount) connected"
     }
 
     var connectedDevicesDetail: String {
-        if canAcceptDoorCommand && !isReady {
-            return hasKnownController
-                ? "This iPhone can queue a secure command while the saved Bluetooth link opens."
-                : "This iPhone can queue a secure command while it finds the trusted controller."
+        guard hasCurrentConnectionRoster else {
+            return isControllerOnline
+                ? "Waiting for the controller's current device list."
+                : "The device list will refresh after the controller reconnects."
         }
 
         if connectedDevices.isEmpty {
@@ -160,15 +158,11 @@ extension DoorUnlockerController {
     }
 
     var shouldShowConnectedDevicesSummary: Bool {
-        displayedConnectedDeviceCount > 0 || isReady || canAcceptDoorCommand
+        hasCurrentConnectionRoster || isControllerOnline || hasKnownController
     }
 
     var displayedConnectedDeviceCount: Int {
-        if isReady || canAcceptDoorCommand {
-            return max(connectedDeviceCount, 1)
-        }
-
-        return connectedDeviceCount
+        hasCurrentConnectionRoster ? connectedDeviceCount : 0
     }
 
     var displayedMaximumConnectedDeviceCount: Int {

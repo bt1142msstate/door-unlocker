@@ -84,6 +84,17 @@ public enum DoorNameNormalizer {
 }
 
 public enum DoorControllerStateParsing {
+    public static func sessionIdentifier(from rawState: String) -> String? {
+        guard let value = prefixedTrimmedValue(rawState, prefix: "session:"),
+              value.count == 16,
+              value.allSatisfy(\.isHexDigit) else { return nil }
+        return value.lowercased()
+    }
+
+    public static func healthState(from rawState: String) -> String? {
+        prefixedTrimmedValue(rawState, prefix: "health:")
+    }
+
     public static func lockName(from rawState: String, fallback: String) -> String? {
         guard let rawName = prefixedValue(rawState, prefix: "lock_name:") else { return nil }
 

@@ -19,6 +19,7 @@ extension DoorUnlockerController {
     }
 
     func lockSettings() {
+        settingsAuthenticationGeneration &+= 1
         areSettingsUnlocked = false
     }
 

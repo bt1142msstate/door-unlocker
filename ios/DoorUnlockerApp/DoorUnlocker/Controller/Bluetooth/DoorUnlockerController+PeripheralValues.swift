@@ -23,6 +23,7 @@ extension DoorUnlockerController {
 
             guard let data = characteristic.value else { return }
             let rawState = String(data: data, encoding: .utf8) ?? "unknown"
+            lastControllerActivityAt = Date()
             if characteristic.uuid == controlUUID {
                 if let nonce = DoorControllerStateParser.fastCommandNonce(from: rawState) {
                     controlUpdateGeneration += 1
@@ -48,6 +49,14 @@ extension DoorUnlockerController {
                 }
 
                 if let connections = DoorControllerStateParser.connectedDevices(from: rawState) {
+                    guard markControllerConnectionRosterCurrent() else { return }
+#if DEBUG
+                    recordStartupTelemetry(
+                        "controller_connections_received",
+                        details: "\(connections.count)/\(connections.max) \(connections.devices.map(\.displayName).joined(separator: "|"))",
+                        once: false
+                    )
+#endif
                     connectedDeviceCount = connections.count
                     maximumConnectedDeviceCount = connections.max
                     connectedDevices = connections.devices
@@ -62,6 +71,19 @@ extension DoorUnlockerController {
             }
 
             guard characteristic.uuid == stateUUID else { return }
+
+            if let sessionIdentifier = DoorControllerStateParsing.sessionIdentifier(from: rawState) {
+                applyControllerBootSession(sessionIdentifier)
+                return
+            }
+
+            if let healthState = DoorControllerStateParsing.healthState(from: rawState) {
+                guard applyControllerStorageHealth(healthState) else { return }
+                if healthState == "storage_fault" {
+                    lastError = "Controller storage is unavailable. Secure control is disabled until storage is repaired."
+                }
+                return
+            }
 
             if let applying = DoorControllerStateParser.settingApplying(from: rawState) {
                 applyRemoteSettingApplying(kind: applying.kind, value: applying.value)
@@ -100,8 +122,8 @@ extension DoorUnlockerController {
                 } ?? false
                 firmwareVersion = controllerFirmwareVersion
                 UserDefaults.standard.set(controllerFirmwareVersion, forKey: Self.cachedFirmwareVersionKey)
-                firmwareVersionSnapshotRetryTask?.cancel()
-                firmwareVersionSnapshotRetryTask = nil
+                hasCurrentFirmwareVersionSnapshot = true
+                refreshControllerMetadataSnapshotRetry()
                 clearPendingBundledFirmwareUpdateIfVerified(installedVersion: controllerFirmwareVersion)
 #if DEBUG
                 handleDebugFirmwareVersionVerification(controllerFirmwareVersion)
@@ -130,6 +152,14 @@ extension DoorUnlockerController {
             }
 
                 if let connections = DoorControllerStateParser.connectedDevices(from: rawState) {
+                    guard markControllerConnectionRosterCurrent() else { return }
+#if DEBUG
+                    recordStartupTelemetry(
+                        "controller_connections_received",
+                        details: "\(connections.count)/\(connections.max) \(connections.devices.map(\.displayName).joined(separator: "|"))",
+                        once: false
+                    )
+#endif
                     connectedDeviceCount = connections.count
                     maximumConnectedDeviceCount = connections.max
                     connectedDevices = connections.devices
@@ -142,6 +172,14 @@ extension DoorUnlockerController {
 
             let parsedState = parseControllerState(rawState)
             if DoorControlPresentationPolicy.isDoorState(parsedState.state) {
+                guard markControllerStateSnapshotCurrent() else { return }
+#if DEBUG
+                recordStartupTelemetry(
+                    "door_state_received",
+                    details: parsedState.state,
+                    once: false
+                )
+#endif
                 stateUpdateGeneration += 1
                 stateSnapshotFallbackTask?.cancel()
                 stateSnapshotFallbackTask = nil
@@ -191,6 +229,10 @@ extension DoorUnlockerController {
             syncLockNameIfReady()
             syncDeviceDisplayNameIfReady()
             runProximityUnlockIfReady()
+            if DoorControlPresentationPolicy.isDoorState(parsedState.state),
+               !DoorControlPresentationPolicy.isChangingState(parsedState.state) {
+                _ = sendPendingFreshNonceDoorCommandIfReady()
+            }
         }
     }
 }

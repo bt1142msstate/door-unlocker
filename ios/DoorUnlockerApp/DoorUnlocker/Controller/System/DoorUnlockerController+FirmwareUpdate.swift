@@ -127,6 +127,11 @@ extension DoorUnlockerController {
         if writeAuthenticatedCommand("ENTER_OTA_DFU", intent: .firmwareUpdate(packageURL)) {
 #if DEBUG
             recordStartupTelemetry("firmware_send_enter_ota_written", once: false)
+            if debugExpectedFirmwareVersion != nil {
+                debugFirmwareAwaitingPostDfuVerification = true
+                debugFirmwareVerifiedNotificationPosted = false
+                recordStartupTelemetry("debug_firmware_waiting_wireless_verify", once: false)
+            }
 #endif
             firmwareUpdateEntryCommandSent = true
             stopSecureLinkWatchdog()
@@ -141,10 +146,14 @@ extension DoorUnlockerController {
         pendingFirmwareUpdatePackageURL = nil
         firmwareUpdateEntryCommandSent = false
         firmwareUpdateEstimatedSecondsRemaining = nil
+#if DEBUG
+        debugFirmwareAwaitingPostDfuVerification = false
+        debugFirmwareVerifiedNotificationPosted = false
+#endif
         return false
     }
 
-    func beginFirmwareDfuUpload(after packageURL: URL) {
+    func beginFirmwareDfuUpload(after packageURL: URL, detectsNormalControllerFirmware: Bool = false) {
         firmwareUpdateStatus = "Waiting for update bootloader"
         firmwareUpdateProgress = nil
         firmwareUpdateEstimatedSecondsRemaining = nil
@@ -157,7 +166,10 @@ extension DoorUnlockerController {
             await MainActor.run {
                 guard let self, self.isFirmwareUpdateRunning else { return }
                 self.firmwareDfuStartFallbackTask = nil
-                self.firmwareDfuManager.start(packageURL: packageURL)
+                self.firmwareDfuManager.start(
+                    packageURL: packageURL,
+                    detectsNormalControllerFirmware: detectsNormalControllerFirmware
+                )
             }
         }
     }
@@ -170,7 +182,7 @@ extension DoorUnlockerController {
         isFirmwareUpdateRunning = true
         lastError = nil
         requestFirmwareUpdateNotificationAuthorizationIfNeeded()
-        beginFirmwareDfuUpload(after: packageURL)
+        beginFirmwareDfuUpload(after: packageURL, detectsNormalControllerFirmware: true)
     }
 
     func beginPendingFirmwareDfuUploadIfNeeded() {

@@ -125,15 +125,9 @@ extension DoorUnlockerController {
 
         let defaults = UserDefaults.standard
         let pendingVersion = defaults.string(forKey: Self.pendingBundledFirmwareUpdateVersionKey)
-        let targetVersion = pendingVersion?.isEmpty == false ? pendingVersion : bundledFirmwareVersion
-        guard let targetVersion else { return }
-
         let hasExplicitPendingUpdate = pendingVersion?.isEmpty == false
-        let canRecoverFromCachedOlderVersion = DoorFirmwareUpdatePolicy.decision(
-            installedVersion: firmwareVersion,
-            bundledVersion: targetVersion
-        ) == .installBundledVersion
-        guard hasExplicitPendingUpdate || canRecoverFromCachedOlderVersion else { return }
+        guard hasExplicitPendingUpdate,
+              let targetVersion = pendingVersion else { return }
 
         let startedAt = defaults.double(forKey: Self.pendingBundledFirmwareUpdateStartedAtKey)
         if hasExplicitPendingUpdate,
@@ -143,29 +137,6 @@ extension DoorUnlockerController {
             recordStartupTelemetry("firmware_resume_expired", details: targetVersion, once: false)
 #endif
             clearPendingBundledFirmwareUpdate()
-            return
-        }
-
-        guard hasExplicitPendingUpdate else {
-#if DEBUG
-            recordStartupTelemetry("firmware_resume_probe_scheduled", details: targetVersion, once: false)
-#endif
-            Task { [weak self] in
-                try? await Task.sleep(for: .seconds(2.5))
-                await MainActor.run {
-                    guard let self,
-                          !self.isFirmwareUpdateRunning,
-                          !self.isReady else {
-                        return
-                    }
-
-                    self.persistPendingBundledFirmwareUpdate(targetVersion: targetVersion)
-#if DEBUG
-                    self.recordStartupTelemetry("firmware_resume_probe_dfu", details: targetVersion, once: false)
-#endif
-                    self.startInterruptedBundledFirmwareDfuResume(targetVersion: targetVersion, packageURL: packageURL)
-                }
-            }
             return
         }
 

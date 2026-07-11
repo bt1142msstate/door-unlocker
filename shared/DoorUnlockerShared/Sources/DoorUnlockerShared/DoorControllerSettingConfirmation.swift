@@ -72,13 +72,13 @@ public struct DoorControllerSettingConfirmationState: Equatable, Sendable {
 }
 
 public enum DoorControllerSettingConfirmationPolicy {
-    public static let stateReadDelayNanoseconds: UInt64 = 650_000_000
     // Controller settings are persisted before the final state is published.
-    // Real hardware can take roughly 2.8 seconds, so retain the operation until
-    // its authoritative notification arrives and use five seconds only as the
-    // failure escape hatch. This does not delay successful UI completion.
-    public static let completionGraceNanoseconds: UInt64 = 4_350_000_000
-    public static let remoteApplyVisibilityNanoseconds: UInt64 = 3_000_000_000
+    // Replaying the complete snapshot after the observed flash-write window
+    // recovers a notification omitted by CoreBluetooth without guessing state.
+    public static let stateReadDelayNanoseconds: UInt64 = 4_250_000_000
+    public static let completionGraceNanoseconds: UInt64 = 1_750_000_000
+    public static let remoteSnapshotReplayDelayNanoseconds: UInt64 = 4_250_000_000
+    public static let remoteApplyVisibilityNanoseconds: UInt64 = 6_000_000_000
     public static let controllerIssuedNonceReadDelayNanoseconds: UInt64 = 60_000_000
     public static let explicitNonceFallbackDelayNanoseconds: UInt64 = 240_000_000
 }

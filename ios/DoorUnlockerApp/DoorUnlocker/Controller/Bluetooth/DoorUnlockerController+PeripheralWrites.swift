@@ -149,10 +149,8 @@ extension DoorUnlockerController {
             }
 
             if case .linkAuthentication = commandWriteIntent {
-                linkAuthenticationInFlight = false
-                hasAuthenticatedCurrentLink = true
 #if DEBUG
-                recordStartupTelemetry("door_command_usable", details: "link_authenticated")
+                recordStartupTelemetry("link_auth_write_acknowledged")
 #endif
             }
 

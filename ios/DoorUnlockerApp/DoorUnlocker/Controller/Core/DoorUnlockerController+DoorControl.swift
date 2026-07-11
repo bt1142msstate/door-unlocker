@@ -150,6 +150,25 @@ extension DoorUnlockerController {
 
     @discardableResult
     func sendDoorCommandAttempt(_ command: Command, attempt: Int, previousServoState: String?, origin: DoorCommandOrigin) -> Bool {
+        if DoorCommandSchedulingPolicy.shouldDeferNewCommand(
+            isControllerChangingState: isChangingState,
+            hasInFlightCommand: optimisticDoorCommand != nil
+        ) {
+            pendingFreshNonceDoorCommand = PendingFreshNonceDoorCommand(
+                command: command,
+                attempt: attempt,
+                previousServoState: previousServoState,
+                origin: origin
+            )
+#if DEBUG
+            recordStartupTelemetry(
+                "door_command_deferred_until_stable",
+                details: command.rawValue,
+                once: false
+            )
+#endif
+            return true
+        }
         let commandSentAt = Date()
         let unlockSentAt = command == .unlock ? commandSentAt : nil
         let commandText = command.commandText
@@ -159,6 +178,7 @@ extension DoorUnlockerController {
             recordStartupTelemetry("door_command_sent", details: command.rawValue, once: false)
 #endif
             optimisticDoorCommand = command
+            optimisticDoorCommandSessionGeneration = controllerSessionGeneration
             optimisticDoorCommandOrigin = origin
             optimisticDoorCommandSentAt = commandSentAt
             optimisticDoorCommandAttempt = attempt

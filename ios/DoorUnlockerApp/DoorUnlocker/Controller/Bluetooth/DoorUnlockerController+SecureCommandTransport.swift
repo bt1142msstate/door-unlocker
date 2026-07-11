@@ -54,7 +54,9 @@ extension DoorUnlockerController {
             switch action {
             case .sendNow:
                 stopDoorCommandTransportRecovery()
+                markFastCommandNonceConsumed()
                 invalidatePreparedFastDoorCommandPayloads(clearNonce: true)
+                beginControllerNonceHandoff()
                 lastError = nil
                 peripheral.writeValue(fastPayload.data, for: commandCharacteristic, type: .withoutResponse)
                 return true
@@ -88,20 +90,22 @@ extension DoorUnlockerController {
         }
 
         lastError = nil
+        markFastCommandNonceConsumed()
         invalidatePreparedFastDoorCommandPayloads(clearNonce: true)
+        beginControllerNonceHandoff()
+        if case .linkAuthentication = intent {
+            linkAuthenticationInFlight = true
+            linkAuthenticationAttemptCount += 1
+            scheduleLinkAuthenticationTimeout()
+        }
         if writeType == .withResponse {
             pendingCommandWriteIntents.append(intent)
-            if case .linkAuthentication = intent {
-                linkAuthenticationInFlight = true
-            }
         }
         peripheral.writeValue(data, for: commandCharacteristic, type: writeType)
         if writeType == .withoutResponse {
             if case .firmwareUpdate = intent {
                 firmwareUpdateStatus = "Waiting for controller update mode"
                 scheduleFirmwareDfuStartFallback()
-            } else if case .linkAuthentication = intent {
-                hasAuthenticatedCurrentLink = true
             }
         }
         return true

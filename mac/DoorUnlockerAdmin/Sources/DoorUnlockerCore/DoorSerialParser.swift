@@ -1,6 +1,21 @@
 import Foundation
 
 public enum DoorSerialParser {
+    public static func isValidControllerStatusResponse(_ lines: [String]) -> Bool {
+        guard lines.contains("APP_STATUS_BEGIN"),
+              lines.contains("APP_STATUS_END") else { return false }
+
+        let fields = blockLines(lines, begin: "APP_STATUS_BEGIN", end: "APP_STATUS_END")
+            .compactMap(keyValue)
+            .reduce(into: [String: String]()) { values, field in
+                values[field.0] = field.1
+            }
+        return fields["protocol"] == "1"
+            && (fields["model"]?.hasPrefix("DoorUnlocker-") ?? false)
+            && !(fields["boot_session"]?.isEmpty ?? true)
+            && ["ok", "fault"].contains(fields["storage_health"])
+    }
+
     public static func parseStatus(from lines: [String]) -> ControllerStatus {
         var status = ControllerStatus()
 
@@ -16,6 +31,10 @@ public enum DoorSerialParser {
                 status.lockName = value
             case "protocol":
                 status.protocolVersion = value
+            case "boot_session":
+                status.bootSessionIdentifier = value.isEmpty ? nil : value
+            case "storage_health":
+                status.storageHealth = value
             case "pairing_mode":
                 status.pairingMode = value
             case "paired_count":

@@ -11,6 +11,8 @@ import WidgetKit
 
 extension DoorUnlockerController {
     func clearDiscoveredControllerCharacteristics() {
+        invalidateCurrentControllerSession()
+        invalidateControllerFreshness()
         knownPairingFallbackTask?.cancel()
         knownPairingFallbackTask = nil
         postReadySyncTask?.cancel()
@@ -27,12 +29,34 @@ extension DoorUnlockerController {
         stateCharacteristic = nil
         pairingCharacteristic = nil
         controlCharacteristic = nil
+        restoredConnectionRefreshTask?.cancel()
+        restoredConnectionRefreshTask = nil
+        lastControllerActivityAt = nil
         stopSecureLinkWatchdog()
+        controlNonceRequestGate.invalidate()
+        stateSnapshotRequestGate.invalidate()
+        stateSnapshotRequestTimeoutTask?.cancel()
+        stateSnapshotRequestTimeoutTask = nil
         stopDoorCommandTransportRecovery()
         stopRSSIMonitoring()
         resetLinkAuthentication()
         pendingCommandWriteIntents.removeAll()
+        lastConsumedFastCommandNonce = nil
         invalidatePreparedFastDoorCommandPayloads(clearNonce: true)
+    }
+
+    private func invalidateCurrentControllerSession() {
+        controllerSessionGeneration &+= 1
+        settingsAuthenticationGeneration &+= 1
+
+        if optimisticDoorCommand != nil || pendingFreshNonceDoorCommand != nil {
+            let restoredState = stableRestoredDoorState()
+            clearOptimisticDoorCommand()
+            servoState = restoredState
+        }
+
+        requeueControllerSettingAfterSessionInterruption()
+        clearRemoteSettingApplying()
     }
 
     func prepareControllerSessionForFirmwareDfu() {
@@ -67,6 +91,36 @@ extension DoorUnlockerController {
 
         switch restoredPeripheral.state {
         case .connected:
+            if reason == "Restoring" {
+#if DEBUG
+                recordStartupTelemetry("restore_clean_reconnect")
+#endif
+                isRefreshingRestoredConnection = true
+                connectionState = "Reconnecting"
+                invalidateControllerFreshness()
+                central.cancelPeripheralConnection(restoredPeripheral)
+                restoredConnectionRefreshTask?.cancel()
+                restoredConnectionRefreshTask = Task { [weak self, weak restoredPeripheral] in
+                    try? await Task.sleep(for: .seconds(1))
+                    await MainActor.run {
+                        guard let self,
+                              self.isRefreshingRestoredConnection,
+                              let restoredPeripheral else { return }
+                        if restoredPeripheral.state == .connected || restoredPeripheral.state == .disconnecting {
+                            self.central?.cancelPeripheralConnection(restoredPeripheral)
+                        }
+                    }
+                    try? await Task.sleep(for: .seconds(2))
+                    await MainActor.run {
+                        guard let self, self.isRefreshingRestoredConnection else { return }
+                        self.isRefreshingRestoredConnection = false
+                        self.restoredConnectionRefreshTask = nil
+                        self.clearDiscoveredControllerCharacteristics()
+                        self.startScan()
+                    }
+                }
+                return
+            }
 #if DEBUG
             recordStartupTelemetry("restore_connected", details: reason)
 #endif

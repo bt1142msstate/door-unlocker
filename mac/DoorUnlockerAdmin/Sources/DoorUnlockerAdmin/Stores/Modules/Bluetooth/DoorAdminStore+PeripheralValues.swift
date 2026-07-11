@@ -17,6 +17,7 @@ extension DoorAdminStore {
 
             guard let data = characteristic.value else { return }
             let newState = String(data: data, encoding: .utf8) ?? "unknown"
+            lastControllerActivityAt = .now
             if characteristic.uuid == controlUUID {
                 if let nonce = ControllerStateParser.fastCommandNonce(from: newState) {
                     wirelessControlUpdateGeneration += 1
@@ -35,6 +36,12 @@ extension DoorAdminStore {
                 }
 
                 if let connections = ControllerStateParser.connectedDevices(from: newState) {
+                    guard markControllerConnectionRosterCurrent() else { return }
+                    recordRuntimeTelemetry(
+                        "controller_connections_received",
+                        details: "\(connections.count)/\(connections.max) \(connections.devices.map(\.displayName).joined(separator: "|"))",
+                        once: false
+                    )
                     var nextStatus = status
                     nextStatus.connectedCount = connections.count
                     nextStatus.maxConnections = connections.max
@@ -132,9 +139,7 @@ extension DoorAdminStore {
                     return
                 }
                 if case .linkAuthentication = commandWriteIntent {
-                    wirelessLinkAuthenticationInFlight = false
-                    hasAuthenticatedCurrentWirelessLink = true
-                    recordRuntimeTelemetry("door_command_usable", details: "link_authenticated")
+                    recordRuntimeTelemetry("wireless_auth_write_acknowledged")
                 }
                 if case .pairingAdmin = commandWriteIntent {
                     if !isWirelessStateNotificationEnabled {

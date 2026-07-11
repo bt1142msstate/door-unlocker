@@ -101,7 +101,7 @@ extension DoorAdminStore {
             guard !Task.isCancelled else { return }
             await MainActor.run {
                 guard let self, self.fastDoorCommandInFlight == command else { return }
-                self.fastDoorCommandInFlight = nil
+                self.restorePredictedDoorStateIfNeeded()
                 self.wirelessDoorCommandConfirmationTask = nil
                 let action = command == .unlock ? "unlock" : "lock"
                 self.recordRuntimeTelemetry(
@@ -138,7 +138,9 @@ extension DoorAdminStore {
                 details: "\(inFlightCommand.rawValue) state=\(state)",
                 once: false
             )
+            hasAuthenticatedCurrentWirelessLink = true
             fastDoorCommandInFlight = nil
+            fastDoorCommandPreviousStatus = nil
             stopWirelessDoorCommandConfirmation()
             lastError = nil
         }

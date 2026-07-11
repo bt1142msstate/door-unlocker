@@ -7,7 +7,19 @@ import os
 
 extension DoorAdminStore {
     func applyWirelessState(_ newState: String) {
+        lastControllerActivityAt = .now
         recordRuntimeTelemetry("wireless_state_received", details: newState, once: false)
+        if let sessionIdentifier = DoorControllerStateParsing.sessionIdentifier(from: newState) {
+            applyControllerBootSession(sessionIdentifier)
+            return
+        }
+        if let healthState = DoorControllerStateParsing.healthState(from: newState) {
+            guard applyControllerStorageHealth(healthState) else { return }
+            if healthState == "storage_fault" {
+                lastError = "Controller storage is unavailable. Secure control is disabled until storage is repaired."
+            }
+            return
+        }
         if let applying = ControllerStateParser.settingApplying(from: newState) {
             applyRemoteSettingApplying(kind: applying.kind, value: applying.value)
             updateWirelessPairingState(from: "paired")
@@ -47,8 +59,8 @@ extension DoorAdminStore {
             nextStatus.firmwareVersion = controllerFirmwareVersion
             status = nextStatus
             saveCachedStatus(nextStatus)
-            wirelessFirmwareVersionSnapshotRetryTask?.cancel()
-            wirelessFirmwareVersionSnapshotRetryTask = nil
+            hasCurrentFirmwareVersionSnapshot = true
+            refreshWirelessControllerMetadataSnapshotRetry()
             postFirmwareVerificationIfNeeded(controllerFirmwareVersion)
             if firmwareUpdateStatus == "Update complete. Verifying..." {
                 firmwareUpdateStatus = "Verified \(controllerFirmwareVersion)"
@@ -71,6 +83,12 @@ extension DoorAdminStore {
         }
 
         if let connections = ControllerStateParser.connectedDevices(from: newState) {
+            guard markControllerConnectionRosterCurrent() else { return }
+            recordRuntimeTelemetry(
+                "controller_connections_received",
+                details: "\(connections.count)/\(connections.max) \(connections.devices.map(\.displayName).joined(separator: "|"))",
+                once: false
+            )
             var nextStatus = status
             nextStatus.connectedCount = connections.count
             nextStatus.maxConnections = connections.max
@@ -86,6 +104,7 @@ extension DoorAdminStore {
         let payload = ControllerStatePayload.parse(newState)
         let isDoorStatePayload = DoorControlPresentationPolicy.isDoorState(payload.state)
         if isDoorStatePayload {
+            guard markControllerStateSnapshotCurrent() else { return }
             reconcileWirelessDoorCommands(with: payload.state)
             wirelessStateUpdateGeneration += 1
             wirelessStateSnapshotFallbackTask?.cancel()
@@ -158,6 +177,9 @@ extension DoorAdminStore {
             clearRemoteSettingApplying()
         }
         status = nextStatus
+        if isDoorStatePayload && !DoorControlPresentationPolicy.isChangingState(payload.state) {
+            fastDoorCommandPreviousStatus = nil
+        }
         saveCachedStatus(nextStatus)
         if isDoorStatePayload {
             if DoorControlPresentationPolicy.isChangingState(payload.state) {
@@ -167,5 +189,9 @@ extension DoorAdminStore {
         hasConfirmedExpiredAutoLockDeadline = false
         message = statusMessage(for: status)
         updateWirelessPairingState(from: payload.state)
+        if isDoorStatePayload,
+           !DoorControlPresentationPolicy.isChangingState(payload.state) {
+            sendQueuedWirelessCommand()
+        }
     }
 }

@@ -85,7 +85,9 @@ extension DoorUnlockerController {
     }
 
     func shouldIgnoreStaleDoorState(_ incomingState: String) -> Bool {
-        guard let optimisticDoorCommand, let optimisticDoorCommandSentAt else {
+        guard let optimisticDoorCommand,
+              let optimisticDoorCommandSentAt,
+              optimisticDoorCommandSessionGeneration == controllerSessionGeneration else {
             return false
         }
 
@@ -117,6 +119,7 @@ extension DoorUnlockerController {
                 once: false
             )
 #endif
+            hasAuthenticatedCurrentLink = true
             optimisticDoorCommandAcknowledged = true
             lastError = nil
         case (.unlock, "unlocked"):
@@ -127,6 +130,7 @@ extension DoorUnlockerController {
                 once: false
             )
 #endif
+            hasAuthenticatedCurrentLink = true
             let origin = optimisticDoorCommandOrigin
             if let optimisticDoorCommandSentAt {
                 applyKnownLastUnlock(
@@ -148,6 +152,7 @@ extension DoorUnlockerController {
                 once: false
             )
 #endif
+            hasAuthenticatedCurrentLink = true
             let origin = optimisticDoorCommandOrigin
             lastError = nil
             clearOptimisticDoorCommand()

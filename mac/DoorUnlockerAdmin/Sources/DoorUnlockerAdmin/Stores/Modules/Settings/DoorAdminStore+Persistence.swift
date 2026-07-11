@@ -113,6 +113,9 @@ extension DoorAdminStore {
     }
 
     func applyControllerLockName(_ name: String) {
+        if wirelessLinkAuthenticationInFlight {
+            completeWirelessLinkAuthentication()
+        }
         clearRemoteSettingApplying()
         let sanitizedName = Self.sanitizedLockName(name)
         guard !sanitizedName.isEmpty else { return }
@@ -177,6 +180,15 @@ extension DoorAdminStore {
             return
         }
 
+        guard canQueueWirelessCommandForKnownController else {
+            lockNameStatus = "Waiting for controller"
+            return
+        }
+        guard pendingWirelessCommandText == nil else {
+            lockNameStatus = "Waiting for controller"
+            schedulePendingLockNameRetry()
+            return
+        }
         inFlightLockName = name
         pendingLockName = nil
         lockNameStatus = "Setting..."

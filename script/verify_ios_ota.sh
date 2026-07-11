@@ -144,6 +144,21 @@ fi
 dist_hash="$(shasum -a 256 "$ROOT_DIR/dist/DoorUnlockerXiao-dfu.zip" | awk '{print $1}')"
 bundled_hash="$(shasum -a 256 "$ROOT_DIR/ios/DoorUnlockerApp/DoorUnlocker/Firmware/DoorUnlockerXiao-dfu.zip" | awk '{print $1}')"
 package_bytes="$(stat -f %z "$ROOT_DIR/dist/DoorUnlockerXiao-dfu.zip")"
+payload_hash="$(python3 - "$ROOT_DIR/dist/DoorUnlockerXiao-dfu.zip" <<'PY'
+import hashlib
+import sys
+import zipfile
+
+digest = hashlib.sha256()
+with zipfile.ZipFile(sys.argv[1]) as archive:
+    for name in sorted(info.filename for info in archive.infolist() if not info.is_dir()):
+        digest.update(name.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(archive.read(name))
+        digest.update(b"\0")
+print(digest.hexdigest())
+PY
+)"
 if [[ "$dist_hash" != "$bundled_hash" ]]; then
   echo "Bundled iOS DFU package does not match dist/DoorUnlockerXiao-dfu.zip." >&2
   echo "dist=$dist_hash" >&2
@@ -154,6 +169,7 @@ fi
 mkdir -p "$OTA_TELEMETRY_DIR" "$(dirname "$OTA_REPORT_PATH")"
 launch_json="$OTA_TELEMETRY_DIR/${RUN_ID}-launch.json"
 launch_log="$OTA_TELEMETRY_DIR/${RUN_ID}-launch.log"
+app_console_log="$OTA_TELEMETRY_DIR/${RUN_ID}-app-console.log"
 
 write_ota_report() {
   local result="$1"
@@ -175,6 +191,7 @@ write_ota_report() {
   DIST_HASH="$dist_hash" \
   BUNDLED_HASH="$bundled_hash" \
   PACKAGE_BYTES="$package_bytes" \
+  PAYLOAD_HASH="$payload_hash" \
   DFU_PRN="$DFU_PRN" \
   DFU_OBJECT_PREP_DELAY="$DFU_OBJECT_PREP_DELAY" \
   DFU_SCAN_TIMEOUT="$DFU_SCAN_TIMEOUT" \
@@ -184,6 +201,7 @@ write_ota_report() {
   OBSERVER_JSON="${observer_json:-}" \
   LAUNCH_LOG="$launch_log" \
   LAUNCH_JSON="$launch_json" \
+  APP_CONSOLE_LOG="$app_console_log" \
   OTA_REPORT_PATH="$OTA_REPORT_PATH" \
   /usr/bin/python3 <<'PY'
 import json
@@ -221,6 +239,8 @@ report = {
     "endedAt": os.environ["ENDED_AT"],
     "durationSeconds": int(os.environ["DURATION_SECONDS"]),
     "targetFirmware": os.environ["TARGET_FIRMWARE"],
+    "entryCommandOver": "ble" if os.environ["WIRELESS_ONLY"] == "1" else None,
+    "usbRecoveryCommandUsed": False if os.environ["WIRELESS_ONLY"] == "1" else None,
     "deviceUdid": os.environ["DEVICE_UDID"],
     "wirelessOnly": os.environ["WIRELESS_ONLY"] == "1",
     "verifiedOver": os.environ["VERIFIED_OVER"] or None,
@@ -228,6 +248,7 @@ report = {
         "bytes": int(os.environ["PACKAGE_BYTES"]),
         "distSha256": os.environ["DIST_HASH"],
         "bundledSha256": os.environ["BUNDLED_HASH"],
+        "payloadSha256": os.environ["PAYLOAD_HASH"],
     },
     "dfuTuningOverrides": {
         "packetReceiptNotificationParameter": optional_int(os.environ["DFU_PRN"]),
@@ -241,6 +262,7 @@ report = {
         "observerJson": optional_existing_path(os.environ["OBSERVER_JSON"]),
         "launchLog": optional_existing_path(os.environ["LAUNCH_LOG"]),
         "launchJson": optional_existing_path(os.environ["LAUNCH_JSON"]),
+        "appConsoleLog": optional_existing_path(os.environ["APP_CONSOLE_LOG"]),
     },
 }
 
@@ -253,12 +275,17 @@ PY
 "$ROOT_DIR/script/install_ios_app.sh" --device-udid "$DEVICE_UDID" --no-launch
 
 observer_pid=""
+app_console_pid=""
 observer_log=""
 observer_json=""
 cleanup_observer() {
   if [[ -n "$observer_pid" ]] && kill -0 "$observer_pid" 2>/dev/null; then
     kill "$observer_pid" 2>/dev/null || true
     wait "$observer_pid" 2>/dev/null || true
+  fi
+  if [[ -n "$app_console_pid" ]] && kill -0 "$app_console_pid" 2>/dev/null; then
+    kill "$app_console_pid" 2>/dev/null || true
+    wait "$app_console_pid" 2>/dev/null || true
   fi
 }
 trap cleanup_observer EXIT
@@ -300,13 +327,35 @@ if [[ -n "$DFU_CONNECTION_TIMEOUT" ]]; then
   launch_args+=("--debug-dfu-connection-timeout" "$DFU_CONNECTION_TIMEOUT")
 fi
 
-xcrun devicectl device \
-  --json-output "$launch_json" \
-  --log-output "$launch_log" \
-  process launch \
-  --device "$DEVICE_UDID" \
-  --terminate-existing \
-  "${launch_args[@]}"
+if [[ "$WIRELESS_ONLY" == "1" ]]; then
+  # Keep a console client attached for the duration of a foreground OTA proof.
+  # Without this, a locked lab phone may suspend the app after CoreBluetooth
+  # finishes transferring and prevent its bounded completion recovery from
+  # running until the next user launch.
+  xcrun devicectl device \
+    --json-output "$launch_json" \
+    --log-output "$launch_log" \
+    process launch \
+    --device "$DEVICE_UDID" \
+    --terminate-existing \
+    --console \
+    "${launch_args[@]}" > "$app_console_log" 2>&1 &
+  app_console_pid=$!
+  sleep 2
+  if ! kill -0 "$app_console_pid" 2>/dev/null; then
+    echo "iPhone app console session exited before OTA verification began." >&2
+    sed -n '1,160p' "$app_console_log" >&2 || true
+    exit 1
+  fi
+else
+  xcrun devicectl device \
+    --json-output "$launch_json" \
+    --log-output "$launch_log" \
+    process launch \
+    --device "$DEVICE_UDID" \
+    --terminate-existing \
+    "${launch_args[@]}"
+fi
 
 start_epoch="$(date +%s)"
 if [[ "$WIRELESS_ONLY" == "1" ]]; then

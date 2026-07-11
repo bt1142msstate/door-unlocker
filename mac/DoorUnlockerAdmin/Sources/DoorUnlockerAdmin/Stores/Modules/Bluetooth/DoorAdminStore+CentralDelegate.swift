@@ -118,11 +118,20 @@ extension DoorAdminStore: CBCentralManagerDelegate {
         isWirelessStateNotificationEnabled = false
         resetWirelessLinkAuthentication()
         resetWirelessControlNonceRequest()
+        wirelessControlNonceRequestGate.invalidate()
         stopSecureLinkWatchdog()
         stopWirelessDoorCommandTransportRecovery()
         stopWirelessDoorCommandConfirmation()
         fastDoorCommandInFlight = nil
+        lastConsumedFastCommandNonce = nil
         invalidatePreparedFastDoorCommandPayloads(clearNonce: true)
+        invalidateControllerFreshness()
+        lastControllerActivityAt = nil
+        restorePredictedDoorStateIfNeeded()
+        var disconnectedStatus = statusRemovingLocalUSBConnection(status)
+        disconnectedStatus.connectedCount = 0
+        disconnectedStatus.connectedDevices = []
+        status = disconnectedStatus
 
         if isFirmwareUpdateRunning {
             wirelessConnectionState = "Updating firmware"

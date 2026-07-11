@@ -41,6 +41,8 @@ public struct ControllerStatus: Equatable {
     public var firmwareVersion = "Unknown"
     public var lockName = "My Lock"
     public var protocolVersion = "unknown"
+    public var bootSessionIdentifier: String?
+    public var storageHealth = "unknown"
     public var pairingMode = "unknown"
     public var pairedCount = 0
     public var maxPairs = 0

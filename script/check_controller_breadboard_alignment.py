@@ -6,9 +6,12 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from html_runtime import render_html
+
 
 ROOT = Path(__file__).resolve().parents[1]
 HTML = (ROOT / "phase-1-desk-test-wiring.html").read_text()
+RUNTIME_HTML = render_html(ROOT / "phase-1-desk-test-wiring.html")
 TOLERANCE = 1.0
 
 
@@ -36,14 +39,21 @@ def main() -> int:
         'd="M2 0 V103.7 H19.5"',
         'd="M151 237 V79.1 H136.3"',
         'd="M136 237 V91.4"',
-        'd="M471 490 V330 H577"',
-        'd="M471 490 V543.7"',
-        'd="M620 780.7 V790"',
-        'd="M605 780.7 V790"',
+        'id="controllerPowerWire"',
+        'id="controllerGroundWire"',
+        'id="controllerSignalWire"',
+        'const controllerPower = assemblyPoint(151, 1)',
+        'const controllerGround = assemblyPoint(136, 1)',
+        'const controllerSignal = assemblyPoint(2, 0)',
     )
     for marker in required:
         if marker not in HTML:
             raise AssertionError(f"Missing layered controller marker: {marker}")
+
+    for path_id in ("controllerPowerWire", "controllerGroundWire", "controllerSignalWire"):
+        rendered = re.search(rf'id="{path_id}"[^>]*\sd="([^"]+)"', RUNTIME_HTML)
+        if not rendered:
+            raise AssertionError(f"Runtime controller path {path_id} has no geometry")
 
     assembly_width = css_value(".controller-assembly", "width")
     assembly_height = 237.0

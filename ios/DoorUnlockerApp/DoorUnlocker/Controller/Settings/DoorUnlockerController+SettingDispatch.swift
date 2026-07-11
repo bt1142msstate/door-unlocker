@@ -10,7 +10,22 @@ import UserNotifications
 import WidgetKit
 
 extension DoorUnlockerController {
+#if DEBUG
+    func applyAutoLockTimeoutForTesting(_ seconds: Int) {
+        autoLockSeconds = DoorControllerPolicy.clampedAutoLockSeconds(seconds)
+        pendingAutoLockTimeoutSeconds = autoLockSeconds
+        applyAutoLockTimeout()
+    }
+#endif
+
     func applyAutoLockTimeout() {
+#if DEBUG
+        recordStartupTelemetry(
+            "controller_setting_requested",
+            details: "timeout=\(autoLockSeconds)",
+            once: false
+        )
+#endif
         guard isReady else {
             queuedAutoLockTimeoutSeconds = autoLockSeconds
             autoLockStatus = controllerSettingPendingStatusTitle
@@ -30,6 +45,13 @@ extension DoorUnlockerController {
         }
 
         if writeAuthenticatedCommand(commandText, intent: .autoLockTimeout(autoLockSeconds)) {
+#if DEBUG
+            recordStartupTelemetry(
+                "controller_setting_sent",
+                details: "timeout=\(autoLockSeconds)",
+                once: false
+            )
+#endif
             beginControllerSettingConfirmation(.autoLockTimeout(autoLockSeconds))
         } else {
             pendingAutoLockTimeoutSeconds = nil
@@ -74,6 +96,13 @@ extension DoorUnlockerController {
     func applyControllerAutoLockTimeout(_ seconds: Int) {
         clearRemoteSettingApplying()
         let confirmedSeconds = DoorControllerPolicy.clampedAutoLockSeconds(seconds)
+#if DEBUG
+        recordStartupTelemetry(
+            "controller_setting_applied",
+            details: "timeout=\(confirmedSeconds)",
+            once: false
+        )
+#endif
 
         if pendingAutoLockTimeoutSeconds == confirmedSeconds {
             pendingAutoLockTimeoutSeconds = nil

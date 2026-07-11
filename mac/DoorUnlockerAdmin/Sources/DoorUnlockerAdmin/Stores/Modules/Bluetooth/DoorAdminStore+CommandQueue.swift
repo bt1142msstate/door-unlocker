@@ -55,8 +55,14 @@ extension DoorAdminStore {
     func storePendingWirelessCommand(
         _ commandText: String,
         predictedDoorCommand: Command?,
-        intent: WirelessCommandWriteIntent
+        intent: WirelessCommandWriteIntent,
+        source: StaticString = #function
     ) {
+        recordRuntimeTelemetry(
+            "wireless_command_queued",
+            details: "\(telemetryCommandLabel(commandText: commandText, predictedDoorCommand: predictedDoorCommand, intent: intent)) source=\(source)",
+            once: false
+        )
         pendingWirelessCommandText = commandText
         pendingWirelessPredictedCommand = predictedDoorCommand
         pendingWirelessCommandIntent = intent

@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
 
+from html_runtime import render_html
+
 
 ROOT = Path(__file__).resolve().parents[1]
 HTML_PATH = ROOT / "phase-1-desk-test-wiring.html"
@@ -54,6 +56,7 @@ class WireParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
         self.paths: list[WirePath] = []
+        self.bridges: list[WirePath] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag != "path":
@@ -62,11 +65,17 @@ class WireParser(HTMLParser):
         classes = frozenset(values.get("class", "").split())
         if "wire" not in classes or "bread-jumper" in classes or "card-bridge" in classes:
             return
-        self.paths.append(WirePath(values.get("data-parts", "unlabeled"), classes, values["d"]))
+        if not values.get("d"):
+            raise AssertionError(f"Runtime wire path {values.get('id', 'unlabeled')} has no geometry")
+        path = WirePath(values.get("data-parts", "unlabeled"), classes, values["d"])
+        if "wire-bridge" in classes:
+            self.bridges.append(path)
+        else:
+            self.paths.append(path)
 
 
 def segments_for(path: WirePath) -> list[Segment]:
-    tokens = re.findall(r"[MHV]|-?\d+(?:\.\d+)?", path.d)
+    tokens = re.findall(r"[MHVL]|-?\d+(?:\.\d+)?", path.d)
     index = 0
     x = 0.0
     y = 0.0
@@ -88,6 +97,12 @@ def segments_for(path: WirePath) -> list[Segment]:
             index += 1
             segments.append(Segment(path, x, y, x, next_y))
             y = next_y
+        elif command == "L":
+            next_x = float(tokens[index])
+            next_y = float(tokens[index + 1])
+            index += 2
+            segments.append(Segment(path, x, y, next_x, next_y))
+            x, y = next_x, next_y
         else:
             raise ValueError(f"Unsupported SVG command {command!r} in {path.d!r}")
     return [segment for segment in segments if segment.x1 != segment.x2 or segment.y1 != segment.y2]
@@ -103,7 +118,49 @@ def overlap_length(first_min: float, first_max: float, second_min: float, second
     return min(first_max, second_max) - max(first_min, second_min)
 
 
-def issues_for_mode(paths: list[WirePath], mode: str) -> list[str]:
+def intersection_point(first: Segment, second: Segment) -> tuple[float, float] | None:
+    """Return the intersection of two finite straight segments, including diagonals."""
+
+    denominator = (first.x1 - first.x2) * (second.y1 - second.y2) - (
+        first.y1 - first.y2
+    ) * (second.x1 - second.x2)
+    if abs(denominator) < 1e-9:
+        return None
+    first_cross = first.x1 * first.y2 - first.y1 * first.x2
+    second_cross = second.x1 * second.y2 - second.y1 * second.x2
+    x = (
+        first_cross * (second.x1 - second.x2)
+        - (first.x1 - first.x2) * second_cross
+    ) / denominator
+    y = (
+        first_cross * (second.y1 - second.y2)
+        - (first.y1 - first.y2) * second_cross
+    ) / denominator
+    epsilon = 1e-6
+    if not (
+        first.min_x - epsilon <= x <= first.max_x + epsilon
+        and first.min_y - epsilon <= y <= first.max_y + epsilon
+        and second.min_x - epsilon <= x <= second.max_x + epsilon
+        and second.min_y - epsilon <= y <= second.max_y + epsilon
+    ):
+        return None
+    return x, y
+
+
+def bridge_covers(bridges: list[WirePath], wire: WirePath, x: float, y: float) -> bool:
+    for bridge in bridges:
+        if bridge.label != wire.label:
+            continue
+        for segment in segments_for(bridge):
+            if (
+                segment.min_x - 0.1 <= x <= segment.max_x + 0.1
+                and segment.min_y - 0.1 <= y <= segment.max_y + 0.1
+            ):
+                return True
+    return False
+
+
+def issues_for_mode(paths: list[WirePath], bridges: list[WirePath], mode: str) -> list[str]:
     segments = [segment for path in paths if visible(path, mode) for segment in segments_for(path)]
     issues: list[str] = []
     for index, first in enumerate(segments):
@@ -128,24 +185,26 @@ def issues_for_mode(paths: list[WirePath], mode: str) -> list[str]:
                     issues.append(f"vertical clearance below {MIN_PARALLEL_CENTER_SPACING:g}px: {pair}")
                 continue
 
-            horizontal, vertical = (first, second) if first.horizontal else (second, first)
-            if (
-                horizontal.min_x <= vertical.x1 <= horizontal.max_x
-                and vertical.min_y <= horizontal.y1 <= vertical.max_y
-            ):
-                issues.append(f"perpendicular crossing: {pair} at ({vertical.x1:g}, {horizontal.y1:g})")
+            intersection = intersection_point(first, second)
+            if intersection:
+                x, y = intersection
+                if not (
+                    bridge_covers(bridges, first.wire, x, y)
+                    or bridge_covers(bridges, second.wire, x, y)
+                ):
+                    issues.append(f"wire crossing: {pair} at ({x:g}, {y:g})")
     return sorted(set(issues))
 
 
 def main() -> int:
     parser = WireParser()
-    parser.feed(HTML_PATH.read_text())
+    parser.feed(render_html(HTML_PATH))
     if not parser.paths:
         raise AssertionError("No bench wiring paths found")
 
     failures: list[str] = []
     for mode in ("buck", "usb"):
-        issues = issues_for_mode(parser.paths, mode)
+        issues = issues_for_mode(parser.paths, parser.bridges, mode)
         print(f"{mode} mode: {len(parser.paths) - sum(not visible(path, mode) for path in parser.paths)} visible paths")
         if issues:
             failures.extend(f"{mode}: {issue}" for issue in issues)
@@ -154,6 +213,9 @@ def main() -> int:
 
     if failures:
         raise AssertionError("\n".join(failures))
+    if not parser.bridges:
+        raise AssertionError("Intentional wire crossing has no rendered bridge marker")
+    print(f"- {len(parser.bridges)} intentional crossing bridge rendered")
     print("Bench wiring path validation: PASS")
     return 0
 

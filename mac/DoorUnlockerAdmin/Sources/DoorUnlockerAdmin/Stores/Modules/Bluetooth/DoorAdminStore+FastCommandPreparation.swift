@@ -7,25 +7,32 @@ import os
 
 extension DoorAdminStore {
     var needsFreshSecureNonce: Bool {
-        isWirelessReady &&
+        isWirelessGattReady && !hasRejectedCurrentSecurePairing &&
+            !wirelessControllerNonceHandoffGate.isInFlight &&
+            inFlightControllerSetting == nil &&
+            remoteSettingApplyKind == nil &&
             !hasFastCommandNonce &&
-            ((pendingFirmwareUpdatePackageURL != nil && !firmwareUpdateEntryCommandSent) ||
-                pendingWirelessCommandText != nil ||
+            (((hasTrustedWirelessPairingForSecureCommand && pendingFirmwareUpdatePackageURL != nil && !firmwareUpdateEntryCommandSent) ||
+                (hasTrustedWirelessPairingForSecureCommand && pendingWirelessCommandText != nil)) ||
                 needsWirelessLinkAuthentication ||
-                needsFastDoorCommandPreparation)
+                (hasTrustedWirelessPairingForSecureCommand && needsFastDoorCommandPreparation))
     }
 
     var needsWirelessLinkAuthentication: Bool {
         !hasAuthenticatedCurrentWirelessLink &&
             !wirelessLinkAuthenticationInFlight &&
+            fastDoorCommandInFlight == nil &&
             pendingWirelessCommandText == nil &&
-            pendingFirmwareUpdatePackageURL == nil
+            pendingFirmwareUpdatePackageURL == nil &&
+            !isApplyingControllerSetting
     }
 
     var needsFastDoorCommandPreparation: Bool {
         hasAuthenticatedCurrentWirelessLink &&
+            fastDoorCommandInFlight == nil &&
             pendingWirelessCommandText == nil &&
             pendingFirmwareUpdatePackageURL == nil &&
+            !isApplyingControllerSetting &&
             !hasPreparedFastDoorCommandPayloads
     }
 
@@ -37,16 +44,47 @@ extension DoorAdminStore {
     }
 
     func resetWirelessLinkAuthentication() {
+        wirelessLinkAuthenticationTimeoutTask?.cancel()
+        wirelessLinkAuthenticationTimeoutTask = nil
         hasAuthenticatedCurrentWirelessLink = false
         wirelessLinkAuthenticationInFlight = false
+        wirelessLinkAuthenticationAttemptCount = 0
+        resetWirelessControllerNonceHandoff()
     }
 
     func markWirelessConnectionObserved() {
-        guard !isConnected else { return }
-        var nextStatus = status
-        nextStatus.connectedCount = max(nextStatus.connectedCount, 1)
-        nextStatus.maxConnections = max(nextStatus.maxConnections, 4)
-        status = nextStatus
+        lastControllerActivityAt = .now
+    }
+
+    func completeWirelessLinkAuthentication() {
+        wirelessLinkAuthenticationTimeoutTask?.cancel()
+        wirelessLinkAuthenticationTimeoutTask = nil
+        wirelessLinkAuthenticationInFlight = false
+        wirelessLinkAuthenticationAttemptCount = 0
+        hasAuthenticatedCurrentWirelessLink = true
+        setTrustedMacController(true)
+        wirelessPairingState = "Ready"
+        recordRuntimeTelemetry("door_command_usable", details: "link_authenticated")
+    }
+
+    func scheduleWirelessLinkAuthenticationTimeout() {
+        wirelessLinkAuthenticationTimeoutTask?.cancel()
+        wirelessLinkAuthenticationTimeoutTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1.5))
+            await MainActor.run {
+                guard let self, self.wirelessLinkAuthenticationInFlight else { return }
+                self.wirelessLinkAuthenticationTimeoutTask = nil
+                self.wirelessLinkAuthenticationInFlight = false
+                self.hasAuthenticatedCurrentWirelessLink = false
+                self.invalidatePreparedFastDoorCommandPayloads(clearNonce: true)
+                if self.wirelessLinkAuthenticationAttemptCount < 2 {
+                    self.requestWirelessControlNonceWithoutWatchdog()
+                } else {
+                    self.stopWirelessSession(reason: "Reconnecting")
+                    self.scanBluetooth()
+                }
+            }
+        }
     }
 
     func prepareFastDoorCommandPayloads(for nonce: Data) {
@@ -131,6 +169,14 @@ extension DoorAdminStore {
     }
 
     func applyFastCommandNonce(_ nonce: Data) {
+        guard DoorSecureNonceAcceptancePolicy.shouldAccept(
+            receivedNonce: nonce,
+            lastConsumedNonce: lastConsumedFastCommandNonce
+        ) else {
+            recordRuntimeTelemetry("consumed_nonce_duplicate_ignored", once: false)
+            return
+        }
+        completeWirelessControllerNonceHandoff()
         firmwareLog.info("Secure nonce received pendingFirmware=\(self.pendingFirmwareUpdatePackageURL != nil, privacy: .public)")
         stopSecureLinkWatchdog()
         fastCommandNonce = nonce
@@ -149,11 +195,18 @@ extension DoorAdminStore {
         prepareFastDoorCommandPayloads(for: nonce)
     }
 
+    func markFastCommandNonceConsumed() {
+        if let fastCommandNonce {
+            lastConsumedFastCommandNonce = fastCommandNonce
+        }
+    }
+
     @discardableResult
     func sendWirelessLinkAuthenticationProbeIfNeeded() -> Bool {
         guard needsWirelessLinkAuthentication,
               fastCommandNonce != nil,
-              isWirelessReady else {
+              isWirelessGattReady,
+              !hasRejectedCurrentSecurePairing else {
             return false
         }
 

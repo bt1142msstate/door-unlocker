@@ -17,6 +17,7 @@ The default suite runs:
 - low coupling, high modularity, and independence gate: `script/score_modularity.py --threshold 95`;
 - iOS/Mac shared ownership and test-registration gate: `script/score_shared_parity.py --threshold 95`;
 - a XIAO firmware compile plus semantic app/DFU payload contract check;
+- the fast command, transactional persistence, and per-subscriber notification-delivery contracts;
 - shared package tests: `swift test --package-path shared/DoorUnlockerShared`;
 - Mac core/admin package tests, including parser and secure-packet adapter vectors;
 - iOS host-app adapter tests on an automatically discovered simulator, with `.xcresult` coverage evidence;
@@ -44,11 +45,17 @@ These are opt-in because they can touch real devices or send real lock/unlock co
 
 ```sh
 python3 script/quality_suite.py --live-mac-ui
+python3 script/quality_suite.py --live-mixed-client
+python3 script/quality_suite.py --firmware-release
 python3 script/quality_suite.py --install-mac
 python3 script/quality_suite.py --install-ios
 ```
 
 `--live-mac-ui` opens the installed Mac app and clicks the main lock/unlock control surface through Accessibility. It is useful for catching UI action-path glitches, but it should only be used when sending a real command is safe.
+
+`--live-mixed-client` runs repeated iPhone/Mac relaunch recovery, alternating cross-client lock/unlock commands, and durable setting changes. It requires both trusted apps and the controller to be available, and it writes private raw telemetry to ignored local report files.
+
+`--firmware-release` requires a checked-in physical proof whose firmware version and payload hash match the exact current DFU package. The proof must show authenticated BLE entry, no USB recovery command, and post-reboot firmware verification over BLE.
 
 ## What The Suite Measures
 

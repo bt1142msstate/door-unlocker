@@ -69,6 +69,13 @@ struct DoorUnlockerScreen: View {
             _ = controller.send(.unlock)
             return
         }
+        if url.scheme == "doorunlocker", url.host == "debug-timeout",
+           let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+           let rawSeconds = components.queryItems?.first(where: { $0.name == "seconds" })?.value,
+           let seconds = Int(rawSeconds) {
+            controller.applyAutoLockTimeoutForTesting(seconds)
+            return
+        }
 #endif
         if controller.handlePairingInviteURL(url) {
             settingsExpanded = false

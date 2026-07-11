@@ -1,17 +1,14 @@
 {
-  "durationSeconds": 92.262,
-  "endedAt": "2026-07-10T16:56:23Z",
-  "entryCommandElapsedMilliseconds": 284,
+  "durationSeconds": 78,
+  "endedAt": "2026-07-11T13:01:45Z",
   "entryCommandOver": "ble",
-  "message": "Cold-launch trusted-iPhone OTA entered DFU with a signed BLE command, uploaded, rebooted, and verified 0.1.9 over BLE.",
+  "message": "Trusted iPhone sent a signed BLE OTA command, uploaded the package, rebooted, and verified firmware 0.1.24 over BLE.",
   "package": {
-    "bytes": 129851,
-    "payloadSha256": "d124cc7bab5af96c81ba2f13397bca63e0b1a4849c8622618d4cfde5c9401be4"
+    "bytes": 135031,
+    "payloadSha256": "6178320154e6b6e7500b83735febbc87677c3be563bbeced02587ddf7268c5c3"
   },
   "result": "pass",
-  "runId": "20260710T165451Z",
-  "targetFirmware": "0.1.9",
-  "uploadSeconds": 82.38,
+  "targetFirmware": "0.1.24",
   "usbRecoveryCommandUsed": false,
   "verifiedOver": "ble"
 }

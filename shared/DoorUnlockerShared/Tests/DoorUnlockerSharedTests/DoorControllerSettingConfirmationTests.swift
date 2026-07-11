@@ -54,7 +54,12 @@ final class DoorControllerSettingConfirmationTests: XCTestCase {
     func testConfirmationTimingLeavesRoomForControllerNotification() {
         XCTAssertGreaterThan(DoorControllerSettingConfirmationPolicy.stateReadDelayNanoseconds, 0)
         XCTAssertGreaterThan(DoorControllerSettingConfirmationPolicy.completionGraceNanoseconds, 0)
+        XCTAssertGreaterThan(DoorControllerSettingConfirmationPolicy.remoteSnapshotReplayDelayNanoseconds, 0)
         XCTAssertGreaterThan(DoorControllerSettingConfirmationPolicy.remoteApplyVisibilityNanoseconds, 0)
+        XCTAssertLessThan(
+            DoorControllerSettingConfirmationPolicy.remoteSnapshotReplayDelayNanoseconds,
+            DoorControllerSettingConfirmationPolicy.remoteApplyVisibilityNanoseconds
+        )
         XCTAssertLessThan(
             DoorControllerSettingConfirmationPolicy.controllerIssuedNonceReadDelayNanoseconds,
             DoorControllerSettingConfirmationPolicy.explicitNonceFallbackDelayNanoseconds
@@ -62,7 +67,7 @@ final class DoorControllerSettingConfirmationTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(
             DoorControllerSettingConfirmationPolicy.stateReadDelayNanoseconds
                 + DoorControllerSettingConfirmationPolicy.completionGraceNanoseconds,
-            5_000_000_000
+            6_000_000_000
         )
     }
 }

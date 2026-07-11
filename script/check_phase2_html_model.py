@@ -43,7 +43,7 @@ def main() -> int:
     require("addWireRoutingChannels" in html, "wire-routing channel model is missing")
     require("addCompleteWireHarness" in html, "connected wire harness model is missing")
     require("upperSolarConflict" in html, "solar conflict envelope is missing")
-    require('viewBox="0 0 1120 1900"' in html, "bench wiring map no longer uses the vertical enclosure layout")
+    require('viewBox="0 0 1120 2160"' in html, "bench wiring map no longer uses the vertical enclosure layout")
     require('class="housing-outline"' in html, "bench wiring map enclosure silhouette is missing")
     require("transform: scale(.34)" in html, "print scale no longer fits the full vertical wiring map")
 
@@ -134,7 +134,7 @@ def main() -> int:
     print("- Four Command strip pairs fit the documented plate footprint")
     print("- Purchased inline splitter pair matches the 32 x 13.5 x 13mm model contract")
     print("- Ten dedicated rear-wall wire lanes map one-to-one to the complete harness")
-    print("- Bench wiring cards and print view use the 1120 x 1900 enclosure-stack layout")
+    print("- Bench wiring parts and print view use the 1120 x 2160 enclosure-stack layout")
     print("- Lower solar panel clears the servo; upper panel collision remains explicitly modeled")
     return 0
 

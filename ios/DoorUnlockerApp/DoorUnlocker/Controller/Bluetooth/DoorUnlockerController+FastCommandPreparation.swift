@@ -100,6 +100,17 @@ extension DoorUnlockerController {
     }
 
     func applyFastCommandNonce(_ nonce: Data) {
+        resetControlNonceRequest()
+        guard DoorSecureNonceAcceptancePolicy.shouldAccept(
+            receivedNonce: nonce,
+            lastConsumedNonce: lastConsumedFastCommandNonce
+        ) else {
+#if DEBUG
+            recordStartupTelemetry("consumed_nonce_duplicate_ignored", once: false)
+#endif
+            return
+        }
+        completeControllerNonceHandoff()
         fastCommandNonce = nonce
 #if DEBUG
         recordStartupTelemetry("secure_nonce_received")
@@ -117,6 +128,12 @@ extension DoorUnlockerController {
             return
         }
         prepareFastDoorCommandPayloads(for: nonce)
+    }
+
+    func markFastCommandNonceConsumed() {
+        if let fastCommandNonce {
+            lastConsumedFastCommandNonce = fastCommandNonce
+        }
     }
 
     @discardableResult
@@ -205,6 +222,7 @@ extension DoorUnlockerController {
     func authenticateSettingsAccess() async {
         guard !isAuthenticatingSettings else { return }
 
+        let authenticationGeneration = settingsAuthenticationGeneration
         lastError = nil
         isAuthenticatingSettings = true
         defer { isAuthenticatingSettings = false }
@@ -223,7 +241,8 @@ extension DoorUnlockerController {
                 .deviceOwnerAuthentication,
                 localizedReason: "Authenticate to open Door Unlocker settings."
             )
-            guard allowed else { return }
+            guard allowed,
+                  authenticationGeneration == settingsAuthenticationGeneration else { return }
             areSettingsUnlocked = true
         } catch {
             if isAuthenticationCancellation(error) {

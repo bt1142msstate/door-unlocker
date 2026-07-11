@@ -3,6 +3,18 @@ import XCTest
 @testable import DoorUnlockerShared
 
 final class ControllerStateParsingTests: XCTestCase {
+    func testParsesBootSessionAndHealth() {
+        XCTAssertEqual(
+            DoorControllerStateParsing.sessionIdentifier(from: "session:0123456789ABCDEF"),
+            "0123456789abcdef"
+        )
+        XCTAssertNil(DoorControllerStateParsing.sessionIdentifier(from: "session:not-a-session"))
+        XCTAssertEqual(
+            DoorControllerStateParsing.healthState(from: "health:storage_fault"),
+            "storage_fault"
+        )
+    }
+
     func testParsesSecureNonce() {
         let nonce = DoorControllerStateParsing.fastCommandNonce(
             from: "nonce:v3:00112233445566778899aabbccddeeff"

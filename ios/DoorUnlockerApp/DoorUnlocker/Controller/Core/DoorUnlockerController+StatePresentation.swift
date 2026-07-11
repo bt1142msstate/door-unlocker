@@ -92,6 +92,28 @@ extension DoorUnlockerController {
     }
 
     var stateTitle: String {
+        if controllerHealthStatus == "storage_fault" {
+            return "Controller Needs Service"
+        }
+        if !isDisplayedControllerStateAuthoritative {
+            switch sessionAssessment.phase {
+            case .bluetoothOff:
+                return "Bluetooth Off"
+            case .permissionNeeded:
+                return "Bluetooth Access Needed"
+            case .unsupported:
+                return "Bluetooth Unsupported"
+            case .updatingFirmware:
+                return "Updating Controller"
+            case .pairingRequired:
+                return "Pairing Required"
+            case .offline:
+                return "Controller Offline"
+            default:
+                return "Connecting"
+            }
+        }
+
         switch servoState {
         case "locked":
             return "Locked"

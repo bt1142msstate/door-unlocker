@@ -103,12 +103,22 @@ if selected is None:
 hardware = selected.get("hardwareProperties", {})
 properties = selected.get("deviceProperties", {})
 connection = selected.get("connectionProperties", {})
+capabilities = {
+    capability.get("featureIdentifier", "")
+    for capability in selected.get("capabilities", [])
+}
 transport = connection.get("transportType") or "unavailable"
 tunnel = connection.get("tunnelState") or "unavailable"
 pairing = connection.get("pairingState") or "unknown"
 ddi = bool(properties.get("ddiServicesAvailable"))
 wireless_ready = transport not in ("wired", "unavailable", "") and tunnel == "connected" and ddi
-usable = tunnel == "connected" and ddi and pairing == "paired"
+can_acquire_tunnel = "com.apple.coredevice.feature.connectdevice" in capabilities
+usable = (
+    pairing == "paired"
+    and properties.get("developerModeStatus") == "enabled"
+    and properties.get("bootState") == "booted"
+    and (tunnel == "connected" or can_acquire_tunnel)
+)
 
 summary = {
     "name": properties.get("name") or hardware.get("marketingName") or "iPhone",
@@ -120,6 +130,7 @@ summary = {
     "developerModeStatus": properties.get("developerModeStatus"),
     "ddiServicesAvailable": ddi,
     "usable": usable,
+    "canAcquireTunnel": can_acquire_tunnel,
     "wirelessReady": wireless_ready,
     "localHostnames": connection.get("localHostnames") or [],
     "potentialHostnames": connection.get("potentialHostnames") or [],
@@ -137,12 +148,13 @@ else:
     print(f"developer_mode={summary['developerModeStatus']}")
     print(f"ddi_services={str(summary['ddiServicesAvailable']).lower()}")
     print(f"usable={str(summary['usable']).lower()}")
+    print(f"can_acquire_tunnel={str(summary['canAcquireTunnel']).lower()}")
     print(f"wireless_ready={str(summary['wirelessReady']).lower()}")
     if summary["localHostnames"]:
         print("local_hostnames=" + ",".join(summary["localHostnames"]))
 
 if not usable:
-    print("Device is known to CoreDevice but not currently usable for install/debug.", file=sys.stderr)
+    print("Device is known to CoreDevice but cannot currently acquire an install/debug tunnel.", file=sys.stderr)
     sys.exit(1)
 
 if require_wireless and not wireless_ready:

@@ -7,6 +7,7 @@ import os
 
 extension DoorAdminStore {
     func handleFastCommandReject(reason: String) {
+        recordRuntimeTelemetry("secure_command_rejected", details: reason, once: false)
         let rejection = DoorSecureCommandRejection(rawReason: reason)
         invalidatePreparedFastDoorCommandPayloads(clearNonce: true)
         if wirelessLinkAuthenticationInFlight {

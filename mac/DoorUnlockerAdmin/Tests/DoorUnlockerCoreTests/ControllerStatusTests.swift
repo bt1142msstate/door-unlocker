@@ -2,6 +2,36 @@ import XCTest
 @testable import DoorUnlockerCore
 
 final class ControllerStatusTests: XCTestCase {
+    func testUSBStatusValidationFailsClosedOnIncompleteOrForeignDevices() {
+        let valid = [
+            "APP_STATUS_BEGIN",
+            "model=DoorUnlocker-XIAO-v4",
+            "protocol=1",
+            "boot_session=0011223344556677",
+            "storage_health=ok",
+            "APP_STATUS_END"
+        ]
+        XCTAssertTrue(DoorSerialParser.isValidControllerStatusResponse(valid))
+
+        for omittedIndex in valid.indices {
+            var incomplete = valid
+            incomplete.remove(at: omittedIndex)
+            XCTAssertFalse(
+                DoorSerialParser.isValidControllerStatusResponse(incomplete),
+                "Response unexpectedly survived omission at index \(omittedIndex)"
+            )
+        }
+
+        XCTAssertFalse(DoorSerialParser.isValidControllerStatusResponse([
+            "APP_STATUS_BEGIN",
+            "model=OtherSerialDevice",
+            "protocol=1",
+            "boot_session=0011223344556677",
+            "storage_health=ok",
+            "APP_STATUS_END"
+        ]))
+    }
+
     private let localUSBDevice = ConnectedControllerDevice(
         slot: 0,
         handle: "usb-c-this-mac",

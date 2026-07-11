@@ -11,6 +11,12 @@ import WidgetKit
 
 extension DoorUnlockerController {
     func applyControllerLockName(_ name: String) {
+        if linkAuthenticationInFlight {
+            completeLinkAuthentication()
+#if DEBUG
+            recordStartupTelemetry("door_command_usable", details: "link_authenticated")
+#endif
+        }
         clearRemoteSettingApplying()
         let sanitizedName = DoorStatusStore.sanitizedLockName(name)
         guard !sanitizedName.isEmpty else { return }

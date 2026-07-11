@@ -28,6 +28,11 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     @Published var connectedDeviceCount = 0
     @Published var maximumConnectedDeviceCount = 4
     @Published var connectedDevices: [ConnectedControllerDevice] = []
+    @Published var hasCurrentConnectionRoster = false
+    @Published var hasCurrentControllerSnapshot = false
+    @Published var lastControllerActivityAt: Date?
+    @Published var controllerBootSessionIdentifier: String?
+    @Published var controllerHealthStatus = "unknown"
     @Published var servoState = DoorUnlockerController.storedInitialServoState()
     @Published var pairingState = "Unknown" {
         didSet {
@@ -115,10 +120,16 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     var optimisticDoorCommandAttempt = 0
     var optimisticDoorCommandAcknowledged = false
     var optimisticDoorPreviousServoState: String?
+    var optimisticDoorCommandSessionGeneration: Int?
+    var controllerSessionGeneration = 0
+    var controllerFreshness = DoorControllerFreshnessTracker()
     var doorCommandRecoveryTask: Task<Void, Never>?
     var doorCommandTransportRecoveryTask: Task<Void, Never>?
     var pendingFreshNonceDoorCommand: PendingFreshNonceDoorCommand?
     var fastCommandNonce: Data?
+    var lastConsumedFastCommandNonce: Data?
+    var controlNonceRequestGate = DoorSingleFlightRequestGate()
+    var controlNonceRequestTimeoutTask: Task<Void, Never>?
     var preparedFastDoorCommandPayloads: [Command: DoorCommandAuthenticator.SignedFastCommandPayload] = [:]
     var preparedFastDoorCommandTask: Task<Void, Never>?
     var preparedFastDoorCommandGeneration = 0
@@ -170,12 +181,21 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     var queuedDoorCommandNonceRequestCount = 0
     var postReadySyncTask: Task<Void, Never>?
     var stateSnapshotFallbackTask: Task<Void, Never>?
+    var stateSnapshotRequestGate = DoorSingleFlightRequestGate()
+    var stateSnapshotRequestTimeoutTask: Task<Void, Never>?
     var firmwareVersionSnapshotRetryTask: Task<Void, Never>?
+    var hasCurrentFirmwareVersionSnapshot = false
     var stateUpdateGeneration = 0
     var controlNonceRecoveryTask: Task<Void, Never>?
     var controlUpdateGeneration = 0
+    var controllerNonceHandoffGate = DoorSingleFlightRequestGate()
+    var controllerNonceHandoffTimeoutTask: Task<Void, Never>?
+    var isRefreshingRestoredConnection = false
+    var restoredConnectionRefreshTask: Task<Void, Never>?
     var hasAuthenticatedCurrentLink = false
     var linkAuthenticationInFlight = false
+    var linkAuthenticationAttemptCount = 0
+    var linkAuthenticationTimeoutTask: Task<Void, Never>?
     var knownPeripheralAssistScanTask: Task<Void, Never>?
     var activeScanAllowsDuplicates: Bool?
     var hasRejectedCurrentSecurePairing = false
@@ -206,6 +226,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     var isRequestingTemporaryFullAccuracy = false
     var isLockZoneLocationUpdating = false
     var isSignificantLocationMonitoringActive = false
+    var settingsAuthenticationGeneration = 0
 
     override init() {
         super.init()
@@ -249,8 +270,12 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     deinit {
         startupHousekeepingTask?.cancel()
         stateSnapshotFallbackTask?.cancel()
+        stateSnapshotRequestTimeoutTask?.cancel()
         firmwareVersionSnapshotRetryTask?.cancel()
         controlNonceRecoveryTask?.cancel()
+        controlNonceRequestTimeoutTask?.cancel()
+        controllerNonceHandoffTimeoutTask?.cancel()
+        linkAuthenticationTimeoutTask?.cancel()
         NotificationCenter.default.removeObserver(self)
     }
 }

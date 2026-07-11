@@ -29,6 +29,13 @@ extension DoorAdminStore {
     }
 
     func requestWirelessControlNonce(startWatchdog: Bool) {
+        guard !wirelessControllerNonceHandoffGate.isInFlight else {
+            if startWatchdog {
+                startSecureLinkWatchdogIfNeeded()
+            }
+            return
+        }
+        guard needsFreshSecureNonce else { return }
         guard let peripheral,
               let controlCharacteristic else {
             if startWatchdog {
@@ -67,44 +74,34 @@ extension DoorAdminStore {
     }
 
     func beginWirelessControlNonceRequestIfPossible() -> Bool {
-        guard !isWirelessControlNonceRequestInFlight else {
-            return false
-        }
-
         let now = ProcessInfo.processInfo.systemUptime
-        guard now - lastWirelessControlNonceRequestUptime >= Self.wirelessControlNonceRequestMinimumInterval else {
-            return false
-        }
-
-        lastWirelessControlNonceRequestUptime = now
-        isWirelessControlNonceRequestInFlight = true
-        wirelessControlNonceRequestGeneration += 1
-        scheduleWirelessControlNonceRequestTimeout(generation: wirelessControlNonceRequestGeneration)
+        guard let generation = wirelessControlNonceRequestGate.begin(
+            at: now,
+            minimumInterval: Self.wirelessControlNonceRequestMinimumInterval
+        ) else { return false }
+        scheduleWirelessControlNonceRequestTimeout(generation: generation)
         return true
     }
 
     func resetWirelessControlNonceRequest() {
-        isWirelessControlNonceRequestInFlight = false
-        wirelessControlNonceRequestGeneration += 1
+        wirelessControlNonceRequestGate.complete()
         wirelessControlNonceRequestTimeoutTask?.cancel()
         wirelessControlNonceRequestTimeoutTask = nil
         wirelessControlNonceRecoveryTask?.cancel()
         wirelessControlNonceRecoveryTask = nil
     }
 
-    func scheduleWirelessControlNonceRequestTimeout(generation: Int) {
+    func scheduleWirelessControlNonceRequestTimeout(generation: UInt64) {
         wirelessControlNonceRequestTimeoutTask?.cancel()
         wirelessControlNonceRequestTimeoutTask = Task { [weak self] in
             let delay = UInt64(Self.wirelessControlNonceRequestTimeout * 1_000_000_000)
             do { try await Task.sleep(nanoseconds: delay) } catch { return }
             await MainActor.run {
                 guard let self,
-                      self.wirelessControlNonceRequestGeneration == generation,
-                      self.isWirelessControlNonceRequestInFlight else {
+                      self.wirelessControlNonceRequestGate.expire(generation: generation) else {
                     return
                 }
 
-                self.isWirelessControlNonceRequestInFlight = false
                 self.wirelessControlNonceRequestTimeoutTask = nil
                 if self.needsFreshSecureNonce {
                     self.requestWirelessControlNonceWithoutWatchdog()
@@ -142,6 +139,9 @@ extension DoorAdminStore {
 
     func scheduleWirelessControlNonceRecoveryIfNeeded(after delay: TimeInterval = 0.08) {
         guard isWirelessGattReady,
+              !wirelessControllerNonceHandoffGate.isInFlight,
+              !isApplyingControllerSetting,
+              fastDoorCommandInFlight == nil,
               !isWirelessDoorCommandReady,
               fastCommandNonce == nil,
               (controlCharacteristic?.properties.contains(.notify) == true ||
@@ -159,6 +159,9 @@ extension DoorAdminStore {
                 guard let self,
                       self.wirelessControlUpdateGeneration == generation,
                       self.isWirelessGattReady,
+                      !self.wirelessControllerNonceHandoffGate.isInFlight,
+                      !self.isApplyingControllerSetting,
+                      self.fastDoorCommandInFlight == nil,
                       !self.isWirelessDoorCommandReady,
                       self.fastCommandNonce == nil else {
                     return
@@ -168,5 +171,38 @@ extension DoorAdminStore {
                 self.requestWirelessControlNonce()
             }
         }
+    }
+
+    func beginWirelessControllerNonceHandoff() {
+        let now = ProcessInfo.processInfo.systemUptime
+        guard let generation = wirelessControllerNonceHandoffGate.begin(at: now, minimumInterval: 0) else {
+            return
+        }
+
+        wirelessControllerNonceHandoffTimeoutTask?.cancel()
+        wirelessControllerNonceHandoffTimeoutTask = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(1.25)) } catch { return }
+            await MainActor.run {
+                guard let self,
+                      self.wirelessControllerNonceHandoffGate.expire(generation: generation) else { return }
+                self.wirelessControllerNonceHandoffTimeoutTask = nil
+                self.recordRuntimeTelemetry("controller_nonce_handoff_timeout", once: false)
+                if self.needsFreshSecureNonce {
+                    self.requestWirelessControlNonce()
+                }
+            }
+        }
+    }
+
+    func completeWirelessControllerNonceHandoff() {
+        wirelessControllerNonceHandoffGate.complete()
+        wirelessControllerNonceHandoffTimeoutTask?.cancel()
+        wirelessControllerNonceHandoffTimeoutTask = nil
+    }
+
+    func resetWirelessControllerNonceHandoff() {
+        wirelessControllerNonceHandoffGate.invalidate()
+        wirelessControllerNonceHandoffTimeoutTask?.cancel()
+        wirelessControllerNonceHandoffTimeoutTask = nil
     }
 }

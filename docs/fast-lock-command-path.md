@@ -12,7 +12,7 @@ This document is the source of truth for the direct lock/unlock path shared by t
 5. The app submits one write-without-response and consumes the nonce only after that submission.
 6. Bluefruit copies the packet into the controller's fixed command FIFO. Queue indexes and overflow state are protected by a FreeRTOS critical section because Bluefruit callbacks and the Arduino loop run on different tasks.
 7. The Arduino loop validates the per-connection nonce, paired-key fingerprint, and P-256 signature.
-8. The controller broadcasts `locking` or `unlocking` before writing the servo angle, so every subscribed app receives the semantic acknowledgement and the servo begins moving immediately after verification.
+8. The controller writes the servo target immediately after verification, then broadcasts `locking` or `unlocking` before the mechanical settle delay. BLE notification backpressure therefore cannot postpone the start of physical movement.
 9. The controller broadcasts the final state to every connection and gives the issuing connection a fresh nonce.
 
 The control characteristic is reserved for connection-private nonce and secure-command rejection traffic. It is notify/indicate-only: it has no readable shared value, and the controller targets each control payload to exactly one connection. Connected-device snapshots and door state use the shared state characteristic, so another device cannot read, overwrite, or consume the nonce needed for the next tap.
@@ -51,7 +51,8 @@ Firmware update, settings, pairing administration, and lock/unlock all use this 
 - Private nonce and reject events are targeted only to their owning connection.
 - The trusted-device roster is rebroadcast only when membership or a displayed name actually changes, not after every authenticated command.
 - A state update clears a queued or in-flight command only when it moves toward that command's target. An iPhone `unlocking` notification cannot cancel a queued Mac lock, for example.
-- Commands from different devices are serialized by the controller FIFO. Opposite commands retain arrival order; redundant commands are idempotent.
+- Each app also serializes its own semantic door intents at stable-state boundaries. If the controller is reporting `locking` or `unlocking`, or that app still has a command awaiting confirmation, a new request replaces that app's queued intent instead of being written immediately. The queued intent is eligible only after a stable `locked` or `unlocked` confirmation clears the in-flight transition.
+- Commands already submitted by different devices are serialized by the controller FIFO. Opposite commands retain FIFO arrival order; redundant commands are idempotent. The FIFO admits at most two jobs per connection, reports excess work back to only that connection as `controller_busy`, alternates normal jobs with pending overflow responses, and purges a disconnected connection's queued jobs.
 
 ## Confirmation behavior
 
@@ -66,7 +67,8 @@ On macOS 14 and newer, Core Bluetooth system auto-reconnect owns an unexpected l
 
 - Private P-256 keys remain in each device's Keychain and are never sent to the controller or repository.
 - Every packet includes a controller-issued one-time nonce and a signature over the protocol domain, command, key fingerprint, nonce, and payload.
-- A nonce is invalidated after one accepted command, preventing captured packets from being replayed.
+- A nonce is invalidated before an authenticated command is executed. Replaying that packet is rejected as `missing_nonce` or `bad_nonce` and receives fresh connection-private nonce material; it cannot execute the command twice.
+- Both apps remember the last nonce consumed on the current connection and ignore a duplicate nonce notification. This prevents a delayed duplicate notification from rebuilding and reusing already-consumed signed packets.
 - Transport recovery never reuses a packet across BLE connections.
 
 ## Verification
@@ -87,10 +89,10 @@ Hardware timing should measure both tap-to-`wireless_command_sent` and tap-to-se
 
 ## Latest hardware validation
 
-Validated July 10, 2026 with XIAO firmware `0.1.6`:
+Validated July 11, 2026 with the current `0.1.24` firmware/app command path. The checked-in reports are the measurement record:
 
-- Firmware compile: 129,544 bytes flash (15%) and 20,040 bytes RAM (8%).
-- Wireless DFU: 219.4 seconds total, verified as `0.1.6` over BLE without USB-C.
-- Control stress test: six alternating Mac UI commands, all six controller-confirmed in order.
-- Recovery telemetry during those six commands: zero nonce retries, reconnects, rejections, or confirmation failures.
-- Settings smoke test: the current 15-second auto-lock value completed through the same queued/sent/failed dispatch contract and returned to ready.
+- [Single-client command stress](command-stress-last-run.json): 30 alternating Mac lock/unlock commands, all passed the 500 ms limit. Request-to-confirmation was 42-218 ms, median 150.5 ms, mean 150.4 ms, and p95 192 ms. Request-to-write p95 was 92 ms; write-to-confirmation p95 was 125 ms.
+- [Mixed-client command stress](mixed-client-stress-last-run.json): 20 alternating iPhone/Mac commands, all passed the 750 ms limit and all 20 were observed by the opposite subscriber. Controller confirmation was 66-430 ms, median 113.5 ms, mean 142.6 ms, and p95 320 ms. The run intentionally begins immediately after another-client UI command and submits each follow-up after only 150 ms, so it also measures safe stable-state serialization rather than only an idle prepared packet.
+- [Mixed-client settings stress](mixed-client-settings-last-run.json): four alternating iPhone/Mac auto-lock changes (`31`, `30`, `31`, `30` seconds), with all four observed by the opposite subscriber, no failures, and a final authoritative value of 30 seconds. Confirmation was 3,172-3,708 ms, median 3,475.5 ms, mean 3,457.8 ms, and p95 3,581 ms, within the 5-second limit.
+
+These runs physically verify stable-state command serialization and cross-client convergence. They do not weaken the opt-in rule for live tests: lock/unlock stress moves the real mechanism, and settings stress writes controller persistence.

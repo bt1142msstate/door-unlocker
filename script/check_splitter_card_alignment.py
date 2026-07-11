@@ -6,9 +6,12 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from html_runtime import render_html
+
 
 ROOT = Path(__file__).resolve().parents[1]
 HTML = (ROOT / "phase-1-desk-test-wiring.html").read_text()
+RUNTIME_HTML = render_html(ROOT / "phase-1-desk-test-wiring.html")
 TOLERANCE = 1.0
 
 
@@ -33,16 +36,28 @@ def main() -> int:
     required = (
         'data-node="splitter-positive"',
         'data-node="splitter-ground"',
-        'id="positiveSplitterOutputLeft"',
-        'id="positiveSplitterOutputRight"',
-        'id="positiveSplitterInput"',
-        'id="groundSplitterOutputLeft"',
-        'id="groundSplitterOutputRight"',
-        'id="groundSplitterInput"',
+        'const positiveInput = point(positiveSplitterRect, 0.504, 0.963)',
+        'const groundInput = point(groundSplitterRect, 0.504, 0.963)',
+        'const positiveOutputBuck = point(positiveSplitterRect, 0.319, 0.061)',
+        'const positiveOutputServo = point(positiveSplitterRect, 0.662, 0.061)',
+        'const groundOutputBuck = point(groundSplitterRect, 0.319, 0.061)',
+        'const groundOutputServo = point(groundSplitterRect, 0.662, 0.061)',
     )
     for marker in required:
         if marker not in HTML:
             raise AssertionError(f"Missing separated splitter marker: {marker}")
+
+    for path_id in (
+        "xt30PositiveWire",
+        "xt30GroundWire",
+        "servoPositiveWire",
+        "servoGroundWire",
+        "buckInputPositiveWire",
+        "buckInputGroundWire",
+    ):
+        rendered = re.search(rf'id="{path_id}"[^>]*\sd="([^"]+)"', RUNTIME_HTML)
+        if not rendered:
+            raise AssertionError(f"Runtime splitter path {path_id} has no geometry")
 
     card_width = css_value(".splitter-card", "width")
     image_width = css_value(".splitter-visual", "width")

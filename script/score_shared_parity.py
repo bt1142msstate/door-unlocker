@@ -298,6 +298,42 @@ CONTRACTS = (
         ),
     ),
     Contract(
+        name="controller-session-truth",
+        weight=0.22,
+        shared_files=(
+            SHARED_SOURCES / "DoorControllerSessionAssessment.swift",
+            SHARED_SOURCES / "DoorControllerFreshnessTracker.swift",
+        ),
+        test_files=(
+            SHARED_TESTS / "DoorControllerSessionAssessmentTests.swift",
+            SHARED_TESTS / "DoorControllerFreshnessTrackerTests.swift",
+            SHARED_TESTS / "DoorAdverseSequenceStressTests.swift",
+        ),
+        minimum_test_count=13,
+        ios_uses=(
+            SourceUse(
+                IOS_DOOR,
+                (
+                    "DoorControllerSessionAssessment.assess(",
+                    "DoorControllerFreshnessTracker",
+                    "controllerFreshness.invalidateTransport()",
+                    "controllerFreshness.receiveBootSession(identifier)",
+                ),
+            ),
+        ),
+        mac_uses=(
+            SourceUse(
+                MAC_ADMIN / "Stores",
+                (
+                    "DoorControllerSessionAssessment.assess(",
+                    "DoorControllerFreshnessTracker",
+                    "controllerFreshness.invalidateTransport()",
+                    "controllerFreshness.receiveBootSession(identifier)",
+                ),
+            ),
+        ),
+    ),
+    Contract(
         name="door-command-model",
         weight=0.14,
         shared_files=(SHARED_SOURCES / "DoorCommand.swift",),
@@ -356,19 +392,35 @@ CONTRACTS = (
     Contract(
         name="command-preparation-recovery",
         weight=0.16,
-        shared_files=(SHARED_SOURCES / "DoorCommandPreparationRecoveryPolicy.swift",),
-        test_files=(SHARED_TESTS / "DoorCommandPreparationRecoveryPolicyTests.swift",),
-        minimum_test_count=4,
+        shared_files=(
+            SHARED_SOURCES / "DoorCommandPreparationRecoveryPolicy.swift",
+            SHARED_SOURCES / "DoorSingleFlightRequestGate.swift",
+        ),
+        test_files=(
+            SHARED_TESTS / "DoorCommandPreparationRecoveryPolicyTests.swift",
+            SHARED_TESTS / "DoorSingleFlightRequestGateTests.swift",
+        ),
+        minimum_test_count=7,
         ios_uses=(
             SourceUse(
                 IOS_DOOR,
-                ("DoorCommandPreparationRecoveryPolicy.action(",),
+                (
+                    "DoorCommandPreparationRecoveryPolicy.action(",
+                    "DoorSingleFlightRequestGate",
+                    "controlNonceRequestGate.begin(",
+                    "controlNonceRequestGate.expire(",
+                ),
             ),
         ),
         mac_uses=(
             SourceUse(
-                MAC_ADMIN / "Stores" / "DoorAdminStore+FastDoorRecovery.swift",
-                ("DoorCommandPreparationRecoveryPolicy.action(",),
+                MAC_ADMIN / "Stores",
+                (
+                    "DoorCommandPreparationRecoveryPolicy.action(",
+                    "DoorSingleFlightRequestGate",
+                    "wirelessControlNonceRequestGate.begin(",
+                    "wirelessControlNonceRequestGate.expire(",
+                ),
             ),
         ),
     ),

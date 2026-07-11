@@ -190,6 +190,8 @@ extension DoorUnlockerController {
     static let maximumProximityUnlockRSSIThreshold = -45
     static let fastKnownControllerRetryDelay: TimeInterval = 0.15
     static let activeConnectionRecoveryDelay: TimeInterval = 1.0
+    static let controlNonceRequestMinimumInterval: TimeInterval = 0.22
+    static let controlNonceRequestTimeout: TimeInterval = 0.45
     static let acknowledgedDoorCommandSettleDelay: TimeInterval = 0.45
     static let liveActivityLockConfirmationSeconds: TimeInterval = 2.0
     static let liveActivityLockAnimationSettleSeconds: TimeInterval = 0.12

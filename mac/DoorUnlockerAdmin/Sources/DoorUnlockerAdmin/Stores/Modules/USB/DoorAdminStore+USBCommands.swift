@@ -35,11 +35,20 @@ extension DoorAdminStore {
         isBusy = true
         lastError = nil
         message = label
-        defer { isBusy = false }
+        defer {
+            isBusy = false
+            if let command = pendingLocalDoorCommand {
+                pendingLocalDoorCommand = nil
+                sendDoorCommand(command)
+            }
+        }
 
         do {
             try await operation()
         } catch {
+            if label == "Lock" || label == "Unlock" {
+                restorePredictedDoorStateIfNeeded()
+            }
             if label == "Auto-lock" {
                 inFlightAutoLockSeconds = nil
                 if pendingAutoLockSeconds == nil {
@@ -69,6 +78,9 @@ extension DoorAdminStore {
 
     func loadControllerState(statusTimeout: TimeInterval = 4, pairTimeout: TimeInterval = 4) async throws {
         let statusLines = try await transact("app status", until: ["APP_STATUS_END"], timeout: statusTimeout)
+        guard DoorSerialParser.isValidControllerStatusResponse(statusLines) else {
+            throw DoorAdminError.invalidController
+        }
         appendLog(statusLines)
         applyControllerStatus(DoorSerialParser.parseStatus(from: statusLines))
         message = statusMessage(for: status)

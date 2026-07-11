@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  architecture-and-contracts:
+    name: Architecture and contracts
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Quality-tool negative controls
+        run: python3 -m unittest discover -s script/tests -p 'test_*.py'
+      - name: Maintainability gate
+        run: python3 script/score_maintainability.py --threshold 90
+      - name: Modularity gate
+        run: python3 script/score_modularity.py --threshold 95
+      - name: Shared parity gate
+        run: python3 script/score_shared_parity.py --threshold 95
+      - name: Fast command contract
+        run: python3 script/check_fast_command_contract.py
+      - name: Persistence contract
+        run: python3 script/check_firmware_persistence_contract.py
+      - name: State delivery contract
+        run: python3 script/check_state_notification_delivery_contract.py
+
+  swift-tests:
+    name: Independent Swift tests
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shared package
+        run: swift test --package-path shared/DoorUnlockerShared
+      - name: Mac core and admin package
+        run: swift test --package-path mac/DoorUnlockerAdmin
+
+  app-builds:
+    name: App builds
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: iOS generic build
+        run: >-
+          xcodebuild
+          -project ios/DoorUnlockerApp/DoorUnlocker.xcodeproj
+          -scheme DoorUnlocker
+          -configuration Debug
+          -destination generic/platform=iOS
+          CODE_SIGNING_ALLOWED=NO
+          -quiet
+          build
+      - name: Mac package build
+        run: swift build --package-path mac/DoorUnlockerAdmin

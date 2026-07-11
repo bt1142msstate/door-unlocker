@@ -14,6 +14,11 @@ fi
 open -a "${APP_PATH}"
 sleep 1.5
 
+trace_start_line=0
+if [[ -f "${TRACE_FILE}" ]]; then
+  trace_start_line="$(wc -l < "${TRACE_FILE}" | tr -d ' ')"
+fi
+
 if ! /usr/bin/osascript <<'APPLESCRIPT'
 tell application "System Events"
   if not (exists process "DoorUnlockerAdmin") then error "DoorUnlockerAdmin process is not running"
@@ -48,11 +53,61 @@ then
   exit 1
 fi
 
-sleep 1
-
-if [[ -f "${TRACE_FILE}" ]]; then
-  echo "Recent Mac runtime telemetry:"
-  tail -n 20 "${TRACE_FILE}"
-else
-  echo "Clicked Mac control surface. Runtime telemetry file not found yet: ${TRACE_FILE}"
+if [[ ! -f "${TRACE_FILE}" ]]; then
+  echo "Clicked Mac control surface. Runtime telemetry file was not created: ${TRACE_FILE}" >&2
+  exit 1
 fi
+
+python3 - "${TRACE_FILE}" "${trace_start_line}" <<'PY'
+import re
+import sys
+import time
+from pathlib import Path
+
+trace_path = Path(sys.argv[1])
+start_line = int(sys.argv[2])
+deadline = time.monotonic() + 8
+event_pattern = re.compile(r"DUMacStartup\s+(\d+)ms\s+(.+)$")
+requested = sent = confirmed = None
+command = None
+
+while time.monotonic() < deadline:
+    lines = trace_path.read_text(encoding="utf-8", errors="replace").splitlines()[start_line:]
+    for line in lines:
+        match = event_pattern.search(line)
+        if not match:
+            continue
+        timestamp_ms = int(match.group(1))
+        event = match.group(2)
+        if requested is None and event.startswith("door_command_requested "):
+            command = event.rsplit(" ", 1)[-1]
+            requested = timestamp_ms
+        elif command and sent is None and event == f"wireless_command_sent {command}":
+            sent = timestamp_ms
+        elif command and event.startswith(f"door_command_confirmed {command} "):
+            confirmed = timestamp_ms
+            break
+    if requested is not None and sent is not None and confirmed is not None:
+        break
+    time.sleep(0.05)
+
+if requested is None:
+    raise SystemExit("Mac UI test did not record a door command request")
+if sent is None:
+    raise SystemExit(f"Mac UI test did not send {command} over Bluetooth")
+if confirmed is None:
+    raise SystemExit(f"Controller did not confirm {command} within 8 seconds")
+
+request_to_write = sent - requested
+request_to_confirmation = confirmed - requested
+write_to_confirmation = confirmed - sent
+print(f"command={command}")
+print(f"request_to_write_ms={request_to_write}")
+print(f"write_to_confirmation_ms={write_to_confirmation}")
+print(f"request_to_confirmation_ms={request_to_confirmation}")
+if request_to_confirmation > 2_500:
+    raise SystemExit(f"Mac UI command confirmation was too slow: {request_to_confirmation} ms")
+PY
+
+echo "Recent Mac runtime telemetry:"
+tail -n 24 "${TRACE_FILE}"

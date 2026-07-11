@@ -7,15 +7,32 @@ import os
 
 extension DoorAdminStore {
     func applyRemoteSettingApplying(kind: String, value: String?) {
+        recordRuntimeTelemetry(
+            "controller_setting_applying",
+            details: value.map { "\(kind)=\($0)" } ?? kind,
+            once: false
+        )
         remoteSettingApplyTask?.cancel()
         remoteSettingApplyValue = value
         remoteSettingApplyKind = kind
         remoteSettingApplyTask = Task { [weak self] in
             guard await DoorControllerSettingDelay.wait(
-                nanoseconds: DoorControllerSettingConfirmationPolicy.remoteApplyVisibilityNanoseconds
+                nanoseconds: DoorControllerSettingConfirmationPolicy.remoteSnapshotReplayDelayNanoseconds
             ) else { return }
             await MainActor.run {
-                self?.clearRemoteSettingApplying()
+                guard let self,
+                      self.remoteSettingApplyKind == kind,
+                      self.remoteSettingApplyValue == value else { return }
+                self.requestWirelessStateNotificationSnapshotReplay()
+            }
+            let remainingVisibility = DoorControllerSettingConfirmationPolicy.remoteApplyVisibilityNanoseconds
+                - DoorControllerSettingConfirmationPolicy.remoteSnapshotReplayDelayNanoseconds
+            guard await DoorControllerSettingDelay.wait(nanoseconds: remainingVisibility) else { return }
+            await MainActor.run {
+                guard let self,
+                      self.remoteSettingApplyKind == kind,
+                      self.remoteSettingApplyValue == value else { return }
+                self.clearRemoteSettingApplying()
             }
         }
     }

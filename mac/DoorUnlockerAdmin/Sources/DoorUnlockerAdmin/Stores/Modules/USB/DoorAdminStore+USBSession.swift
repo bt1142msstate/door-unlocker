@@ -20,14 +20,14 @@ extension DoorAdminStore {
             connection?.close()
             connection = try SerialPortConnection(path: selectedPort.path)
             isConnected = true
+            isUSBControllerValidated = false
             isUSBConnectInFlight = false
-            status = statusIncludingLocalUSBConnection(status)
             lastUSBStatusSyncAt = .now
             lastPairedDevicesSyncAt = .now
             lastUSBDiscoveryAt = nil
             didTrustMacDuringUSBSession = false
-            message = "USB-C ready"
-            recordRuntimeTelemetry("usb_ready", details: selectedPort.displayName)
+            message = "Validating USB-C controller"
+            recordRuntimeTelemetry("usb_opened", details: selectedPort.displayName)
             stopWirelessSession(reason: "USB-C active")
             usbStartupSyncTask = Task { [weak self] in
                 try? await Task.sleep(nanoseconds: Self.usbStartupSyncGraceNanoseconds)
@@ -39,6 +39,7 @@ extension DoorAdminStore {
             connection?.close()
             connection = nil
             isConnected = false
+            isUSBControllerValidated = false
             lastError = error.localizedDescription
             message = "USB-C unavailable"
             ensureBluetoothCentral()
@@ -63,6 +64,11 @@ extension DoorAdminStore {
                 try await loadControllerState(statusTimeout: 2, pairTimeout: 2)
             }
             guard !Task.isCancelled else { return }
+            isUSBControllerValidated = true
+            lastControllerActivityAt = .now
+            status = statusIncludingLocalUSBConnection(status)
+            message = "USB-C ready"
+            recordRuntimeTelemetry("usb_ready")
             lastUSBStatusSyncAt = .now
             try await trustThisMacOverUSBIfNeeded()
             guard !Task.isCancelled else { return }
@@ -77,9 +83,16 @@ extension DoorAdminStore {
                 return
             }
 
-            lastError = error.localizedDescription
-            if message == "Opening USB-C" || message == "Connecting to controller" {
-                message = "USB-C connected"
+            connection?.close()
+            connection = nil
+            isConnected = false
+            isUSBControllerValidated = false
+            invalidateControllerFreshness()
+            lastError = "The USB device did not identify as a Door Unlocker controller: \(error.localizedDescription)"
+            message = "USB-C controller not found"
+            ensureBluetoothCentral()
+            if central?.state == .poweredOn, canUseWirelessFallback {
+                scanBluetooth()
             }
         }
     }
@@ -108,9 +121,12 @@ extension DoorAdminStore {
         connection?.close()
         connection = nil
         isConnected = false
+        isUSBControllerValidated = false
         isUSBConnectInFlight = false
         lastUSBStatusSyncAt = nil
         didTrustMacDuringUSBSession = false
+        invalidateControllerFreshness()
+        lastControllerActivityAt = nil
         status = statusRemovingLocalUSBConnection(status)
         message = reason
 
@@ -138,7 +154,7 @@ extension DoorAdminStore {
     }
 
     func trustThisMacOverUSBIfNeeded() async throws {
-        guard isConnected, !didTrustMacDuringUSBSession else { return }
+        guard isUSBControllerValidated, !didTrustMacDuringUSBSession else { return }
 
         let deviceName = localMacDeviceName
         if hasTrustedMacController,

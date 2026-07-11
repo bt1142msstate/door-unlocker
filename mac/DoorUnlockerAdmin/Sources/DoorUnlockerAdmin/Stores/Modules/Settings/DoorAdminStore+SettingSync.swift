@@ -14,6 +14,12 @@ extension DoorAdminStore {
             return
         }
 
+        recordRuntimeTelemetry(
+            "controller_setting_requested",
+            details: "timeout=\(seconds)",
+            once: false
+        )
+
         if isBusy {
             schedulePendingAutoLockRetry()
             return
@@ -39,6 +45,15 @@ extension DoorAdminStore {
             return
         }
 
+        guard canQueueWirelessCommandForKnownController else {
+            autoLockStatus = "Waiting for controller"
+            return
+        }
+        guard pendingWirelessCommandText == nil else {
+            autoLockStatus = "Waiting for controller"
+            schedulePendingAutoLockRetry()
+            return
+        }
         inFlightAutoLockSeconds = seconds
         pendingAutoLockSeconds = nil
         autoLockStatus = "Setting..."
@@ -79,6 +94,15 @@ extension DoorAdminStore {
             return
         }
 
+        guard canQueueWirelessCommandForKnownController else {
+            servoAnglesStatus = "Waiting for controller"
+            return
+        }
+        guard pendingWirelessCommandText == nil else {
+            servoAnglesStatus = "Waiting for controller"
+            schedulePendingServoAnglesRetry()
+            return
+        }
         inFlightServoAngles = angles
         pendingServoAngles = nil
         servoAnglesStatus = "Setting..."
@@ -112,6 +136,14 @@ extension DoorAdminStore {
     }
 
     func applyControllerStatus(_ nextStatus: ControllerStatus) {
+        lastControllerActivityAt = .now
+        if let identifier = nextStatus.bootSessionIdentifier {
+            applyControllerBootSession(identifier)
+        }
+        let health = nextStatus.storageHealth == "fault" ? "storage_fault" : nextStatus.storageHealth
+        _ = applyControllerStorageHealth(health)
+        _ = markControllerStateSnapshotCurrent()
+        _ = markControllerConnectionRosterCurrent()
         let previousBleState = status.bleState
         var nextStatus = nextStatus
         if let applyingKind = nextStatus.settingApplyingKind {
@@ -128,6 +160,9 @@ extension DoorAdminStore {
             hasConfirmedExpiredAutoLockDeadline = false
         }
         status = nextStatus
+        if !DoorControlPresentationPolicy.isChangingState(nextStatus.bleState) {
+            fastDoorCommandPreviousStatus = nil
+        }
         saveCachedStatus(nextStatus)
         if previousBleState != nextStatus.bleState {
             recordRuntimeTelemetry("status_state", details: "\(previousBleState) -> \(nextStatus.bleState)", once: false)
@@ -135,7 +170,7 @@ extension DoorAdminStore {
     }
 
     func statusIncludingLocalUSBConnection(_ status: ControllerStatus) -> ControllerStatus {
-        guard isConnected || isUSBConnectInFlight else {
+        guard isUSBControllerValidated else {
             return statusRemovingLocalUSBConnection(status)
         }
 

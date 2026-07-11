@@ -60,13 +60,9 @@ extension DoorUnlockerController: DoorFirmwareDfuManagerDelegate {
     func firmwareDfuManagerDidFail(_ message: String) {
         cancelFirmwareUpdateSuccessReset()
         let canRecoverBundledUpdate = bundledFirmwarePackageURL != nil &&
-            (UserDefaults.standard.string(forKey: Self.pendingBundledFirmwareUpdateVersionKey)?.isEmpty == false ||
-                DoorFirmwareUpdatePolicy.shouldInstallBundledFirmware(
-                    installedVersion: firmwareVersion,
-                    bundledVersion: bundledFirmwareVersion
-                ))
+            UserDefaults.standard.string(forKey: Self.pendingBundledFirmwareUpdateVersionKey)?.isEmpty == false
         firmwareUpdateStatus = canRecoverBundledUpdate
-            ? "Checking controller firmware..."
+            ? "Firmware update paused"
             : "Firmware update failed"
         firmwareUpdateProgress = nil
         firmwareUpdateEstimatedSecondsRemaining = nil
@@ -82,7 +78,7 @@ extension DoorUnlockerController: DoorFirmwareDfuManagerDelegate {
 #endif
         firmwareDfuStartFallbackTask?.cancel()
         firmwareDfuStartFallbackTask = nil
-        lastError = canRecoverBundledUpdate ? nil : message
+        lastError = canRecoverBundledUpdate ? "Firmware update paused. It will resume after reconnecting." : message
         Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(450))
             await MainActor.run {

@@ -58,6 +58,13 @@ extension DoorAdminStore {
     }
 
     func stopWirelessSession(reason: String) {
+        if reason == "USB-C active" {
+            requeueInterruptedWirelessSettingIfNeeded()
+            pendingWirelessCommandText = nil
+            pendingWirelessPredictedCommand = nil
+            pendingWirelessCommandIntent = nil
+        }
+        restorePredictedDoorStateIfNeeded()
         wirelessReconnectTask?.cancel()
         wirelessReconnectTask = nil
         wirelessIdleDisconnectTask?.cancel()
@@ -69,6 +76,7 @@ extension DoorAdminStore {
         wirelessFirmwareVersionSnapshotRetryTask?.cancel()
         wirelessFirmwareVersionSnapshotRetryTask = nil
         resetWirelessControlNonceRequest()
+        wirelessControlNonceRequestGate.invalidate()
         stopSecureLinkWatchdog()
         stopWirelessDoorCommandTransportRecovery()
         stopWirelessDoorCommandConfirmation()
@@ -83,6 +91,8 @@ extension DoorAdminStore {
         lastWirelessStateSyncAt = nil
         isWirelessStateNotificationEnabled = false
         resetWirelessLinkAuthentication()
+        invalidateControllerFreshness()
+        lastControllerActivityAt = nil
         peripheral = nil
         commandCharacteristic = nil
         stateCharacteristic = nil
@@ -90,6 +100,33 @@ extension DoorAdminStore {
         controlCharacteristic = nil
         wirelessConnectionState = reason
         wirelessPairingState = isConnected ? "USB-C active" : "Unknown"
+    }
+
+    func requeueInterruptedWirelessSettingIfNeeded() {
+        switch pendingWirelessCommandIntent {
+        case .autoLockTimeout(let seconds):
+            inFlightAutoLockSeconds = nil
+            pendingAutoLockSeconds = seconds
+            autoLockStatus = "Waiting for controller"
+        case .servoAngles(let angles):
+            inFlightServoAngles = nil
+            pendingServoAngles = angles
+            servoAnglesStatus = "Waiting for controller"
+        case .lockName(let name):
+            inFlightLockName = nil
+            pendingLockName = name
+            lockNameStatus = "Waiting for controller"
+        default:
+            break
+        }
+    }
+
+    func restorePredictedDoorStateIfNeeded() {
+        guard let previousStatus = fastDoorCommandPreviousStatus else { return }
+        status = previousStatus
+        saveCachedStatus(previousStatus)
+        fastDoorCommandPreviousStatus = nil
+        fastDoorCommandInFlight = nil
     }
 
     func prepareWirelessSessionForFirmwareDfu() {
@@ -104,6 +141,7 @@ extension DoorAdminStore {
         wirelessFirmwareVersionSnapshotRetryTask?.cancel()
         wirelessFirmwareVersionSnapshotRetryTask = nil
         resetWirelessControlNonceRequest()
+        wirelessControlNonceRequestGate.invalidate()
         stopSecureLinkWatchdog()
         stopWirelessDoorCommandTransportRecovery()
         stopWirelessDoorCommandConfirmation()

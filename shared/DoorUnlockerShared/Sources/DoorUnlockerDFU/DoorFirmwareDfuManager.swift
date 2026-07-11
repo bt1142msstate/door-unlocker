@@ -4,26 +4,6 @@ import Foundation
 import NordicDFU
 import OSLog
 
-public struct DoorFirmwareDfuUpdate: Equatable, Sendable {
-    public let status: String
-    public let progress: Int?
-    public let estimatedSecondsRemaining: Int?
-
-    public init(status: String, progress: Int?, estimatedSecondsRemaining: Int?) {
-        self.status = status
-        self.progress = progress
-        self.estimatedSecondsRemaining = estimatedSecondsRemaining
-    }
-}
-
-@MainActor
-public protocol DoorFirmwareDfuManagerDelegate: AnyObject {
-    func firmwareDfuManagerDidUpdate(_ update: DoorFirmwareDfuUpdate)
-    func firmwareDfuManagerDidDetectControllerFirmware()
-    func firmwareDfuManagerDidFinish()
-    func firmwareDfuManagerDidFail(_ message: String)
-}
-
 public final class DoorFirmwareDfuManager: NSObject {
     private let secureDfuServiceUUID = CBUUID(string: "FE59")
     private let bootloaderDfuServiceUUID = CBUUID(string: "00001530-1212-EFDE-1523-785FEABCD123")
@@ -36,6 +16,7 @@ public final class DoorFirmwareDfuManager: NSObject {
     private var central: CBCentralManager?
     private var packageURL: URL?
     private var scanTimeoutTask: Task<Void, Never>?
+    private var completionRecoveryTask: Task<Void, Never>?
     private var dfuInitiator: DFUServiceInitiator?
     private var dfuController: DFUServiceController?
     private var isActive = false
@@ -43,6 +24,7 @@ public final class DoorFirmwareDfuManager: NSObject {
     private var uploadStartedAt: Date?
     private var lastLoggedProgressBucket: Int?
     private var packageBytes = 0
+    private var detectsNormalControllerFirmware = false
 
     public init(
         delegate: DoorFirmwareDfuManagerDelegate,
@@ -57,9 +39,10 @@ public final class DoorFirmwareDfuManager: NSObject {
         super.init()
     }
 
-    public func start(packageURL: URL) {
+    public func start(packageURL: URL, detectsNormalControllerFirmware: Bool = false) {
         cancel()
         isActive = true
+        self.detectsNormalControllerFirmware = detectsNormalControllerFirmware
         self.packageURL = packageURL
         updateStartedAt = Date()
         uploadStartedAt = nil
@@ -92,6 +75,8 @@ public final class DoorFirmwareDfuManager: NSObject {
         isActive = false
         scanTimeoutTask?.cancel()
         scanTimeoutTask = nil
+        completionRecoveryTask?.cancel()
+        completionRecoveryTask = nil
         central?.stopScan()
         central = nil
         _ = dfuController?.abort()
@@ -102,8 +87,11 @@ public final class DoorFirmwareDfuManager: NSObject {
         uploadStartedAt = nil
         lastLoggedProgressBucket = nil
         packageBytes = 0
+        detectsNormalControllerFirmware = false
     }
+}
 
+extension DoorFirmwareDfuManager {
     private func beginScanIfReady() {
         guard isActive,
               let central,
@@ -165,6 +153,11 @@ public final class DoorFirmwareDfuManager: NSObject {
 
             if dfuController == nil {
                 fail("Firmware upload could not start.")
+            } else {
+                // Nordic occasionally omits both its terminal progress and
+                // completed callbacks after a successful reboot. Always bound
+                // the upload phase with an independent normal-mode probe.
+                schedulePostUploadRecoveryIfNeeded(after: .seconds(120))
             }
         } catch {
             fail(error.localizedDescription)
@@ -188,6 +181,8 @@ public final class DoorFirmwareDfuManager: NSObject {
         isActive = false
         scanTimeoutTask?.cancel()
         scanTimeoutTask = nil
+        completionRecoveryTask?.cancel()
+        completionRecoveryTask = nil
         central?.stopScan()
         central = nil
         dfuController = nil
@@ -210,6 +205,8 @@ public final class DoorFirmwareDfuManager: NSObject {
         isActive = false
         scanTimeoutTask?.cancel()
         scanTimeoutTask = nil
+        completionRecoveryTask?.cancel()
+        completionRecoveryTask = nil
         central?.stopScan()
         central = nil
         _ = dfuController?.abort()
@@ -239,6 +236,48 @@ public final class DoorFirmwareDfuManager: NSObject {
             elapsedUploadTime: uploadStartedAt.map { Date().timeIntervalSince($0) }
         )
     }
+
+    private func schedulePostUploadRecoveryIfNeeded(
+        after delay: Duration,
+        replacingExisting: Bool = false
+    ) {
+        if completionRecoveryTask != nil {
+            guard replacingExisting else { return }
+            completionRecoveryTask?.cancel()
+        }
+        completionRecoveryTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: delay)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            self?.beginPostUploadRecoveryScan()
+        }
+    }
+
+    private func beginPostUploadRecoveryScan() {
+        guard isActive else { return }
+        completionRecoveryTask = nil
+        log.warning("DFU completion callback missing after 100%; scanning for normal controller firmware")
+        notify(status: "Firmware uploaded. Verifying controller...", progress: 100)
+        dfuController = nil
+        dfuInitiator = nil
+        detectsNormalControllerFirmware = true
+        central?.stopScan()
+        central?.delegate = nil
+        central = CBCentralManager(delegate: self, queue: .main)
+        scanTimeoutTask?.cancel()
+        scanTimeoutTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(45))
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            self?.fail("Firmware upload finished, but the controller did not return to normal mode.")
+        }
+    }
 }
 
 extension DoorFirmwareDfuManager: CBCentralManagerDelegate {
@@ -259,12 +298,16 @@ extension DoorFirmwareDfuManager: CBCentralManagerDelegate {
     ) {
         guard isActive else { return }
         let advertisedServices = advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] ?? []
-        if advertisedServices.contains(controllerServiceUUID) {
-            log.info("Normal controller firmware detected during DFU recovery scan")
-            cancel()
-            Task { @MainActor [weak self] in
-                self?.delegate?.firmwareDfuManagerDidDetectControllerFirmware()
+        if detectsNormalControllerFirmware {
+            if advertisedServices.contains(controllerServiceUUID) {
+                log.info("Normal controller firmware detected during DFU recovery scan")
+                cancel()
+                Task { @MainActor [weak self] in
+                    self?.delegate?.firmwareDfuManagerDidDetectControllerFirmware()
+                }
             }
+            // Recovery probing must not select a still-advertising bootloader
+            // and accidentally start a second upload in the same session.
             return
         }
         let name = peripheral.name ?? advertisementData[CBAdvertisementDataLocalNameKey] as? String
@@ -319,6 +362,9 @@ extension DoorFirmwareDfuManager: DFUServiceDelegate, DFUProgressDelegate, Logge
             progress: progress,
             estimatedSecondsRemaining: eta
         )
+        if progress >= 100 {
+            schedulePostUploadRecoveryIfNeeded(after: .seconds(12), replacingExisting: true)
+        }
 
         let bucket = min(100, (progress / 10) * 10)
         if bucket >= 10, bucket != lastLoggedProgressBucket {
