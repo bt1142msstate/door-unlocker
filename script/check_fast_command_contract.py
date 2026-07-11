@@ -75,6 +75,19 @@ def dfu_packages_match(first: Path, second: Path) -> bool:
         return False
 
 
+def dfu_package_contract_failures(dist_package: Path, bundled_package: Path) -> list[str]:
+    if not bundled_package.exists():
+        return ["bundled iOS DFU package is missing"]
+    try:
+        zip_payload_digests(bundled_package)
+    except (OSError, zipfile.BadZipFile):
+        return ["bundled iOS DFU package is not a readable archive"]
+
+    if dist_package.exists() and not dfu_packages_match(dist_package, bundled_package):
+        return ["bundled iOS DFU payload does not match dist/DoorUnlockerXiao-dfu.zip"]
+    return []
+
+
 def main() -> int:
     failures: list[str] = []
     ios = ROOT / "ios/DoorUnlockerApp/DoorUnlocker"
@@ -228,8 +241,7 @@ def main() -> int:
 
     dist_package = ROOT / "dist/DoorUnlockerXiao-dfu.zip"
     bundled_package = ROOT / "ios/DoorUnlockerApp/DoorUnlocker/Firmware/DoorUnlockerXiao-dfu.zip"
-    if not dfu_packages_match(dist_package, bundled_package):
-        failures.append("bundled iOS DFU payload does not match dist/DoorUnlockerXiao-dfu.zip")
+    failures.extend(dfu_package_contract_failures(dist_package, bundled_package))
 
     if failures:
         print("Fast command contract: FAIL")

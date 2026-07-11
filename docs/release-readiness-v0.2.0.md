@@ -27,7 +27,7 @@ The payload hash is calculated from the files inside the DFU archive, so archive
 | Gate | Result | Evidence |
 | --- | --- | --- |
 | Full release suite | PASS | 23 of 23 steps |
-| Quality-tool negative controls | PASS | 17 tests |
+| Quality-tool negative controls | PASS | 18 tests |
 | Shared package tests | PASS | 101 tests |
 | Mac core/admin tests | PASS | 19 tests |
 | iOS adapter tests | PASS | 5 tests |

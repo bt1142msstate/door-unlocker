@@ -14,7 +14,7 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Quality-tool negative controls
         run: python3 -m unittest discover -s script/tests -p 'test_*.py'
       - name: Maintainability gate
@@ -35,7 +35,7 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Shared package
         run: swift test --package-path shared/DoorUnlockerShared
       - name: Mac core and admin package
@@ -46,7 +46,7 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: iOS generic build
         run: >-
           xcodebuild

@@ -187,6 +187,20 @@ class FastCommandContractGateTests(unittest.TestCase):
                 archive.writestr("application.bin", b"changed")
             self.assertFalse(fast_contract.dfu_packages_match(first, second))
 
+    def test_checked_in_dfu_is_valid_without_ignored_dist_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dist = root / "dist.zip"
+            bundled = root / "bundled.zip"
+            with zipfile.ZipFile(bundled, "w") as archive:
+                archive.writestr("application.bin", b"firmware")
+
+            self.assertEqual(fast_contract.dfu_package_contract_failures(dist, bundled), [])
+
+            with zipfile.ZipFile(dist, "w") as archive:
+                archive.writestr("application.bin", b"drifted")
+            self.assertTrue(fast_contract.dfu_package_contract_failures(dist, bundled))
+
 
 class FirmwareReleaseProofGateTests(unittest.TestCase):
     def test_requires_ble_entry_and_matching_artifact(self) -> None:
