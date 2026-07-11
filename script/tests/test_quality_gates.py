@@ -15,6 +15,7 @@ if str(SCRIPT_DIR) not in sys.path:
 
 import check_fast_command_contract as fast_contract
 import check_firmware_release_proof as firmware_release
+import ios_launch_performance_contract as launch_performance
 import quality_test_support
 import quality_suite
 import score_maintainability
@@ -217,6 +218,47 @@ class FirmwareReleaseProofGateTests(unittest.TestCase):
         invalid = dict(valid)
         invalid["entryCommandOver"] = "usb-c"
         self.assertTrue(firmware_release.validate_release_proof(invalid, "0.1.9", "abc"))
+
+
+class IOSLaunchPerformanceProofGateTests(unittest.TestCase):
+    def test_nearest_rank_p95_does_not_hide_the_slowest_ten_sample_launch(self) -> None:
+        values = [100, 101, 102, 103, 104, 105, 106, 107, 108, 799]
+        self.assertEqual(launch_performance.nearest_rank_percentile(values, 0.95), 799)
+
+    def test_proof_rejects_threshold_and_critical_path_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "ios/DoorUnlockerApp"
+            firmware = root / "firmware/DoorUnlockerXiao"
+            script = root / "script"
+            project.mkdir(parents=True)
+            firmware.mkdir(parents=True)
+            script.mkdir(parents=True)
+            (project / "project.yml").write_text('MARKETING_VERSION: "0.2.1"\n', encoding="utf-8")
+            (firmware / "DoorUnlockerXiao.ino").write_text(
+                'CONTROLLER_FIRMWARE_VERSION[] = "0.1.25";\n',
+                encoding="utf-8",
+            )
+            (script / "benchmark_ios_launch_gates.py").write_text("benchmark\n", encoding="utf-8")
+            (script / "ios_launch_performance_contract.py").write_text("contract\n", encoding="utf-8")
+            samples = [100] * 10
+            proof = {
+                "schemaVersion": 1,
+                "passed": True,
+                "criticalPathSha256": launch_performance.critical_path_sha256(root),
+                "appVersion": "0.2.1",
+                "firmwareVersion": "0.1.25",
+                "cold": {"samplesMs": samples, "metrics": launch_performance.metrics(samples)},
+                "warm": {"samplesMs": samples, "metrics": launch_performance.metrics(samples)},
+            }
+            self.assertEqual(launch_performance.validate_proof(proof, root), [])
+
+            proof["cold"]["samplesMs"] = [900] * 10
+            proof["cold"]["metrics"] = launch_performance.metrics([900] * 10)
+            self.assertTrue(any("cold median" in item for item in launch_performance.validate_proof(proof, root)))
+
+            (script / "benchmark_ios_launch_gates.py").write_text("changed\n", encoding="utf-8")
+            self.assertTrue(any("sources changed" in item for item in launch_performance.validate_proof(proof, root)))
 
 
 class QualityReportAccuracyTests(unittest.TestCase):

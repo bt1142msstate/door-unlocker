@@ -88,6 +88,7 @@ struct DoorUnlockerScreen: View {
 
     private func handleScenePhaseChange(_ oldPhase: ScenePhase, _ phase: ScenePhase) {
         if phase == .active {
+            controller.recordWarmLaunchActivation()
             controller.cancelForceQuitReliabilityWarning()
             refreshForegroundController()
             controller.refreshNotificationSettings()

@@ -87,6 +87,7 @@ extension DoorUnlockerController {
         guard canAcceptDoorCommand else { return }
 #if DEBUG
         recordStartupTelemetry("door_command_dispatch_ready")
+        recordWarmLaunchReadinessIfPossible()
 #endif
     }
 

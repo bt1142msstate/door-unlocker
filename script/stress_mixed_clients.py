@@ -23,6 +23,7 @@ BUNDLE_ID = "io.github.bt1142msstate.DoorUnlocker"
 DEVELOPER_DIR = "/Applications/Xcode.app/Contents/Developer"
 MAC_EVENT = re.compile(r"DUMacStartup\s+(\d+)ms\s+(.+)$")
 IOS_EVENT = re.compile(r"DUStartup\s+(\d+)ms\s+(.+)$")
+CONSOLE_RELAUNCH_SETTLE_SECONDS = 1.25
 
 
 class IOSConsole:
@@ -49,7 +50,7 @@ class IOSConsole:
             capture_output=True,
             text=True,
         )
-        time.sleep(0.3)
+        time.sleep(CONSOLE_RELAUNCH_SETTLE_SECONDS)
         self._process = subprocess.Popen(
             [
                 "/usr/bin/xcrun",

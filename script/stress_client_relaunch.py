@@ -77,7 +77,7 @@ def main() -> int:
         default=1.25,
         help="Seconds for iOS and devicectl to release the prior console session.",
     )
-    parser.add_argument("--max-ios-ready-ms", type=int, default=2000)
+    parser.add_argument("--max-ios-ready-ms", type=int, default=800)
     parser.add_argument("--max-mac-ready-ms", type=int, default=7000)
     parser.add_argument("--max-command-ms", type=int, default=1200)
     args = parser.parse_args()

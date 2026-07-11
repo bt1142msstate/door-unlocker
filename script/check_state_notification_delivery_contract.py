@@ -51,6 +51,16 @@ def source_checks(text: str) -> dict[str, bool]:
             "resetStateNotificationSubscription((uint8_t) slot)" in text
             and "stateStartupSnapshotDelivered[slot] = false" in text
         ),
+        "authoritative settings are redundantly queued per subscriber": (
+            "AUTHORITATIVE_STATE_REPEAT_COUNT = 2" in text
+            and "writeAndNotifyAuthoritativeStatePayload(payload);" in text
+            and "notifyAuthoritativeStateSubscribers(payload);" in text
+        ),
+        "subscriber readiness rebroadcasts the connection roster": (
+            "A newly ready subscriber changes the authoritative roster" in text
+            and "stateStartupSnapshotDueMs[slot]" in text
+            and "publishConnectionsState();" in text
+        ),
     }
 
 

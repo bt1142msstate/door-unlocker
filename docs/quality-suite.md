@@ -25,7 +25,15 @@ The default suite runs:
 - Mac app build/verify;
 - bench wiring, breadboard, inline splitter, and Phase 2 dimensional model checks.
 
-It writes a machine-readable report to `docs/quality-suite-last-run.json`, iOS coverage evidence to `docs/ios-test-coverage-last-run.json`, and the raw iOS result bundle to `build/quality/ios-tests.xcresult`.
+It writes a machine-readable report to `docs/quality-suite-last-run.json`, iOS coverage evidence to `docs/ios-test-coverage-last-run.json`, and the raw iOS result bundle to `build/quality/ios-tests.xcresult`. Every run also validates `docs/ios-launch-performance-last-run.json` against the exact current iOS/shared/firmware critical-path hash.
+
+The physical launch proof is collected on a real iPhone with:
+
+```bash
+python3 script/benchmark_ios_launch_gates.py --samples 10
+```
+
+The cold gate terminates the app before each sample and measures launch to authenticated command readiness. The warm gate backgrounds the still-running app and measures scene reactivation to the same readiness predicate. Current release limits are cold median `550 ms`, cold p95 `800 ms`, warm median `100 ms`, and warm p95 `150 ms`. Any critical launch-path source change invalidates the checked-in proof until the physical benchmark is rerun.
 
 By default, independent steps continue after a failure so the report shows the complete failure set. Use `--fail-fast` only for a shorter local diagnosis loop.
 

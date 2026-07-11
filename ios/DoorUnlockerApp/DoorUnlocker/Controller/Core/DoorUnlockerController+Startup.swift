@@ -43,6 +43,26 @@ extension DoorUnlockerController {
         recordStartupTelemetry(event, details: "\(oldValue) -> \(newValue)", once: false)
     }
 
+    func recordWarmLaunchActivation() {
+#if DEBUG
+        let now = ProcessInfo.processInfo.systemUptime
+        guard now - startupTelemetryStartedAt >= 2 else { return }
+        warmLaunchTelemetryStartedAt = now
+        print("DUWarmLaunch 0ms scene_active")
+        recordWarmLaunchReadinessIfPossible()
+#endif
+    }
+
+    func recordWarmLaunchReadinessIfPossible() {
+#if DEBUG
+        guard let startedAt = warmLaunchTelemetryStartedAt,
+              canAcceptDoorCommand else { return }
+        let elapsedMilliseconds = Int(((ProcessInfo.processInfo.systemUptime - startedAt) * 1000).rounded())
+        warmLaunchTelemetryStartedAt = nil
+        print("DUWarmLaunch \(elapsedMilliseconds)ms door_command_dispatch_ready")
+#endif
+    }
+
     func scheduleDeferredStartupHousekeeping() {
         startupHousekeepingTask?.cancel()
         startupHousekeepingTask = Task { [weak self] in

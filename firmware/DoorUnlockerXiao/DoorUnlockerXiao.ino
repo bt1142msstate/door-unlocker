@@ -41,7 +41,7 @@ static const uint16_t MIN_UNLOCK_HOLD_TIMEOUT_SECONDS = 5;
 static const uint16_t MAX_UNLOCK_HOLD_TIMEOUT_SECONDS = 120;
 static const char DEFAULT_LOCK_NAME[] = "My Lock";
 static const char CONTROLLER_MODEL_NAME[] = "DoorUnlocker-XIAO-v4";
-static const char CONTROLLER_FIRMWARE_VERSION[] = "0.1.25";
+static const char CONTROLLER_FIRMWARE_VERSION[] = "0.1.26";
 // Fresh random-static BLE identity for the app-layer-security firmware. This
 // avoids stale iOS/macOS OS-level bond records from the earlier encrypted-GATT
 // builds while preserving trusted app keys in LittleFS.
@@ -82,6 +82,7 @@ static const uint16_t SERIAL_COMMAND_MAX_LEN = 260;
 static const uint8_t BLE_COMMAND_QUEUE_CAPACITY = 8;
 static const uint8_t BLE_COMMAND_QUEUE_PER_CONNECTION_LIMIT = 2;
 static const uint8_t STATE_NOTIFICATION_QUEUE_CAPACITY = 12;
+static const uint8_t AUTHORITATIVE_STATE_REPEAT_COUNT = 2;
 static const size_t BLE_REJECT_REASON_LEN = 40;
 static const size_t STATE_PAYLOAD_MAX_LEN = 124;
 static const size_t V3_KEY_FINGERPRINT_LEN = 8;
@@ -2198,6 +2199,12 @@ void notifyStateSubscribers(const char* payload) {
   }
 }
 
+void notifyAuthoritativeStateSubscribers(const char* payload) {
+  for (uint8_t repeat = 0; repeat < AUTHORITATIVE_STATE_REPEAT_COUNT; repeat++) {
+    notifyStateSubscribers(payload);
+  }
+}
+
 void notifyStateSubscriber(uint16_t connHandle, const char* payload) {
   if (payload == nullptr || !Bluefruit.connected()) {
     return;
@@ -2214,6 +2221,11 @@ void notifyStateSubscriber(uint16_t connHandle, const char* payload) {
 void writeAndNotifyStatePayload(const char* payload) {
   stateCharacteristic.write(payload);
   notifyStateSubscribers(payload);
+}
+
+void writeAndNotifyAuthoritativeStatePayload(const char* payload) {
+  stateCharacteristic.write(payload);
+  notifyAuthoritativeStateSubscribers(payload);
 }
 
 bool isTrackedConnectionSlotActive(uint8_t slot) {
@@ -2310,7 +2322,7 @@ void publishConnectionsState() {
     return;
   }
 
-  notifyStateSubscribers(payload);
+  notifyAuthoritativeStateSubscribers(payload);
   Serial.print("State: ");
   Serial.println(payload);
 }
@@ -2439,7 +2451,7 @@ void publishFirmwareUpdateState(const char* state) {
 void publishTimeoutSetState() {
   char payload[STATE_PAYLOAD_MAX_LEN] = {0};
   snprintf(payload, sizeof(payload), "timeout_set:%u", unlockHoldTimeoutSeconds);
-  writeAndNotifyStatePayload(payload);
+  writeAndNotifyAuthoritativeStatePayload(payload);
   Serial.print("State: ");
   Serial.println(payload);
 }
@@ -2496,7 +2508,7 @@ void publishSettingApplyingState(const char* kind) {
 void publishLockNameState() {
   char payload[STATE_PAYLOAD_MAX_LEN] = {0};
   snprintf(payload, sizeof(payload), "lock_name:%s", controllerLockName);
-  writeAndNotifyStatePayload(payload);
+  writeAndNotifyAuthoritativeStatePayload(payload);
   Serial.print("State: ");
   Serial.println(payload);
 }
@@ -2504,7 +2516,7 @@ void publishLockNameState() {
 void publishServoAnglesState() {
   char payload[STATE_PAYLOAD_MAX_LEN] = {0};
   snprintf(payload, sizeof(payload), "servo_angles:%u,%u", lockAngle, unlockAngle);
-  writeAndNotifyStatePayload(payload);
+  writeAndNotifyAuthoritativeStatePayload(payload);
   Serial.print("State: ");
   Serial.println(payload);
 }
@@ -3118,6 +3130,10 @@ void stateCccdWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint1
   stateStartupSnapshotPending[slot] = true;
   stateStartupSnapshotDueMs[slot] = millis() + STATE_SUBSCRIPTION_SETTLE_MS;
   stateStartupSnapshotGenerations[slot] = stateNotificationQueueGenerations[slot];
+  // A newly ready subscriber changes the authoritative roster. Rebroadcast it
+  // after CCCD enable so already-connected devices do not depend solely on the
+  // earlier GAP connect callback, which can race notification delivery.
+  publishConnectionsState();
 }
 
 void controlCccdWrittenCallback(uint16_t connHandle, BLECharacteristic* chr, uint16_t value) {

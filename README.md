@@ -2,27 +2,28 @@
 
 Open-source desk-test prototype for a BLE-controlled servo actuator. The project uses a Seeed Studio XIAO nRF52840 Sense to drive a high-torque servo, plus SwiftUI iPhone and Mac apps for lock control, pairing, and controller administration.
 
-Current release: `v0.2.0`, with iPhone/Mac app version `0.2.0` and controller firmware `0.1.25`.
+Current release: `v0.2.1`, with iPhone/Mac app version `0.2.1` and controller firmware `0.1.26`.
 
 This is a bench prototype and wiring reference, not a certified door lock, access-control system, or life-safety device.
 
 ## Stable Release Validation
 
-The `v0.2.0` candidate was tested on July 11, 2026 against the bench XIAO controller and physical iPhone/Mac apps. The full evidence and residual-risk assessment are in [the v0.2.0 release-readiness report](docs/release-readiness-v0.2.0.md).
+The `v0.2.1` candidate was tested on July 11, 2026 against the bench XIAO controller and physical iPhone/Mac apps. It supersedes `v0.2.0`, which was promoted before later startup and multi-client stability problems were found. The current evidence and residual-risk assessment are in [the v0.2.1 release-readiness report](docs/release-readiness-v0.2.1.md).
 
 Validation run:
 
 - iPhone install path remains `script/install_ios_app.sh`, which builds for `generic/platform=iOS` and installs with `devicectl`.
 - iPhone wireless debug/monitor path is documented in `docs/ios-wireless-debugging.md`; use `script/ios_device_status.sh --require-wireless` and `script/monitor_ios_app.sh --wireless-only` to prove the no-cable path.
 - iPhone physical-device build/install passed with the bundled DFU package.
-- Firmware `0.1.25` passed a trusted-iPhone OTA proof with a signed BLE entry command, no controller USB connection, bootloader validation, reboot, secure reconnection, and post-reboot BLE version verification in `85s`.
+- Firmware `0.1.26` passed a trusted-iPhone OTA proof with a signed BLE entry command, no controller USB connection, bootloader validation, reboot, secure reconnection, and post-reboot BLE version verification in `86s`.
 - Mac admin package build passed with `swift build --package-path mac/DoorUnlockerAdmin`.
 - Mac admin build/run install path passed with `script/build_and_run.sh --install`.
-- Full 18-gate release suite passed: 121 shared tests, 19 Mac tests, 8 iOS adapter tests, firmware compile/package verification, both app builds, adverse-state policies, persistence and per-subscriber delivery contracts, and all wiring/CAD model gates.
+- Full 24-step release campaign passed: 19 base quality gates, 121 shared tests, 19 Mac tests, 8 iOS adapter tests, firmware compile/package verification, both app builds, physical cold/warm launch proof, three live two-client hardware gates, both final app installations, persistence and per-subscriber delivery contracts, and all wiring/CAD model gates.
+- Physical iPhone launch gate passed 10 cold and 10 warm samples: cold median `307.5 ms`, cold p95/max `400 ms`, warm median/p95 `0 ms` from scene activation to secure command readiness.
 - Live release checks passed 10 repeated app relaunch cycles, 20 alternating iPhone/Mac commands, and 4 cross-client setting changes without a failed confirmation.
 - Quality scores: maintainability `92.2/100`, shared parity `100/100`, iOS modularity `96.7/100`, and Mac modularity `98.4/100`.
 
-The machine-readable physical proof is in [docs/firmware-release-proof.json](docs/firmware-release-proof.json). Historical OTA tuning and benchmark details are kept in [docs/ota-speed-plan.md](docs/ota-speed-plan.md).
+The machine-readable physical proofs are in [docs/firmware-release-proof.json](docs/firmware-release-proof.json) and [docs/ios-launch-performance-last-run.json](docs/ios-launch-performance-last-run.json). Historical OTA tuning and benchmark details are kept in [docs/ota-speed-plan.md](docs/ota-speed-plan.md).
 
 [View the Phase 1 wiring diagram](https://bt1142msstate.github.io/door-unlocker/)
 
@@ -235,7 +236,7 @@ Normal firmware updates should preserve the controller's stored pairings, lock n
 
 The controller keeps the servo signal attached while the lock is in the unlocked state so the arm can hold pressure on the handle until auto-lock or a manual lock command. After returning to the locked/rest angle, the firmware detaches the servo signal to reduce idle power draw and heat.
 
-The current firmware `0.1.25` application payload is `134,396` bytes and its DFU zip is approximately `135 KB`. The latest trusted-iPhone proof completed entry, upload, reboot, secure reconnection, and post-reboot BLE verification in `85s`. The app logs DFU package size, PRN setting, object prep delay, progress buckets, upload speed, and total/upload elapsed time under the `FirmwareUpdate` log category.
+The current firmware `0.1.26` application payload is `134,444` bytes and its DFU zip is `135,327` bytes. The latest trusted-iPhone proof completed entry, upload, reboot, secure reconnection, and post-reboot BLE verification in `86s`. The app logs DFU package size, PRN setting, object prep delay, progress buckets, upload speed, and total/upload elapsed time under the `FirmwareUpdate` log category.
 
 The current DFU tuning is intentionally conservative: packet receipt notification parameter `8` and data object preparation delay `0.4s`. [Nordic's iOS DFU library](https://github.com/NordicSemiconductor/IOS-DFU-Library/blob/main/Library/Classes/Implementation/DFUServiceInitiator.swift) documents that PRNs can be disabled on modern iOS/macOS for speed, but also warns that devices with slower flash handling can fail or become very slow; its documented safe object-prep delay range for SDK 15-17 style bootloaders is `0.3s` to `0.4s`. On this XIAO/Adafruit DFU bootloader, PRN `8` was the fastest measured reliable setting; PRN `0`, `12`, and `20` were slower in real OTA tests.
 
@@ -266,7 +267,7 @@ ios/DoorUnlockerApp/DoorUnlocker/Firmware/DoorUnlockerXiao-dfu.zip
 Then run the repeatable physical-device verifier:
 
 ```sh
-./script/verify_ios_ota.sh --wireless-only --target 0.1.25
+./script/verify_ios_ota.sh --wireless-only --target 0.1.26
 ```
 
 The wireless verifier installs the iPhone app, launches the bundled-firmware debug update flow, and waits for a version-specific iPhone Darwin notification that is posted only after the app receives `firmware_version:<target>` from the controller over BLE after DFU. With `--wireless-only`, the script refuses to start if the controller USB-C serial port is visible. The controller should not be plugged into USB-C for this proof; the iPhone can stay connected to the Mac for app installation and automation.
@@ -278,7 +279,7 @@ For Mac OTA testing, build the package and send it through the admin app/CLI flo
 ```sh
 ./script/flash_xiao_uf2.sh --build-only
 ./script/build_and_run.sh --install
-./dist/door-unlocker firmware-proof dist/DoorUnlockerXiao-dfu.zip 0.1.25
+./dist/door-unlocker firmware-proof dist/DoorUnlockerXiao-dfu.zip 0.1.26
 ```
 
 `firmware-proof` sends the update request to the running Mac app, waits for the app to receive the expected `firmware_version` over BLE after DFU, then prints `verified_over=ble`. Use plain `firmware ZIP_PATH` for an interactive app-driven update when you do not need an automated proof.

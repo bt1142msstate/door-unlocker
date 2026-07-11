@@ -92,6 +92,7 @@ def summarize_output(output: str) -> str:
         "Mac:",
         "Shared parity evidence registration:",
         "Fast command contract:",
+        "iOS launch performance proof:",
         "iOS adapter tests:",
         "Test Suite 'All tests' passed",
         "Test Suite 'All tests' failed",
@@ -178,6 +179,10 @@ def base_steps(args: argparse.Namespace) -> list[tuple[str, list[str]]]:
         (
             "Per-subscriber state delivery contract gate",
             ["python3", "script/check_state_notification_delivery_contract.py"],
+        ),
+        (
+            "Physical iPhone cold/warm launch performance proof",
+            ["python3", "script/check_ios_launch_performance_proof.py"],
         ),
         (
             "Shared package independent tests",
@@ -439,6 +444,10 @@ def write_report(
             "platformAdapterVectorsVerified": platform_adapter_vectors_verified,
             "platformBuildParityVerified": build_parity_verified,
             "firmwareCompiles": step_passed(steps, "Controller firmware compile and package verification"),
+            "physicalIOSLaunchPerformanceVerified": step_passed(
+                steps,
+                "Physical iPhone cold/warm launch performance proof",
+            ),
             "liveBluetoothHardwareVerified": (
                 step_passed(steps, "Live Mac control surface smoke test")
                 or live_mixed_client_verified

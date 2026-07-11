@@ -31,3 +31,9 @@ The final 10-run median was `500 ms` and nearest-rank p95 was `613 ms`. This is 
 - `script/benchmark_ios_startup.sh` now fails when true command readiness is missing or exceeds `800 ms`.
 
 The broader mixed-client relaunch campaign remains a separate gate because it also requires connection-roster propagation between the iPhone and Mac. That cross-client concern is not used to inflate or hide the iPhone cold-launch result.
+
+## Release Gates
+
+The later `v0.2.1` release run formalized this work as a content-bound physical gate. On final firmware `0.1.26`, the fully settled harness measured ten cold launches at `233-400 ms`, with a `307.5 ms` median and `400 ms` p95. Ten warm background-to-foreground activations were already secure-command-ready in the scene activation callback and therefore rounded to `0 ms`.
+
+`script/check_ios_launch_performance_proof.py` runs in both the local quality suite and GitHub CI. It rejects missing or insufficient samples, recomputed metric mismatches, threshold failures, app/firmware version drift, and any change to the critical iOS/shared/firmware source hash after measurement.

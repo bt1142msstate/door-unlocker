@@ -219,6 +219,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     var debugFirmwareVerifiedNotificationPosted = false
     let startupTelemetryStartedAt = ProcessInfo.processInfo.systemUptime
     var startupTelemetryEvents: Set<String> = []
+    var warmLaunchTelemetryStartedAt: TimeInterval?
 #endif
     let locationManager = CLLocationManager()
     var pendingLocationRequests: [LockZoneLocationRequest] = []

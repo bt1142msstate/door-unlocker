@@ -1,14 +1,14 @@
 {
-  "durationSeconds": 85,
-  "endedAt": "2026-07-11T18:43:41Z",
+  "durationSeconds": 86,
+  "endedAt": "2026-07-11T19:46:22Z",
   "entryCommandOver": "ble",
-  "message": "Trusted iPhone sent a signed BLE OTA command, uploaded the package, rebooted, and verified firmware 0.1.25 over BLE.",
+  "message": "Trusted iPhone sent a signed BLE OTA command, uploaded the package, rebooted, and verified firmware 0.1.26 over BLE.",
   "package": {
-    "bytes": 135279,
-    "payloadSha256": "b01d809a048cd77e3316562f18b4690adb79e70064a910f9c80003dd6ad6d327"
+    "bytes": 135327,
+    "payloadSha256": "4a23218ae7879ecd6c84becb5a8ca84d94626547b334f4a3871c02267b53cf62"
   },
   "result": "pass",
-  "targetFirmware": "0.1.25",
+  "targetFirmware": "0.1.26",
   "usbRecoveryCommandUsed": false,
   "verifiedOver": "ble"
 }
