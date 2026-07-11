@@ -3025,8 +3025,12 @@
       const servoSignal = point(servoRect, 0.479, 0.895);
       const servoRed = point(servoRect, 0.517, 0.895);
       const servoGround = point(servoRect, 0.553, 0.895);
-      wiringPaths.servoPositive.setAttribute("d", `M${pathPoint(positiveOutputServo)} V1148 H566 V430 H660 L${pathPoint(servoRed)}`);
-      wiringPaths.servoGround.setAttribute("d", `M${pathPoint(groundOutputServo)} V1208 H1030 V470 L${pathPoint(servoGround)}`);
+      const servoBranchTurnY = 1148;
+      const servoBranchRiseY = 430;
+      const servoBranchLeftX = 566;
+      const servoBranchRightX = 794;
+      wiringPaths.servoPositive.setAttribute("d", `M${pathPoint(positiveOutputServo)} V${servoBranchTurnY} H${servoBranchLeftX} V${servoBranchRiseY} H660 L${pathPoint(servoRed)}`);
+      wiringPaths.servoGround.setAttribute("d", `M${pathPoint(groundOutputServo)} V${servoBranchTurnY} H${servoBranchRightX} V${servoBranchRiseY} H700 L${pathPoint(servoGround)}`);
 
       const controllerPower = assemblyPoint(151, 1);
       const controllerGround = assemblyPoint(136, 1);
