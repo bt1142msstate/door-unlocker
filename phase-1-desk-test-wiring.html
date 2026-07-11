@@ -2147,7 +2147,7 @@
 
             <article class="component servo-card power" data-node="servo" tabindex="0" aria-label="35 kilogram servo">
               <div class="component-visual">
-                <img class="part-raster servo-visual" src="assets/injora-servo-rear-connector.png" alt="" aria-hidden="true" />
+                <img class="part-raster servo-visual" src="assets/injora-servo-three-wire.png" alt="" aria-hidden="true" />
               </div>
             </article>
 
@@ -2182,8 +2182,8 @@
               </div>
               <div class="callout-ports">
                 <div class="port-row">red power <i class="port red"></i></div>
-                <div class="port-row">black/brown ground <i class="port ground"></i></div>
-                <div class="port-row">orange/yellow signal <i class="port signal"></i></div>
+                <div class="port-row">brown ground <i class="port ground"></i></div>
+                <div class="port-row">yellow signal <i class="port signal"></i></div>
               </div>
             </aside>
 
@@ -2244,7 +2244,7 @@
 
             <div class="safety-note">
               <b>!</b>
-              <span>PWM through the breadboard is fine. Do not route servo red/black power through the breadboard.</span>
+              <span>PWM through the breadboard is fine. Do not route servo red/brown power through the breadboard.</span>
             </div>
 
           </div>
@@ -2381,7 +2381,7 @@
             <span><strong>Use stranded tinned copper silicone wire.</strong> It stays flexible, resists corrosion better than bare copper, and handles repeated service/removal better than stiff solid wire.</span>
             <span><strong>No raw solar into battery.</strong> Solar panels must go through a proper 2S lithium charge controller/BMS before touching the pack.</span>
             <span><strong>Cut servo power when locked.</strong> The servo should not stay powered just because software stopped sending pulses; use a load switch on the servo supply path.</span>
-            <span><strong>PWM through breadboard is OK.</strong> The orange/yellow signal wire is low-current control wiring.</span>
+            <span><strong>PWM through breadboard is OK.</strong> The yellow signal wire is low-current control wiring.</span>
             <span><strong>Grounds must meet.</strong> Servo/splitter ground and XIAO GND share the same reference; buck ground joins only in buck mode.</span>
             <span><strong>XIAO pin positions.</strong> With USB-C at the top, D2 is third pin down on the left; GND is second pin down on the right.</span>
           </div>
@@ -2805,10 +2805,10 @@
         price: "$37.44",
         weight: "70 g servo body, about 79 g with long arm and rubber cap",
         full: "INJORA 35KG Brushless Waterproof High Voltage Servo Motor High Torque Digital Servo for RC Car Model",
-        image: "assets/injora-servo-rear-connector.png",
+        image: "assets/injora-servo-three-wire.png",
         description: "High-torque RC servo with the installed long 25T arm and glossy rubber sleeve cap shown for the handle-contact end.",
         role: "High-torque actuator that moves the door handle during the desk test.",
-        specs: ["35kg-class high-torque digital servo", "Brushless waterproof RC servo body", "Use 16 AWG for servo red power and black/brown ground", "Runs from the direct 2S battery path, not through the breadboard", "PWM signal is low-current and can use 22 AWG or a breadboard jumper", "Uses three leads: power, ground, and PWM signal"],
+        specs: ["35kg-class high-torque digital servo", "Brushless waterproof RC servo body", "Exactly three leads: yellow PWM signal, red power, and brown ground", "Use 16 AWG for servo red power and brown ground", "Runs from the direct 2S battery path, not through the breadboard", "PWM signal is low-current and can use 22 AWG or a breadboard jumper"],
         link: "https://www.amazon.com/dp/B0B56SN46D"
       },
       battery: {
@@ -2885,7 +2885,7 @@
         image: "assets/component-mini-breadboards-pack.png",
         description: "Small solderless breadboards for no-solder signal and logic hookups during desk testing.",
         role: "Logic-only prototyping area for XIAO power, ground, and PWM signal jumpers. Do not run servo power through it.",
-        specs: ["170 tie-points per mini breadboard", "Standard envelope: about 47 x 35 x 8.5mm", "Solderless push-in jumper wiring", "Use for XIAO 5V/GND/PWM only", "Use breadboard jumper pins or 22 AWG control wiring only", "Not for servo red/black high-current power"],
+        specs: ["170 tie-points per mini breadboard", "Standard envelope: about 47 x 35 x 8.5mm", "Solderless push-in jumper wiring", "Use for XIAO 5V/GND/PWM only", "Use breadboard jumper pins or 22 AWG control wiring only", "Not for servo red/brown high-current power"],
         link: "https://www.amazon.com/dp/B01KKE602W"
       },
       jumpers: {
@@ -2896,7 +2896,7 @@
         image: "assets/component-jumper-wires-kit-clean.png",
         description: "Pre-cut jumper wires for connecting breadboard rows, rails, and microcontroller pins without soldering.",
         role: "Low-current signal and logic jumpers for the breadboard and XIAO.",
-        specs: ["840-piece listed jumper kit", "14 listed length values from 2-125mm", "Solid-core breadboard style", "Use for PWM, 5V logic, and ground reference jumpers", "Do not use these for servo red/black power"],
+        specs: ["840-piece listed jumper kit", "14 listed length values from 2-125mm", "Solid-core breadboard style", "Use for PWM, 5V logic, and ground reference jumpers", "Do not use these for servo red/brown power"],
         link: "https://www.amazon.com/dp/B0BWGZRGYP"
       },
       "servo-horn": {
