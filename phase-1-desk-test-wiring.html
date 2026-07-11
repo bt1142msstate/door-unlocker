@@ -378,14 +378,6 @@
       filter: none;
     }
 
-    .wire-bridge-underlay {
-      fill: none;
-      stroke: #101712;
-      stroke-width: 15;
-      stroke-linecap: round;
-      pointer-events: none;
-    }
-
     .stage.has-active .wire {
       opacity: .18;
       filter: none;
@@ -581,18 +573,18 @@
 
     .splitter-card {
       top: 1165px;
-      width: 96px;
+      width: 56px;
       height: 274px;
       border-color: rgba(216,224,218,.34);
     }
 
     .positive-splitter-card {
-      left: 582px;
+      left: 624px;
       border-color: rgba(255,90,82,.34);
     }
 
     .ground-splitter-card {
-      left: 682px;
+      left: 680px;
     }
 
     .servo-card {
@@ -664,7 +656,7 @@
 
     .buck-visual {
       width: auto;
-      height: 308px;
+      height: 285px;
       margin: 0 auto;
     }
 
@@ -2107,7 +2099,7 @@
 
             <svg viewBox="0 0 1120 2160" role="img" aria-labelledby="diagramTitle diagramDesc">
               <title id="diagramTitle">No-solder desk test wiring arranged like the planned enclosure</title>
-              <desc id="diagramDesc">The physical layout forms one centered vertical chain: servo, XIAO on its breadboard, LM2596 buck, paired inline splitters, and a slide-out battery with its XT30 pigtail already connected. The pigtail's red and black leads enter the splitters directly. The splitters feed the servo through a dedicated right-side trunk and, in buck mode, feed the buck directly above them. The buck feeds the controller immediately above it while USB-C is unplugged. In USB-first mode, USB-C powers the XIAO, the buck is skipped, and splitter ground continues to the controller. PWM leaves the breadboard assembly on the left and travels upward to the servo. Component bodies are shown at one approximately consistent real-size scale; flexible lead lengths are diagrammatic.</desc>
+              <desc id="diagramDesc">The physical layout forms one centered vertical chain: servo, XIAO on its breadboard, LM2596 buck, a physically joined but electrically separate inline splitter pair, and a slide-out battery with its XT30 pigtail already connected. The pigtail's red and black leads enter the splitter bottoms directly. The positive splitter's right output takes the short branch to the buck, while its left output routes around the buck's left side to the servo without crossing another wire. The buck feeds the controller immediately above it while USB-C is unplugged. In USB-first mode, USB-C powers the XIAO, the buck is skipped, and splitter ground continues to the controller. PWM leaves the breadboard assembly on the left and travels upward to the servo. Component bodies are shown at one approximately consistent real-size scale; flexible lead lengths are diagrammatic.</desc>
 
               <path id="xt30PositiveWire" class="wire red" data-parts="battery splitter-positive" />
               <path id="xt30GroundWire" class="wire ground" data-parts="battery splitter-ground" />
@@ -2120,8 +2112,6 @@
               <path id="usbGroundWire" class="wire ground usb-ground-wire muted" data-parts="splitter-ground controller" />
               <path id="controllerSignalWire" class="wire signal" data-parts="controller servo" />
               <path id="usbControllerWire" class="wire logic usb-wire muted" data-parts="usb controller" />
-              <path class="wire-bridge-underlay" data-wire-bridge="servo-positive" aria-hidden="true" />
-              <path class="wire red wire-bridge" data-wire-bridge-color="servo-positive" data-parts="splitter-positive servo" aria-hidden="true" />
             </svg>
 
             <article class="component battery-card power" data-node="battery" tabindex="0" aria-label="2S battery">
@@ -2970,8 +2960,6 @@
       xt30Positive: document.getElementById("xt30PositiveWire"),
       xt30Ground: document.getElementById("xt30GroundWire"),
       servoPositive: document.getElementById("servoPositiveWire"),
-      servoPositiveBridgeUnderlay: document.querySelector('[data-wire-bridge="servo-positive"]'),
-      servoPositiveBridge: document.querySelector('[data-wire-bridge-color="servo-positive"]'),
       servoGround: document.getElementById("servoGroundWire"),
       buckInputPositive: document.getElementById("buckInputPositiveWire"),
       buckInputGround: document.getElementById("buckInputGroundWire"),
@@ -3009,12 +2997,11 @@
       const batteryPigtailGround = point(batteryRect, 0.465, 0.016);
       const positiveInput = point(positiveSplitterRect, 0.504, 0.963);
       const groundInput = point(groundSplitterRect, 0.504, 0.963);
-      const batteryLeadMidY = Math.min(batteryPigtailRed[1], positiveInput[1]) - 12;
-      wiringPaths.xt30Positive.setAttribute("d", `M${pathPoint(batteryPigtailRed)} V${batteryLeadMidY.toFixed(1)} H${positiveInput[0].toFixed(1)} V${positiveInput[1].toFixed(1)}`);
-      wiringPaths.xt30Ground.setAttribute("d", `M${pathPoint(batteryPigtailGround)} V${(batteryLeadMidY - 18).toFixed(1)} H${groundInput[0].toFixed(1)} V${groundInput[1].toFixed(1)}`);
+      wiringPaths.xt30Positive.setAttribute("d", `M${pathPoint(batteryPigtailRed)} L${pathPoint(positiveInput)}`);
+      wiringPaths.xt30Ground.setAttribute("d", `M${pathPoint(batteryPigtailGround)} L${pathPoint(groundInput)}`);
 
-      const positiveOutputBuck = point(positiveSplitterRect, 0.319, 0.061);
-      const positiveOutputServo = point(positiveSplitterRect, 0.662, 0.061);
+      const positiveOutputServo = point(positiveSplitterRect, 0.319, 0.061);
+      const positiveOutputBuck = point(positiveSplitterRect, 0.662, 0.061);
       const groundOutputBuck = point(groundSplitterRect, 0.319, 0.061);
       const groundOutputServo = point(groundSplitterRect, 0.662, 0.061);
       const buckInputPositive = point(buckRect, 0.46, 0.91);
@@ -3025,10 +3012,7 @@
       const servoSignal = point(servoRect, 0.479, 0.895);
       const servoRed = point(servoRect, 0.517, 0.895);
       const servoGround = point(servoRect, 0.553, 0.895);
-      wiringPaths.servoPositive.setAttribute("d", `M${pathPoint(positiveOutputServo)} V1155 H1010 V470 L${pathPoint(servoRed)}`);
-      const servoBridge = `M${(groundOutputBuck[0] - 12).toFixed(1)} 1155 H${(groundOutputBuck[0] + 12).toFixed(1)}`;
-      wiringPaths.servoPositiveBridgeUnderlay.setAttribute("d", servoBridge);
-      wiringPaths.servoPositiveBridge.setAttribute("d", servoBridge);
+      wiringPaths.servoPositive.setAttribute("d", `M${pathPoint(positiveOutputServo)} V1148 H566 V430 H660 L${pathPoint(servoRed)}`);
       wiringPaths.servoGround.setAttribute("d", `M${pathPoint(groundOutputServo)} V1208 H1030 V470 L${pathPoint(servoGround)}`);
 
       const controllerPower = assemblyPoint(151, 1);
@@ -3046,8 +3030,7 @@
       const usbMidY = (usbSource[1] + controllerUsb[1]) / 2;
       wiringPaths.usbController.setAttribute("d", `M${pathPoint(usbSource)} V${usbMidY.toFixed(1)} H${controllerUsb[0].toFixed(1)} V${controllerUsb[1].toFixed(1)}`);
 
-      const usbGroundDropY = groundOutputBuck[1] + 34;
-      wiringPaths.usbGround.setAttribute("d", `M${pathPoint(groundOutputBuck)} V${usbGroundDropY.toFixed(1)} H560 V${(controllerGround[1] + 24).toFixed(1)} H${controllerGround[0].toFixed(1)} V${controllerGround[1].toFixed(1)}`);
+      wiringPaths.usbGround.setAttribute("d", `M${pathPoint(groundOutputBuck)} V${(controllerGround[1] + 24).toFixed(1)} H${controllerGround[0].toFixed(1)} V${controllerGround[1].toFixed(1)}`);
     }
 
     let wiringGeometryFrame = 0;

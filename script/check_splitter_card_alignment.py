@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the separated splitter cards remain aligned to their three wire anchors."""
+"""Verify the joined splitter pair remains aligned to its wire anchors."""
 
 from __future__ import annotations
 
@@ -38,14 +38,14 @@ def main() -> int:
         'data-node="splitter-ground"',
         'const positiveInput = point(positiveSplitterRect, 0.504, 0.963)',
         'const groundInput = point(groundSplitterRect, 0.504, 0.963)',
-        'const positiveOutputBuck = point(positiveSplitterRect, 0.319, 0.061)',
-        'const positiveOutputServo = point(positiveSplitterRect, 0.662, 0.061)',
+        'const positiveOutputServo = point(positiveSplitterRect, 0.319, 0.061)',
+        'const positiveOutputBuck = point(positiveSplitterRect, 0.662, 0.061)',
         'const groundOutputBuck = point(groundSplitterRect, 0.319, 0.061)',
         'const groundOutputServo = point(groundSplitterRect, 0.662, 0.061)',
     )
     for marker in required:
         if marker not in HTML:
-            raise AssertionError(f"Missing separated splitter marker: {marker}")
+            raise AssertionError(f"Missing joined splitter marker: {marker}")
 
     for path_id in (
         "xt30PositiveWire",
@@ -65,18 +65,18 @@ def main() -> int:
     ground_left = css_value(".ground-splitter-card", "left")
     positive_right = positive_left + card_width
     gap = ground_left - positive_right
-    if gap != 4:
-        raise AssertionError(f"Expected a 4px splitter-card gap, found {gap:g}px")
+    if gap != 0:
+        raise AssertionError(f"Expected joined splitter bodies with a 0px gap, found {gap:g}px")
 
     # Port centers measured from the generated 529px-wide straight splitter asset.
     output_left_ratio = 0.319
     output_right_ratio = 0.662
     input_ratio = 0.504
 
-    print("Separated splitter alignment")
+    print("Joined splitter alignment")
     for name, card_left, center in (
-        ("positive", positive_left, 630.0),
-        ("ground", ground_left, 730.0),
+        ("positive", positive_left, 652.0),
+        ("ground", ground_left, 708.0),
     ):
         image_left = card_left + (card_width - image_width) / 2
         close(f"{name} card center", card_left + card_width / 2, center)
@@ -85,7 +85,8 @@ def main() -> int:
         close(f"{name} bottom input", image_left + input_ratio * image_width, center)
 
     print(f"- card gap: {gap:g}px")
-    print("Separated splitter alignment: PASS")
+    close("visible body join", positive_left + image_width, ground_left)
+    print("Joined splitter alignment: PASS")
     return 0
 
 

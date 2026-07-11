@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from pathlib import Path
 
 
@@ -20,6 +21,14 @@ def require(condition: bool, message: str) -> None:
 
 def overlaps(first_min: float, first_max: float, second_min: float, second_max: float) -> bool:
     return first_min < second_max and first_max > second_min
+
+
+def css_px(html: str, selector: str, property_name: str) -> float:
+    block = re.search(rf"{re.escape(selector)}\s*\{{(?P<body>.*?)\}}", html, re.DOTALL)
+    require(block is not None, f"missing CSS selector {selector}")
+    value = re.search(rf"{re.escape(property_name)}:\s*([\d.]+)px", block.group("body"))
+    require(value is not None, f"missing {property_name} in {selector}")
+    return float(value.group(1))
 
 
 def main() -> int:
@@ -110,6 +119,19 @@ def main() -> int:
     )
     require("B0B28GYYL2" in html, "purchased inline splitter listing is missing")
 
+    # Hard-body visuals share the documented approximate 4-5 px/mm scale.
+    # Harness leads and the servo arm intentionally extend beyond their component bodies.
+    visual_scales = {
+        "buck height": css_px(html, ".buck-visual", "height") / buck["width"],
+        "splitter length": css_px(html, ".splitter-visual", "height") / splitters["single_width"],
+        "splitter width": css_px(html, ".splitter-visual", "width") / splitters["single_depth"],
+        "breadboard height": 237 / components["mini_breadboard_170_point"]["height"],
+    }
+    require(
+        all(3.9 <= scale <= 5.1 for scale in visual_scales.values()),
+        f"bench component visual scale drifted: {visual_scales}",
+    )
+
     require(wire_routing["length"] == 83, "wire-routing channel length drifted")
     require(len(wire_routing["lanes"]) == 10, "wire-routing model must keep ten dedicated lanes")
     require(
@@ -133,6 +155,7 @@ def main() -> int:
     print(f"- Dovetail head: {computed_head:.4f} mm; capture overlap retained")
     print("- Four Command strip pairs fit the documented plate footprint")
     print("- Purchased inline splitter pair matches the 32 x 13.5 x 13mm model contract")
+    print("- Representative hard-body visuals remain within the documented 4-5 px/mm scale")
     print("- Ten dedicated rear-wall wire lanes map one-to-one to the complete harness")
     print("- Bench wiring parts and print view use the 1120 x 2160 enclosure-stack layout")
     print("- Lower solar panel clears the servo; upper panel collision remains explicitly modeled")
