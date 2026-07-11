@@ -1,16 +1,16 @@
 {
   "claims": {
-    "endToEndCrossPlatformBluetoothParityVerified": true,
-    "firmwareCompiles": true,
-    "liveBluetoothHardwareVerified": true,
-    "platformAdapterVectorsVerified": true,
-    "platformBuildParityVerified": true,
+    "endToEndCrossPlatformBluetoothParityVerified": false,
+    "firmwareCompiles": false,
+    "liveBluetoothHardwareVerified": false,
+    "platformAdapterVectorsVerified": false,
+    "platformBuildParityVerified": false,
     "projectWarningFree": true,
     "qualityToolingSelfTested": true,
     "sharedContractBehaviorVerified": true,
-    "warningFree": false
+    "warningFree": true
   },
-  "durationSeconds": 211.94,
+  "durationSeconds": 5.98,
   "environment": {
     "arduinoCLI": "arduino-cli  Version: 1.5.1 Commit: Homebrew Date: 2026-06-05T09:39:33Z",
     "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
@@ -18,10 +18,10 @@
     "swift": "swift-driver version: 1.148.6 Apple Swift version 6.3.3 (swiftlang-6.3.3.1.3 clang-2100.1.1.101) | Target: arm64-apple-macosx26.0",
     "xcode": "Xcode 26.6 | Build version 17F113"
   },
-  "executedStepCount": 23,
-  "expectedStepCount": 23,
-  "fullSuitePassed": true,
-  "generatedAt": "2026-07-11T13:31:28.273923+00:00",
+  "executedStepCount": 9,
+  "expectedStepCount": 9,
+  "fullSuitePassed": false,
+  "generatedAt": "2026-07-11T16:52:44.155588+00:00",
   "limitations": [
     "Architecture and maintainability scores are transparent project heuristics, not Apple-issued grades.",
     "A fast run does not execute iOS adapter tests, firmware compilation, app builds, or HTML/CAD consistency checks.",
@@ -30,13 +30,15 @@
   ],
   "liveMixedClientEvidence": {
     "commandReport": "docs/mixed-client-stress-last-run.json",
-    "failures": [],
+    "failures": [
+      "Live mixed-client verification was not requested."
+    ],
     "relaunchReport": "docs/client-relaunch-stress-last-run.json",
-    "requested": true,
+    "requested": false,
     "settingsReport": "docs/mixed-client-settings-last-run.json",
-    "verified": true
+    "verified": false
   },
-  "mode": "full",
+  "mode": "fast",
   "passed": true,
   "schemaVersion": 2,
   "steps": [
@@ -51,7 +53,7 @@
         "-p",
         "test_*.py"
       ],
-      "durationSeconds": 0.39,
+      "durationSeconds": 0.34,
       "exitCode": 0,
       "name": "Quality tooling negative-control tests",
       "status": "pass",
@@ -66,7 +68,7 @@
         "--threshold",
         "90.0"
       ],
-      "durationSeconds": 0.35,
+      "durationSeconds": 0.29,
       "exitCode": 0,
       "name": "Maintainability size/length gate",
       "status": "pass",
@@ -108,21 +110,6 @@
     },
     {
       "command": [
-        "./script/flash_xiao_uf2.sh",
-        "--build-only"
-      ],
-      "durationSeconds": 24.67,
-      "exitCode": 0,
-      "name": "Controller firmware compile and package verification",
-      "status": "pass",
-      "summary": "Bundled iOS DFU package synchronized at ./ios/DoorUnlockerApp/DoorUnlocker/Firmware/DoorUnlockerXiao-dfu.zip",
-      "warningCount": 1,
-      "warnings": [
-        "~/Library/Arduino15/packages/Seeeduino/hardware/nrf52/1.1.13/tools/uf2conv/uf2conv.py:177: SyntaxWarning: \"\\s\" is an invalid escape sequence. Such sequences will not work in the future. Did you mean \"\\\\s\"? A raw string is also an option."
-      ]
-    },
-    {
-      "command": [
         "python3",
         "script/check_fast_command_contract.py"
       ],
@@ -152,7 +139,7 @@
         "python3",
         "script/check_state_notification_delivery_contract.py"
       ],
-      "durationSeconds": 0.47,
+      "durationSeconds": 0.46,
       "exitCode": 0,
       "name": "Per-subscriber state delivery contract gate",
       "status": "pass",
@@ -167,11 +154,11 @@
         "--package-path",
         "shared/DoorUnlockerShared"
       ],
-      "durationSeconds": 1.91,
+      "durationSeconds": 1.87,
       "exitCode": 0,
       "name": "Shared package independent tests",
       "status": "pass",
-      "summary": "Test Suite 'All tests' passed at 2026-07-11 08:28:24.346.",
+      "summary": "Test Suite 'All tests' passed at 2026-07-11 11:52:41.340.",
       "warningCount": 0,
       "warnings": []
     },
@@ -182,192 +169,11 @@
         "--package-path",
         "mac/DoorUnlockerAdmin"
       ],
-      "durationSeconds": 6.04,
+      "durationSeconds": 2.78,
       "exitCode": 0,
       "name": "Mac core/admin independent tests",
       "status": "pass",
-      "summary": "Test Suite 'All tests' passed at 2026-07-11 08:28:30.389.",
-      "warningCount": 0,
-      "warnings": []
-    },
-    {
-      "command": [
-        "python3",
-        "script/check_firmware_release_proof.py"
-      ],
-      "durationSeconds": 0.05,
-      "exitCode": 0,
-      "name": "Current package physical BLE OTA release proof",
-      "status": "pass",
-      "summary": "Firmware release proof: PASS (0.1.24, BLE entry and verification)",
-      "warningCount": 0,
-      "warnings": []
-    },
-    {
-      "command": [
-        "python3",
-        "script/run_ios_tests.py"
-      ],
-      "durationSeconds": 51.0,
-      "exitCode": 0,
-      "name": "iOS adapter tests",
-      "status": "pass",
-      "summary": "iOS adapter tests: PASS",
-      "warningCount": 0,
-      "warnings": []
-    },
-    {
-      "command": [
-        "xcodebuild",
-        "-project",
-        "ios/DoorUnlockerApp/DoorUnlocker.xcodeproj",
-        "-scheme",
-        "DoorUnlocker",
-        "-configuration",
-        "Debug",
-        "-destination",
-        "generic/platform=iOS",
-        "CODE_SIGNING_ALLOWED=NO",
-        "-quiet",
-        "build"
-      ],
-      "durationSeconds": 3.97,
-      "exitCode": 0,
-      "name": "iOS app generic build",
-      "status": "pass",
-      "summary": "",
-      "warningCount": 0,
-      "warnings": []
-    },
-    {
-      "command": [
-        "./script/build_and_run.sh",
-        "--verify"
-      ],
-      "durationSeconds": 2.31,
-      "exitCode": 0,
-      "name": "Mac app build",
-      "status": "pass",
-      "summary": "/var/folders/1p/tcpfcxmx38z_3km79b8k_y9c0000gn/T//door-unlocker-admin-build/staging/DoorUnlockerAdmin.app: replacing existing signature",
-      "warningCount": 0,
-      "warnings": []
-    },
-    {
-      "command": [
-        "python3",
-        "script/check_bench_wiring_paths.py"
-      ],
-      "durationSeconds": 2.6,
-      "exitCode": 0,
-      "name": "Bench wiring path model",
-      "status": "pass",
-      "summary": "Bench wiring path validation: PASS",
-      "warningCount": 0,
-      "warnings": []
-    },
-    {
-      "command": [
-        "python3",
-        "script/check_controller_breadboard_alignment.py"
-      ],
-      "durationSeconds": 1.92,
-      "exitCode": 0,
-      "name": "Controller breadboard alignment model",
-      "status": "pass",
-      "summary": "Controller / breadboard alignment: PASS",
-      "warningCount": 0,
-      "warnings": []
-    },
-    {
-      "command": [
-        "python3",
-        "script/check_splitter_card_alignment.py"
-      ],
-      "durationSeconds": 1.91,
-      "exitCode": 0,
-      "name": "Inline splitter alignment model",
-      "status": "pass",
-      "summary": "Separated splitter alignment: PASS",
-      "warningCount": 0,
-      "warnings": []
-    },
-    {
-      "command": [
-        "python3",
-        "script/check_phase2_html_model.py"
-      ],
-      "durationSeconds": 0.03,
-      "exitCode": 0,
-      "name": "Phase 2 dimensional model",
-      "status": "pass",
-      "summary": "- Lower solar panel clears the servo; upper panel collision remains explicitly modeled",
-      "warningCount": 0,
-      "warnings": []
-    },
-    {
-      "command": [
-        "python3",
-        "script/stress_client_relaunch.py",
-        "--cycles",
-        "10"
-      ],
-      "durationSeconds": 78.55,
-      "exitCode": 0,
-      "name": "Live client relaunch stress",
-      "status": "pass",
-      "summary": "{\"commandMs\": {\"maximum\": 90, \"mean\": 49.6, \"median\": 45.5, \"minimum\": 36, \"p95\": 56}, \"iosReadyMs\": {\"maximum\": 2878, \"mean\": 2680.9, \"median\": 2645.5, \"minimum\": 2552, \"p95\": 2872}, \"macReadyMs\": {\"maximum\": 2725, \"mean\": 2432.9, \"median\"",
-      "warningCount": 0,
-      "warnings": []
-    },
-    {
-      "command": [
-        "python3",
-        "script/stress_mixed_clients.py",
-        "--no-final-relaunch"
-      ],
-      "durationSeconds": 12.14,
-      "exitCode": 0,
-      "name": "Live mixed-client command stress",
-      "status": "pass",
-      "summary": "{\"maximum\": 150, \"mean\": 59.6, \"median\": 57.5, \"minimum\": 34, \"p95\": 91}",
-      "warningCount": 0,
-      "warnings": []
-    },
-    {
-      "command": [
-        "python3",
-        "script/stress_mixed_settings.py"
-      ],
-      "durationSeconds": 17.55,
-      "exitCode": 0,
-      "name": "Live mixed-client settings stress",
-      "status": "pass",
-      "summary": "{\"maximum\": 3102, \"mean\": 2964.8, \"median\": 2974.5, \"minimum\": 2808, \"p95\": 2985}",
-      "warningCount": 0,
-      "warnings": []
-    },
-    {
-      "command": [
-        "./script/build_and_run.sh",
-        "--install"
-      ],
-      "durationSeconds": 1.89,
-      "exitCode": 0,
-      "name": "Install Mac app",
-      "status": "pass",
-      "summary": "/var/folders/1p/tcpfcxmx38z_3km79b8k_y9c0000gn/T//door-unlocker-admin-build/staging/DoorUnlockerAdmin.app: replacing existing signature",
-      "warningCount": 0,
-      "warnings": []
-    },
-    {
-      "command": [
-        "./script/install_ios_app.sh"
-      ],
-      "durationSeconds": 3.92,
-      "exitCode": 0,
-      "name": "Install iPhone app",
-      "status": "pass",
-      "summary": "** BUILD SUCCEEDED ** | iPhone app installed.",
+      "summary": "Test Suite 'All tests' passed at 2026-07-11 11:52:44.123.",
       "warningCount": 0,
       "warnings": []
     }

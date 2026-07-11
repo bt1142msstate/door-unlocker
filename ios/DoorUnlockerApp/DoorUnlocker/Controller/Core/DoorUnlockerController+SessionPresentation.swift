@@ -46,6 +46,18 @@ extension DoorUnlockerController {
         }
     }
 
+    var isDoorControlConnectionTransition: Bool {
+        isPreparingKnownController || sessionAssessment.phase.isKnownControllerConnectionInProgress
+    }
+
+    var doorControlPresentationContinuityObservation: DoorControlPresentationContinuityObservation {
+        DoorControlPresentationContinuityObservation(
+            isControlEstablished: canAcceptDoorCommand ||
+                isDoorCommandQueuedForSecureLink || isChangingState,
+            isTransientConnection: isDoorControlConnectionTransition
+        )
+    }
+
     var isDoorCommandReady: Bool {
         isReady && hasFreshFastCommandMaterial
     }

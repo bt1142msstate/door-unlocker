@@ -53,6 +53,21 @@ final class DoorControlPresentationPolicyTests: XCTestCase {
         }
     }
 
+    func testTransientConnectionContinuityKeepsStableDoorAction() {
+        let presentation = DoorControlPresentationPolicy.presentation(
+            for: input(
+                isUnlocked: true,
+                canAcceptDoorCommand: false,
+                isPreparingKnownController: true,
+                preservesDoorControlDuringTransientConnection: true
+            )
+        )
+
+        XCTAssertTrue(presentation.shouldShowLockControl)
+        XCTAssertFalse(presentation.isPrimaryActionEnabled)
+        XCTAssertEqual(presentation.actionTitle, "Tap to lock")
+    }
+
     func testSettingsOnlyPresentation() {
         let presentation = DoorControlPresentationPolicy.presentation(
             for: input(
@@ -167,6 +182,7 @@ final class DoorControlPresentationPolicyTests: XCTestCase {
         isFirmwareUpdateBlockingDoorControl: Bool = false,
         isDoorCommandQueuedForSecureLink: Bool = false,
         isPreparingKnownController: Bool = false,
+        preservesDoorControlDuringTransientConnection: Bool = false,
         isDoorCommandReady: Bool = true,
         requiresHoldToUnlock: Bool = false,
         isUnlockHoldActive: Bool = false,
@@ -185,6 +201,7 @@ final class DoorControlPresentationPolicyTests: XCTestCase {
             isFirmwareUpdateBlockingDoorControl: isFirmwareUpdateBlockingDoorControl,
             isDoorCommandQueuedForSecureLink: isDoorCommandQueuedForSecureLink,
             isPreparingKnownController: isPreparingKnownController,
+            preservesDoorControlDuringTransientConnection: preservesDoorControlDuringTransientConnection,
             isDoorCommandReady: isDoorCommandReady,
             requiresHoldToUnlock: requiresHoldToUnlock,
             isUnlockHoldActive: isUnlockHoldActive,

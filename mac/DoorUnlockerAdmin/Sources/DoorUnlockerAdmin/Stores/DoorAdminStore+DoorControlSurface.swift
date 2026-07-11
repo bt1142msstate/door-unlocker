@@ -14,22 +14,25 @@ extension DoorAdminStore {
         )
     }
 
-    var doorControlPresentation: DoorControlPresentation {
-        DoorControlPresentationPolicy.presentation(
-            for: DoorControlPresentationInput(
-                servoState: status.bleState,
-                isUnlocked: status.isUnlocked,
-                canAcceptDoorCommand: canSendDoorCommand,
-                isBusy: isBusy,
-                isApplyingControllerSetting: isApplyingControllerSetting,
-                isFirmwareUpdateBlockingDoorControl: isFirmwareUpdateRunning,
-                isDoorCommandQueuedForSecureLink: isDoorCommandQueued,
-                isDoorCommandReady: isWirelessDoorCommandReady || isConnected,
-                activationVerb: .click,
-                controllerSettingApplyTitle: controllerSettingApplyTitle,
-                firmwareUpdateActionTitle: "Updating firmware..."
-            )
+    var doorControlPresentationInput: DoorControlPresentationInput {
+        DoorControlPresentationInput(
+            servoState: status.bleState,
+            isUnlocked: status.isUnlocked,
+            canAcceptDoorCommand: canSendDoorCommand,
+            isBusy: isBusy,
+            isApplyingControllerSetting: isApplyingControllerSetting,
+            isFirmwareUpdateBlockingDoorControl: isFirmwareUpdateRunning,
+            isDoorCommandQueuedForSecureLink: isDoorCommandQueued,
+            isPreparingKnownController: sessionAssessment.phase.isKnownControllerConnectionInProgress,
+            isDoorCommandReady: isWirelessDoorCommandReady || isConnected,
+            activationVerb: .click,
+            controllerSettingApplyTitle: controllerSettingApplyTitle,
+            firmwareUpdateActionTitle: "Updating firmware..."
         )
+    }
+
+    var doorControlPresentation: DoorControlPresentation {
+        DoorControlPresentationPolicy.presentation(for: doorControlPresentationInput)
     }
 
     var autoLockRange: ClosedRange<Int> {

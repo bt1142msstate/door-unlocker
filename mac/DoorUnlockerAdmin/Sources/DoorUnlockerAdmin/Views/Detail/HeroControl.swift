@@ -8,6 +8,7 @@ struct HeroControl: View {
     @State private var displayedIconIsUnlocked = false
     @State private var iconFlipDegrees = 0.0
     @State private var iconFlipTask: Task<Void, Never>?
+    @StateObject private var presentationContinuity = DoorControlPresentationContinuityCoordinator()
 
     private var accent: Color {
         store.status.isUnlocked ? Color(red: 0.35, green: 0.86, blue: 0.58) : Color(red: 0.35, green: 0.72, blue: 1.0)
@@ -18,7 +19,17 @@ struct HeroControl: View {
     }
 
     private var controlPresentation: DoorControlPresentation {
-        store.doorControlPresentation
+        var input = store.doorControlPresentationInput
+        input.preservesDoorControlDuringTransientConnection = presentationContinuity.isRetainingControl
+        return DoorControlPresentationPolicy.presentation(for: input)
+    }
+
+    private var continuityObservation: DoorControlPresentationContinuityObservation {
+        DoorControlPresentationContinuityObservation(
+            isControlEstablished: store.canSendDoorCommand ||
+                store.isDoorCommandQueued || store.isChangingDoorState,
+            isTransientConnection: store.sessionAssessment.phase.isKnownControllerConnectionInProgress
+        )
     }
 
     private var actionTitle: String {
@@ -163,6 +174,7 @@ struct HeroControl: View {
         .animation(.spring(response: 0.26, dampingFraction: 0.78), value: store.isDoorCommandQueued)
         .onAppear {
             displayedIconIsUnlocked = targetIconIsUnlocked
+            presentationContinuity.observe(continuityObservation)
         }
         .onChange(of: store.status.bleState) { _, state in
             flipLockIcon(for: state)
@@ -170,9 +182,13 @@ struct HeroControl: View {
         .onChange(of: store.status.isUnlocked) { _, _ in
             flipLockIcon(isUnlocked: targetIconIsUnlocked)
         }
+        .onChange(of: continuityObservation) { _, observation in
+            presentationContinuity.observe(observation)
+        }
         .onDisappear {
             iconFlipTask?.cancel()
             iconFlipTask = nil
+            presentationContinuity.reset()
         }
         .padding(24)
         .background {

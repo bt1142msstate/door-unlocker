@@ -11,6 +11,7 @@ struct LockControlButton: View {
     @State private var isUnlockHoldActive = false
     @State private var unlockHoldProgress = 0.0
     @State private var unlockHoldTask: Task<Void, Never>?
+    @StateObject private var presentationContinuity = DoorControlPresentationContinuityCoordinator()
 
     private var statusPresentation: ControllerStatusPresentation {
         ControllerStatusPresentation(controller: controller)
@@ -27,7 +28,8 @@ struct LockControlButton: View {
                 isApplyingControllerSetting: controller.isApplyingControllerSetting,
                 isFirmwareUpdateBlockingDoorControl: controller.shouldBlockDoorControlForFirmwareUpdate,
                 isDoorCommandQueuedForSecureLink: controller.isDoorCommandQueuedForSecureLink,
-                isPreparingKnownController: controller.isPreparingKnownController,
+                isPreparingKnownController: controller.isDoorControlConnectionTransition,
+                preservesDoorControlDuringTransientConnection: presentationContinuity.isRetainingControl,
                 isDoorCommandReady: controller.isDoorCommandReady,
                 requiresHoldToUnlock: controller.requiresHoldToUnlock,
                 isUnlockHoldActive: isUnlockHoldActive,
@@ -118,12 +120,18 @@ struct LockControlButton: View {
 	        .opacity(primaryPanelOpacity)
 	        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .gesture(primaryActionGesture)
-        .onAppear { displayedIconIsUnlocked = controller.isUnlocked }
+        .onAppear {
+            displayedIconIsUnlocked = controller.isUnlocked
+            presentationContinuity.observe(controller.doorControlPresentationContinuityObservation)
+        }
         .onDisappear(perform: cancelTransientAnimation)
         .onChange(of: controller.isChangingState, handleChangingState)
         .onChange(of: controller.servoState, handleServoStateChange)
         .onChange(of: controller.isBusy) { _, isBusy in
             if isBusy { cancelUnlockHold() }
+        }
+        .onChange(of: controller.doorControlPresentationContinuityObservation) { _, observation in
+            presentationContinuity.observe(observation)
         }
         .onChange(of: controller.requiresHoldToUnlock) { _, _ in cancelUnlockHold() }
         .onChange(of: controller.unlockHoldDurationSeconds) { _, _ in cancelUnlockHold() }
@@ -240,7 +248,8 @@ struct LockControlButton: View {
         cancelUnlockHold()
         iconFlipTask?.cancel()
         iconFlipTask = nil
-	}
+        presentationContinuity.reset()
+    }
 }
 
 private struct LockControlPanelChrome: ViewModifier {

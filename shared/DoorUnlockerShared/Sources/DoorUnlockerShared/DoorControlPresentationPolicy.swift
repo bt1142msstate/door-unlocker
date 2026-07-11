@@ -13,6 +13,7 @@ public struct DoorControlPresentationInput: Equatable, Sendable {
     public var isFirmwareUpdateBlockingDoorControl: Bool
     public var isDoorCommandQueuedForSecureLink: Bool
     public var isPreparingKnownController: Bool
+    public var preservesDoorControlDuringTransientConnection: Bool
     public var isDoorCommandReady: Bool
     public var requiresHoldToUnlock: Bool
     public var isUnlockHoldActive: Bool
@@ -31,6 +32,7 @@ public struct DoorControlPresentationInput: Equatable, Sendable {
         isFirmwareUpdateBlockingDoorControl: Bool = false,
         isDoorCommandQueuedForSecureLink: Bool,
         isPreparingKnownController: Bool = false,
+        preservesDoorControlDuringTransientConnection: Bool = false,
         isDoorCommandReady: Bool = true,
         requiresHoldToUnlock: Bool = false,
         isUnlockHoldActive: Bool = false,
@@ -48,6 +50,7 @@ public struct DoorControlPresentationInput: Equatable, Sendable {
         self.isFirmwareUpdateBlockingDoorControl = isFirmwareUpdateBlockingDoorControl
         self.isDoorCommandQueuedForSecureLink = isDoorCommandQueuedForSecureLink
         self.isPreparingKnownController = isPreparingKnownController
+        self.preservesDoorControlDuringTransientConnection = preservesDoorControlDuringTransientConnection
         self.isDoorCommandReady = isDoorCommandReady
         self.requiresHoldToUnlock = requiresHoldToUnlock
         self.isUnlockHoldActive = isUnlockHoldActive
@@ -121,6 +124,7 @@ public enum DoorControlPresentationPolicy {
 
         let shouldShowLockControl = input.canAcceptDoorCommand ||
             input.isDoorCommandQueuedForSecureLink ||
+            input.preservesDoorControlDuringTransientConnection ||
             isChangingState ||
             input.isAuthenticatingUnlock ||
             isApplyingSettingsOnly
@@ -149,6 +153,9 @@ public enum DoorControlPresentationPolicy {
         }
         if isApplyingSettingsOnly { return input.controllerSettingApplyTitle }
         if input.isDoorCommandQueuedForSecureLink {
+            return stableActionTitle(for: input)
+        }
+        if input.preservesDoorControlDuringTransientConnection {
             return stableActionTitle(for: input)
         }
         if input.isPreparingKnownController && !input.canAcceptDoorCommand {
