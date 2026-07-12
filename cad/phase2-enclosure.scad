@@ -70,15 +70,15 @@ led_z = 233;
 servo_w = 40.5;
 servo_d = 20;
 servo_h = 37.5;
-servo_z = 241;
+servo_z = 88.9;
 
 servo_bay_w = 56;
 servo_bay_h = 52;
-servo_bay_z = 241;
+servo_bay_z = 88.9;
 servo_front_pocket_w = servo_bay_w;
 servo_front_pocket_d = case_d - 6;
 servo_front_pocket_h = 58;
-servo_front_pocket_z = 231;
+servo_front_pocket_z = 89;
 servo_adjustment_offsets = [-5, 0, 5];
 servo_cradle_w = 42;
 servo_cradle_d = 23;
@@ -88,8 +88,8 @@ servo_notch_d = 20;
 servo_notch_h = 2.2;
 
 electronics_bay_w = 64;
-electronics_bay_h = 90;
-electronics_bay_z = 117;
+electronics_bay_h = 146;
+electronics_bay_z = 113;
 
 service_cover_w = 66;
 service_cover_d = 2.2;
@@ -105,43 +105,43 @@ xiao_d = 1.6;
 xiao_h = 17.8;
 xiao_x = 0;
 xiao_y = 6;
-xiao_z = 196;
+xiao_z = 68;
 
 breadboard_w = 35;
 breadboard_d = 8.5;
 breadboard_h = 47;
 breadboard_x = 0;
 breadboard_y = 0;
-breadboard_z = 196;
+breadboard_z = 68;
 
 splitter_w = 13.5;
 splitter_d = 13;
 splitter_h = 32;
 splitter_x_centers = [-6.75, 6.75];
 splitter_y = 6.5;
-splitter_z = 94.5;
+splitter_z = 169.5;
 
 buck_w = 40;
 buck_d = 10;
 buck_h = 60;
 buck_y = 0;
-buck_z = 141.5;
+buck_z = 122.5;
 
 battery_w = 43;
 battery_d = 22;
 battery_h = 75;
 battery_y = 2;
-battery_z = 40;
+battery_z = 224;
 
 battery_slot_w = 46.5;
 battery_slot_d = 25;
 battery_slot_h = 80.5;
-battery_slot_z = 42;
+battery_slot_z = 224;
 
 // Rear-wall service harness. Raised lips preserve the full structural wall
 // thickness and keep the harness attached to the sled when the cover is off.
-wire_channel_z_start = 80;
-wire_channel_z_end = 202;
+wire_channel_z_start = 42;
+wire_channel_z_end = 190;
 wire_channel_h = wire_channel_z_end - wire_channel_z_start;
 wire_channel_z = (wire_channel_z_start + wire_channel_z_end) / 2;
 wire_channel_rear_y = -case_d / 2 + wall;
@@ -221,6 +221,15 @@ module wire_harness_preview() {
           cylinder(h = wire_channel_h, d = wire_lane_od[index], center = true);
 }
 
+module battery_top_guides() {
+  guide_bottom_z = battery_z - battery_h / 2;
+  guide_h = case_h - guide_bottom_z;
+  color("#38413a")
+    for (x = [-24.1, 24.1])
+      translate([x, 0, guide_bottom_z + guide_h / 2])
+        rounded_prism([3.2, 8, guide_h], 1.2);
+}
+
 module dovetail_profile(neck_w, head_w, depth) {
   polygon(points = [
     [-neck_w / 2, 0],
@@ -290,14 +299,16 @@ module shell_body() {
     front_pocket(electronics_bay_w, electronics_bay_h, electronics_bay_z, case_d - 6);
     front_pocket(battery_slot_w, battery_slot_h, battery_slot_z, battery_slot_d);
 
-    // Bottom slide-up opening for battery cartridge.
-    translate([0, front_y - battery_slot_d / 2 + 0.2, 3])
-      cube([battery_slot_w, battery_slot_d + 0.6, 14], center = true);
+    // Top-loading battery mouth. The full-height service opening exposes the
+    // internal guides; this top relief lets the pack enter without removing
+    // the enclosure sled from the door plate.
+    translate([0, front_y - battery_slot_d / 2 + 0.2, case_h - 3])
+      cube([battery_slot_w, battery_slot_d + 0.6, 8], center = true);
 
     // Cable routing between bays.
-    cable_slot(22, 185, 36);
-    cable_slot(22, 174, 26);
-    cable_slot(-18, 84, 32);
+    cable_slot(22, 188, 24);
+    cable_slot(22, 154, 24);
+    cable_slot(-18, 93, 28);
 
     // Service bay screw holes.
     screw_hole(-26, servo_bay_z + 23);
@@ -445,10 +456,16 @@ module battery_block() {
     translate([0, battery_y, battery_z])
       cube([battery_w, battery_d, battery_h], center = true);
 
-  // Small exposed pull lip. The cartridge is otherwise nearly flush.
+  // Small upper pull lip. The cartridge loads from the top and seats on the
+  // fixed XT30 dock below it.
   color("#111111")
-    translate([0, front_y - 5, 4])
+    translate([0, front_y - 5, battery_z + battery_h / 2 + 3])
       cube([28, 3.5, 4], center = true);
+
+  // Fixed lower dock shown as a component-fit envelope.
+  color("#f0b323")
+    translate([0, battery_y, battery_z - battery_h / 2 - 3.5])
+      cube([13, 9, 7], center = true);
 }
 
 module clearance_blocks() {
@@ -488,6 +505,7 @@ if (show_command_strips) command_strips();
 if (show_shell) {
   shell_body();
   wire_routing_channels();
+  battery_top_guides();
 }
 if (show_service_cover) service_cover();
 if (show_component_blocks) {

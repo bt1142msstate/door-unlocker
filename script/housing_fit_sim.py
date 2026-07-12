@@ -86,7 +86,7 @@ class HousingScenario:
     rail_end_margin_target_mm: float = 8.0
     mount_rail_length_mm: float = 244.0
     mount_channel_length_mm: float = 246.0
-    servo_default_center_z_mm: float = 241.0
+    servo_default_center_z_mm: float = 88.9
     servo_adjustment_offsets_mm: ClassVar[tuple[float, ...]] = (-5.0, 0.0, 5.0)
     servo_cradle_width_mm: float = 42.0
     servo_cradle_depth_mm: float = 23.0
@@ -97,9 +97,9 @@ class HousingScenario:
     servo_front_pocket_width_mm: float = 56.0
     servo_front_pocket_depth_mm: float = 28.0
     servo_front_pocket_height_mm: float = 58.0
-    servo_front_pocket_center_z_mm: float = 231.0
-    wire_channel_start_z_mm: float = 78.0
-    wire_channel_end_z_mm: float = 222.0
+    servo_front_pocket_center_z_mm: float = 89.0
+    wire_channel_start_z_mm: float = 42.0
+    wire_channel_end_z_mm: float = 190.0
     wire_channel_rib_width_mm: float = 1.0
     wire_channel_lanes: ClassVar[tuple[tuple[str, float, float, float], ...]] = (
         ("splitter_positive_to_servo", -28.0, 4.2, 3.4),
@@ -128,11 +128,11 @@ def box_dict(box: Box) -> dict[str, object]:
 
 def physical_components() -> list[Box]:
     return [
-        Box("battery_2s_5000mah", 0, 2, 40, 43, 22, 75, 0.4),
-        Box("xalxmaw_inline_splitter_pair", 0, 6.5, 94.5, 27, 13, 32, 0.4),
-        Box("lm2596_buck_current_vertical", 0, 0, 141.5, 40, 10, 60, 0.4),
-        Box("controller_breadboard_assembly", 0, 0, 196, 35, 14, 47, 0.4),
-        Box("servo_body", 0, 18, 241, 40.5, 20, 37.5, 0.6, "front_exposed"),
+        Box("controller_breadboard_assembly", 0, 0, 68, 35, 14, 47, 0.4),
+        Box("servo_body", 0, 18, 88.9, 40.5, 20, 37.5, 0.6, "front_exposed"),
+        Box("lm2596_buck_current_vertical", 0, 0, 122.5, 40, 10, 60, 0.4),
+        Box("xalxmaw_inline_splitter_pair", 0, 6.5, 169.5, 27, 13, 32, 0.4),
+        Box("battery_2s_5000mah", 0, 2, 224, 43, 22, 75, 0.4),
     ]
 
 
@@ -158,11 +158,11 @@ def layout_features() -> list[Box]:
     return [
         Box("solar_panel_series_pair", 0, 18.7, 140, 60, 3, 220, 1.5, "surface"),
         Box("pill_status_led", 0, 18.9, 253, 22, 3, 5, 1.0, "surface"),
-        Box("servo_body", 0, 18, 241, 40.5, 20, 37.5, 0.6, "front_exposed"),
-        Box("servo_height_adjustment_cradle", 0, -2, 220.75, 42, 23, 3, 0.0, "adjustable_cradle"),
-        Box("servo_front_exposure_pocket", 0, 14, 231, 56, 28, 58, 0.0, "open_pocket"),
-        Box("electronics_service_bay", 0, 3.2, 150, 64, 28, 140, 0.0, "bay"),
-        Box("battery_slot", 0, 4.7, 41, 46.5, 25, 80.5, 0.0, "slot"),
+        Box("servo_body", 0, 18, 88.9, 40.5, 20, 37.5, 0.6, "front_exposed"),
+        Box("servo_height_adjustment_cradle", 0, -2, 68.65, 42, 23, 3, 0.0, "adjustable_cradle"),
+        Box("servo_front_exposure_pocket", 0, 14, 89, 56, 28, 58, 0.0, "open_pocket"),
+        Box("electronics_service_bay", 0, 3.2, 113, 64, 28, 146, 0.0, "bay"),
+        Box("battery_slot", 0, 4.7, 223.75, 46.5, 25, 80.5, 0.0, "top_open_slot"),
     ]
 
 
@@ -241,7 +241,7 @@ def run_simulation(scenario: HousingScenario) -> dict[str, object]:
     worst_side = min(item["side_margin_mm"] for item in component_fit)
     worst_depth = min(item["depth_margin_mm"] for item in component_fit)
 
-    top_feature_z = max(box.max_z for box in features)
+    top_feature_z = max(box.max_z for box in features if box.kind != "top_open_slot")
     bottom_feature_z = min(box.min_z for box in features)
     minimum_housing_height = max(
         top_feature_z + scenario.housing_top_margin_mm,
@@ -290,7 +290,7 @@ def run_simulation(scenario: HousingScenario) -> dict[str, object]:
             "max_depth_utilization_percent": round(max_depth_usage * 100, 1),
             "worst_side_margin_mm": round(worst_side, 2),
             "worst_depth_margin_mm": round(worst_depth, 2),
-            "recommendation": "Use the 72 x 34 x 264mm housing so the joined splitter pair can stand lengthwise with real bottom input and top output ports. Print the long parts flat and diagonally on the P1S bed.",
+            "recommendation": "Use the 72 x 34 x 264mm housing with a guided top-loading battery, joined splitters directly below it, a vertical buck and controller below those, and the front-plane servo centered 88.9mm above the bottom. Print the long parts flat and diagonally on the P1S bed.",
         },
         "plate_height": {
             "housing_height_mm": scenario.case_height_mm,

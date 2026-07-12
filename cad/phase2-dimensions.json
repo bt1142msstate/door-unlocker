@@ -40,9 +40,9 @@
   "wire_routing_channels": {
     "type": "symmetric open cable-comb layout with ten dedicated raised-lip lanes and snap-in retention nibs",
     "mounting_surface": "inside rear wall of the main enclosure, accessible after removing the service cover",
-    "z_start": 80,
-    "z_end": 202,
-    "length": 122,
+    "z_start": 42,
+    "z_end": 190,
+    "length": 148,
     "rear_wall_inner_y": -13.8,
     "component_standoff_depth": 4,
     "rib_width": 1,
@@ -186,8 +186,8 @@
     ],
     "notes": [
       "The troughs are raised from the rear wall instead of cut into it, preserving the full 3.2mm structural wall thickness.",
-      "Open ends provide bend-relief zones into the battery, splitter, controller, and servo bays; do not force a wire through a sharp 90-degree corner.",
-      "The routing mirrors the clean bench map: servo positive rises on the outer left, servo ground rises on the outer right, battery feeds use the inner high-current lanes, and the five low-current controller paths remain centered.",
+      "Open ends provide bend-relief zones from the lower controller/servo area through the buck and splitter bays to the top battery dock; do not force a wire through a sharp 90-degree corner.",
+      "The routing mirrors the clean bench map: servo positive descends on the outer left, servo ground descends on the outer right, battery feeds use the inner high-current lanes, and the five low-current controller paths remain centered.",
       "Harness colors follow the physical build: red for positive and regulated 5V, black for shared ground distribution, yellow for PWM, and brown only for the servo ground pigtail after its three-pin connector.",
       "Nine grooves carry the current harness. The tenth 16 AWG groove is deliberately empty so the future high-side servo power switch can be added without reprinting the enclosure.",
       "The 1mm ribs form a printable cable comb; the outer groove edges retain about 1.7mm clearance to the 65.6mm-wide inner shell.",
@@ -292,9 +292,9 @@
     "notes": "The 17217 XL strips do fit on the current 2in plate, but the side margin is only about 1.2mm. Add shallow printed placement outlines or a simple installation jig so the strips land straight."
   },
   "housing_fit_simulation": {
-    "minimum_housing_height_for_current_layout": 264,
-    "current_housing_is_tight_minimum": true,
-    "vertical_utilization_percent": 98.2,
+    "minimum_housing_height_for_current_layout": 259.5,
+    "current_housing_is_tight_minimum": false,
+    "vertical_utilization_percent": 85.4,
     "max_width_utilization_percent": 66.8,
     "max_depth_utilization_percent": 82.6,
     "worst_side_margin": 10.9,
@@ -304,7 +304,7 @@
     "minimum_plate_height_for_open_ended_rails": 262,
     "recommended_plate_height": 264,
     "wire_routing_channel_collisions": 0,
-    "notes": "Simulation uses a 72 x 34 x 264mm housing and 50.8 x 264mm flush hidden plate so the joined inline splitters can stand lengthwise with real end-entry wire ports. Its zero-collision target covers the Phase 1.5 servo, controller/breadboard, vertical buck, battery, and ten rear-wall routing grooves. The interactive Phase 1.5 viewer intentionally excludes the future external LED, solar skin, charger, and servo-switch board; those remain separate Phase 2 fit work."
+    "notes": "Simulation uses a 72 x 34 x 264mm housing and 50.8 x 264mm flush hidden plate. The clean reversed stack places the top-loading battery over the joined splitters, vertical buck, and controller while the servo remains in the front plane at 88.9mm. Its zero-collision target covers the Phase 1.5 hardware and ten rear-wall routing grooves. The interactive Phase 1.5 viewer intentionally excludes the future external LED, solar skin, charger, and servo-switch board; those remain separate Phase 2 fit work."
   },
   "model_accuracy": {
     "coordinate_system": "Width is X, door-normal depth is Y in OpenSCAD and Z in the Three.js viewer, and vertical height is Z in OpenSCAD and Y in the Three.js viewer.",
@@ -404,16 +404,16 @@
       "width": 56,
       "depth": 28,
       "height": 58,
-      "center_z": 231,
+      "center_z": 89,
       "source": "Front-exposed servo bay pocket",
       "clearance": 3,
-      "notes": "Open front pocket that lets the servo protrude about 11mm from the enclosure face. Moving the body forward keeps every height detent clear of the centered controller assembly while the removable cradle still supports the servo from the back, bottom, and side walls. Final dimensions should be checked against the actual calibrated lock/unlock angles."
+      "notes": "Open front pocket centered about 88.9mm above the enclosure bottom that lets the servo protrude about 11mm from the enclosure face. The body remains separated from the buck in depth while the removable cradle supports the servo from the back, bottom, and side walls. Final dimensions should be checked against the actual door-handle height and calibrated lock/unlock angles."
     },
     "servo_height_adjustment_cradle": {
       "type": "removable cradle on left/right notch ledges",
-      "servo_center_z_default": 241,
+      "servo_center_z_default": 88.9,
       "servo_center_z_offsets": [-5, 0, 5],
-      "servo_center_z_range": [236, 246],
+      "servo_center_z_range": [83.9, 93.9],
       "cradle_dimensions": {
         "width": 42,
         "depth": 23,
@@ -442,7 +442,7 @@
       "layout": {
         "x": 0,
         "y": 6,
-        "z": 196
+        "z": 68
       },
       "notes": "Board footprint is 21 x 17.8mm. The detailed cutaway renders Seeed's published STEP geometry, converted to an optimized color-preserving GLB, plus separate long header pins to represent the purchased pre-soldered board plugged into the vertical 170-point breadboard.",
       "header_geometry": {
@@ -462,7 +462,7 @@
       "layout": {
         "x": 0,
         "y": 0,
-        "z": 196
+        "z": 68
       },
       "notes": "The purchased breadboard envelope is modeled exactly. Viewer orientation is vertical, so the 35mm side is enclosure width and the 47mm side is height. The XIAO is shown plugged into its front face."
     },
@@ -476,9 +476,9 @@
       "layout": {
         "x_centers": [-6.75, 6.75],
         "y": 6.5,
-        "z": 94.5
+        "z": 169.5
       },
-      "notes": "The positive and ground connectors are modeled physically clipped side-by-side and oriented lengthwise, with single-input ports toward the battery and dual-output ports toward the buck and servo. Their combined width is about 27mm. Verify the delivered parts with calipers before printing.",
+      "notes": "The positive and ground connectors are modeled physically clipped side-by-side immediately below the top battery and oriented lengthwise, with single-input ports toward the battery and dual-output ports toward the buck and servo. Their combined width is about 27mm. Verify the delivered parts with calipers before printing.",
       "detail_geometry": {
         "ports": 3,
         "levers": 3,
@@ -510,7 +510,7 @@
       "layout": {
         "x": 0,
         "y": 0,
-        "z": 141.5,
+        "z": 122.5,
         "rotation_z_degrees": 90
       },
       "notes": "This is the purchased prototype buck. It is rotated vertically in the enclosure so its 40mm side spans the housing width and its 60mm side follows the clean bench stack. The detailed HTML model uses representative terminal, display, inductor, and trim-pot subgeometry. Future low-Iq regulation can shrink this bay."
@@ -524,14 +524,18 @@
       "layout": {
         "x": 0,
         "y": 2,
-        "z": 40
+        "z": 224
       },
       "slot": {
         "width": 46.5,
         "depth": 25,
-        "height": 80.5
+        "height": 80.5,
+        "center_z": 223.75,
+        "top_open": true,
+        "guide_length": 77.5,
+        "fixed_xt30_dock_center_z": 183
       },
-      "notes": "Designed as a vertical bottom-inserting cartridge with only a small pull lip exposed. Clearance is intentionally larger than hard-part pockets so the pack is retained without compression."
+      "notes": "Designed as a vertical top-loading cartridge in the top bay. Short guides align the pack with a lower fixed XT30 dock at full insertion, and a small upper pull lip/latch permits quick removal. Clearance is intentionally larger than hard-part pockets so the pack is retained without compression."
     },
     "future_camera_placeholders": {
       "forward_camera": {
@@ -642,9 +646,9 @@
       "force_simulation_rounded_input_lbf": 1.8
     },
     "quick_swap_battery_plan": {
-      "preferred_connector": "fixed controller-side XT30 dock that mates when the battery slides up into the bottom bay",
+      "preferred_connector": "fixed lower XT30 dock that mates when the battery drops through the top guides into its top-bay seat",
       "alignment": "chamfered battery slot, 0.5-1.0mm connector float, and hard stop before the pack is compressed",
-      "retention": "thumb latch or spring tab plus a small pull ribbon/lip; battery should barely protrude below the enclosure",
+      "retention": "thumb latch or spring tab plus a small upper pull ribbon/lip; the battery body should remain almost fully inside the enclosure",
       "service_note": "Keep 16 AWG dock leads fixed to the housing/inline-splitter path so swapping the battery does not move the internal wiring."
     },
     "battery_state_of_charge_plan": {

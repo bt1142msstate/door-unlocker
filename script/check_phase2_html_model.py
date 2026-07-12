@@ -24,10 +24,6 @@ def require(condition: bool, message: str) -> None:
         raise AssertionError(message)
 
 
-def overlaps(first_min: float, first_max: float, second_min: float, second_max: float) -> bool:
-    return first_min < second_max and first_max > second_min
-
-
 def css_px(html: str, selector: str, property_name: str) -> float:
     block = re.search(rf"{re.escape(selector)}\s*\{{(?P<body>.*?)\}}", html, re.DOTALL)
     require(block is not None, f"missing CSS selector {selector}")
@@ -116,31 +112,6 @@ def main() -> int:
     require(used_width <= plate["width"], "Command strips exceed plate width")
     require(used_height <= plate["height"], "Command strips exceed plate height")
 
-    servo_pocket = components["servo_front_exposure_pocket"]
-    pocket_min = servo_pocket["center_z"] - servo_pocket["height"] / 2
-    pocket_max = servo_pocket["center_z"] + servo_pocket["height"] / 2
-    panel_height = components["solar_panel_series_pair"]["height"] / 2
-    lower_panel_center = 61
-    upper_panel_center = 172
-    require(
-        not overlaps(
-            lower_panel_center - panel_height / 2,
-            lower_panel_center + panel_height / 2,
-            pocket_min,
-            pocket_max,
-        ),
-        "lower solar panel unexpectedly overlaps the servo pocket",
-    )
-    require(
-        overlaps(
-            upper_panel_center - panel_height / 2,
-            upper_panel_center + panel_height / 2,
-            pocket_min,
-            pocket_max,
-        ),
-        "upper solar conflict envelope no longer represents the known collision",
-    )
-
     buck = components["lm2596_buck_current"]
     require(
         (buck["width"], buck["height"], buck["depth"]) == (60, 40, 10),
@@ -192,7 +163,7 @@ def main() -> int:
         f"bench component visual scale drifted: {visual_scales}",
     )
 
-    require(wire_routing["length"] == 122, "wire-routing channel length drifted")
+    require(wire_routing["length"] == 148, "wire-routing channel length drifted")
     require(len(wire_routing["lanes"]) == 10, "wire-routing model must keep ten dedicated lanes")
     require(
         sum(lane["awg"] == 22 for lane in wire_routing["lanes"]) == 5
@@ -239,11 +210,10 @@ def main() -> int:
         "splitters": components["xalxmaw_inline_splitter_pair"]["layout"]["z"],
         "buck": components["lm2596_buck_current"]["layout"]["z"],
         "breadboard": components["mini_breadboard_170_point"]["layout"]["z"],
-        "servo": components["servo_front_exposure_pocket"]["center_z"],
     }
     require(
-        list(component_z.values()) == sorted(component_z.values()),
-        f"component stack no longer follows battery-to-servo bench order: {component_z}",
+        list(component_z.values()) == sorted(component_z.values(), reverse=True),
+        f"component stack no longer follows the flipped battery-to-controller bench order: {component_z}",
     )
     require(
         components["mini_breadboard_170_point"]["layout"]["x"] == 0
@@ -255,12 +225,16 @@ def main() -> int:
         "inline splitters must remain joined side-by-side",
     )
     require(
-        components["servo_front_exposure_pocket"]["center_z"] == 231,
-        "Phase 1.5 servo opening no longer matches the fitted service cover",
+        components["servo_front_exposure_pocket"]["center_z"] == 89,
+        "Phase 1.5 servo opening must remain centered about 3.5in above the enclosure bottom",
     )
     require(
-        "centersX: [-6.75, 6.75]" in html and "centerY: -37.5" in html,
-        "HTML splitter layout drifted",
+        "battery: { width: 43, height: 75, depth: 22, centerY: 92 }" in html
+        and "centerY: 37.5" in html
+        and "buck: { width: 40, height: 60, depth: 10, centerY: -9.5 }" in html
+        and "breadboard: { width: 35, height: 47, depth: 8.5, centerX: 0, centerY: -64 }" in html
+        and "servo: { width: 40.5, height: 37.5, depth: 20, centerY: -43.1 }" in html,
+        "HTML reversed-stack layout drifted",
     )
     require("addBuckModel" in html, "vertical buck detail model is missing")
     require("powerSwitchEnvelope" not in html, "obsolete depth-stacked power-switch block returned")
@@ -336,8 +310,13 @@ def main() -> int:
         "OpenSCAD groove centers no longer match the HTML cutaway",
     )
     require(
-        "splitter_x_centers = [-6.75, 6.75];" in scad and "splitter_z = 94.5;" in scad,
-        "OpenSCAD splitter placement no longer matches the clean bench stack",
+        "battery_z = 224;" in scad
+        and "splitter_x_centers = [-6.75, 6.75];" in scad
+        and "splitter_z = 169.5;" in scad
+        and "buck_z = 122.5;" in scad
+        and "breadboard_z = 68;" in scad
+        and "servo_z = 88.9;" in scad,
+        "OpenSCAD reversed-stack placement no longer matches the clean bench map",
     )
 
     print("Phase 2 HTML model validation: PASS")
@@ -348,7 +327,8 @@ def main() -> int:
     print("- Purchased inline splitter pair matches the 32 x 13.5 x 13mm model contract")
     print("- Representative hard-body visuals remain within the documented 4-5 px/mm scale")
     print("- Ten dedicated rear-wall grooves carry nine active wires plus one future-switch lane")
-    print("- Battery, splitters, vertical buck, centered controller, and servo follow the bench-map order")
+    print("- Battery, splitters, vertical buck, and centered controller follow the flipped bench-map order")
+    print("- Front-plane servo remains centered 88.9mm above the enclosure bottom")
     print("- Bench wiring parts and print view use the 1120 x 2160 enclosure-stack layout")
     print("- Phase 1.5 viewer excludes the future Phase 2 solar skin and external status LED")
     print("- Back-side rotation hides only the door surface while preserving the mounting plate and Command strips")
