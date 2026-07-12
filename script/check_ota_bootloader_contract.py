@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import struct
 import subprocess
 import sys
 import tempfile
@@ -18,6 +19,7 @@ DEFAULT_PACKAGE = ROOT / "ios" / "DoorUnlockerApp" / "DoorUnlocker" / "Firmware"
 DEFAULT_BOOTLOADER_MANIFEST = ROOT / "docs" / "firmware-signing-public-key.json"
 DEFAULT_PUBLIC_KEY = ROOT / "docs" / "firmware-signing-public-key.pem"
 DEFAULT_INSTALLED_PROOF = ROOT / "docs" / "ota-bootloader-installed-proof.json"
+DEFAULT_BOOTLOADER_ARTIFACT_DIR = ROOT / "dist" / "bootloader"
 BOOTLOADER_BUILD_SCRIPT = ROOT / "script" / "build_secure_bootloader.sh"
 LEGACY_PACKET_SIZING = (
     ROOT
@@ -39,6 +41,7 @@ def main() -> int:
     parser.add_argument("--bootloader-manifest", type=Path, default=DEFAULT_BOOTLOADER_MANIFEST)
     parser.add_argument("--public-key", type=Path, default=DEFAULT_PUBLIC_KEY)
     parser.add_argument("--installed-proof", type=Path, default=DEFAULT_INSTALLED_PROOF)
+    parser.add_argument("--require-candidate", action="store_true")
     parser.add_argument("--require-production", action="store_true")
     args = parser.parse_args()
 
@@ -89,8 +92,24 @@ def main() -> int:
             '-DSD_VERSION="$SOFTDEVICE_VERSION"',
             '-DDUALBANK_FW=ON',
             '-DSIGNED_FW=ON',
+            "VerifyingKey.from_pem(public_key.read_text())",
         )
     ) and "-DFORCE_UF2=ON" not in build_script
+    candidate_speed_profile = candidate_speed_profile_valid(bootloader_manifest)
+    candidate_build_pins_speed_profile = all(
+        marker in build_script
+        for marker in (
+            'ATT_MTU_BYTES="247"',
+            'MAX_DFU_PAYLOAD_BYTES="244"',
+            'GAP_EVENT_LENGTH_UNITS="12"',
+            'MIN_CONNECTION_INTERVAL_MS="15"',
+            'MAX_CONNECTION_INTERVAL_MS="30"',
+            "opt.common_opt.conn_evt_ext.enable = 1",
+            ".rx_phys = BLE_GAP_PHY_AUTO",
+            "BLE_GAP_EVT_DATA_LENGTH_UPDATE_REQUEST",
+            "#define SPEEDUP_FLASH_WRITES",
+        )
+    )
     package_softdevice_ids = [int(value) for value in init_packet.get("softdevice_req", [])]
     candidate_softdevice_id = parse_numeric_id(bootloader_manifest.get("softDeviceFirmwareId"))
     candidate_matches_package_softdevice = (
@@ -113,6 +132,10 @@ def main() -> int:
             "adafruitMaximumPayloadBytes = 244",
             "legacyPayloadBytes = 20",
         )
+    )
+    migration_checks = migration_artifact_checks(
+        bootloader_manifest,
+        DEFAULT_BOOTLOADER_ARTIFACT_DIR,
     )
 
     installed_proof = load_json(args.installed_proof)
@@ -146,6 +169,9 @@ def main() -> int:
         "candidate_disables_unsigned_uf2": candidate_disables_unsigned_uf2,
         "candidate_public_key_matches_manifest": candidate_public_key_matches,
         "candidate_build_flags_match_manifest": candidate_build_flags_match,
+        "candidate_has_high_throughput_transport": candidate_speed_profile,
+        "candidate_build_pins_high_throughput_transport": candidate_build_pins_speed_profile,
+        **migration_checks,
         "candidate_matches_package_softdevice": candidate_matches_package_softdevice,
         "package_fits_candidate_dual_bank": candidate_package_fits_dual_bank,
         "client_supports_negotiated_legacy_payload": client_uses_dynamic_legacy_payload,
@@ -163,6 +189,20 @@ def main() -> int:
         print(f"{'PASS' if passed else 'NOT PROVEN'}: {name}")
 
     production_ready = all(checks.values())
+    candidate_ready = all(
+        passed
+        for name, passed in checks.items()
+        if name not in {
+            "candidate_installed_and_verified",
+            "installed_dual_bank_rollback_proven",
+            "required_power_loss_cases_passed",
+            "required_app_termination_cases_passed",
+            "bluetooth_loss_recovery_passed",
+            "mac_wireless_update_passed",
+            "pairings_and_settings_preserved",
+            "installed_bootloader_rejects_unsigned_package",
+        }
+    )
     print(f"OTA bootloader production contract: {'PASS' if production_ready else 'NOT PROVEN'}")
     if not package_signature_valid:
         print("Current package lacks a valid DFU 0.8 ECDSA signature for the recorded public key.")
@@ -171,7 +211,11 @@ def main() -> int:
     if not checks["installed_dual_bank_rollback_proven"]:
         print("Verify or install a DUALBANK_FW=1 bootloader before claiming power-loss rollback.")
 
-    return 1 if args.require_production and not production_ready else 0
+    if args.require_production and not production_ready:
+        return 1
+    if args.require_candidate and not candidate_ready:
+        return 1
+    return 0
 
 
 def load_json(path: Path) -> dict:
@@ -193,6 +237,144 @@ def parse_numeric_id(value: object) -> int | None:
         return int(value, 0)
     except ValueError:
         return None
+
+
+def candidate_speed_profile_valid(manifest: dict) -> bool:
+    """Require the exact high-throughput BLE profile validated for this board."""
+    return (
+        manifest.get("attMtuBytes") == 247
+        and manifest.get("maxDfuPayloadBytes") == 244
+        and manifest.get("gapEventLengthUnits") == 12
+        and manifest.get("minimumConnectionIntervalMs") == 15
+        and manifest.get("maximumConnectionIntervalMs") == 30
+        and manifest.get("dataLengthExtension") is True
+        and manifest.get("automaticTwoMegabitPhy") is True
+        and manifest.get("flashWritePacing") is True
+    )
+def migration_artifact_checks(manifest: dict, artifact_dir: Path) -> dict[str, bool]:
+    artifact_name = manifest.get("migrationArtifact")
+    artifact = artifact_dir / artifact_name if isinstance(artifact_name, str) else None
+    exists = artifact is not None and artifact.is_file()
+    if not exists:
+        return {
+            "migration_artifact_exists": False,
+            "migration_artifact_hash_matches_manifest": False,
+            "migration_uf2_structure_valid": False,
+            "migration_uf2_block_map_matches_manifest": False,
+            "migration_uf2_preserves_runtime_flash": False,
+        }
+
+    raw = artifact.read_bytes()
+    hash_matches = hashlib.sha256(raw).hexdigest() == manifest.get("migrationArtifactSha256")
+    blocks = parse_uf2_blocks(raw)
+    structure_valid = blocks is not None and uf2_structure_is_valid(blocks)
+    block_map_matches = structure_valid and uf2_block_map_matches_manifest(blocks, manifest)
+    preserves_runtime = structure_valid and migration_preserves_runtime_flash(blocks, manifest)
+    return {
+        "migration_artifact_exists": True,
+        "migration_artifact_hash_matches_manifest": hash_matches,
+        "migration_uf2_structure_valid": structure_valid,
+        "migration_uf2_block_map_matches_manifest": block_map_matches,
+        "migration_uf2_preserves_runtime_flash": preserves_runtime,
+    }
+
+
+def parse_uf2_blocks(raw: bytes) -> list[tuple[int, int, int, int, int, int]] | None:
+    if not raw or len(raw) % 512 != 0:
+        return None
+    blocks = []
+    for offset in range(0, len(raw), 512):
+        block = raw[offset:offset + 512]
+        magic0, magic1, flags, address, size, number, total, family = struct.unpack_from(
+            "<IIIIIIII", block, 0
+        )
+        magic_end = struct.unpack_from("<I", block, 508)[0]
+        if (magic0, magic1, magic_end) != (0x0A324655, 0x9E5D5157, 0x0AB16F30):
+            return None
+        if size <= 0 or size > 476:
+            return None
+        blocks.append((address, address + size, flags, family, number, total))
+    return blocks
+
+
+def uf2_structure_is_valid(blocks: list[tuple[int, int, int, int, int, int]]) -> bool:
+    if not blocks:
+        return False
+    addresses = [start for start, *_ in blocks]
+    numbers = [number for *_, number, _ in blocks]
+    totals = [total for *_, total in blocks]
+    ordered = sorted((start, end) for start, end, *_ in blocks)
+    no_overlap = all(previous_end <= start for (_, previous_end), (start, _) in zip(ordered, ordered[1:]))
+    return (
+        len(addresses) == len(set(addresses))
+        and sorted(numbers) == list(range(len(blocks)))
+        and set(totals) == {len(blocks)}
+        and no_overlap
+    )
+
+
+def uf2_address_ranges(
+    blocks: list[tuple[int, int, int, int, int, int]],
+) -> list[tuple[int, int]]:
+    ranges: list[tuple[int, int]] = []
+    for start, end in sorted((start, end) for start, end, *_ in blocks):
+        if ranges and ranges[-1][1] == start:
+            ranges[-1] = (ranges[-1][0], end)
+        else:
+            ranges.append((start, end))
+    return ranges
+
+
+def uf2_block_map_matches_manifest(
+    blocks: list[tuple[int, int, int, int, int, int]],
+    manifest: dict,
+) -> bool:
+    expected_ranges = manifest.get("migrationAddressRanges")
+    if not isinstance(expected_ranges, list):
+        return False
+    parsed_ranges = []
+    for value in expected_ranges:
+        if not isinstance(value, dict):
+            return False
+        start = parse_numeric_id(value.get("start"))
+        end = parse_numeric_id(value.get("endExclusive"))
+        if start is None or end is None or value.get("bytes") != end - start:
+            return False
+        parsed_ranges.append((start, end))
+    expected_family = parse_numeric_id(manifest.get("migrationFamilyId"))
+    return (
+        manifest.get("migrationBlockCount") == len(blocks)
+        and expected_family == 0xD663823C
+        and all(flags & 0x2000 and family == expected_family for _, _, flags, family, _, _ in blocks)
+        and uf2_address_ranges(blocks) == parsed_ranges
+    )
+
+
+def migration_preserves_runtime_flash(
+    blocks: list[tuple[int, int, int, int, int, int]],
+    manifest: dict,
+) -> bool:
+    bootloader_start = parse_numeric_id(manifest.get("bootloaderStartAddress"))
+    application_start = parse_numeric_id(manifest.get("applicationStartAddress"))
+    if bootloader_start is None or application_start is None:
+        return False
+
+    def allowed(start: int, end: int) -> bool:
+        return (
+            (0 <= start < end <= 0x1000)
+            or (bootloader_start <= start < end <= 0x100000)
+            or (0x10001000 <= start < end <= 0x10002000)
+        )
+
+    ranges = uf2_address_ranges(blocks)
+    return (
+        application_start == 0x27000
+        and all(allowed(start, end) for start, end, *_ in blocks)
+        and any(start == 0 for start, _ in ranges)
+        and any(start == bootloader_start for start, _ in ranges)
+        and any(0xFD000 <= start < 0x100000 for start, _ in ranges)
+        and any(start == 0x10001000 for start, _ in ranges)
+    )
 
 
 def public_key_id(public_key: Path) -> str | None:

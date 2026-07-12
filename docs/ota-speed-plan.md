@@ -36,7 +36,7 @@ The Mac stages its ZIP under Application Support with same-volume replacement. N
 
 ## Signed Dual-Bank Candidate
 
-`script/build_secure_bootloader.sh` reproducibly builds Adafruit nRF52 Bootloader `0.11.0` for the exact `xiao_nrf52840_ble_sense` board with:
+`script/build_secure_bootloader.sh` reproducibly builds Adafruit nRF52 Bootloader `0.11.0` for the exact `xiao_nrf52840_ble_sense` board from the checked-in public key, without requiring the private application-signing key, with:
 
 - `DUALBANK_FW=1`
 - `SIGNED_FW=1`
@@ -45,6 +45,8 @@ The Mac stages its ZIP under Application Support with same-volume replacement. N
 - S140 `7.3.0` / firmware ID `0x0123`, matching the XIAO application build
 - `397,312`-byte maximum dual-bank application size; the current `134,452`-byte payload fits with substantial margin
 - ATT MTU support raised from the legacy `23`-byte path to upstream's `247`
+- maximum Legacy DFU write payload `244` bytes, data-length extension, and automatic 2 Mbps PHY negotiation
+- `15-30ms` connection intervals, connection-event extension, and accelerated flash-write pacing
 
 The public key and candidate metadata are checked in at:
 
@@ -70,6 +72,8 @@ The generated bootloader artifact is ignored under `dist/bootloader/`. Its expec
 ```sh
 python3 script/check_ota_bootloader_contract.py
 ```
+
+The same gate parses the one-time migration UF2 block by block. It verifies UF2 structure, nRF52 family ID, artifact hash, and the exact recorded address ranges. It fails if any block touches S140, the application, or the reserved Door Unlocker pairing/settings region. It also checks that the reproducible source and public manifest retain the exact high-throughput BLE profile above. A full quality-suite run rebuilds the candidate and requires that reproducibility contract to pass.
 
 This currently proves the signed package and candidate build. It deliberately reports these hardware claims as `NOT PROVEN`:
 

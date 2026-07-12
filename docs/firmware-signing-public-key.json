@@ -2,14 +2,46 @@
   "applicationStartAddress": "0x27000",
   "artifact": "DoorUnlocker-XIAO-Sense-0.11.0-signed-dualbank.hex",
   "artifactSha256": "c1ce4c372659a04a7c572fa197a31bffb7657cd57108f63d0d20b257eb978358",
+  "attMtuBytes": 247,
+  "automaticTwoMegabitPhy": true,
   "board": "xiao_nrf52840_ble_sense",
   "bootloaderStartAddress": "0xF4000",
   "bootloaderVersion": "0.11.0",
+  "dataLengthExtension": true,
   "dualBankApplicationMaxBytes": 397312,
   "dualBankFirmware": true,
+  "flashWritePacing": true,
   "forceUnsignedUF2": false,
+  "gapEventLengthUnits": 12,
+  "maxDfuPayloadBytes": 244,
+  "maximumConnectionIntervalMs": 30,
+  "migrationAddressRanges": [
+    {
+      "bytes": 2816,
+      "endExclusive": "0x00000B00",
+      "start": "0x00000000"
+    },
+    {
+      "bytes": 33280,
+      "endExclusive": "0x000FC200",
+      "start": "0x000F4000"
+    },
+    {
+      "bytes": 256,
+      "endExclusive": "0x000FD900",
+      "start": "0x000FD800"
+    },
+    {
+      "bytes": 256,
+      "endExclusive": "0x10001100",
+      "start": "0x10001000"
+    }
+  ],
   "migrationArtifact": "DoorUnlocker-XIAO-Sense-0.11.0-signed-dualbank-migration.uf2",
   "migrationArtifactSha256": "5320b8bf0adc2f0df27b6a52a58a9971f3cbdc0ae15dfffa4b674fcd88c5a5cb",
+  "migrationBlockCount": 143,
+  "migrationFamilyId": "0xD663823C",
+  "minimumConnectionIntervalMs": 15,
   "publicKeyId": "573f0793ca490344789edc67ac72c062e53d24d7dcba0c37d6d33f12b37d2d97",
   "reservedApplicationDataBytes": 40960,
   "signedFirmwareRequired": true,

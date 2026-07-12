@@ -10,6 +10,12 @@
       "name": "DoorUnlocker.app"
     },
     {
+      "coveredLines": 0,
+      "executableLines": 436,
+      "lineCoverage": 0,
+      "name": "DoorUnlockerDFU"
+    },
+    {
       "coveredLines": 498,
       "executableLines": 1360,
       "lineCoverage": 0.36617647058823527,

@@ -45,7 +45,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 "$ROOT_DIR/script/build_secure_bootloader.sh"
-python3 "$ROOT_DIR/script/check_ota_bootloader_contract.py"
+python3 "$ROOT_DIR/script/check_ota_bootloader_contract.py" --require-candidate
 
 if [[ "$INSTALL" != "1" ]]; then
   echo "Candidate prepared only; no controller was modified."

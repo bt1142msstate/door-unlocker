@@ -166,11 +166,16 @@ def base_steps(args: argparse.Namespace) -> list[tuple[str, list[str]]]:
 
     if not args.fast:
         steps.append(("Controller firmware compile and package verification", ["./script/flash_xiao_uf2.sh", "--build-only"]))
+        steps.append(("Signed dual-bank bootloader reproducible build", ["./script/build_secure_bootloader.sh"]))
 
     steps.extend([
         (
             "Signed OTA package and bootloader candidate contract",
-            ["python3", "script/check_ota_bootloader_contract.py"],
+            [
+                "python3",
+                "script/check_ota_bootloader_contract.py",
+                *([] if args.fast else ["--require-candidate"]),
+            ],
         ),
         (
             "Fast lock/unlock structural contract gate",
@@ -462,6 +467,10 @@ def write_report(
             "platformAdapterVectorsVerified": platform_adapter_vectors_verified,
             "platformBuildParityVerified": build_parity_verified,
             "firmwareCompiles": step_passed(steps, "Controller firmware compile and package verification"),
+            "bootloaderCandidateReproduces": step_passed(
+                steps,
+                "Signed dual-bank bootloader reproducible build",
+            ),
             "physicalIOSLaunchPerformanceVerified": step_passed(
                 steps,
                 "Physical iPhone cold/warm launch performance proof",

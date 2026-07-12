@@ -1,5 +1,8 @@
 import importlib.util
+import hashlib
 import json
+import struct
+import tempfile
 import unittest
 import zipfile
 from pathlib import Path
@@ -14,6 +17,47 @@ SPEC.loader.exec_module(MODULE)
 
 
 class OtaBootloaderContractTests(unittest.TestCase):
+    @staticmethod
+    def uf2_bytes(addresses, family=0xD663823C):
+        blocks = []
+        for number, address in enumerate(addresses):
+            block = bytearray(512)
+            struct.pack_into(
+                "<IIIIIIII",
+                block,
+                0,
+                0x0A324655,
+                0x9E5D5157,
+                0x2000,
+                address,
+                256,
+                number,
+                len(addresses),
+                family,
+            )
+            struct.pack_into("<I", block, 508, 0x0AB16F30)
+            blocks.append(block)
+        return b"".join(blocks)
+
+    @staticmethod
+    def migration_manifest(raw, addresses):
+        return {
+            "applicationStartAddress": "0x27000",
+            "bootloaderStartAddress": "0xF4000",
+            "migrationArtifact": "candidate.uf2",
+            "migrationArtifactSha256": hashlib.sha256(raw).hexdigest(),
+            "migrationBlockCount": len(addresses),
+            "migrationFamilyId": "0xD663823C",
+            "migrationAddressRanges": [
+                {
+                    "start": f"0x{address:08X}",
+                    "endExclusive": f"0x{address + 256:08X}",
+                    "bytes": 256,
+                }
+                for address in addresses
+            ],
+        }
+
     def test_checked_in_package_signature_matches_public_key(self):
         package = ROOT / "ios/DoorUnlockerApp/DoorUnlocker/Firmware/DoorUnlockerXiao-dfu.zip"
         with zipfile.ZipFile(package) as archive:
@@ -64,6 +108,25 @@ class OtaBootloaderContractTests(unittest.TestCase):
             manifest["publicKeyId"],
         )
 
+    def test_candidate_speed_profile_requires_every_optimized_transport_setting(self):
+        profile = {
+            "attMtuBytes": 247,
+            "maxDfuPayloadBytes": 244,
+            "gapEventLengthUnits": 12,
+            "minimumConnectionIntervalMs": 15,
+            "maximumConnectionIntervalMs": 30,
+            "dataLengthExtension": True,
+            "automaticTwoMegabitPhy": True,
+            "flashWritePacing": True,
+        }
+        self.assertTrue(MODULE.candidate_speed_profile_valid(profile))
+
+        for key in profile:
+            with self.subTest(key=key):
+                mutated = dict(profile)
+                mutated[key] = False if profile[key] is True else -1
+                self.assertFalse(MODULE.candidate_speed_profile_valid(mutated))
+
     def test_required_fault_cases_must_all_be_named_and_passed(self):
         required = {"erase", "upload-30"}
         self.assertTrue(
@@ -85,6 +148,39 @@ class OtaBootloaderContractTests(unittest.TestCase):
                 required,
             )
         )
+
+    def test_migration_artifact_accepts_only_expected_flash_regions(self):
+        addresses = [0x00000000, 0x000F4000, 0x000FD800, 0x10001000]
+        raw = self.uf2_bytes(addresses)
+        manifest = self.migration_manifest(raw, addresses)
+        with tempfile.TemporaryDirectory() as directory:
+            Path(directory, "candidate.uf2").write_bytes(raw)
+            checks = MODULE.migration_artifact_checks(manifest, Path(directory))
+
+        self.assertTrue(all(checks.values()))
+
+    def test_migration_artifact_rejects_runtime_application_or_data_write(self):
+        addresses = [0x00000000, 0x00027000, 0x000F4000, 0x000FD800, 0x10001000]
+        raw = self.uf2_bytes(addresses)
+        manifest = self.migration_manifest(raw, addresses)
+        with tempfile.TemporaryDirectory() as directory:
+            Path(directory, "candidate.uf2").write_bytes(raw)
+            checks = MODULE.migration_artifact_checks(manifest, Path(directory))
+
+        self.assertTrue(checks["migration_uf2_block_map_matches_manifest"])
+        self.assertFalse(checks["migration_uf2_preserves_runtime_flash"])
+
+    def test_migration_artifact_rejects_corrupt_uf2_structure(self):
+        addresses = [0x00000000, 0x000F4000, 0x000FD800, 0x10001000]
+        raw = bytearray(self.uf2_bytes(addresses))
+        raw[0] ^= 1
+        manifest = self.migration_manifest(bytes(raw), addresses)
+        with tempfile.TemporaryDirectory() as directory:
+            Path(directory, "candidate.uf2").write_bytes(raw)
+            checks = MODULE.migration_artifact_checks(manifest, Path(directory))
+
+        self.assertFalse(checks["migration_uf2_structure_valid"])
+        self.assertFalse(checks["migration_uf2_preserves_runtime_flash"])
 
 
 if __name__ == "__main__":
