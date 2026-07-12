@@ -676,7 +676,7 @@
       width: auto;
       height: 285px;
       margin: 0 auto;
-      transform: rotate(180deg);
+      transform: scaleY(-1);
     }
 
     .servo-visual {
@@ -2130,6 +2130,8 @@
               <path id="controllerGroundWire" class="wire ground buck-wire" data-parts="buck controller" />
               <path class="wire-bridge-underlay buck-wire" d="M687 1132 H707" />
               <path class="wire red wire-bridge buck-wire" data-parts="splitter-positive buck" d="M687 1132 H707" />
+              <path class="wire-bridge-underlay buck-wire" d="M686 850 H706" />
+              <path class="wire red wire-bridge buck-wire" data-parts="splitter-positive buck" d="M686 850 H706" />
               <path class="wire-bridge-underlay buck-wire" d="M620 840 V820" />
               <path class="wire ground wire-bridge buck-wire" data-parts="buck controller" d="M620 840 V820" />
               <path class="wire-bridge-underlay buck-wire" d="M740 860 V840" />
@@ -3033,8 +3035,8 @@
       const positiveOutputBuck = point(positiveSplitterRect, 0.662, 0.061);
       const groundOutputBuck = point(groundSplitterRect, 0.319, 0.061);
       const groundOutputServo = point(groundSplitterRect, 0.662, 0.061);
-      const buckInputPositive = point(buckRect, 0.524, 0.158);
-      const buckInputGround = point(buckRect, 0.411, 0.158);
+      const buckInputPositive = point(buckRect, 0.476, 0.158);
+      const buckInputGround = point(buckRect, 0.589, 0.158);
       wiringPaths.buckInputPositive.setAttribute("d", `M${pathPoint(positiveOutputBuck)} V1132 H770 V850 H${buckInputPositive[0].toFixed(1)} V${buckInputPositive[1].toFixed(1)}`);
       wiringPaths.buckInputGround.setAttribute("d", `M${pathPoint(groundOutputBuck)} V1120 H590 V830 H${buckInputGround[0].toFixed(1)} V${buckInputGround[1].toFixed(1)}`);
 
@@ -3049,10 +3051,10 @@
 
       const controllerPower = assemblyPoint(151, 1);
       const controllerGround = assemblyPoint(136, 1);
-      const buckOutputGround = point(buckRect, 0.411, 0.842);
-      const buckOutputPower = point(buckRect, 0.524, 0.842);
-      wiringPaths.controllerPower.setAttribute("d", `M${pathPoint(buckOutputPower)} H740 V790 H${controllerPower[0].toFixed(1)} V${controllerPower[1].toFixed(1)}`);
-      wiringPaths.controllerGround.setAttribute("d", `M${pathPoint(buckOutputGround)} H620 V770 H${controllerGround[0].toFixed(1)} V${controllerGround[1].toFixed(1)}`);
+      const buckOutputGround = point(buckRect, 0.589, 0.842);
+      const buckOutputPower = point(buckRect, 0.476, 0.842);
+      wiringPaths.controllerPower.setAttribute("d", `M${pathPoint(buckOutputPower)} V1040 H740 V790 H${controllerPower[0].toFixed(1)} V${controllerPower[1].toFixed(1)}`);
+      wiringPaths.controllerGround.setAttribute("d", `M${pathPoint(buckOutputGround)} V1100 H620 V770 H${controllerGround[0].toFixed(1)} V${controllerGround[1].toFixed(1)}`);
 
       const controllerSignal = assemblyPoint(2, 0);
       wiringPaths.controllerSignal.setAttribute("d", `M${pathPoint(controllerSignal)} V460 H${servoSignal[0].toFixed(1)} V${servoSignal[1].toFixed(1)}`);
