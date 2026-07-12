@@ -181,6 +181,10 @@ def base_steps(args: argparse.Namespace) -> list[tuple[str, list[str]]]:
             ["python3", "script/check_state_notification_delivery_contract.py"],
         ),
         (
+            "Mac single-window scene contract gate",
+            ["python3", "script/check_mac_window_scene_contract.py"],
+        ),
+        (
             "Physical iPhone cold/warm launch performance proof",
             ["python3", "script/check_ios_launch_performance_proof.py"],
         ),
