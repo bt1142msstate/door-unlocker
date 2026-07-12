@@ -44,6 +44,23 @@ def forbid(path: Path, snippets: list[str], failures: list[str]) -> None:
             failures.append(f"{display_path(path)} must not contain: {snippet}")
 
 
+def swift_function_body(path: Path, function_name: str) -> str | None:
+    text = source_text(path)
+    match = re.search(rf"\bfunc\s+{re.escape(function_name)}\s*\([^)]*\)[^{{]*{{", text)
+    if match is None:
+        return None
+
+    brace_depth = 1
+    cursor = match.end()
+    while cursor < len(text) and brace_depth:
+        if text[cursor] == "{":
+            brace_depth += 1
+        elif text[cursor] == "}":
+            brace_depth -= 1
+        cursor += 1
+    return text[match.end():cursor - 1] if brace_depth == 0 else None
+
+
 def nonce_channel_is_dedicated(firmware_text: str) -> bool:
     nonce_function = re.search(
         r"bool issueV3NonceTo\(uint16_t connHandle\) \{(?P<body>.*?)\n\s*void retryMissingV3Nonces",
@@ -92,6 +109,7 @@ def main() -> int:
     failures: list[str] = []
     ios = ROOT / "ios/DoorUnlockerApp/DoorUnlocker"
     ios_recovery = ROOT / "ios/DoorUnlockerApp/DoorUnlocker/DoorUnlockerController+FastDoorRecovery.swift"
+    ios_post_ready = ROOT / "ios/DoorUnlockerApp/DoorUnlocker/Controller/Bluetooth/DoorUnlockerController+PostReadySession.swift"
     ios_firmware = ROOT / "ios/DoorUnlockerApp/DoorUnlocker/Controller/System/DoorUnlockerController+FirmwareUpdate.swift"
     ios_bluetooth = ROOT / "ios/DoorUnlockerApp/DoorUnlocker/Controller/Bluetooth"
     mac = ROOT / "mac/DoorUnlockerAdmin/Sources/DoorUnlockerAdmin/Stores"
@@ -120,6 +138,16 @@ def main() -> int:
         "recoverStalledQueuedDoorCommandLink()",
         "DoorControlPresentationPolicy.state(",
     ], failures)
+    ios_secure_refresh = swift_function_body(ios_post_ready, "recoverStalledQueuedDoorCommandLink")
+    if ios_secure_refresh is None:
+        failures.append("iOS in-place secure-session recovery function is missing")
+    else:
+        if "requestFreshSecureControlNonce()" not in ios_secure_refresh:
+            failures.append("iOS secure-session recovery must request a fresh nonce in place")
+        if "cancelPeripheralConnection" in ios_secure_refresh:
+            failures.append("iOS secure-session recovery must not cancel a healthy BLE connection")
+        if 'pairingState = "Unknown"' in ios_secure_refresh or "resetLinkAuthentication()" in ios_secure_refresh:
+            failures.append("iOS secure-session recovery must preserve trusted pairing and link authentication")
     require(ios_firmware, [
         "var isFirmwareDfuTransportActive: Bool",
         "firmwareUpdateEntryCommandSent || pendingFirmwareUpdatePackageURL == nil",
@@ -149,6 +177,14 @@ def main() -> int:
         "DoorCommandPreparationRecoveryPolicy.action(",
         "recoverStalledQueuedSecureCommandLink()",
     ], failures)
+    mac_secure_refresh = swift_function_body(mac_recovery, "recoverStalledQueuedSecureCommandLink")
+    if mac_secure_refresh is None:
+        failures.append("Mac in-place secure-session recovery function is missing")
+    else:
+        if "requestWirelessControlNonceWithoutWatchdog()" not in mac_secure_refresh:
+            failures.append("Mac secure-session recovery must request a fresh nonce in place")
+        if "stopWirelessSession" in mac_secure_refresh or "resetWirelessLinkAuthentication" in mac_secure_refresh:
+            failures.append("Mac secure-session recovery must preserve a healthy trusted BLE session")
     require(firmware, [
         "taskENTER_CRITICAL();",
         "taskEXIT_CRITICAL();",

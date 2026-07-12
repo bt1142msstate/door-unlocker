@@ -106,7 +106,7 @@ extension DoorUnlockerController {
                         }
                         self.requestFreshSecureControlNonce()
                     }
-                case .reconnect:
+                case .refreshSecureSession:
                     await MainActor.run {
                         self?.recoverStalledQueuedDoorCommandLink()
                     }
@@ -135,17 +135,31 @@ extension DoorUnlockerController {
 #endif
         lastError = nil
         invalidatePreparedFastDoorCommandPayloads(clearNonce: true)
-        resetLinkAuthentication()
 
-        guard let peripheral, let central else {
+        guard let peripheral else {
             prepareConnectionForQueuedDoorCommand()
             return
         }
 
         switch peripheral.state {
-        case .connected, .connecting, .disconnecting:
+        case .connected:
+#if DEBUG
+            recordStartupTelemetry("door_command_secure_session_refresh", details: connectionState, once: false)
+#endif
+            connectionState = "Ready"
+            if let controlCharacteristic,
+               (controlCharacteristic.properties.contains(.notify) ||
+                controlCharacteristic.properties.contains(.indicate)),
+               !controlCharacteristic.isNotifying {
+                peripheral.setNotifyValue(true, for: controlCharacteristic)
+            } else if controlCharacteristic == nil || commandCharacteristic == nil {
+                discoverControllerServices(on: peripheral)
+            } else {
+                requestFreshSecureControlNonce()
+            }
+            startSecureLinkWatchdogIfNeeded()
+        case .connecting, .disconnecting:
             connectionState = "Reconnecting"
-            central.cancelPeripheralConnection(peripheral)
             scheduleReconnectCheck(after: Self.fastKnownControllerRetryDelay)
         case .disconnected:
             prepareConnectionForQueuedDoorCommand()

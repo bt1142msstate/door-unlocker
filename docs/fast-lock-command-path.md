@@ -25,6 +25,8 @@ The firmware does not force an exact interval after connecting. Bluefruit's exac
 
 ## Backpressure and recovery
 
+Secure-session preparation is recovered in place while Core Bluetooth still reports the peripheral as connected. If nonce preparation reaches its retry limit, the app clears only the stale prepared packet, keeps the authenticated BLE link and trusted pairing state, requests fresh connection-private nonce material, and retries the queued semantic command. It must not cancel the peripheral or surface a reconnecting or pairing state for this case.
+
 Apple documents that a write-without-response has no failure callback and should only be submitted while `canSendWriteWithoutResponse` is true. If it is false:
 
 - The app keeps the signed packet and its nonce intact.

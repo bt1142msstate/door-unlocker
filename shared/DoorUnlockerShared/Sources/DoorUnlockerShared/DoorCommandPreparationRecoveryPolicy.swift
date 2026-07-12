@@ -1,7 +1,7 @@
 public enum DoorCommandPreparationRecoveryAction: Equatable, Sendable {
     case idle
     case requestNonce
-    case reconnect
+    case refreshSecureSession
 }
 
 public enum DoorCommandPreparationRecoveryPolicy {
@@ -17,6 +17,6 @@ public enum DoorCommandPreparationRecoveryPolicy {
         guard hasQueuedCommand else { return .requestNonce }
 
         let requestLimit = max(1, maximumNonceRequests)
-        return completedNonceRequests >= requestLimit ? .reconnect : .requestNonce
+        return completedNonceRequests >= requestLimit ? .refreshSecureSession : .requestNonce
     }
 }

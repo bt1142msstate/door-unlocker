@@ -1,3 +1,4 @@
+import CoreBluetooth
 import DoorUnlockerShared
 import Foundation
 
@@ -28,7 +29,7 @@ extension DoorAdminStore {
                         }
                         self.requestWirelessControlNonceWithoutWatchdog()
                     }
-                case .reconnect:
+                case .refreshSecureSession:
                     await MainActor.run {
                         self?.recoverStalledQueuedSecureCommandLink()
                     }
@@ -54,9 +55,25 @@ extension DoorAdminStore {
         recordRuntimeTelemetry("secure_command_link_recovery", once: false)
         lastError = nil
         invalidatePreparedFastDoorCommandPayloads(clearNonce: true)
-        resetWirelessLinkAuthentication()
-        stopWirelessSession(reason: "Reconnecting")
-        scanBluetooth()
+
+        guard let peripheral else {
+            scanBluetooth()
+            return
+        }
+
+        switch peripheral.state {
+        case .connected:
+            recordRuntimeTelemetry("secure_session_refreshed_in_place", once: false)
+            wirelessConnectionState = isWirelessGattReady ? "Ready" : "Discovering"
+            requestWirelessControlNonceWithoutWatchdog()
+            startSecureLinkWatchdogIfNeeded()
+        case .connecting, .disconnecting:
+            scheduleWirelessReconnect(after: nextWirelessReconnectDelay())
+        case .disconnected:
+            scanBluetooth()
+        @unknown default:
+            scanBluetooth()
+        }
     }
 
     func scheduleWirelessDoorCommandTransportRecovery() {

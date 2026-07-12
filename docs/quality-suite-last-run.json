@@ -11,7 +11,7 @@
     "sharedContractBehaviorVerified": true,
     "warningFree": true
   },
-  "durationSeconds": 3.56,
+  "durationSeconds": 6.44,
   "environment": {
     "arduinoCLI": "arduino-cli  Version: 1.5.1 Commit: Homebrew Date: 2026-06-05T09:39:33Z",
     "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
@@ -22,7 +22,7 @@
   "executedStepCount": 11,
   "expectedStepCount": 11,
   "fullSuitePassed": false,
-  "generatedAt": "2026-07-12T09:54:48.410441+00:00",
+  "generatedAt": "2026-07-12T18:28:25.250106+00:00",
   "limitations": [
     "Architecture and maintainability scores are transparent project heuristics, not Apple-issued grades.",
     "A fast run does not execute iOS adapter tests, firmware compilation, app builds, or HTML/CAD consistency checks.",
@@ -54,7 +54,7 @@
         "-p",
         "test_*.py"
       ],
-      "durationSeconds": 0.22,
+      "durationSeconds": 0.35,
       "exitCode": 0,
       "name": "Quality tooling negative-control tests",
       "status": "pass",
@@ -101,7 +101,7 @@
         "--threshold",
         "95.0"
       ],
-      "durationSeconds": 0.09,
+      "durationSeconds": 0.1,
       "exitCode": 0,
       "name": "iOS/Mac shared ownership and test-registration gate",
       "status": "pass",
@@ -140,7 +140,7 @@
         "python3",
         "script/check_state_notification_delivery_contract.py"
       ],
-      "durationSeconds": 0.46,
+      "durationSeconds": 0.49,
       "exitCode": 0,
       "name": "Per-subscriber state delivery contract gate",
       "status": "pass",
@@ -170,7 +170,7 @@
       "exitCode": 0,
       "name": "Physical iPhone cold/warm launch performance proof",
       "status": "pass",
-      "summary": "iOS launch performance proof: PASS (cold median/p95 277.5/315ms; warm median/p95 0.0/0ms)",
+      "summary": "iOS launch performance proof: PASS (cold median/p95 290.0/466ms; warm median/p95 0.0/0ms)",
       "warningCount": 0,
       "warnings": []
     },
@@ -181,11 +181,11 @@
         "--package-path",
         "shared/DoorUnlockerShared"
       ],
-      "durationSeconds": 1.8,
+      "durationSeconds": 4.4,
       "exitCode": 0,
       "name": "Shared package independent tests",
       "status": "pass",
-      "summary": "Test Suite 'All tests' passed at 2026-07-12 04:54:47.951.",
+      "summary": "Test Suite 'All tests' passed at 2026-07-12 13:28:24.694.",
       "warningCount": 0,
       "warnings": []
     },
@@ -196,11 +196,11 @@
         "--package-path",
         "mac/DoorUnlockerAdmin"
       ],
-      "durationSeconds": 0.43,
+      "durationSeconds": 0.52,
       "exitCode": 0,
       "name": "Mac core/admin independent tests",
       "status": "pass",
-      "summary": "Test Suite 'All tests' passed at 2026-07-12 04:54:48.379.",
+      "summary": "Test Suite 'All tests' passed at 2026-07-12 13:28:25.212.",
       "warningCount": 0,
       "warnings": []
     }

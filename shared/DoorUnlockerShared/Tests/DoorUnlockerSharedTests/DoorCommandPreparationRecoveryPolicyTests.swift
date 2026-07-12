@@ -37,14 +37,14 @@ final class DoorCommandPreparationRecoveryPolicyTests: XCTestCase {
         }
     }
 
-    func testQueuedCommandReconnectsAtLimit() {
+    func testQueuedCommandRefreshesSecureSessionWithoutReconnectingAtLimit() {
         XCTAssertEqual(
             DoorCommandPreparationRecoveryPolicy.action(
                 needsFreshNonce: true,
                 hasQueuedCommand: true,
                 completedNonceRequests: DoorCommandPreparationRecoveryPolicy.defaultMaximumNonceRequests
             ),
-            .reconnect
+            .refreshSecureSession
         )
     }
 }
