@@ -86,7 +86,7 @@ class HousingScenario:
     rail_end_margin_target_mm: float = 8.0
     mount_rail_length_mm: float = 224.0
     mount_channel_length_mm: float = 226.0
-    servo_default_center_z_mm: float = 188.0
+    servo_default_center_z_mm: float = 219.0
     servo_adjustment_offsets_mm: ClassVar[tuple[float, ...]] = (-5.0, 0.0, 5.0)
     servo_cradle_width_mm: float = 42.0
     servo_cradle_depth_mm: float = 23.0
@@ -97,21 +97,21 @@ class HousingScenario:
     servo_front_pocket_width_mm: float = 56.0
     servo_front_pocket_depth_mm: float = 28.0
     servo_front_pocket_height_mm: float = 58.0
-    servo_front_pocket_center_z_mm: float = 188.0
-    wire_channel_start_z_mm: float = 84.0
-    wire_channel_end_z_mm: float = 167.0
+    servo_front_pocket_center_z_mm: float = 209.0
+    wire_channel_start_z_mm: float = 80.0
+    wire_channel_end_z_mm: float = 202.0
     wire_channel_rib_width_mm: float = 1.0
     wire_channel_lanes: ClassVar[tuple[tuple[str, float, float, float], ...]] = (
-        ("buck_input_positive", -29.3, 3.0, 2.2),
-        ("buck_input_ground", -25.3, 3.0, 2.2),
-        ("controller_5v", -21.3, 3.0, 2.2),
-        ("controller_ground", -17.3, 3.0, 2.2),
-        ("pwm_signal", -13.3, 3.0, 2.2),
-        ("battery_positive_input", 7.9, 4.2, 3.4),
-        ("battery_ground_input", 13.1, 4.2, 3.4),
-        ("splitter_positive_to_switch", 18.3, 4.2, 3.4),
-        ("switch_to_servo_positive", 23.5, 4.2, 3.4),
-        ("splitter_ground_to_servo", 28.7, 4.2, 3.4),
+        ("splitter_positive_to_servo", -28.0, 4.2, 3.4),
+        ("battery_positive_input", -22.8, 4.2, 3.4),
+        ("spare_high_current", -17.6, 4.2, 3.4),
+        ("pwm_signal", -8.0, 3.0, 2.2),
+        ("controller_5v", -4.0, 3.0, 2.2),
+        ("controller_ground", 0.0, 3.0, 2.2),
+        ("buck_input_positive", 4.0, 3.0, 2.2),
+        ("buck_input_ground", 8.0, 3.0, 2.2),
+        ("battery_ground_input", 22.8, 4.2, 3.4),
+        ("splitter_ground_to_servo", 28.0, 4.2, 3.4),
     )
 
 
@@ -128,12 +128,11 @@ def box_dict(box: Box) -> dict[str, object]:
 
 def physical_components() -> list[Box]:
     return [
-        Box("servo_body", 0, -1, 188, 40.5, 20, 37.5, 0.6),
-        Box("xiao_nrf52840_sense_pinned", -19, 0, 134, 21, 11.5, 17.8, 0.8),
-        Box("xalxmaw_inline_splitter_lower", 14.5, 3.3, 135, 32, 13.5, 13, 1.5),
-        Box("xalxmaw_inline_splitter_upper", 14.5, 3.3, 154, 32, 13.5, 13, 1.5),
-        Box("lm2596_buck_current", 0, 0, 102.5, 57, 14, 36, 0.8),
-        Box("battery_2s_5000mah", 0, 0, 42, 43, 22, 75, 1.5),
+        Box("battery_2s_5000mah", 0, 2, 41, 43, 22, 75, 0.4),
+        Box("xalxmaw_inline_splitter_pair", 0, 6.5, 86, 64, 13.5, 13, 0.4),
+        Box("lm2596_buck_current_vertical", 0, 0, 122, 36, 14, 57, 0.4),
+        Box("controller_breadboard_assembly", 0, 0, 175, 35, 14, 47, 0.4),
+        Box("servo_body", 0, 18, 219, 40.5, 20, 37.5, 0.6, "front_exposed"),
     ]
 
 
@@ -159,11 +158,11 @@ def layout_features() -> list[Box]:
     return [
         Box("solar_panel_series_pair", 0, 18.7, 130, 60, 3, 220, 1.5, "surface"),
         Box("pill_status_led", 0, 18.9, 233, 22, 3, 5, 1.0, "surface"),
-        Box("servo_body", 0, -1, 188, 40.5, 20, 37.5, 0.6),
-        Box("servo_height_adjustment_cradle", 0, -15, 167.75, 42, 23, 3, 0.0, "adjustable_cradle"),
-        Box("servo_front_exposure_pocket", 0, 14, 188, 56, 28, 58, 0.0, "open_pocket"),
-        Box("electronics_service_bay", 0, 3.2, 117, 64, 28, 90, 0.0, "bay"),
-        Box("battery_slot", 0, 4.7, 42, 46.5, 25, 80.5, 0.0, "slot"),
+        Box("servo_body", 0, 18, 219, 40.5, 20, 37.5, 0.6, "front_exposed"),
+        Box("servo_height_adjustment_cradle", 0, -2, 198.75, 42, 23, 3, 0.0, "adjustable_cradle"),
+        Box("servo_front_exposure_pocket", 0, 14, 209, 56, 28, 58, 0.0, "open_pocket"),
+        Box("electronics_service_bay", 0, 3.2, 140, 64, 28, 120, 0.0, "bay"),
+        Box("battery_slot", 0, 4.7, 41, 46.5, 25, 80.5, 0.0, "slot"),
     ]
 
 
@@ -210,7 +209,12 @@ def containment(box: Box, inner_width: float, inner_depth: float) -> dict[str, o
     half_width = inner_width / 2
     half_depth = inner_depth / 2
     side_margin = min(expanded.min_x + half_width, half_width - expanded.max_x)
-    depth_margin = min(expanded.min_y + half_depth, half_depth - expanded.max_y)
+    rear_depth_margin = expanded.min_y + half_depth
+    depth_margin = (
+        rear_depth_margin
+        if box.kind == "front_exposed"
+        else min(rear_depth_margin, half_depth - expanded.max_y)
+    )
     return {
         "name": box.name,
         "expanded_width_mm": round(expanded.width, 2),
@@ -219,6 +223,7 @@ def containment(box: Box, inner_width: float, inner_depth: float) -> dict[str, o
         "depth_margin_mm": round(depth_margin, 2),
         "fits_width": side_margin >= 0,
         "fits_depth": depth_margin >= 0,
+        "front_protrusion_allowed": box.kind == "front_exposed",
     }
 
 
@@ -307,16 +312,16 @@ def run_simulation(scenario: HousingScenario) -> dict[str, object]:
             "features": [box_dict(box) for box in features],
         },
         "wire_routing": {
-            "type": "two raised-lip cable-comb banks on the inside rear wall",
+            "type": "symmetric raised-lip cable-comb raceway on the inside rear wall",
             "z_range_mm": [scenario.wire_channel_start_z_mm, scenario.wire_channel_end_z_mm],
             "lane_count": len(scenario.wire_channel_lanes),
-            "logic_bank_width_mm": 21.0,
-            "power_bank_width_mm": 27.0,
-            "center_service_gap_mm": 15.6,
+            "active_lane_count": 9,
+            "spare_lane_count": 1,
+            "outer_edge_margin_mm": 1.7,
             "component_clearance_collisions": wire_channel_collisions,
             "fit_margins": wire_channel_fit,
             "boxes": [box_dict(box) for box in wire_channels],
-            "recommendation": "Use five dedicated 16 AWG lanes on the right and five dedicated 22 AWG lanes on the left. Keep the 15.6mm center service gap open and print a short channel-and-retainer coupon using the actual silicone wire before printing the enclosure.",
+            "recommendation": "Keep positive high-current routing on the outer left, ground high-current routing on the outer right, and the five low-current paths centered. Leave the third left-side 16 AWG groove unused for the future high-side servo switch, and print a channel-and-retainer coupon with the purchased silicone wire before printing the enclosure.",
         },
         "servo_height_adjustment": {
             "type": "removable cradle on left/right notch ledges",

@@ -70,15 +70,15 @@ led_z = 233;
 servo_w = 40.5;
 servo_d = 20;
 servo_h = 37.5;
-servo_z = 188;
+servo_z = 219;
 
 servo_bay_w = 56;
 servo_bay_h = 52;
-servo_bay_z = 188;
+servo_bay_z = 219;
 servo_front_pocket_w = servo_bay_w;
 servo_front_pocket_d = case_d - 6;
 servo_front_pocket_h = 58;
-servo_front_pocket_z = servo_z;
+servo_front_pocket_z = 209;
 servo_adjustment_offsets = [-5, 0, 5];
 servo_cradle_w = 42;
 servo_cradle_d = 23;
@@ -103,42 +103,35 @@ service_cover_rail_h = service_cover_h - 18;
 xiao_w = 21;
 xiao_d = 1.6;
 xiao_h = 17.8;
-xiao_x = -18;
-xiao_y = -0.2;
-xiao_z = 143;
+xiao_x = 0;
+xiao_y = 6;
+xiao_z = 175;
 
 breadboard_w = 35;
 breadboard_d = 8.5;
 breadboard_h = 47;
-breadboard_x = -13;
-breadboard_y = -8.2;
-breadboard_z = 143;
+breadboard_x = 0;
+breadboard_y = 0;
+breadboard_z = 175;
 
 splitter_w = 32;
 splitter_d = 13.5;
 splitter_h = 13;
-splitter_x = 14.5;
-splitter_y = 3.3;
-splitter_z_lower = 135;
-splitter_z_upper = 154;
+splitter_x_centers = [-16, 16];
+splitter_y = 6.5;
+splitter_z = 86;
 
-buck_w = 57;
+buck_w = 36;
 buck_d = 14;
-buck_h = 36;
-buck_y = -6.8;
-buck_z = 102.5;
-
-power_switch_w = 42;
-power_switch_d = 12;
-power_switch_h = 26;
-power_switch_y = 7.2;
-power_switch_z = 102.5;
+buck_h = 57;
+buck_y = 0;
+buck_z = 122;
 
 battery_w = 43;
 battery_d = 22;
 battery_h = 75;
-battery_y = 0;
-battery_z = 42;
+battery_y = 2;
+battery_z = 41;
 
 battery_slot_w = 46.5;
 battery_slot_d = 25;
@@ -147,19 +140,20 @@ battery_slot_z = 42;
 
 // Rear-wall service harness. Raised lips preserve the full structural wall
 // thickness and keep the harness attached to the sled when the cover is off.
-wire_channel_z_start = 84;
-wire_channel_z_end = 167;
+wire_channel_z_start = 80;
+wire_channel_z_end = 202;
 wire_channel_h = wire_channel_z_end - wire_channel_z_start;
 wire_channel_z = (wire_channel_z_start + wire_channel_z_end) / 2;
 wire_channel_rear_y = -case_d / 2 + wall;
 wire_channel_rib_w = 1;
 wire_channel_retainer_spacing = 27;
-wire_lane_x = [-29.3, -25.3, -21.3, -17.3, -13.3, 7.9, 13.1, 18.3, 23.5, 28.7];
-wire_lane_clear_w = [3, 3, 3, 3, 3, 4.2, 4.2, 4.2, 4.2, 4.2];
-wire_lane_rib_d = [2.2, 2.2, 2.2, 2.2, 2.2, 3.4, 3.4, 3.4, 3.4, 3.4];
-wire_lane_od = [1.8, 1.8, 1.8, 1.8, 1.8, 3, 3, 3, 3, 3];
-wire_lane_retainer_overhang = [0.4, 0.4, 0.4, 0.4, 0.4, 1, 1, 1, 1, 1];
-wire_lane_colors = ["#e05252", "#171a18", "#4ea4ff", "#171a18", "#f5c542", "#e05252", "#171a18", "#e05252", "#e05252", "#171a18"];
+wire_lane_x = [-28, -22.8, -17.6, -8, -4, 0, 4, 8, 22.8, 28];
+wire_lane_clear_w = [4.2, 4.2, 4.2, 3, 3, 3, 3, 3, 4.2, 4.2];
+wire_lane_rib_d = [3.4, 3.4, 3.4, 2.2, 2.2, 2.2, 2.2, 2.2, 3.4, 3.4];
+wire_lane_od = [3, 3, 3, 1.8, 1.8, 1.8, 1.8, 1.8, 3, 3];
+wire_lane_retainer_overhang = [1, 1, 1, 0.4, 0.4, 0.4, 0.4, 0.4, 1, 1];
+wire_lane_colors = ["#e05252", "#e05252", "#e05252", "#f5c542", "#e05252", "#171a18", "#e05252", "#171a18", "#171a18", "#171a18"];
+wire_lane_active = [true, true, false, true, true, true, true, true, true, true];
 
 module rounded_prism(size, r) {
   linear_extrude(height = size[2], center = false)
@@ -217,13 +211,14 @@ module wire_routing_channels() {
 
 module wire_harness_preview() {
   for (index = [0 : len(wire_lane_x) - 1])
-    color(wire_lane_colors[index])
-      translate([
-        wire_lane_x[index],
-        wire_channel_rear_y + wire_lane_od[index] / 2 + 0.2,
-        wire_channel_z
-      ])
-        cylinder(h = wire_channel_h, d = wire_lane_od[index], center = true);
+    if (wire_lane_active[index])
+      color(wire_lane_colors[index])
+        translate([
+          wire_lane_x[index],
+          wire_channel_rear_y + wire_lane_od[index] / 2 + 0.2,
+          wire_channel_z
+        ])
+          cylinder(h = wire_channel_h, d = wire_lane_od[index], center = true);
 }
 
 module dovetail_profile(neck_w, head_w, depth) {
@@ -399,7 +394,7 @@ module pill_led() {
 
 module servo_block() {
   color("#4a64d8")
-    translate([0, front_y - 18, servo_z])
+    translate([0, front_y + 1, servo_z])
       cube([servo_w, servo_d, servo_h], center = true);
 
   color("#111111")
@@ -427,13 +422,13 @@ module xiao_block() {
 }
 
 module inline_splitter_pair() {
-  for (z = [splitter_z_lower, splitter_z_upper]) {
+  for (x = splitter_x_centers) {
     color("#c9d0cb")
-      translate([splitter_x, splitter_y, z])
+      translate([x, splitter_y, splitter_z])
         cube([splitter_w, splitter_d, splitter_h], center = true);
     for (lever = [[-9, -3.1], [-9, 3.1], [9.5, 0]]) {
       color("#f28b32")
-        translate([splitter_x + lever[0], splitter_y + splitter_d / 2 + 1.2, z + lever[1]])
+        translate([x + lever[0], splitter_y + splitter_d / 2 + 1.2, splitter_z + lever[1]])
           cube([9, 2.4, 3.4], center = true);
     }
   }
@@ -443,12 +438,6 @@ module buck_block() {
   color("#d7b546")
     translate([0, buck_y, buck_z])
       cube([buck_w, buck_d, buck_h], center = true);
-
-  // Prototype MOSFET switch planning envelope. Measure the actual module and
-  // rerun fit checks before this becomes a print-ready pocket.
-  color([0.88, 0.72, 0.25, 0.46])
-    translate([0, power_switch_y, power_switch_z])
-      cube([power_switch_w, power_switch_d, power_switch_h], center = true);
 }
 
 module battery_block() {
@@ -464,7 +453,7 @@ module battery_block() {
 
 module clearance_blocks() {
   color([1, 0.2, 0.2, 0.22]) {
-    translate([0, front_y - 18, servo_z])
+    translate([0, front_y + 1, servo_z])
       cube([servo_w + 1.2, servo_d + 1.2, servo_h + 1.2], center = true);
     translate([0, front_y - 18, battery_z])
       cube([battery_w + 3, battery_d + 3, battery_h + 5.5], center = true);

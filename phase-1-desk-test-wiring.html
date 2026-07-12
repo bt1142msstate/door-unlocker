@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="data:," />
   <title>Door Unlocker - Phase 1 Desk Test Wiring</title>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.166.1/examples/jsm/"
+      }
+    }
+  </script>
   <style>
     :root {
       color-scheme: dark;
@@ -2487,7 +2495,7 @@
             <span><i>R</i><span><b>Dovetail rails.</b> Open-ended rails keep the sled tight against the plate, with a hidden detent or thumb release to stop accidental release.</span></span>
             <span><i>E</i><span><b>Adjustment slots.</b> Servo bracket and arm position should use a notched removable cradle so the servo can shift height without losing tight side support.</span></span>
             <span><i>Q</i><span><b>Quick-swap battery.</b> Use a fixed XT30 dock in the housing, a chamfered slide-up battery slot, a small pull ribbon/lip, and a thumb latch so charging does not disturb the internal wiring.</span></span>
-            <span><i>W</i><span><b>Fixed harness routing.</b> Mold two open cable-comb banks into the enclosure behind the service cover: five dedicated 16 AWG power lanes on the right and five dedicated 22 AWG logic/PWM lanes on the left, with removable retention nibs so every service reassembly follows the same route.</span></span>
+            <span><i>W</i><span><b>Fixed harness routing.</b> Mold ten open snap-in grooves into the enclosure behind the service cover. Keep servo positive on the outer left, servo ground on the outer right, battery feeds just inside them, and the five 22 AWG controller paths through the center. One spare 16 AWG groove is reserved for the future high-side servo switch.</span></span>
           </div>
         </article>
 
@@ -2598,8 +2606,8 @@
               <div class="model-callout"><b>72 × 34 × 244 mm</b>Current enclosure envelope.</div>
               <div class="model-callout"><b>50.8 × 7 × 244 mm</b>Hidden door mounting plate.</div>
               <div class="model-callout"><b>0.40 mm per side</b>Dovetail channel clearance.</div>
-              <div class="model-callout"><b>10 connected wire lanes</b>Five 16 AWG power paths plus five 22 AWG logic/PWM paths.</div>
-              <div class="model-callout"><b>Fit issue shown honestly</b>Two full solar panels conflict with the servo zone.</div>
+              <div class="model-callout"><b>10 dedicated wire grooves</b>Nine active paths plus one 16 AWG future-switch lane.</div>
+              <div class="model-callout"><b>Phase 1.5 scope</b>No external LED or solar hardware is modeled yet.</div>
             </div>
           </div>
           <div class="model-controls" aria-label="3D mounting plate controls">
@@ -2623,8 +2631,8 @@
           <div class="mount-spec"><span class="mount-dot" style="background:#9a8cff"></span><span><b>Validation test</b><code>measure handle force first</code><br>Command ratings are static picture-hanging ratings, so the real door needs a staged load and cycle test before the plate is trusted on the door.</span></div>
           <div class="mount-spec"><span class="mount-dot" style="background:#303a33"></span><span><b>Bambu PLA Pure print</b><code>P1S, 0.4 mm nozzle, 0.40 mm rail clearance</code><br>Print the flush plate flat, print dovetail coupons first, and keep heat/creep testing in mind before trusting it on a hot door.</span></div>
           <div class="mount-spec"><span class="mount-dot" style="background:#d7b546"></span><span><b>Dimension confidence</b><code>verified + estimated geometry</code><br>Vendor-confirmed dimensions drive the plate, servo, XIAO footprint, inline splitters, buck, and solar panels. The splitter dimensions come from the purchased listing graphic; verify the actual parts with calipers before printing.</span></div>
-          <div class="mount-spec"><span class="mount-dot" style="background:#f5c542"></span><span><b>Complete harness routing</b><code>2 banks / 10 lanes, z 84-167 mm</code><br>The cutaway now connects battery, splitters, buck, power switch, breadboard/XIAO, and servo. Five 4.2 mm lanes form the 16 AWG power bank; five 3.0 mm lanes form the 22 AWG logic/PWM bank. Shared 1 mm ribs preserve a 15.6 mm center service gap and the full 3.2 mm rear wall. Solar leads remain intentionally unrouted until the 2S charger and final panel placement are selected.</span></div>
-          <div class="mount-spec"><span class="mount-dot" style="background:#ff6f61"></span><span><b>Solar fit conflict</b><code>2 × 110 × 60 × 3 mm panels</code><br>The two selected 6 V / 1 W panels cannot share the current 72 × 244 mm front face with the servo opening. The cutaway shows the second panel as a translucent conflict envelope instead of pretending the layout is print-ready.</span></div>
+          <div class="mount-spec"><span class="mount-dot" style="background:#f5c542"></span><span><b>Clean-map harness routing</b><code>10 grooves, z 80-202 mm</code><br>The 3D cutaway follows the clean bench order: battery, joined inline splitters, vertical buck, centered breadboard/XIAO, then servo. The 16 AWG servo feeds rise symmetrically on the outer edges, battery feeds stay just inside them, and five 22 AWG controller paths use the center. Nine grooves are active; one 16 AWG groove is reserved for the future high-side switch. Raised 1 mm ribs preserve the full 3.2 mm rear wall.</span></div>
+          <div class="mount-spec"><span class="mount-dot" style="background:#ff6f61"></span><span><b>Phase boundary</b><code>current hardware only</code><br>This Phase 1.5 viewer intentionally excludes an external status LED, solar panels, charger, and servo power-switch board. Those remain Phase 2 fit work and are documented separately below.</span></div>
         </div>
       </div>
     </section>
@@ -2639,6 +2647,7 @@
           <a class="cad-link" href="cad/phase2-enclosure.scad">OpenSCAD source</a>
           <a class="cad-link" href="cad/phase2-dimensions.json">Dimensions JSON</a>
           <a class="cad-link" href="docs/housing-fit-simulation.md">Housing fit report</a>
+          <a class="cad-link" href="https://files.seeedstudio.com/wiki/XIAO-BLE/seeed-studio-xiao-nrf52840-3d-model.zip">Official XIAO STEP</a>
         </div>
       </div>
 
@@ -2748,7 +2757,7 @@
           <div class="cad-dim"><span class="cad-dot" style="background:#4a64d8"></span><span><b>Servo bay</b><code>56 W x 28 D x 52 H + front pocket</code><br>Holds the 40.5 x 20 x 37.5mm INJORA servo body, uses a 42 x 23 x 3mm removable cradle on 6 x 20 x 2.2mm detent ledges, and opens the front face with a 56 x 28 x 58mm pocket.</span></div>
           <div class="cad-dim"><span class="cad-dot" style="background:#23a06f"></span><span><b>XIAO controller</b><code>21 W x 17.8 H board</code><br>Vendor footprint with separate board thickness, header pins, and USB-C connector shown in the detailed cutaway.</span></div>
           <div class="cad-dim"><span class="cad-dot" style="background:#b8242d"></span><span><b>No-solder breadboard</b><code>35 W x 8.5 D x 47 H</code><br>Standard 170-point board shown vertically in the cutaway, with the XIAO and headers modeled separately on its front face.</span></div>
-          <div class="cad-dim"><span class="cad-dot" style="background:#f28b32"></span><span><b>Inline splitter pair</b><code>2 x 32 W x 13.5 D x 13 H</code><br>The purchased 1-in/2-out connectors are modeled horizontally in two stacked routing lanes. Their narrower depth improves service-bay cable routing.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#f28b32"></span><span><b>Inline splitter pair</b><code>2 x 32 W x 13.5 D x 13 H</code><br>The purchased 1-in/2-out connectors are physically joined side-by-side at one height while remaining electrically separate, matching the clean bench map.</span></div>
           <div class="cad-dim"><span class="cad-dot" style="background:#d7b546"></span><span><b>Current buck module</b><code>57 W x 14 D x 36 H</code><br>Verified Seloky LM2596 module envelope. This can shrink later with the low-quiescent regulator plan.</span></div>
           <div class="cad-dim"><span class="cad-dot" style="background:#ef6c38"></span><span><b>Battery cartridge</b><code>43 W x 22 D x 75 H</code><br>Bottom-inserting pack in a 46.5 x 25 x 80.5mm slot, mostly inside the enclosure with only a small pull lip exposed.</span></div>
           <div class="cad-dim"><span class="cad-dot" style="background:#ffd166"></span><span><b>Battery quick swap</b><code>fixed XT30 dock + pull lip</code><br>The controller-side XT30 should be fixed to the housing with slight connector float. The battery slides up into chamfered guides, mates automatically, and releases with a thumb latch or spring tab.</span></div>
@@ -3194,6 +3203,7 @@
     });
   </script>
 
+  <script src="assets/models/xiao-nrf52840-sense-official.js"></script>
   <script type="module">
     const mountCanvas = document.getElementById("mountingPlateCanvas");
     const mountViewer = document.getElementById("mountingPlateViewer");
@@ -3207,8 +3217,14 @@
       if (!mountCanvas || !mountViewer) return;
 
       let THREE;
+      let GLTFLoader;
       try {
-        THREE = await import("https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.module.js");
+        const modules = await Promise.all([
+          import("three"),
+          import("three/addons/loaders/GLTFLoader.js")
+        ]);
+        THREE = modules[0];
+        GLTFLoader = modules[1].GLTFLoader;
       } catch (error) {
         mountViewer.classList.add("model-load-failed");
         return;
@@ -3253,8 +3269,7 @@
       const enclosureGroup = new THREE.Group();
       const internalsGroup = new THREE.Group();
       const coverGroup = new THREE.Group();
-      const solarGroup = new THREE.Group();
-      pivot.add(doorGroup, adhesiveGroup, plateGroup, enclosureGroup, internalsGroup, coverGroup, solarGroup);
+      pivot.add(doorGroup, adhesiveGroup, plateGroup, enclosureGroup, internalsGroup, coverGroup);
 
       const materials = {
         door: new THREE.MeshStandardMaterial({ color: 0x192018, roughness: 0.92 }),
@@ -3282,23 +3297,27 @@
         servoBlack: new THREE.MeshStandardMaterial({ color: 0x090b0a, roughness: 0.56, metalness: 0.12 }),
         servoArm: new THREE.MeshStandardMaterial({ color: 0x0b0d0c, roughness: 0.3, metalness: 0.72 }),
         rubber: new THREE.MeshPhysicalMaterial({ color: 0x050606, roughness: 0.19, clearcoat: 0.82, clearcoatRoughness: 0.16 }),
-        battery: new THREE.MeshStandardMaterial({ color: 0x273a65, roughness: 0.6, metalness: 0.02 }),
+        battery: new THREE.MeshPhysicalMaterial({ color: 0x090b0a, roughness: 0.3, clearcoat: 0.42, clearcoatRoughness: 0.28 }),
+        batteryWrap: new THREE.MeshStandardMaterial({ color: 0x171a18, roughness: 0.44, metalness: 0.02 }),
+        batteryLabel: new THREE.MeshStandardMaterial({ color: 0x8b9630, roughness: 0.68 }),
+        xt30: new THREE.MeshStandardMaterial({ color: 0xf0a71b, roughness: 0.48 }),
         pcbBlue: new THREE.MeshStandardMaterial({ color: 0x1d4f92, roughness: 0.58, metalness: 0.04 }),
-        pcbGreen: new THREE.MeshStandardMaterial({ color: 0x148264, roughness: 0.56, metalness: 0.04 }),
+        xiaoPCB: new THREE.MeshStandardMaterial({ color: 0x111412, roughness: 0.58, metalness: 0.04 }),
+        xiaoShield: new THREE.MeshStandardMaterial({ color: 0xc8ccca, roughness: 0.3, metalness: 0.76 }),
+        gold: new THREE.MeshStandardMaterial({ color: 0xd9ae4a, roughness: 0.34, metalness: 0.72 }),
+        terminalBlue: new THREE.MeshStandardMaterial({ color: 0x1684c4, roughness: 0.5, metalness: 0.04 }),
+        capacitor: new THREE.MeshStandardMaterial({ color: 0xc5c8c6, roughness: 0.34, metalness: 0.66 }),
         breadboard: new THREE.MeshStandardMaterial({ color: 0xb8242d, roughness: 0.7, metalness: 0.01 }),
         breadboardHole: new THREE.MeshStandardMaterial({ color: 0x171a18, roughness: 0.9 }),
         splitter: new THREE.MeshPhysicalMaterial({ color: 0xadb4b0, roughness: 0.38, transparent: true, opacity: 0.88 }),
         splitterLever: new THREE.MeshStandardMaterial({ color: 0xf18b2f, roughness: 0.48 }),
         routingChannel: new THREE.MeshStandardMaterial({ color: 0x6d8072, roughness: 0.64 }),
         wireYellow: new THREE.MeshStandardMaterial({ color: 0xffce45, emissive: 0x5a3d00, emissiveIntensity: 0.34, roughness: 0.44 }),
-        wireBlue: new THREE.MeshStandardMaterial({ color: 0x63b5ff, emissive: 0x082f5a, emissiveIntensity: 0.34, roughness: 0.44 }),
         wireBlack: new THREE.MeshStandardMaterial({ color: 0x424b45, emissive: 0x111713, emissiveIntensity: 0.26, roughness: 0.56 }),
+        wireBrown: new THREE.MeshStandardMaterial({ color: 0x704229, emissive: 0x251006, emissiveIntensity: 0.28, roughness: 0.52 }),
         wireRed: new THREE.MeshStandardMaterial({ color: 0xff665f, emissive: 0x5a0c08, emissiveIntensity: 0.34, roughness: 0.44 }),
         terminal: new THREE.MeshStandardMaterial({ color: 0xc5c9c7, roughness: 0.42, metalness: 0.68 }),
         display: new THREE.MeshPhysicalMaterial({ color: 0x260607, roughness: 0.22, clearcoat: 0.5 }),
-        solar: new THREE.MeshPhysicalMaterial({ color: 0x164f86, roughness: 0.24, clearcoat: 0.58, clearcoatRoughness: 0.24, transparent: true, opacity: 0.3 }),
-        solarLine: new THREE.LineBasicMaterial({ color: 0x8bc9ff, transparent: true, opacity: 0.72 }),
-        conflict: new THREE.MeshPhysicalMaterial({ color: 0xff5c52, roughness: 0.35, transparent: true, opacity: 0.22, depthWrite: false }),
         estimate: new THREE.MeshPhysicalMaterial({ color: 0xe0b73f, roughness: 0.42, transparent: true, opacity: 0.46 })
       };
 
@@ -3345,6 +3364,33 @@
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         return mesh;
+      }
+
+      function labelPlane(width, height, options) {
+        const canvas = document.createElement("canvas");
+        canvas.width = 512;
+        canvas.height = Math.max(256, Math.round(512 * height / width));
+        const context = canvas.getContext("2d");
+        context.fillStyle = options.background;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.fillStyle = options.color;
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        const lines = options.lines || [];
+        const lineHeight = canvas.height / (lines.length + 1);
+        lines.forEach((line, index) => {
+          context.font = `${index === 0 ? 700 : 600} ${Math.round(lineHeight * (index === 0 ? 0.56 : 0.42))}px -apple-system, BlinkMacSystemFont, sans-serif`;
+          context.fillText(line, canvas.width / 2, lineHeight * (index + 1));
+        });
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+        const label = new THREE.Mesh(
+          new THREE.PlaneGeometry(width, height),
+          new THREE.MeshBasicMaterial({ map: texture, transparent: false, toneMapped: false })
+        );
+        label.userData.labelTexture = texture;
+        return label;
       }
 
       function roundedRectPath(width, height, radius, centerX = 0, centerY = 0) {
@@ -3412,33 +3458,6 @@
         return mesh;
       }
 
-      function makeSolarPanel(width, height, depth, material) {
-        const group = new THREE.Group();
-        const panel = roundedRectMesh(width, height, depth, 1.5, material, 0.12);
-        group.add(panel);
-        for (let column = 1; column < 6; column += 1) {
-          const line = new THREE.Line(
-            new THREE.BufferGeometry().setFromPoints([
-              new THREE.Vector3(-width / 2 + column * width / 6, -height / 2 + 2, depth / 2 + 0.16),
-              new THREE.Vector3(-width / 2 + column * width / 6, height / 2 - 2, depth / 2 + 0.16)
-            ]),
-            materials.solarLine
-          );
-          group.add(line);
-        }
-        for (let row = 1; row < 10; row += 1) {
-          const line = new THREE.Line(
-            new THREE.BufferGeometry().setFromPoints([
-              new THREE.Vector3(-width / 2 + 2, -height / 2 + row * height / 10, depth / 2 + 0.16),
-              new THREE.Vector3(width / 2 - 2, -height / 2 + row * height / 10, depth / 2 + 0.16)
-            ]),
-            materials.solarLine
-          );
-          group.add(line);
-        }
-        return group;
-      }
-
       const railProfile = {
         faceAngleDeg: 60,
         neckWidth: 8,
@@ -3453,35 +3472,34 @@
         enclosure: { width: 72, height: 244, depth: 34, wall: 3.2, radius: 7 },
         plate: { width: 50.8, height: 244, depth: 7, radius: 6 },
         serviceCover: { width: 66, height: 232, depth: 2.2, radius: 6 },
-        servo: { width: 40.5, height: 37.5, depth: 20, centerY: 66 },
-        servoPocket: { width: 56, height: 58, centerY: 66 },
-        battery: { width: 43, height: 75, depth: 22, centerY: -80 },
-        buck: { width: 57, height: 36, depth: 14, centerY: -19.5 },
-        xiao: { width: 21, height: 17.8, boardDepth: 1.6, centerX: -18, centerY: 21 },
-        splitter: { width: 32, height: 13, depth: 13.5, centerX: 14.5, centersY: [13, 32] },
-        breadboard: { width: 35, height: 47, depth: 8.5, centerX: -13, centerY: 21 },
-        powerSwitchEnvelope: { width: 42, height: 26, depth: 12, centerY: -19.5 },
+        servo: { width: 40.5, height: 37.5, depth: 20, centerY: 97 },
+        servoPocket: { width: 56, height: 58, centerY: 87 },
+        battery: { width: 43, height: 75, depth: 22, centerY: -81 },
+        buck: { width: 36, height: 57, depth: 14, centerY: 0 },
+        xiao: { width: 21, height: 17.8, boardDepth: 1.6, centerX: 0, centerY: 53 },
+        splitter: { width: 32, height: 13, depth: 13.5, centersX: [-16, 16], centerY: -36 },
+        breadboard: { width: 35, height: 47, depth: 8.5, centerX: 0, centerY: 53 },
+        serviceRacewayDepth: 4,
         wireRouting: {
-          startY: -38,
-          endY: 45,
-          length: 83,
-          centerY: 3.5,
+          startY: -42,
+          endY: 80,
+          length: 122,
+          centerY: 19,
           ribWidth: 1,
           retainerSpacing: 27,
           lanes: [
-            { name: "buckInputPositive", x: -29.3, clearWidth: 3, ribDepth: 2.2, wireDiameter: 1.8, retainerOverhang: 0.4, material: "wireRed" },
-            { name: "buckInputGround", x: -25.3, clearWidth: 3, ribDepth: 2.2, wireDiameter: 1.8, retainerOverhang: 0.4, material: "wireBlack" },
-            { name: "controller5V", x: -21.3, clearWidth: 3, ribDepth: 2.2, wireDiameter: 1.8, retainerOverhang: 0.4, material: "wireBlue" },
-            { name: "controllerGround", x: -17.3, clearWidth: 3, ribDepth: 2.2, wireDiameter: 1.8, retainerOverhang: 0.4, material: "wireBlack" },
-            { name: "pwmSignal", x: -13.3, clearWidth: 3, ribDepth: 2.2, wireDiameter: 1.8, retainerOverhang: 0.4, material: "wireYellow" },
-            { name: "batteryPositiveInput", x: 7.9, clearWidth: 4.2, ribDepth: 3.4, wireDiameter: 3, retainerOverhang: 1, material: "wireRed" },
-            { name: "batteryGroundInput", x: 13.1, clearWidth: 4.2, ribDepth: 3.4, wireDiameter: 3, retainerOverhang: 1, material: "wireBlack" },
-            { name: "splitterPositiveToSwitch", x: 18.3, clearWidth: 4.2, ribDepth: 3.4, wireDiameter: 3, retainerOverhang: 1, material: "wireRed" },
-            { name: "switchToServoPositive", x: 23.5, clearWidth: 4.2, ribDepth: 3.4, wireDiameter: 3, retainerOverhang: 1, material: "wireRed" },
-            { name: "splitterGroundToServo", x: 28.7, clearWidth: 4.2, ribDepth: 3.4, wireDiameter: 3, retainerOverhang: 1, material: "wireBlack" }
+            { name: "splitterPositiveToServo", x: -28, clearWidth: 4.2, ribDepth: 3.4, wireDiameter: 3, retainerOverhang: 1, material: "wireRed" },
+            { name: "batteryPositiveInput", x: -22.8, clearWidth: 4.2, ribDepth: 3.4, wireDiameter: 3, retainerOverhang: 1, material: "wireRed" },
+            { name: "spareHighCurrent", x: -17.6, clearWidth: 4.2, ribDepth: 3.4, wireDiameter: 3, retainerOverhang: 1, material: "wireRed" },
+            { name: "pwmSignal", x: -8, clearWidth: 3, ribDepth: 2.2, wireDiameter: 1.8, retainerOverhang: 0.4, material: "wireYellow" },
+            { name: "controller5V", x: -4, clearWidth: 3, ribDepth: 2.2, wireDiameter: 1.8, retainerOverhang: 0.4, material: "wireRed" },
+            { name: "controllerGround", x: 0, clearWidth: 3, ribDepth: 2.2, wireDiameter: 1.8, retainerOverhang: 0.4, material: "wireBlack" },
+            { name: "buckInputPositive", x: 4, clearWidth: 3, ribDepth: 2.2, wireDiameter: 1.8, retainerOverhang: 0.4, material: "wireRed" },
+            { name: "buckInputGround", x: 8, clearWidth: 3, ribDepth: 2.2, wireDiameter: 1.8, retainerOverhang: 0.4, material: "wireBlack" },
+            { name: "batteryGroundInput", x: 22.8, clearWidth: 4.2, ribDepth: 3.4, wireDiameter: 3, retainerOverhang: 1, material: "wireBlack" },
+            { name: "splitterGroundToServo", x: 28, clearWidth: 4.2, ribDepth: 3.4, wireDiameter: 3, retainerOverhang: 1, material: "wireBlack" }
           ]
-        },
-        solarPanel: { width: 60, height: 110, depth: 3 }
+        }
       });
 
       const shellCenterZ = modelDimensions.plate.depth / 2 + 1 + modelDimensions.enclosure.depth / 2;
@@ -3682,58 +3700,93 @@
       function addBatteryModel() {
         const d = modelDimensions.battery;
         const body = roundedRectMesh(d.width, d.height, d.depth, 4, materials.battery, 0.75);
-        body.position.set(0, d.centerY, shellBackZ + modelDimensions.enclosure.wall + d.depth / 2 + 0.8);
+        body.position.set(0, d.centerY, shellBackZ + modelDimensions.enclosure.wall + d.depth / 2 + 0.8 + modelDimensions.serviceRacewayDepth);
         internalsGroup.add(body);
         addEdges(body, internalsGroup, 24);
 
-        const label = roundedRectMesh(31, 45, 0.7, 2, materials.servoBlue, 0.04);
-        label.position.set(0, d.centerY, body.position.z + d.depth / 2 + 0.42);
+        [-31, 31].forEach((offsetY) => {
+          const wrapBand = roundedRectMesh(d.width - 1.2, 3.2, d.depth + 0.5, 1.5, materials.batteryWrap, 0.08);
+          wrapBand.position.set(0, d.centerY + offsetY, body.position.z);
+          internalsGroup.add(wrapBand);
+        });
+
+        const label = labelPlane(31, 45, {
+          background: "#8b9630",
+          color: "#f6f7e8",
+          lines: ["5000mAh", "7.4V · 2S", "Li-ion battery"]
+        });
+        label.position.set(0, d.centerY, body.position.z + d.depth / 2 + 0.04);
         internalsGroup.add(label);
 
-        const dock = boxMesh(13, 7, 9, materials.terminal);
+        const dock = roundedRectMesh(13, 7, 9, 1.4, materials.xt30, 0.18);
         dock.position.set(0, d.centerY + d.height / 2 + 3.5, body.position.z);
         internalsGroup.add(dock);
+        const dockMouth = roundedRectMesh(7.2, 2.4, 0.8, 0.8, materials.slot, 0.04);
+        dockMouth.position.set(0, dock.position.y + 0.2, dock.position.z + 4.55);
+        internalsGroup.add(dockMouth);
 
         const pullLip = roundedRectMesh(28, 4, 3.5, 1.8, materials.rubber, 0.1);
         pullLip.position.set(0, -119.2, shellFrontZ - 5);
         internalsGroup.add(pullLip);
       }
 
-      function addBuckAndPowerSwitch() {
+      function addBuckModel() {
         const d = modelDimensions.buck;
         const board = roundedRectMesh(d.width, d.height, 1.6, 2, materials.pcbBlue, 0.08);
-        board.position.set(0, d.centerY, shellBackZ + modelDimensions.enclosure.wall + 1.6);
+        board.position.set(0, d.centerY, shellBackZ + modelDimensions.enclosure.wall + 1.6 + modelDimensions.serviceRacewayDepth);
         internalsGroup.add(board);
 
         const inductor = cylinderMesh(6, 6, materials.servoBlack, 28);
         inductor.rotation.x = Math.PI / 2;
-        inductor.position.set(9, d.centerY + 2, board.position.z + 4);
+        inductor.position.set(-4, d.centerY + 2, board.position.z + 4.2);
         internalsGroup.add(inductor);
 
-        [-24, 24].forEach((x) => {
-          const terminal = boxMesh(8, 11, 7, materials.terminal);
-          terminal.position.set(x, d.centerY - 8, board.position.z + 3.2);
+        [-24, 24].forEach((offsetY) => {
+          const terminal = roundedRectMesh(16, 8, 7, 1.1, materials.terminalBlue, 0.12);
+          terminal.position.set(0, d.centerY + offsetY, board.position.z + 3.2);
           internalsGroup.add(terminal);
+          [-4.2, 4.2].forEach((offsetX) => {
+            const screw = cylinderMesh(1.35, 0.8, materials.terminal, 20);
+            screw.rotation.x = Math.PI / 2;
+            screw.position.set(offsetX, d.centerY + offsetY, board.position.z + 7.05);
+            internalsGroup.add(screw);
+          });
         });
 
-        const display = roundedRectMesh(18, 10, 5, 1.5, materials.display, 0.18);
-        display.position.set(-8, d.centerY + 8, board.position.z + 3.3);
-        internalsGroup.add(display);
+        const displayBezel = roundedRectMesh(11, 21, 5, 1.5, materials.display, 0.18);
+        displayBezel.position.set(9, d.centerY + 3, board.position.z + 3.3);
+        internalsGroup.add(displayBezel);
+        const displayFace = labelPlane(9, 18, {
+          background: "#190304",
+          color: "#ff3b30",
+          lines: ["5.0"]
+        });
+        displayFace.position.set(9, d.centerY + 3, board.position.z + 5.85);
+        internalsGroup.add(displayFace);
 
-        const trimPot = boxMesh(9, 9, 7, materials.pcbBlue);
-        trimPot.position.set(20, d.centerY + 9, board.position.z + 3.5);
+        const trimPot = roundedRectMesh(9, 9, 7, 1, materials.terminalBlue, 0.08);
+        trimPot.position.set(-9, d.centerY - 15, board.position.z + 3.5);
         internalsGroup.add(trimPot);
+        const trimScrew = cylinderMesh(1.5, 0.8, materials.gold, 20);
+        trimScrew.rotation.x = Math.PI / 2;
+        trimScrew.position.set(-9, d.centerY - 15, board.position.z + 7.4);
+        internalsGroup.add(trimScrew);
 
-        const power = modelDimensions.powerSwitchEnvelope;
-        const envelope = roundedRectMesh(power.width, power.height, power.depth, 2.4, materials.estimate, 0.24);
-        envelope.position.set(0, power.centerY, shellFrontZ - power.depth / 2 - 1.1);
-        internalsGroup.add(envelope);
-        addEdges(envelope, internalsGroup, 22);
+        [[-10, 13], [4, -12]].forEach(([x, y]) => {
+          const capacitor = cylinderMesh(3.2, 7, materials.capacitor, 28);
+          capacitor.rotation.x = Math.PI / 2;
+          capacitor.position.set(x, d.centerY + y, board.position.z + 4.1);
+          internalsGroup.add(capacitor);
+          const capTop = cylinderMesh(2.8, 0.6, materials.terminal, 28);
+          capTop.rotation.x = Math.PI / 2;
+          capTop.position.set(x, d.centerY + y, board.position.z + 7.85);
+          internalsGroup.add(capTop);
+        });
       }
 
       function addBreadboardAndXiao() {
         const breadboard = modelDimensions.breadboard;
-        const boardZ = shellBackZ + modelDimensions.enclosure.wall + breadboard.depth / 2 + 0.6;
+        const boardZ = shellBackZ + modelDimensions.enclosure.wall + breadboard.depth / 2 + 0.6 + modelDimensions.serviceRacewayDepth;
         const board = roundedRectMesh(breadboard.width, breadboard.height, breadboard.depth, 2.5, materials.breadboard, 0.35);
         board.position.set(breadboard.centerX, breadboard.centerY, boardZ);
         internalsGroup.add(board);
@@ -3760,32 +3813,108 @@
 
         const xiao = modelDimensions.xiao;
         const xiaoZ = boardZ + breadboard.depth / 2 + 3.2;
-        const xiaoBoard = roundedRectMesh(xiao.width, xiao.height, xiao.boardDepth, 1.8, materials.pcbGreen, 0.08);
+        const xiaoFallback = new THREE.Group();
+        internalsGroup.add(xiaoFallback);
+        const xiaoBoard = roundedRectMesh(xiao.width, xiao.height, xiao.boardDepth, 1.8, materials.xiaoPCB, 0.08);
         xiaoBoard.position.set(xiao.centerX, xiao.centerY, xiaoZ);
-        internalsGroup.add(xiaoBoard);
+        xiaoFallback.add(xiaoBoard);
 
         [-8.9, 8.9].forEach((pinX) => {
+          const headerCarrier = roundedRectMesh(2.2, 17.8, 2, 0.55, materials.slot, 0.06);
+          headerCarrier.position.set(pinX + xiao.centerX, xiao.centerY, xiaoZ - 1.3);
+          internalsGroup.add(headerCarrier);
           for (let pin = 0; pin < 7; pin += 1) {
-            const header = boxMesh(0.8, 0.8, 5, materials.terminal);
-            header.position.set(pinX + xiao.centerX, xiao.centerY - 7.62 + pin * 2.54, xiaoZ - 2.2);
+            const pinY = xiao.centerY - 7.62 + pin * 2.54;
+            const pad = roundedRectMesh(2.2, 1.8, 0.45, 0.7, materials.gold, 0.03);
+            pad.position.set(pinX + xiao.centerX, pinY, xiaoZ + 1);
+            xiaoFallback.add(pad);
+            const header = boxMesh(0.8, 0.8, 5, materials.gold);
+            header.position.set(pinX + xiao.centerX, pinY, xiaoZ - 2.2);
             internalsGroup.add(header);
           }
         });
 
-        const usb = roundedRectMesh(9, 5.4, 3.2, 1.3, materials.terminal, 0.16);
+        const shield = roundedRectMesh(14.6, 10.8, 1.8, 0.9, materials.xiaoShield, 0.08);
+        shield.position.set(xiao.centerX, xiao.centerY - 0.5, xiaoZ + 1.55);
+        xiaoFallback.add(shield);
+        const shieldLabel = labelPlane(12.8, 8.8, {
+          background: "#d7dad8",
+          color: "#121412",
+          lines: ["seeed studio", "XIAO nRF52840"]
+        });
+        shieldLabel.position.set(xiao.centerX, xiao.centerY - 0.5, xiaoZ + 2.48);
+        xiaoFallback.add(shieldLabel);
+
+        const usb = roundedRectMesh(9, 5.4, 3.2, 1.3, materials.xiaoShield, 0.16);
         usb.position.set(xiao.centerX, xiao.centerY + xiao.height / 2 + 1.8, xiaoZ + 1.5);
-        internalsGroup.add(usb);
+        xiaoFallback.add(usb);
+        const usbMouth = roundedRectMesh(6.5, 2.5, 0.6, 1.05, materials.slot, 0.04);
+        usbMouth.position.set(usb.position.x, usb.position.y + 0.1, usb.position.z + 1.9);
+        xiaoFallback.add(usbMouth);
+
+        const resetButton = roundedRectMesh(2.1, 2.1, 1.2, 0.45, materials.terminal, 0.04);
+        resetButton.position.set(xiao.centerX - 7.1, xiao.centerY + 6.2, xiaoZ + 1.35);
+        xiaoFallback.add(resetButton);
+        const onboardLed = roundedRectMesh(1.4, 1.1, 0.7, 0.28, materials.rail, 0.03);
+        onboardLed.position.set(xiao.centerX + 7, xiao.centerY + 5.7, xiaoZ + 1.3);
+        xiaoFallback.add(onboardLed);
+
+        const encodedModel = window.XIAO_NRF52840_OFFICIAL_GLB_BASE64;
+        mountViewer.dataset.xiaoModel = "fallback";
+        if (!encodedModel || !GLTFLoader) return;
+
+        try {
+          const binary = window.atob(encodedModel);
+          const bytes = new Uint8Array(binary.length);
+          for (let index = 0; index < binary.length; index += 1) {
+            bytes[index] = binary.charCodeAt(index);
+          }
+
+          const loader = new GLTFLoader();
+          loader.parse(bytes.buffer, "", (gltf) => {
+            const officialModel = gltf.scene;
+            officialModel.name = "xiaoOfficialModel";
+            officialModel.traverse((object) => {
+              if (!object.isMesh) return;
+              object.castShadow = true;
+              object.receiveShadow = true;
+            });
+
+            const bounds = new THREE.Box3().setFromObject(officialModel);
+            const center = bounds.getCenter(new THREE.Vector3());
+            const publishedHeaderDatum = new THREE.Vector3(1.741, center.y, -6.1114);
+            officialModel.position.sub(publishedHeaderDatum);
+
+            const anchor = new THREE.Group();
+            anchor.name = "xiaoOfficialModelAnchor";
+            anchor.rotation.z = Math.PI / 2;
+            anchor.position.set(xiao.centerX, xiao.centerY, xiaoZ + 1.15);
+            const faceOrientation = new THREE.Group();
+            faceOrientation.name = "xiaoOfficialFaceOutward";
+            faceOrientation.rotation.x = Math.PI / 2;
+            faceOrientation.add(officialModel);
+            anchor.add(faceOrientation);
+            internalsGroup.add(anchor);
+            xiaoFallback.visible = false;
+            mountViewer.dataset.xiaoModel = "official-step";
+            mountViewer.dataset.xiaoAlignment = "published-header-grid";
+          }, () => {
+            xiaoFallback.visible = true;
+          });
+        } catch (error) {
+          xiaoFallback.visible = true;
+        }
       }
 
       function addInlineSplitters() {
         const d = modelDimensions.splitter;
-        d.centersY.forEach((centerY) => {
+        d.centersX.forEach((centerX) => {
           const body = roundedRectMesh(d.width, d.height, d.depth, 2.6, materials.splitter, 0.4);
-          body.position.set(d.centerX, centerY, shellFrontZ - d.depth / 2 - 2.2);
+          body.position.set(centerX, d.centerY, shellFrontZ - d.depth / 2 - 3.75);
           internalsGroup.add(body);
           [[-9, -3.1], [-9, 3.1], [9.5, 0]].forEach(([offsetX, offsetY]) => {
             const lever = roundedRectMesh(9, 3.4, 2.4, 1.6, materials.splitterLever, 0.12);
-            lever.position.set(d.centerX + offsetX, centerY + offsetY, body.position.z + d.depth / 2 + 0.9);
+            lever.position.set(centerX + offsetX, d.centerY + offsetY, body.position.z + d.depth / 2 + 0.9);
             internalsGroup.add(lever);
           });
         });
@@ -3853,109 +3982,94 @@
           harnessGroup.add(wire);
         };
 
-        const batteryZ = shellBackZ + modelDimensions.enclosure.wall + modelDimensions.battery.depth / 2 + 0.8;
-        const buckPortZ = shellBackZ + modelDimensions.enclosure.wall + 4.8;
-        const breadboardZ = shellBackZ + modelDimensions.enclosure.wall + modelDimensions.breadboard.depth / 2 + 0.6;
+        const batteryZ = shellBackZ + modelDimensions.enclosure.wall + modelDimensions.battery.depth / 2 + 0.8 + modelDimensions.serviceRacewayDepth;
+        const buckPortZ = shellBackZ + modelDimensions.enclosure.wall + 4.8 + modelDimensions.serviceRacewayDepth;
+        const breadboardZ = shellBackZ + modelDimensions.enclosure.wall + modelDimensions.breadboard.depth / 2 + 0.6 + modelDimensions.serviceRacewayDepth;
         const xiaoPortZ = breadboardZ + modelDimensions.breadboard.depth / 2 + 3.2;
-        const splitterZ = shellFrontZ - modelDimensions.splitter.depth / 2 - 2.2;
-        const switchZ = shellFrontZ - modelDimensions.powerSwitchEnvelope.depth / 2 - 1.1;
-        const servoZ = shellFrontZ - 6.5;
+        const splitterZ = shellFrontZ - modelDimensions.splitter.depth / 2 - 3.75;
+        const servoZ = shellFrontZ + 1;
 
-        // Battery inputs into the single-input side of the positive and ground splitters.
+        // The 3D harness follows the same bottom-to-top order as the clean bench map.
         addWire("battery-positive-to-splitter", materials.wireRed, 3, [
-          point(3, -39, batteryZ),
-          point(6, -39, 15),
-          lanePoint("batteryPositiveInput", -38),
-          lanePoint("batteryPositiveInput", 13),
-          point(16, 13, 17),
-          point(26, 13, 25),
-          point(30.5, 13, splitterZ)
+          point(-3, -40, batteryZ),
+          point(-10, -42, 16),
+          lanePoint("batteryPositiveInput", -42),
+          point(-18, -42, 20),
+          point(-16, -42, splitterZ)
         ]);
         addWire("battery-ground-to-splitter", materials.wireBlack, 3, [
-          point(-3, -39, batteryZ),
-          point(5, -38, 15),
-          lanePoint("batteryGroundInput", -38),
-          lanePoint("batteryGroundInput", 32),
-          point(20, 32, 18),
-          point(27, 32, 25),
-          point(30.5, 32, splitterZ)
+          point(3, -40, batteryZ),
+          point(10, -42, 16),
+          lanePoint("batteryGroundInput", -42),
+          point(18, -42, 20),
+          point(16, -42, splitterZ)
         ]);
 
-        // High-current branches: positive passes through the load switch; ground remains common.
-        addWire("splitter-positive-to-power-switch", materials.wireRed, 3, [
-          point(-1.5, 10, splitterZ),
-          point(5, 10, 20),
-          lanePoint("splitterPositiveToSwitch", 10),
-          lanePoint("splitterPositiveToSwitch", -32),
-          point(10, -32, 18),
-          point(-14, -30, switchZ)
-        ]);
-        addWire("power-switch-to-servo-positive", materials.wireRed, 3, [
-          point(14, -30, switchZ),
-          point(20, -32, 18),
-          lanePoint("switchToServoPositive", -32),
-          lanePoint("switchToServoPositive", 45),
-          point(22, 47, 18),
-          point(8, 49, 25),
-          point(-18, 52, servoZ)
+        // High-current servo branches rise symmetrically outside the component stack.
+        addWire("splitter-positive-to-servo", materials.wireRed, 3, [
+          point(-16, -29.5, splitterZ),
+          point(-24, -27, 18),
+          lanePoint("splitterPositiveToServo", -27),
+          lanePoint("splitterPositiveToServo", 78),
+          point(-24, 80, 18),
+          point(-8, 80, 25),
+          point(-2, 78.3, servoZ)
         ]);
         addWire("splitter-ground-to-servo", materials.wireBlack, 3, [
-          point(-1.5, 35, splitterZ),
-          point(9, 35, 19),
-          lanePoint("splitterGroundToServo", 35),
-          lanePoint("splitterGroundToServo", 45),
-          point(25, 48, 18),
-          point(10, 51, 25),
-          point(-13, 55, servoZ)
+          point(16, -29.5, splitterZ),
+          point(24, -27, 18),
+          lanePoint("splitterGroundToServo", -27),
+          lanePoint("splitterGroundToServo", 78),
+          point(24, 80, 18),
+          point(8, 80, 25)
+        ]);
+        addWire("servo-ground-brown-pigtail", materials.wireBrown, 3, [
+          point(8, 80, 25),
+          point(5, 79.4, 29),
+          point(2, 78.3, servoZ)
         ]);
 
-        // Low-current buck input and regulated controller rails.
+        // Short center lanes connect the joined splitters, vertical buck, and centered breadboard.
         addWire("splitter-positive-to-buck-in", materials.wireRed, 1.8, [
-          point(-1.5, 16, splitterZ),
-          point(-9, 16, 18),
-          lanePoint("buckInputPositive", 16),
-          lanePoint("buckInputPositive", -29),
-          point(-24, -29, buckPortZ)
+          point(-10, -29.5, splitterZ),
+          point(-2, -27, 16),
+          lanePoint("buckInputPositive", -27),
+          lanePoint("buckInputPositive", -24),
+          point(-5, -24, buckPortZ)
         ]);
         addWire("splitter-ground-to-buck-in", materials.wireBlack, 1.8, [
-          point(-1.5, 29, splitterZ),
-          point(-10, 29, 18),
-          lanePoint("buckInputGround", 29),
-          lanePoint("buckInputGround", -25),
-          point(-24, -25, buckPortZ)
+          point(10, -29.5, splitterZ),
+          point(7, -27, 16),
+          lanePoint("buckInputGround", -27),
+          lanePoint("buckInputGround", -24),
+          point(5, -24, buckPortZ)
         ]);
-        addWire("buck-out-to-controller-5v", materials.wireBlue, 1.8, [
-          point(24, -25, buckPortZ),
-          point(16, -34, 15),
-          lanePoint("controller5V", -34),
-          lanePoint("controller5V", 28.5),
-          point(-15, 28.5, 14),
-          point(-7.5, 28.5, xiaoPortZ)
+        addWire("buck-out-to-controller-5v", materials.wireRed, 1.8, [
+          point(-5, 24, buckPortZ),
+          lanePoint("controller5V", 27),
+          lanePoint("controller5V", 43),
+          point(5.9, 44.1, xiaoPortZ)
         ]);
         addWire("buck-out-to-controller-ground", materials.wireBlack, 1.8, [
-          point(24, -29, buckPortZ),
-          point(13, -35, 14),
-          lanePoint("controllerGround", -35),
-          lanePoint("controllerGround", 26),
-          point(-13, 26, 14),
-          point(-7.5, 26, xiaoPortZ)
+          point(5, 24, buckPortZ),
+          lanePoint("controllerGround", 27),
+          lanePoint("controllerGround", 45.5),
+          point(8.9, 46.6, xiaoPortZ)
         ]);
 
-        // PWM leaves D2 through its own quiet lane, then joins the servo lead at the bay edge.
+        // PWM leaves D2 through the center-left quiet lane and enters the middle servo lead.
         addWire("controller-d2-to-servo-signal", materials.wireYellow, 1.8, [
-          point(-28.5, 23.5, xiaoPortZ),
-          point(-23, 23.5, 15),
-          lanePoint("pwmSignal", 23.5),
-          lanePoint("pwmSignal", 45),
-          point(-11, 47, 17),
-          point(-8, 51, 24),
-          point(-8, 58, servoZ)
+          point(-8.9, 50.5, xiaoPortZ),
+          lanePoint("pwmSignal", 52),
+          lanePoint("pwmSignal", 78),
+          point(-6, 80, 18),
+          point(0, 78.3, servoZ)
         ]);
       }
 
       function addServoModel() {
         const d = modelDimensions.servo;
-        const bodyZ = shellFrontZ - 6.5;
+        const bodyZ = shellFrontZ + 1;
         const centerBand = roundedRectMesh(d.width, d.height, d.depth, 3.2, materials.servoBlue, 0.58);
         centerBand.position.set(0, d.centerY, bodyZ);
         internalsGroup.add(centerBand);
@@ -4007,7 +4121,7 @@
       }
 
       addBatteryModel();
-      addBuckAndPowerSwitch();
+      addBuckModel();
       addBreadboardAndXiao();
       addInlineSplitters();
       addWireRoutingChannels();
@@ -4020,8 +4134,7 @@
         modelDimensions.serviceCover.depth,
         modelDimensions.serviceCover.radius,
         [
-          { width: modelDimensions.servoPocket.width, height: modelDimensions.servoPocket.height, y: modelDimensions.servoPocket.centerY, radius: 5 },
-          { width: 26, height: 9, y: 111, radius: 4.5 }
+          { width: modelDimensions.servoPocket.width, height: modelDimensions.servoPocket.height, y: modelDimensions.servoPocket.centerY, radius: 5 }
         ],
         materials.cover,
         0.38
@@ -4051,28 +4164,6 @@
         addEdges(coverRail, coverGroup);
       });
 
-      const statusLed = roundedRectMesh(22, 5, 2.4, 2.5, materials.rail, 0.18);
-      statusLed.position.set(0, 111, serviceCover.position.z + 2.3);
-      coverGroup.add(statusLed);
-
-      const lowerSolar = makeSolarPanel(
-        modelDimensions.solarPanel.width,
-        modelDimensions.solarPanel.height,
-        modelDimensions.solarPanel.depth,
-        materials.solar
-      );
-      lowerSolar.position.set(0, -61, serviceCover.position.z + 3.1);
-      solarGroup.add(lowerSolar);
-
-      const upperSolarConflict = makeSolarPanel(
-        modelDimensions.solarPanel.width,
-        modelDimensions.solarPanel.height,
-        modelDimensions.solarPanel.depth,
-        materials.conflict
-      );
-      upperSolarConflict.position.set(0, 50, serviceCover.position.z + 3.15);
-      solarGroup.add(upperSolarConflict);
-
       const ground = new THREE.Mesh(
         new THREE.PlaneGeometry(260, 230),
         new THREE.ShadowMaterial({ color: 0x000000, opacity: 0.22 })
@@ -4093,23 +4184,27 @@
       let lastPointerX = 0;
       let lastPointerY = 0;
 
-      const defaultZ = { door: 0, adhesive: 0, plate: 0, enclosure: 0, internals: 0, cover: 0, solar: 0 };
-      const explodedZ = { door: -16, adhesive: -8, plate: 0, enclosure: 22, internals: 40, cover: 74, solar: 88 };
+      const defaultZ = { door: 0, adhesive: 0, plate: 0, enclosure: 0, internals: 0, cover: 0 };
+      const explodedZ = { door: -16, adhesive: -8, plate: 0, enclosure: 22, internals: 40, cover: 74 };
+
+      function updateBackingVisibility() {
+        const frontFacing = Math.cos(pivot.rotation.y);
+        const backViewAmount = 1 - THREE.MathUtils.smoothstep(frontFacing, -0.25, 0.25);
+        const baseEnclosureOpacity = harnessFocus ? 0.1 : (cutaway ? 0.22 : 0.96);
+        const backingVisible = !harnessFocus && backViewAmount < 0.55;
+        doorGroup.visible = backingVisible;
+        adhesiveGroup.visible = backingVisible;
+        plateGroup.visible = backingVisible;
+        materials.enclosure.opacity = THREE.MathUtils.lerp(baseEnclosureOpacity, 0.06, backViewAmount);
+        materials.enclosure.depthWrite = backViewAmount < 0.05 && !cutaway && !harnessFocus;
+      }
 
       function updateInspectionVisibility() {
-        materials.enclosure.opacity = harnessFocus ? 0.1 : (cutaway ? 0.22 : 0.96);
         materials.cover.opacity = cutaway ? 0.24 : 0.94;
-        materials.solar.opacity = cutaway ? 0.3 : 0.98;
-        materials.enclosure.depthWrite = !cutaway && !harnessFocus;
         materials.cover.depthWrite = !cutaway;
-        materials.solar.depthWrite = !cutaway;
-        doorGroup.visible = !harnessFocus;
-        adhesiveGroup.visible = !harnessFocus;
-        plateGroup.visible = !harnessFocus;
         coverGroup.visible = !harnessFocus;
-        solarGroup.visible = !harnessFocus;
         internalsGroup.visible = cutaway || exploded || harnessFocus;
-        upperSolarConflict.visible = !harnessFocus && (cutaway || exploded);
+        updateBackingVisibility();
       }
 
       function setExploded(next) {
@@ -4219,6 +4314,7 @@
         pivot.rotation.x += (targetRotationX - pivot.rotation.x) * 0.1;
         pivot.rotation.y += (targetRotationY - pivot.rotation.y) * 0.1;
         camera.position.z += (cameraDistance - camera.position.z) * 0.1;
+        updateBackingVisibility();
 
         const z = exploded ? explodedZ : defaultZ;
         easeGroupZ(doorGroup, z.door);
@@ -4227,7 +4323,6 @@
         easeGroupZ(enclosureGroup, z.enclosure);
         easeGroupZ(internalsGroup, z.internals);
         easeGroupZ(coverGroup, z.cover);
-        easeGroupZ(solarGroup, z.solar);
 
         renderer.render(scene, camera);
         requestAnimationFrame(animate);

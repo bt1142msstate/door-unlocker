@@ -71,51 +71,49 @@ The X-Large strips fit, but the side margin is intentionally tight. Add shallow 
 
 ## Component Layout Changes
 
-The earlier CAD block layout had the buck converter low enough to overlap the battery envelope. The current layout fixes that:
+The current CAD follows the same bottom-to-top order as the clean bench wiring map:
 
-- Battery center: **x 0, y 0, z 42 mm**
-- Buck center: **x 0, y 0, z 102.5 mm**, using the verified **57 W x 14 D x 36 H mm** Seloky envelope
-- Lower XALXMAW splitter center: **x 14.5, y 3.3, z 135 mm**, modeled **32 W x 13.5 D x 13 H mm**
-- Upper XALXMAW splitter center: **x 14.5, y 3.3, z 154 mm**, modeled **32 W x 13.5 D x 13 H mm**
-- XIAO center: **x -19, y 0, z 134 mm**
-- Servo body center: **x 0, y -1, z 188 mm**
-- Servo front exposure pocket: **56 W x 28 D x 58 H mm**, centered around **z 188 mm**
-- Servo-height adjustment cradle: **42 W x 23 D x 3 H mm**, with servo center detents at **183, 188, and 193 mm**
+- Battery center: **x 0, y 2, z 41 mm**
+- Joined XALXMAW splitters: centers at **x -16 and +16, y 6.5, z 86 mm**, each modeled **32 W x 13.5 D x 13 H mm**
+- Buck center: **x 0, y 0, z 122 mm**, rotated vertically to a **36 W x 14 D x 57 H mm** installed envelope
+- Breadboard/XIAO assembly center: **x 0, z 175 mm**, using a **35 W x 8.5 D x 47 H mm** breadboard envelope
+- Servo body center: **x 0, y 18, z 219 mm**; the body intentionally protrudes through the front pocket
+- Servo front exposure pocket: **56 W x 28 D x 58 H mm**, centered around **z 209 mm**
+- Servo-height adjustment cradle: **42 W x 23 D x 3 H mm**, with servo center detents at **214, 219, and 224 mm**
 - Servo-height notch ledges: **6 W x 20 D x 2.2 H mm** left/right supports for each detent
 - Solar skin allowance: **60 W x 3 D x 220 H mm** on the outer/front surface, representing two stacked 110 x 60 mm panels wired in series. This is not an internal solid block; final panel split/placement still needs a print layout that avoids the servo pocket and service-cover seam.
-- Servo power switch allowance: one prototype MOSFET switch module, about **42 W x 12 D x 26 H mm** as an enclosure planning envelope. It is included in mass/BOM planning, but the current no-collision fit model should be re-run after measuring the actual board and choosing a vertical service-bay or service-cover mount.
-- No-solder inspection geometry: the HTML/SCAD cutaway now includes a standard **35 W x 8.5 D x 47 H mm** vertical 170-point mini breadboard with the XIAO on its front face. It is not yet included in the core zero-collision verdict because the exact board, header stand-off, wire bends, and service mounting must be measured together.
-- Solar conflict: the lower **110 x 60 x 3 mm** panel fits the front-face envelope, but the second full-size panel overlaps the current servo opening. The 3D model shows that second panel in translucent red until a smaller panel or separate carrier is selected.
+- Phase 2 hardware: the external LED, solar skin, charger, and servo power-switch board are intentionally excluded from the Phase 1.5 interactive viewer. Their fit envelopes remain future work.
 
 This keeps the housing tight without requiring a larger shell for the current prototype parts. The adjustable cradle is intentionally coarse: the servo stays supported by the bay/cradle, and the servo can protrude through the front face while the enclosure walls remain structural.
 
 ## Repeatable Wire Routing
 
-The complete service harness uses ten vertical, open-ended lanes from **z 84 to 167 mm** on the inside rear wall. These are raised-lip troughs, not recesses cut into the enclosure, so the full **3.2 mm** rear-wall thickness remains intact.
+The complete service harness uses ten vertical, open-ended grooves from **z 80 to 202 mm** on the inside rear wall. These are raised-lip troughs, not recesses cut into the enclosure, so the full **3.2 mm** rear-wall thickness remains intact. A **4 mm rear raceway** keeps the component mounts forward of the retained wires.
 
-| Bank | Conductors | Clear lane | Estimated wire OD | Bank width | Bend radius |
-|---|---:|---:|---:|---:|---:|
-| Logic/PWM, left | 5 x 22 AWG | 3.0 mm | 1.8 mm | 21.0 mm | 6 mm |
-| High-current power, right | 5 x 16 AWG | 4.2 mm | 3.0 mm | 27.0 mm | 10 mm |
+| Zone | Conductors | Clear groove | Estimated wire OD | Bend radius |
+|---|---:|---:|---:|---:|
+| Positive high-current, outer left | 2 active + 1 spare x 16 AWG | 4.2 mm | 3.0 mm | 10 mm |
+| Controller and buck, center | 5 x 22 AWG | 3.0 mm | 1.8 mm | 6 mm |
+| Ground high-current, outer right | 2 x 16 AWG | 4.2 mm | 3.0 mm | 10 mm |
 
-The shared 1mm ribs make the two banks compact. The left bank spans **x -31.8 to -10.8 mm**, the right bank spans **x 4.8 to 31.8 mm**, and a **15.6 mm center service corridor** remains open. Both outer banks retain **1.0 mm** to the 65.6mm-wide interior boundary.
+Adjacent grooves share 1 mm ribs where their pitches meet. The outer ribs stop at **x -31.1 and +31.1 mm**, preserving **1.7 mm** to each side of the 65.6 mm-wide interior boundary.
 
 The ten dedicated paths are:
 
 1. Battery XT30 positive to positive splitter input.
 2. Battery XT30 ground to ground splitter input.
-3. Positive splitter output to servo power-switch input.
-4. Servo power-switch output to servo positive.
-5. Ground splitter output to servo ground.
-6. Positive splitter output to buck IN+.
-7. Ground splitter output to buck IN-.
-8. Buck OUT+ to breadboard/XIAO 5V.
-9. Buck OUT- to breadboard/XIAO ground.
-10. Breadboard/XIAO D2 to servo PWM signal.
+3. Positive splitter output directly to servo positive.
+4. Ground splitter output to servo ground.
+5. Positive splitter output to buck IN+.
+6. Ground splitter output to buck IN-.
+7. Buck OUT+ to breadboard/XIAO 5V.
+8. Buck OUT- to breadboard/XIAO ground.
+9. Breadboard/XIAO D2 to servo PWM signal.
+10. Reserved 16 AWG groove for the future high-side servo switch.
 
 The channel keepouts have zero modeled collisions with the clearance-expanded battery, buck, splitters, XIAO, and servo boxes. Open ends provide branch and bend space into adjacent bays. Partial retention nibs let each wire snap in or lift out without threading the full harness through a closed tunnel. The HTML cutaway shows the curved branch runs from the grooves into each component port.
 
-The listed wire diameters are conservative estimates, not vendor-confirmed dimensions for the wire that will be purchased. Print separate five-lane logic and power coupons with the actual Bambu PLA Pure profile and test insertion, removal, grip, and repeated flexing before printing the full enclosure.
+Harness colors are red for positive and regulated 5V, black for shared ground distribution, yellow for PWM, and brown for the final servo ground pigtail. The listed wire diameters are conservative estimates, not vendor-confirmed dimensions for the wire that will be purchased. Print routing coupons with the actual Bambu PLA Pure profile and test insertion, removal, grip, and repeated flexing before printing the full enclosure.
 
 ## Battery Percentage And Solar Charging
 
