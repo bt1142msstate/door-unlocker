@@ -261,6 +261,12 @@ def main() -> int:
     require('lines: ["5000mAh", "7.4V · 2S", "Li-ion battery"]' in html, "battery label detail is missing")
     require('id="servoGroundUsbBridge"' in html, "explicit 2D crossing bridge support is missing")
     require(
+        "doorGroup.visible = doorSurfaceVisible;" in html
+        and "adhesiveGroup.visible = true;" in html
+        and "plateGroup.visible = true;" in html,
+        "back-side rotation must hide only the door surface, not the mounting plate or Command strips",
+    )
+    require(
         "wire_lane_x = [-28, -22.8, -17.6, -8, -4, 0, 4, 8, 22.8, 28];" in scad,
         "OpenSCAD groove centers no longer match the HTML cutaway",
     )
@@ -280,7 +286,7 @@ def main() -> int:
     print("- Battery, splitters, vertical buck, centered controller, and servo follow the bench-map order")
     print("- Bench wiring parts and print view use the 1120 x 2160 enclosure-stack layout")
     print("- Phase 1.5 viewer excludes the future Phase 2 solar skin and external status LED")
-    print("- Back-side rotation hides the door/plate and fades the shell to preserve internal visibility")
+    print("- Back-side rotation hides only the door surface while preserving the mounting plate and Command strips")
     print("- Buck, battery, and official-reference XIAO geometry retain their detail contracts")
     return 0
 

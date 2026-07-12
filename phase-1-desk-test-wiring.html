@@ -4303,10 +4303,10 @@
         const frontFacing = Math.cos(pivot.rotation.y);
         const backViewAmount = 1 - THREE.MathUtils.smoothstep(frontFacing, -0.25, 0.25);
         const baseEnclosureOpacity = harnessFocus ? 0.1 : (cutaway ? 0.22 : 0.96);
-        const backingVisible = !harnessFocus && backViewAmount < 0.55;
-        doorGroup.visible = backingVisible;
-        adhesiveGroup.visible = backingVisible;
-        plateGroup.visible = backingVisible;
+        const doorSurfaceVisible = !harnessFocus && backViewAmount < 0.55;
+        doorGroup.visible = doorSurfaceVisible;
+        adhesiveGroup.visible = true;
+        plateGroup.visible = true;
         materials.enclosure.opacity = THREE.MathUtils.lerp(baseEnclosureOpacity, 0.06, backViewAmount);
         materials.enclosure.depthWrite = backViewAmount < 0.05 && !cutaway && !harnessFocus;
       }
