@@ -353,10 +353,9 @@
       background: rgba(12,16,13,.72);
     }
 
-    .housing-zone.battery-zone { top: 48px; height: 650px; }
-    .housing-zone.distribution-zone { top: 698px; height: 300px; }
-    .housing-zone.service-zone { top: 998px; height: 660px; }
-    .housing-zone.servo-zone { top: 1658px; height: 412px; }
+    .housing-zone.servo-zone { top: 48px; height: 342px; }
+    .housing-zone.service-zone { top: 390px; height: 1050px; }
+    .housing-zone.battery-zone { top: 1440px; height: 630px; }
 
     .stage > svg {
       position: absolute;
@@ -585,21 +584,21 @@
       box-shadow: inset 0 0 0 2px rgba(255,255,255,.18);
     }
 
-    .servo-callout { left: 350px; top: 1850px; }
-    .controller-callout { left: 330px; top: 1430px; width: 212px; }
-    .buck-callout { left: 350px; top: 1080px; width: 206px; }
-    .splitters-callout { left: 810px; top: 760px; width: 206px; }
-    .battery-callout { left: 810px; top: 150px; width: 206px; }
+    .servo-callout { left: 350px; top: 116px; }
+    .controller-callout { left: 330px; top: 548px; width: 212px; }
+    .buck-callout { left: 350px; top: 858px; width: 206px; }
+    .splitters-callout { left: 810px; top: 1248px; width: 206px; }
+    .battery-callout { left: 810px; top: 1770px; width: 206px; }
 
     .battery-card {
       left: 448px;
-      top: 60px;
+      top: 1370px;
       width: 520px;
       height: 730px;
     }
 
     .splitter-card {
-      top: 721px;
+      top: 1165px;
       width: 56px;
       height: 274px;
       border-color: rgba(216,224,218,.34);
@@ -616,28 +615,28 @@
 
     .servo-card {
       left: 587.5px;
-      top: 1670px;
+      top: 30px;
       width: 320px;
       height: 460px;
     }
 
     .buck-card {
       left: 575px;
-      top: 1009px;
+      top: 806px;
       width: 210px;
       height: 345px;
     }
 
     .controller-card {
       left: 462px;
-      top: 1370px;
+      top: 490px;
       width: 436px;
       height: 300px;
     }
 
     .usb-card {
       left: 675px;
-      top: 1310px;
+      top: 420px;
       width: 206px;
       height: 48px;
       display: flex;
@@ -673,7 +672,6 @@
       height: 127px;
       object-fit: contain;
       filter: drop-shadow(0 8px 10px rgba(0,0,0,.28));
-      transform: rotate(180deg);
     }
 
     .modal-media img[src*="component-inline-lever-splitter"] {
@@ -686,7 +684,6 @@
       width: auto;
       height: 285px;
       margin: 0 auto;
-      transform: rotate(180deg);
     }
 
     .servo-visual {
@@ -2201,15 +2198,14 @@
         <div class="diagram-scroll">
           <div class="stage">
             <div class="housing-outline" aria-hidden="true">
-              <div class="housing-zone battery-zone"><span>Top-load battery bay</span></div>
-              <div class="housing-zone service-zone"><span>Buck + controller service bay</span></div>
               <div class="housing-zone servo-zone"><span>Servo / actuator bay</span></div>
-              <div class="housing-zone distribution-zone"><span>Inline power distribution</span></div>
+              <div class="housing-zone service-zone"><span>Controller + power service bay</span></div>
+              <div class="housing-zone battery-zone"><span>Battery + connected XT30 pigtail</span></div>
             </div>
 
             <svg viewBox="0 0 1120 2160" role="img" aria-labelledby="diagramTitle diagramDesc">
               <title id="diagramTitle">No-solder desk test wiring arranged like the planned enclosure</title>
-              <desc id="diagramDesc">The clean bench map is the previous vertical layout flipped from top to bottom: a top-loading 2S battery, a physically joined but electrically separate inline splitter pair, the vertical LM2596 buck, the XIAO on its breadboard, and the servo at the bottom. The battery pigtail feeds the splitter inputs through the two outside power lanes. Each splitter sends one output to the buck and one directly to the servo. The buck feeds the controller below it while USB-C is unplugged, and PWM continues from the controller to the servo. In USB-first mode, USB-C powers the XIAO, the buck is skipped, and splitter ground continues to the controller. The 3D model keeps the servo centered 88.9 millimeters above the enclosure bottom in the front plane.</desc>
+              <desc id="diagramDesc">The physical layout follows one vertical enclosure-style chain: a servo with its three-wire connector centered over the XIAO breadboard, an LM2596 buck, a physically joined but electrically separate inline splitter pair, and a slide-out battery with its XT30 pigtail already connected. The pigtail's red and black leads enter the splitter bottoms directly. The positive splitter's right output takes the short branch to the buck, while its left output routes around the buck's left side to the servo without crossing another wire. The buck feeds the controller immediately above it while USB-C is unplugged. In USB-first mode, USB-C powers the XIAO, the buck is skipped, and splitter ground continues to the controller. PWM leaves the breadboard assembly and travels upward to the servo. Component bodies are shown at one approximately consistent real-size scale; flexible lead lengths are diagrammatic.</desc>
 
               <path id="xt30PositiveWire" class="wire red" data-parts="battery splitter-positive" />
               <path id="xt30GroundWire" class="wire ground" data-parts="battery splitter-ground" />
@@ -2223,7 +2219,7 @@
               <path id="controllerSignalWire" class="wire signal" data-parts="controller servo" />
               <path id="usbControllerWire" class="wire logic usb-wire muted" data-parts="usb controller" />
               <path id="servoGroundUsbBridgeUnderlay" class="wire-bridge-underlay usb-only-bridge" />
-              <path id="servoGroundUsbBridge" class="wire ground wire-bridge usb-only-bridge" data-parts="splitter-ground controller" />
+              <path id="servoGroundUsbBridge" class="wire ground wire-bridge usb-only-bridge" data-parts="splitter-ground servo" />
             </svg>
 
             <article class="component battery-card power" data-node="battery" tabindex="0" aria-label="2S battery">
@@ -2261,11 +2257,11 @@
                 <div class="controller-assembly" aria-hidden="true">
                   <img class="breadboard-layer" src="assets/component-breadboard-red-layer.png" alt="" />
                   <svg class="assembly-wires" viewBox="0 0 168 237">
-                    <path class="wire signal bread-jumper" data-parts="controller servo" d="M2 237 V103.7 H19.5" />
+                    <path class="wire signal bread-jumper" data-parts="controller servo" d="M2 0 V103.7 H19.5" />
                     <circle class="assembly-plug signal" cx="19.5" cy="103.7" r="3.2" />
-                    <path class="wire red assembly-power bread-jumper" data-parts="buck controller" d="M151 0 V79.1 H136.3" />
+                    <path class="wire red assembly-power bread-jumper" data-parts="buck controller" d="M151 237 V79.1 H136.3" />
                     <circle class="assembly-plug red assembly-power" cx="136.3" cy="79.1" r="3.2" />
-                    <path class="wire ground bread-jumper" data-parts="buck splitter-ground controller" d="M136 0 V91.4" />
+                    <path class="wire ground bread-jumper" data-parts="buck splitter-ground controller" d="M136 237 V91.4" />
                     <circle class="assembly-plug ground" cx="136.3" cy="91.4" r="3.2" />
                   </svg>
                   <img class="xiao-layer" src="assets/component-xiao-top-down-layer.png" alt="" />
@@ -2276,7 +2272,7 @@
             <aside class="diagram-callout servo-callout" data-callout-for="servo">
               <div class="callout-head">
                 <strong>35kg servo</strong>
-                <span>Front-plane actuator centered 88.9mm above the enclosure bottom.</span>
+                <span>Three-wire connector centered over the breadboard below.</span>
                 <button class="detail-button" type="button" data-part="servo" title="Open servo details">i</button>
               </div>
               <div class="callout-ports">
@@ -2578,7 +2574,7 @@
             <span><i>3</i><span><b>Service cover.</b> Near full-height removable cover, ideally on shallow dovetail rails, so maintenance does not require peeling the door plate off.</span></span>
             <span><i>R</i><span><b>Dovetail rails.</b> Open-ended rails keep the sled tight against the plate, with a hidden detent or thumb release to stop accidental release.</span></span>
             <span><i>E</i><span><b>Adjustment slots.</b> Servo bracket and arm position should use a notched removable cradle so the servo can shift height without losing tight side support.</span></span>
-            <span><i>Q</i><span><b>Quick-swap battery.</b> Use a fixed lower XT30 dock in the housing, a chamfered top-loading battery slot, a small upper pull ribbon/lip, and a thumb latch so charging does not disturb the internal wiring.</span></span>
+            <span><i>Q</i><span><b>Quick-swap battery.</b> Use a fixed XT30 dock in the housing, a chamfered slide-up battery slot, a small pull ribbon/lip, and a thumb latch so charging does not disturb the internal wiring.</span></span>
             <span><i>W</i><span><b>Fixed harness routing.</b> Mold ten open snap-in grooves into the enclosure behind the service cover. Keep servo positive on the outer left, servo ground on the outer right, battery feeds just inside them, and the five 22 AWG controller paths through the center. One spare 16 AWG groove is reserved for the future high-side servo switch.</span></span>
           </div>
         </article>
@@ -2587,11 +2583,11 @@
           <div>
             <div class="phase-kicker">Phase 2</div>
             <h3>Integrated printed housing</h3>
-            <p>After the Phase 1.5 slide-on mount works, the next enclosure should merge the sled into a cleaner, mostly vertical housing. The goal is to stay thin off the door instead of stacking thickness: an external solar/status skin, a top-loading battery, inline splitters, buck, controller, and the servo aligned near the handle. That vertical layout should also make servicing easier because parts are not buried behind each other depth-wise.</p>
+            <p>After the Phase 1.5 slide-on mount works, the next enclosure should merge the sled into a cleaner, mostly vertical housing. The goal is to stay thin off the door instead of stacking thickness: solar/status LED at the top, servo and arm near the handle, controller plus inline-splitter service bay below that, and the removable battery at the bottom. That vertical layout should also make servicing easier because parts are not buried behind each other depth-wise.</p>
 
             <div class="phase-list">
-              <span><i>1</i><span><b>Thin vertical stack.</b> Lay parts out by height: top battery, joined splitters, vertical buck, centered controller, then the front-plane servo at the handle height. Only the servo intentionally shares height with rear electronics; the depth separation keeps both serviceable.</span></span>
-              <span><i>2</i><span><b>Top-loading battery bay.</b> Battery should drop through short guides at the top, mate into a fixed lower XT30 dock, click into a small latch, and pull out quickly for charging or replacement.</span></span>
+              <span><i>1</i><span><b>Thin vertical stack.</b> Lay parts out by height instead of depth: solar/status LED, then servo/arm, then controller plus inline-splitter service bay, then bottom battery. Nothing should be stacked depth-wise in a way that blocks service access.</span></span>
+              <span><i>2</i><span><b>Slide-up battery bay.</b> Battery should sit low, slide up from the bottom, mate into a fixed XT30 dock, click into a small latch, and pull out quickly for charging or replacement.</span></span>
               <span><i>3</i><span><b>Solar panel mount.</b> Housing should reserve a thin front/service-cover solar skin for two 110 x 60 mm, 6V/1W mini panels wired in series, with the final panel split relieved around the servo pocket and routed to a real 2S lithium solar charger.</span></span>
               <span><i>4</i><span><b>Servo power cutoff.</b> Add a controller-driven load switch so the servo is physically unpowered when locked, but powered while moving or holding the handle down in unlocked mode.</span></span>
               <span><i>5</i><span><b>Back-plate compatibility.</b> Keep the same slide-on mount pattern so the full enclosure can reuse the Phase 1.5 door plate.</span></span>
@@ -2603,7 +2599,7 @@
           <div class="housing-visual-wrap">
             <figure class="housing-visual">
               <span class="visual-label">Phase 2 enclosure concept</span>
-              <img src="assets/phase-2-enclosure-concept.png" alt="AI-generated 3D printed Phase 2 enclosure concept with rounded top, solar panel, service bay, connectors, and servo arm.">
+              <img src="assets/phase-2-enclosure-concept.png" alt="AI-generated 3D printed Phase 2 enclosure concept with rounded top, solar panel, bottom-inserting battery cartridge, service bay, connectors, and servo arm.">
             </figure>
             <p class="visual-note">AI-generated concept image. The real Phase 2 enclosure will likely be much sleeker and thinner; this is only a visual direction for the housing, battery slot, solar area, and service layout.</p>
           </div>
@@ -2687,7 +2683,7 @@
             <div class="model-fallback">The interactive 3D model could not load. The fit notes below still document the measured plate, rail, enclosure, adhesive, and component envelopes.</div>
             <span class="model-label">Dimension-driven fit model · millimeters</span>
             <div class="model-callouts" aria-hidden="true">
-              <div class="model-callout"><b>72 × 34 × 264 mm</b>Current enclosure envelope.</div>
+              <div class="model-callout"><b>72 × 56 × 264 mm</b>Two-plane enclosure envelope.</div>
               <div class="model-callout"><b>50.8 × 7 × 264 mm</b>Hidden door mounting plate.</div>
               <div class="model-callout"><b>0.40 mm per side</b>Dovetail channel clearance.</div>
               <div class="model-callout"><b>10 dedicated wire grooves</b>Nine active paths plus one 16 AWG future-switch lane.</div>
@@ -2723,15 +2719,15 @@
           <div class="mount-spec"><span class="mount-dot" style="background:#253128"></span><span><b>Door mounting plate</b><code>2 in W x 264 mm H, 7 mm thick</code><br>Flush fixed backplate sized to hide behind the 264 mm enclosure, so the mount mostly disappears once the sled is installed.</span></div>
           <div class="mount-spec"><span class="mount-dot" style="background:#75d99f"></span><span><b>Dual captive dovetail rails</b><code>30 mm spacing, 244 mm solid rail</code><br>Raised male rails are formula-driven trapezoids: 8 mm neck, 14.35 mm head, 5.5 mm depth, and 0.40 mm per-side channel clearance. Rails are open-ended for easier slide-on removal.</span></div>
           <div class="mount-spec"><span class="mount-dot" style="background:#3c453f"></span><span><b>Printed parts</b><code>3 total</code><br>Print one flush hidden door mounting plate, one main enclosure sled, and one near full-height sliding service cover.</span></div>
-          <div class="mount-spec"><span class="mount-dot" style="background:#4a64d8"></span><span><b>Front-exposed servo pocket</b><code>front opening, 56 x 28 x 58 mm</code><br>The servo can protrude from the enclosure face, while the cradle and bay still support the body from the back, bottom, and side walls.</span></div>
-          <div class="mount-spec"><span class="mount-dot" style="background:#2f6f9f"></span><span><b>Servo height detents</b><code>42 x 23 x 3 mm cradle, -5 / 0 / +5 mm</code><br>The servo sits in a tight side-hugging cradle whose floor slots into three 6 x 20 x 2.2mm left/right ledge pairs for coarse handle alignment.</span></div>
+          <div class="mount-spec"><span class="mount-dot" style="background:#4a64d8"></span><span><b>Depth-separated servo plane</b><code>30 x 24 x 238 mm arm slot</code><br>The servo body stays inside the deeper front chamber while only its output pivot and arm pass through the narrow full-height slot.</span></div>
+          <div class="mount-spec"><span class="mount-dot" style="background:#2f6f9f"></span><span><b>Continuous servo height track</b><code>22–242 mm center range</code><br>A 52 x 46 x 3.2mm clamped carriage slides on two 220mm rails in an independent front plane, allowing the servo to align with the handle without rearranging the rear electronics.</span></div>
           <div class="mount-spec"><span class="mount-dot" style="background:#5eb8ff"></span><span><b>Hidden retention</b><code>small internal detent</code><br>No bulky top or bottom stop. A low-profile click detent keeps the sled from creeping, but intentional removal stays a straight slide.</span></div>
           <div class="mount-spec"><span class="mount-dot" style="background:#f3f7f1"></span><span><b>Adhesive backing</b><code>4 x 17217 XL pairs, 111.1 x 22.2 x 1.6 mm</code><br>Use two columns by two rows. The fit is tight on the flush plate: about 1.2 mm side margin, 8.9 mm top/bottom margin, and 4.0 mm between rows.</span></div>
           <div class="mount-spec"><span class="mount-dot" style="background:#ff6f61"></span><span><b>Force check</b><code>4 pairs = 1.28x vs servo stall</code><br>Four pairs are not enough for a 3x full-stall target. They are acceptable only if measured handle force stays around 4.9 lbf or lower for a 3x margin.</span></div>
           <div class="mount-spec"><span class="mount-dot" style="background:#9a8cff"></span><span><b>Validation test</b><code>measure handle force first</code><br>Command ratings are static picture-hanging ratings, so the real door needs a staged load and cycle test before the plate is trusted on the door.</span></div>
           <div class="mount-spec"><span class="mount-dot" style="background:#303a33"></span><span><b>Bambu PLA Pure print</b><code>P1S, 0.4 mm nozzle, 0.40 mm rail clearance</code><br>Print the flush plate flat, print dovetail coupons first, and keep heat/creep testing in mind before trusting it on a hot door.</span></div>
           <div class="mount-spec"><span class="mount-dot" style="background:#d7b546"></span><span><b>Dimension confidence</b><code>verified + estimated geometry</code><br>Vendor-confirmed dimensions drive the plate, servo, XIAO footprint, inline splitters, buck, and solar panels. The splitter dimensions come from the purchased listing graphic; verify the actual parts with calipers before printing.</span></div>
-          <div class="mount-spec"><span class="mount-dot" style="background:#f5c542"></span><span><b>Clean-map harness routing</b><code>10 grooves, z 42-190 mm</code><br>The 3D cutaway mirrors the clean bench order from the top: battery, upright joined inline splitters, vertical buck, centered breadboard/XIAO, then the front-plane servo. The 16 AWG servo feeds descend symmetrically on the outer edges, battery feeds stay just inside them, and five 22 AWG controller paths use the center. Nine grooves are active; one 16 AWG groove is reserved for the future high-side switch. Raised 1 mm ribs preserve the full 3.2 mm rear wall.</span></div>
+          <div class="mount-spec"><span class="mount-dot" style="background:#f5c542"></span><span><b>Clean-map harness routing</b><code>10 grooves, z 78-222 mm</code><br>The 3D cutaway follows the clean bench order: battery, upright joined inline splitters, vertical buck, centered breadboard/XIAO, then servo. The 16 AWG servo feeds rise symmetrically on the outer edges, battery feeds stay just inside them, and five 22 AWG controller paths use the center. Nine grooves are active; one 16 AWG groove is reserved for the future high-side switch. Raised 1 mm ribs preserve the full 3.2 mm rear wall.</span></div>
           <div class="mount-spec"><span class="mount-dot" style="background:#ff6f61"></span><span><b>Phase boundary</b><code>current hardware only</code><br>This Phase 1.5 viewer intentionally excludes an external status LED, solar panels, charger, and servo power-switch board. Those remain Phase 2 fit work and are documented separately below.</span></div>
         </div>
       </div>
@@ -2741,7 +2737,7 @@
       <div class="cad-head">
         <div>
           <h2>Phase 2 CAD Fit Model</h2>
-          <p>This is the first Bambu P1S-oriented print pass: a tighter parametric enclosure source plus a color-coded fit preview. The design is three printed parts: a flush 264 mm mounting plate, a 264 mm enclosure sled with built-in wire-routing troughs, and a 252 mm removable service cover. The plate and sled print flat and diagonally on the 256 x 256 mm P1S bed. The reversed stack places the top-loading battery over the joined splitters, vertical buck, controller, and handle-height servo.</p>
+          <p>This is the first Bambu P1S-oriented print pass: a parametric two-plane enclosure plus a color-coded fit preview. The design is three printed parts: a flush 264 mm mounting plate, a 264 mm enclosure sled with built-in wire-routing troughs, and a 252 mm removable service cover. The plate and sled print flat and diagonally on the 256 x 256 mm P1S bed. The 56mm depth preserves the clean rear electronics stack while giving the servo its own continuously adjustable front plane.</p>
         </div>
         <div class="cad-links" aria-label="CAD files">
           <a class="cad-link" href="cad/phase2-enclosure.scad">OpenSCAD source</a>
@@ -2755,7 +2751,7 @@
         <figure class="cad-preview">
           <svg viewBox="0 0 760 980" role="img" aria-labelledby="cadTitle cadDesc">
             <title id="cadTitle">Color-coded Bambu P1S tight-fit enclosure CAD layout</title>
-            <desc id="cadDesc">Isometric-style fit preview showing shell, back plate, removable service cover, two-panel solar skin, servo, controller, two compact inline lever splitters, buck converter, and a top-loading battery cartridge.</desc>
+            <desc id="cadDesc">Isometric-style fit preview showing shell, back plate, removable service cover, two-panel solar skin, servo, controller, two compact inline lever splitters, buck converter, and bottom-inserting battery cartridge.</desc>
             <defs>
               <filter id="cadShadow" x="-20%" y="-20%" width="140%" height="140%">
                 <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#000" flood-opacity=".35" />
@@ -2850,17 +2846,17 @@
         </figure>
 
         <div class="cad-dim-grid" aria-label="CAD dimension assumptions">
-          <div class="cad-dim"><span class="cad-dot" style="background:#1e2420"></span><span><b>Three printed parts</b><code>plate + sled + cover</code><br>Print one 50.8 x 7 x 264mm hidden mounting plate, one 72 x 34 x 264mm enclosure sled, and one 66 x 2.2 x 252mm service cover. Rotate the two long parts diagonally on the P1S bed.</span></div>
-          <div class="cad-dim"><span class="cad-dot" style="background:#75d99f"></span><span><b>Fit simulation</b><code>264 mm selected height</code><br>The reversed stack needs 259.5mm by the current fit model; the 264mm housing retains 4.5mm of design headroom, uses 85.4% of its vertical span, and has zero raw or clearance-envelope component collisions.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#1e2420"></span><span><b>Three printed parts</b><code>plate + sled + cover</code><br>Print one 50.8 x 7 x 264mm hidden mounting plate, one 72 x 56 x 264mm enclosure sled, and one 66 x 2.2 x 252mm service cover. Rotate the two long parts diagonally on the P1S bed.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#75d99f"></span><span><b>Fit simulation</b><code>264 mm tight minimum</code><br>The 72 x 56 x 264mm housing has 96.5% vertical utilization, 66.8% width utilization, 46.0% rear-component depth utilization, 10.9mm minimum side clearance, 3.8mm inter-plane clearance, and zero modeled component collisions.</span></div>
           <div class="cad-dim"><span class="cad-dot" style="background:#5eb8ff"></span><span><b>Plate height check</b><code>264 mm flush hidden plate</code><br>Removing visible top/bottom stops lets the plate match the enclosure height. Open-ended rails keep the mount clean, and a hidden detent handles retention.</span></div>
           <div class="cad-dim"><span class="cad-dot" style="background:#2f6f9f"></span><span><b>Solar skin</b><code>2 x 110 x 60 mm panels</code><br>Use two thin 6V/1W panels in series for a 12V-class charger input. The rectangular envelope fits the face, but the servo pocket interrupts it, so the final split must clear the servo and still allow service access.</span></div>
-          <div class="cad-dim"><span class="cad-dot" style="background:#4a64d8"></span><span><b>Servo bay</b><code>56 W x 28 D x 52 H + front pocket</code><br>Holds the 40.5 x 20 x 37.5mm INJORA servo body, uses a 42 x 23 x 3mm removable cradle on 6 x 20 x 2.2mm detent ledges, and opens the front face with a 56 x 28 x 58mm pocket.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#4a64d8"></span><span><b>Independent servo plane</b><code>dual 220 mm rails + narrow front slot</code><br>Holds the 40.5 x 20 x 37.5mm INJORA servo on a clamped carriage. Its center can move continuously from 22 to 242mm while a 30 x 24 x 238mm front slot exposes the pivot and arm.</span></div>
           <div class="cad-dim"><span class="cad-dot" style="background:#23a06f"></span><span><b>XIAO controller</b><code>21 W x 17.8 H board</code><br>Vendor footprint with separate board thickness, header pins, and USB-C connector shown in the detailed cutaway.</span></div>
           <div class="cad-dim"><span class="cad-dot" style="background:#b8242d"></span><span><b>No-solder breadboard</b><code>35 W x 8.5 D x 47 H</code><br>Standard 170-point board shown vertically in the cutaway, with the XIAO and headers modeled separately on its front face.</span></div>
           <div class="cad-dim"><span class="cad-dot" style="background:#f28b32"></span><span><b>Inline splitter pair</b><code>2 x 32 W x 13.5 D x 13 H</code><br>The purchased 1-in/2-out connectors are physically joined side-by-side at one height while remaining electrically separate, matching the clean bench map.</span></div>
           <div class="cad-dim"><span class="cad-dot" style="background:#d7b546"></span><span><b>Current buck module</b><code>40 W x 10 D x 60 H</code><br>Purchased Seloky B0DM946DHG envelope, rotated vertically. This can shrink later with the low-quiescent regulator plan.</span></div>
-          <div class="cad-dim"><span class="cad-dot" style="background:#ef6c38"></span><span><b>Battery cartridge</b><code>43 W x 22 D x 75 H</code><br>Top-loading pack in a 46.5 x 25 x 80.5mm slot, almost fully inside the enclosure with only a small upper pull lip exposed.</span></div>
-          <div class="cad-dim"><span class="cad-dot" style="background:#ffd166"></span><span><b>Battery quick swap</b><code>fixed lower XT30 dock + pull lip</code><br>The controller-side XT30 should be fixed below the battery with slight connector float. The battery drops through chamfered guides, mates automatically, and releases with a thumb latch or spring tab.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#ef6c38"></span><span><b>Battery cartridge</b><code>43 W x 22 D x 75 H</code><br>Bottom-inserting pack in a 46.5 x 25 x 80.5mm slot, mostly inside the enclosure with only a small pull lip exposed.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#ffd166"></span><span><b>Battery quick swap</b><code>fixed XT30 dock + pull lip</code><br>The controller-side XT30 should be fixed to the housing with slight connector float. The battery slides up into chamfered guides, mates automatically, and releases with a thumb latch or spring tab.</span></div>
           <div class="cad-dim"><span class="cad-dot" style="background:#9bdcff"></span><span><b>Servo power switch</b><code>42 x 26 mm board footprint</code><br>Prototype MOSFET module cuts servo supply power when locked. Final wiring should switch the high side, keep common ground shared, and prevent PWM back-powering when the switch is off.</span></div>
           <div class="cad-dim"><span class="cad-dot" style="background:#c7ffd6"></span><span><b>Estimated mass</b><code>638 g enclosure, 794 g installed</code><br>Components including the no-solder breadboard are about 390g, printed PLA parts about 390g, and the full door-supported assembly about 794g. Force math still rounds this up to 1.8lb.</span></div>
           <div class="cad-dim"><span class="cad-dot" style="background:#303a33"></span><span><b>PLA force check</b><code>6.65 MPa plate bend, 0.0172 MPa rail shear</code><br>Bambu PLA Pure checks pass the first-order printed-part load, and the open-ended rails keep 10 mm end margins. The four Command pairs still do not meet a 3x full-stall adhesive target.</span></div>
@@ -3126,49 +3122,55 @@
 
       const batteryPigtailRed = point(batteryRect, 0.42, 0.016);
       const batteryPigtailGround = point(batteryRect, 0.465, 0.016);
-      const positiveInput = point(positiveSplitterRect, 0.504, 0.037);
-      const groundInput = point(groundSplitterRect, 0.504, 0.037);
-      wiringPaths.xt30Positive.setAttribute("d", `M${pathPoint(batteryPigtailRed)} H560 V700 H${positiveInput[0].toFixed(1)} V${positiveInput[1].toFixed(1)}`);
-      wiringPaths.xt30Ground.setAttribute("d", `M${pathPoint(batteryPigtailGround)} H800 V680 H${groundInput[0].toFixed(1)} V${groundInput[1].toFixed(1)}`);
+      const positiveInput = point(positiveSplitterRect, 0.504, 0.963);
+      const groundInput = point(groundSplitterRect, 0.504, 0.963);
+      wiringPaths.xt30Positive.setAttribute("d", `M${pathPoint(batteryPigtailRed)} L${pathPoint(positiveInput)}`);
+      wiringPaths.xt30Ground.setAttribute("d", `M${pathPoint(batteryPigtailGround)} L${pathPoint(groundInput)}`);
 
-      const positiveOutputServo = point(positiveSplitterRect, 0.319, 0.939);
-      const positiveOutputBuck = point(positiveSplitterRect, 0.662, 0.939);
-      const groundOutputBuck = point(groundSplitterRect, 0.319, 0.939);
-      const groundOutputServo = point(groundSplitterRect, 0.662, 0.939);
-      const buckInputPositive = point(buckRect, 0.476, 0.158);
-      const buckInputGround = point(buckRect, 0.589, 0.158);
-      wiringPaths.buckInputPositive.setAttribute("d", `M${pathPoint(positiveOutputBuck)} V980 H${buckInputPositive[0].toFixed(1)} V${buckInputPositive[1].toFixed(1)}`);
-      wiringPaths.buckInputGround.setAttribute("d", `M${pathPoint(groundOutputBuck)} V960 H${buckInputGround[0].toFixed(1)} V${buckInputGround[1].toFixed(1)}`);
+      const positiveOutputServo = point(positiveSplitterRect, 0.319, 0.061);
+      const positiveOutputBuck = point(positiveSplitterRect, 0.662, 0.061);
+      const groundOutputBuck = point(groundSplitterRect, 0.319, 0.061);
+      const groundOutputServo = point(groundSplitterRect, 0.662, 0.061);
+      const buckInputPositive = point(buckRect, 0.476, 0.842);
+      const buckInputGround = point(buckRect, 0.589, 0.842);
+      wiringPaths.buckInputPositive.setAttribute("d", `M${pathPoint(positiveOutputBuck)} V1138 H${buckInputPositive[0].toFixed(1)} V${buckInputPositive[1].toFixed(1)}`);
+      wiringPaths.buckInputGround.setAttribute("d", `M${pathPoint(groundOutputBuck)} V1118 H${buckInputGround[0].toFixed(1)} V${buckInputGround[1].toFixed(1)}`);
 
       const servoSignal = point(servoRect, 0.254, 0.935);
       const servoRed = point(servoRect, 0.28, 0.935);
       const servoGround = point(servoRect, 0.307, 0.935);
-      const servoBranchTurnY = 990;
-      const servoBranchLeftX = 560;
-      const servoBranchRightX = 800;
-      wiringPaths.servoPositive.setAttribute("d", `M${pathPoint(positiveOutputServo)} V${servoBranchTurnY} H${servoBranchLeftX} V${(servoRed[1] + 12).toFixed(1)} H${(servoRed[0] - 12).toFixed(1)} L${pathPoint(servoRed)}`);
-      wiringPaths.servoGround.setAttribute("d", `M${pathPoint(groundOutputServo)} V${servoBranchTurnY} H${servoBranchRightX} V${(servoGround[1] + 12).toFixed(1)} H${(servoGround[0] + 12).toFixed(1)} L${pathPoint(servoGround)}`);
+      const servoBranchTurnY = 1148;
+      const servoBranchLeftX = 566;
+      const servoBranchRightX = 794;
+      wiringPaths.servoPositive.setAttribute("d", `M${pathPoint(positiveOutputServo)} V${servoBranchTurnY} H${servoBranchLeftX} V532 H${(servoRed[0] - 12).toFixed(1)} L${pathPoint(servoRed)}`);
+      wiringPaths.servoGround.setAttribute("d", `M${pathPoint(groundOutputServo)} V${servoBranchTurnY} H${servoBranchRightX} V532 H${(servoGround[0] + 12).toFixed(1)} L${pathPoint(servoGround)}`);
 
-      const controllerPower = assemblyPoint(151, 0);
-      const controllerGround = assemblyPoint(136, 0);
-      const buckOutputGround = point(buckRect, 0.589, 0.842);
-      const buckOutputPower = point(buckRect, 0.476, 0.842);
+      const controllerPower = assemblyPoint(151, 1);
+      const controllerGround = assemblyPoint(136, 1);
+      const buckOutputGround = point(buckRect, 0.589, 0.158);
+      const buckOutputPower = point(buckRect, 0.476, 0.158);
       wiringPaths.controllerPower.setAttribute("d", `M${pathPoint(buckOutputPower)} L${pathPoint(controllerPower)}`);
       wiringPaths.controllerGround.setAttribute("d", `M${pathPoint(buckOutputGround)} L${pathPoint(controllerGround)}`);
 
-      const controllerSignal = assemblyPoint(2, 1);
-      wiringPaths.controllerSignal.setAttribute("d", `M${pathPoint(controllerSignal)} H685 V${(servoSignal[1] - 50).toFixed(1)} H${servoSignal[0].toFixed(1)} V${servoSignal[1].toFixed(1)}`);
+      const controllerSignal = assemblyPoint(2, 0);
+      wiringPaths.controllerSignal.setAttribute("d", `M${pathPoint(controllerSignal)} V460 H${servoSignal[0].toFixed(1)} V${servoSignal[1].toFixed(1)}`);
 
       const usbSource = point(usbRect, 0.5, 1);
       const controllerUsb = assemblyPoint(84, 0);
       const usbMidY = (usbSource[1] + controllerUsb[1]) / 2;
       wiringPaths.usbController.setAttribute("d", `M${pathPoint(usbSource)} V${usbMidY.toFixed(1)} H${controllerUsb[0].toFixed(1)} V${controllerUsb[1].toFixed(1)}`);
 
-      const usbGroundBridgePath = `M${controllerGround[0].toFixed(1)} ${(usbMidY - 10).toFixed(1)} V${(usbMidY + 10).toFixed(1)}`;
-      wiringPaths.servoGroundUsbBridgeUnderlay.setAttribute("d", usbGroundBridgePath);
-      wiringPaths.servoGroundUsbBridge.setAttribute("d", usbGroundBridgePath);
+      const servoGroundApproach = [servoGround[0] + 12, 532];
+      const groundXAtY = (y) => servoGround[0]
+        + ((y - servoGround[1]) / (servoGroundApproach[1] - servoGround[1]))
+        * (servoGroundApproach[0] - servoGround[0]);
+      const bridgeTopY = usbMidY - 10;
+      const bridgeBottomY = usbMidY + 10;
+      const servoGroundBridgePath = `M${groundXAtY(bridgeTopY).toFixed(1)} ${bridgeTopY.toFixed(1)} L${groundXAtY(bridgeBottomY).toFixed(1)} ${bridgeBottomY.toFixed(1)}`;
+      wiringPaths.servoGroundUsbBridgeUnderlay.setAttribute("d", servoGroundBridgePath);
+      wiringPaths.servoGroundUsbBridge.setAttribute("d", servoGroundBridgePath);
 
-      wiringPaths.usbGround.setAttribute("d", `M${pathPoint(groundOutputBuck)} H690 V1300 H${controllerGround[0].toFixed(1)} V${controllerGround[1].toFixed(1)}`);
+      wiringPaths.usbGround.setAttribute("d", `M${pathPoint(groundOutputBuck)} V${(controllerGround[1] + 24).toFixed(1)} H${controllerGround[0].toFixed(1)} V${controllerGround[1].toFixed(1)}`);
     }
 
     let wiringGeometryFrame = 0;
@@ -3586,14 +3588,15 @@
       };
 
       const modelDimensions = Object.freeze({
-        enclosure: { width: 72, height: 264, depth: 34, wall: 3.2, radius: 7 },
+        enclosure: { width: 72, height: 264, depth: 56, wall: 3.2, radius: 7 },
         plate: { width: 50.8, height: 264, depth: 7, radius: 6 },
         serviceCover: { width: 66, height: 252, depth: 2.2, radius: 6 },
-        servo: { width: 40.5, height: 37.5, depth: 20, centerY: -43.1 },
-        servoPocket: { width: 56, height: 58, centerY: -43 },
-        battery: { width: 43, height: 75, depth: 22, centerY: 92 },
-        buck: { width: 40, height: 60, depth: 10, centerY: -9.5 },
-        xiao: { width: 21, height: 17.8, boardDepth: 1.6, centerX: 0, centerY: -64 },
+        servo: { width: 40.5, height: 37.5, depth: 20, centerY: -43.1, minCenterY: -110, maxCenterY: 110 },
+        servoPocket: { width: 30, height: 238, centerY: 0 },
+        servoTrack: { railSpacing: 48, railWidth: 4, railHeight: 220, carriageWidth: 52, carriageHeight: 46 },
+        battery: { width: 43, height: 75, depth: 22, centerY: -92 },
+        buck: { width: 40, height: 60, depth: 10, centerY: 9.5 },
+        xiao: { width: 21, height: 17.8, boardDepth: 1.6, centerX: 0, centerY: 64 },
         xiaoHeader: {
           pitch: 2.54,
           pinWidth: 0.64,
@@ -3616,20 +3619,20 @@
           inputBodyLength: 15.5,
           inputBodyWidth: 8.2,
           centersX: [-6.75, 6.75],
-          centerY: 37.5,
+          centerY: -37.5,
           portRadius: 2.15,
           leverWidth: 9,
           leverHeight: 3.4,
           couplingTabWidth: 7,
           couplingTabHeight: 2.2
         },
-        breadboard: { width: 35, height: 47, depth: 8.5, centerX: 0, centerY: -64 },
+        breadboard: { width: 35, height: 47, depth: 8.5, centerX: 0, centerY: 64 },
         serviceRacewayDepth: 4,
         wireRouting: {
-          startY: -90,
-          endY: 58,
-          length: 148,
-          centerY: -16,
+          startY: -54,
+          endY: 90,
+          length: 144,
+          centerY: 18,
           ribWidth: 1,
           retainerSpacing: 27,
           lanes: [
@@ -3823,27 +3826,37 @@
         addEdges(channel, enclosureGroup);
       });
 
-      // Battery guide rails and the three-position servo cradle are printable sled features.
-      const batteryGuideBottomY = modelDimensions.battery.centerY - modelDimensions.battery.height / 2;
-      const batteryGuideTopY = modelDimensions.enclosure.height / 2 - 0.5;
-      const batteryGuideHeight = batteryGuideTopY - batteryGuideBottomY;
+      // Battery guides stay in the rear layer. The servo uses an independent
+      // full-height front carriage so it can overlap any rear component height.
       [-24.1, 24.1].forEach((x) => {
-        const batteryGuide = roundedRectMesh(3.2, batteryGuideHeight, 8, 1.2, materials.railSide, 0.12);
-        batteryGuide.position.set(x, (batteryGuideTopY + batteryGuideBottomY) / 2, shellBackZ + 7.2);
+        const batteryGuide = roundedRectMesh(3.2, 78, 8, 1.2, materials.railSide, 0.12);
+        batteryGuide.position.set(x, modelDimensions.battery.centerY, shellBackZ + 7.2);
         enclosureGroup.add(batteryGuide);
       });
 
-      const servoCradleCenterY = modelDimensions.servo.centerY - modelDimensions.servo.height / 2 - 1.5;
-      [-5, 0, 5].forEach((offset) => {
-        [-20.5, 20.5].forEach((x) => {
-          const detent = roundedRectMesh(6, 2.2, 20, 0.7, materials.rail, 0.05);
-          detent.position.set(x, servoCradleCenterY + offset, shellBackZ + 13.2);
-          enclosureGroup.add(detent);
-        });
+      const servoPlaneZ = shellFrontZ - modelDimensions.servo.depth / 2 - 1.2;
+      [-modelDimensions.servoTrack.railSpacing / 2, modelDimensions.servoTrack.railSpacing / 2].forEach((x) => {
+        const rail = roundedRectMesh(
+          modelDimensions.servoTrack.railWidth,
+          modelDimensions.servoTrack.railHeight,
+          2.4,
+          1.2,
+          materials.rail,
+          0.08
+        );
+        rail.position.set(x, 0, servoPlaneZ - modelDimensions.servo.depth / 2 - 1.5);
+        enclosureGroup.add(rail);
       });
-      const servoCradle = roundedRectMesh(42, 3, 23, 1, materials.latch, 0.08);
-      servoCradle.position.set(0, servoCradleCenterY, shellBackZ + 14.7);
-      enclosureGroup.add(servoCradle);
+      const servoCarriage = roundedRectMesh(
+        modelDimensions.servoTrack.carriageWidth,
+        modelDimensions.servoTrack.carriageHeight,
+        3.2,
+        2.4,
+        materials.latch,
+        0.1
+      );
+      servoCarriage.position.set(0, modelDimensions.servo.centerY, servoPlaneZ - modelDimensions.servo.depth / 2 - 1.2);
+      enclosureGroup.add(servoCarriage);
 
       function addBatteryModel() {
         const d = modelDimensions.battery;
@@ -3867,14 +3880,14 @@
         internalsGroup.add(label);
 
         const dock = roundedRectMesh(13, 7, 9, 1.4, materials.xt30, 0.18);
-        dock.position.set(0, d.centerY - d.height / 2 - 3.5, body.position.z);
+        dock.position.set(0, d.centerY + d.height / 2 + 3.5, body.position.z);
         internalsGroup.add(dock);
         const dockMouth = roundedRectMesh(7.2, 2.4, 0.8, 0.8, materials.slot, 0.04);
         dockMouth.position.set(0, dock.position.y + 0.2, dock.position.z + 4.55);
         internalsGroup.add(dockMouth);
 
         const pullLip = roundedRectMesh(28, 4, 3.5, 1.8, materials.rubber, 0.1);
-        pullLip.position.set(0, d.centerY + d.height / 2 + 3, shellFrontZ - 5);
+        pullLip.position.set(0, -119.2, shellFrontZ - 5);
         internalsGroup.add(pullLip);
       }
 
@@ -3966,7 +3979,7 @@
         holeGeometry.rotateX(Math.PI / 2);
         const holes = new THREE.InstancedMesh(holeGeometry, materials.breadboardHole, 170);
         const matrix = new THREE.Matrix4();
-        const columns = [-13.46, -10.92, -8.38, -5.84, -3.3, 3.3, 5.84, 8.38, 10.92, 13.46];
+        const columns = [-12.7, -10.16, -7.62, -5.08, -2.54, 2.54, 5.08, 7.62, 10.16, 12.7];
         let holeIndex = 0;
         for (let row = 0; row < 17; row += 1) {
           columns.forEach((column) => {
@@ -4141,7 +4154,7 @@
           splitterGroup.name = centerX < 0 ? "positiveInlineSplitter" : "groundInlineSplitter";
           internalsGroup.add(splitterGroup);
 
-          const bodyZ = shellFrontZ - d.depth / 2 - 3.75;
+          const bodyZ = shellBackZ + 23.5;
           const outputBody = roundedRectMesh(
             d.outputBodyWidth,
             d.outputBodyLength,
@@ -4319,36 +4332,43 @@
         const batteryZ = shellBackZ + modelDimensions.enclosure.wall + modelDimensions.battery.depth / 2 + 0.8 + modelDimensions.serviceRacewayDepth;
         const buckPortZ = shellBackZ + modelDimensions.enclosure.wall + 4.8 + modelDimensions.serviceRacewayDepth;
         const breadboardZ = shellBackZ + modelDimensions.enclosure.wall + modelDimensions.breadboard.depth / 2 + 0.6 + modelDimensions.serviceRacewayDepth;
-        const xiaoPortZ = breadboardZ + modelDimensions.breadboard.depth / 2 + 3.2;
-        const splitterZ = shellFrontZ - modelDimensions.splitter.depth / 2 - 3.75;
-        const servoZ = shellFrontZ + 1;
+        const breadboardPortZ = breadboardZ + modelDimensions.breadboard.depth / 2 + 0.35;
+        const controllerPins = {
+          fiveV: point(12.7, modelDimensions.xiao.centerY + 7.62, breadboardPortZ),
+          ground: point(12.7, modelDimensions.xiao.centerY + 5.08, breadboardPortZ),
+          pwm: point(-12.7, modelDimensions.xiao.centerY + 2.54, breadboardPortZ)
+        };
+        const splitterZ = shellBackZ + 23.5;
+        const servoZ = servoPlaneZ;
 
-        // The battery drops into the top bay and seats directly above the joined splitter inputs.
+        // The 3D harness follows the same bottom-to-top order as the clean bench map.
         addWire("battery-positive-to-splitter", materials.wireRed, 3, [
-          point(-3, 51, batteryZ),
-          point(-6, 51, 16),
-          point(-6.75, 53.5, splitterZ)
+          point(-3, -54, batteryZ),
+          point(-6, -54, 16),
+          point(-6.75, -53.5, splitterZ)
         ]);
         addWire("battery-ground-to-splitter", materials.wireBlack, 3, [
-          point(3, 51, batteryZ),
-          point(6, 51, 16),
-          point(6.75, 53.5, splitterZ)
+          point(3, -54, batteryZ),
+          point(6, -54, 16),
+          point(6.75, -53.5, splitterZ)
         ]);
 
-        // High-current servo branches descend symmetrically outside the center stack.
+        // High-current servo branches rise symmetrically outside the component stack.
         addWire("splitter-positive-to-servo", materials.wireRed, 3, [
-          point(-9.95, 21.5, splitterZ),
-          point(-24, 19, 18),
-          lanePoint("splitterPositiveToServo", 19),
+          point(-9.95, -21.5, splitterZ),
+          point(-24, -19, 18),
+          lanePoint("splitterPositiveToServo", -19),
           lanePoint("splitterPositiveToServo", -61),
+          point(-24, -62, 18),
           point(-8, -62, 25),
           point(-2, -63.8, servoZ)
         ]);
         addWire("splitter-ground-to-servo", materials.wireBlack, 3, [
-          point(9.95, 21.5, splitterZ),
-          point(24, 19, 18),
-          lanePoint("splitterGroundToServo", 19),
+          point(9.95, -21.5, splitterZ),
+          point(24, -19, 18),
+          lanePoint("splitterGroundToServo", -19),
           lanePoint("splitterGroundToServo", -61),
+          point(24, -62, 18),
           point(8, -62, 25)
         ]);
         addWire("servo-ground-brown-pigtail", materials.wireBrown, 3, [
@@ -4359,35 +4379,36 @@
 
         // Short center lanes connect the joined splitters, vertical buck, and centered breadboard.
         addWire("splitter-positive-to-buck-in", materials.wireRed, 1.8, [
-          point(-3.55, 21.5, splitterZ),
-          point(-2, 19, 16),
-          lanePoint("buckInputPositive", 19),
-          lanePoint("buckInputPositive", 14.5),
-          point(-5, 14.5, buckPortZ)
+          point(-3.55, -21.5, splitterZ),
+          point(-2, -19, 16),
+          lanePoint("buckInputPositive", -19),
+          lanePoint("buckInputPositive", -14.5),
+          point(-5, -14.5, buckPortZ)
         ]);
         addWire("splitter-ground-to-buck-in", materials.wireBlack, 1.8, [
-          point(3.55, 21.5, splitterZ),
-          point(7, 19, 16),
-          lanePoint("buckInputGround", 19),
-          lanePoint("buckInputGround", 14.5),
-          point(5, 14.5, buckPortZ)
+          point(3.55, -21.5, splitterZ),
+          point(7, -19, 16),
+          lanePoint("buckInputGround", -19),
+          lanePoint("buckInputGround", -14.5),
+          point(5, -14.5, buckPortZ)
         ]);
         addWire("buck-out-to-controller-5v", materials.wireRed, 1.8, [
-          point(-5, -33.5, buckPortZ),
-          lanePoint("controller5V", -36),
-          lanePoint("controller5V", -52),
-          point(5.9, -53.1, xiaoPortZ)
+          point(-5, 33.5, buckPortZ),
+          lanePoint("controller5V", 36),
+          lanePoint("controller5V", 70),
+          controllerPins.fiveV
         ]);
         addWire("buck-out-to-controller-ground", materials.wireBlack, 1.8, [
-          point(5, -33.5, buckPortZ),
-          lanePoint("controllerGround", -36),
-          lanePoint("controllerGround", -54.5),
-          point(8.9, -55.6, xiaoPortZ)
+          point(5, 33.5, buckPortZ),
+          lanePoint("controllerGround", 36),
+          lanePoint("controllerGround", 68),
+          controllerPins.ground
         ]);
 
-        // PWM leaves D2 through the center-left quiet lane and drops into the middle servo lead.
+        // PWM leaves D2 through the center-left quiet lane and enters the middle servo lead.
         addWire("controller-d2-to-servo-signal", materials.wireYellow, 1.8, [
-          point(-8.9, -59.5, xiaoPortZ),
+          controllerPins.pwm,
+          lanePoint("pwmSignal", 65),
           lanePoint("pwmSignal", -61),
           point(-6, -62, 18),
           point(0, -63.8, servoZ)
@@ -4396,7 +4417,7 @@
 
       function addServoModel() {
         const d = modelDimensions.servo;
-        const bodyZ = shellFrontZ + 1;
+        const bodyZ = servoPlaneZ;
         const centerBand = roundedRectMesh(d.width, d.height, d.depth, 3.2, materials.servoBlue, 0.58);
         centerBand.position.set(0, d.centerY, bodyZ);
         internalsGroup.add(centerBand);
@@ -4415,7 +4436,7 @@
         [-24, 24].forEach((x) => {
           const earHole = cylinderMesh(2.1, 1, materials.slot, 20);
           earHole.rotation.x = Math.PI / 2;
-          earHole.position.set(x, d.centerY - 11.5, shellFrontZ + 5.2);
+          earHole.position.set(x, d.centerY - 11.5, bodyZ + 4.2);
           internalsGroup.add(earHole);
         });
 
@@ -4423,27 +4444,27 @@
         const pivotY = d.centerY + 11.2;
         const boss = cylinderMesh(8.4, 8, materials.servoBlack, 36);
         boss.rotation.x = Math.PI / 2;
-        boss.position.set(pivotX, pivotY, shellFrontZ + 5.2);
+        boss.position.set(pivotX, pivotY, bodyZ + 4.2);
         internalsGroup.add(boss);
 
         const horn = roundedRectMesh(56, 6.2, 4.2, 3.1, materials.servoArm, 0.35);
-        horn.position.set(pivotX + 28, pivotY, shellFrontZ + 11.1);
+        horn.position.set(pivotX + 28, pivotY, shellFrontZ + 3.4);
         internalsGroup.add(horn);
 
         [pivotX + 12, pivotX + 28].forEach((x) => {
           const hole = cylinderMesh(1.6, 4.5, materials.slot, 18);
           hole.rotation.x = Math.PI / 2;
-          hole.position.set(x, pivotY, shellFrontZ + 13.3);
+          hole.position.set(x, pivotY, shellFrontZ + 5.6);
           internalsGroup.add(hole);
         });
 
         const collar = cylinderMesh(10.6, 5.2, materials.servoArm, 40);
         collar.rotation.x = Math.PI / 2;
-        collar.position.set(pivotX, pivotY, shellFrontZ + 11.2);
+        collar.position.set(pivotX, pivotY, shellFrontZ + 3.5);
         internalsGroup.add(collar);
 
         const cap = roundedRectMesh(15, 8.2, 6, 4.1, materials.rubber, 0.45);
-        cap.position.set(pivotX + 49.5, pivotY, shellFrontZ + 11.2);
+        cap.position.set(pivotX + 49.5, pivotY, shellFrontZ + 3.5);
         internalsGroup.add(cap);
       }
 
@@ -4511,17 +4532,18 @@
       let targetPivotY = 0;
       let activeComponentFocus = "overview";
       let dragging = false;
+      let dragMode = "rotate";
       let lastPointerX = 0;
       let lastPointerY = 0;
 
       const componentFocusProfiles = Object.freeze({
         overview: { label: "Full assembly", centerX: 0, centerY: 0, distance: 520, rotationX: -0.1, rotationY: -0.26, cutaway: true },
         servo: { label: "Servo + arm", centerX: 20, centerY: -43.1, distance: 170, rotationX: -0.04, rotationY: -0.12, cutaway: true },
-        controller: { label: "Controller + breadboard", centerX: 0, centerY: -64, distance: 108, rotationX: -0.03, rotationY: -0.08, cutaway: true },
-        buck: { label: "LM2596 buck", centerX: 0, centerY: -9.5, distance: 132, rotationX: -0.04, rotationY: -0.1, cutaway: true },
-        splitters: { label: "Inline splitters", centerX: 0, centerY: 37.5, distance: 112, rotationX: -0.04, rotationY: -0.1, cutaway: true },
-        battery: { label: "2S battery", centerX: 0, centerY: 92, distance: 145, rotationX: -0.04, rotationY: -0.1, cutaway: true },
-        wiring: { label: "Wiring harness", centerX: 0, centerY: -5, distance: 250, rotationX: -0.03, rotationY: -0.08, cutaway: true },
+        controller: { label: "Controller + breadboard", centerX: 0, centerY: 64, distance: 108, rotationX: -0.03, rotationY: -0.08, cutaway: true },
+        buck: { label: "LM2596 buck", centerX: 0, centerY: 9.5, distance: 132, rotationX: -0.04, rotationY: -0.1, cutaway: true },
+        splitters: { label: "Inline splitters", centerX: 0, centerY: -37.5, distance: 112, rotationX: -0.04, rotationY: -0.1, cutaway: true },
+        battery: { label: "2S battery", centerX: 0, centerY: -92, distance: 145, rotationX: -0.04, rotationY: -0.1, cutaway: true },
+        wiring: { label: "Wiring harness", centerX: 0, centerY: 19, distance: 250, rotationX: -0.03, rotationY: -0.08, cutaway: true },
         mount: { label: "Plate + enclosure", centerX: 0, centerY: 0, distance: 450, rotationX: -0.1, rotationY: -0.26, cutaway: false }
       });
 
@@ -4627,7 +4649,11 @@
       updateInspectionVisibility();
 
       mountViewer.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 && event.button !== 2) return;
+        event.preventDefault();
         dragging = true;
+        dragMode = event.button === 2 ? "vertical-pan" : "rotate";
+        setAutoRotate(false);
         lastPointerX = event.clientX;
         lastPointerY = event.clientY;
         mountViewer.setPointerCapture(event.pointerId);
@@ -4639,6 +4665,10 @@
         const dy = event.clientY - lastPointerY;
         lastPointerX = event.clientX;
         lastPointerY = event.clientY;
+        if (dragMode === "vertical-pan") {
+          targetPivotY = Math.max(-120, Math.min(120, targetPivotY - dy * 0.42));
+          return;
+        }
         targetRotationY += dx * 0.008;
         targetRotationX = Math.max(-0.82, Math.min(0.48, targetRotationX + dy * 0.006));
       });
@@ -4649,10 +4679,8 @@
           mountViewer.releasePointerCapture(event.pointerId);
         }
       });
-
-      mountViewer.addEventListener("pointercancel", () => {
-        dragging = false;
-      });
+      mountViewer.addEventListener("pointercancel", () => { dragging = false; });
+      mountViewer.addEventListener("contextmenu", (event) => event.preventDefault());
 
       mountViewer.addEventListener("wheel", (event) => {
         event.preventDefault();

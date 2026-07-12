@@ -51,6 +51,12 @@ def main() -> int:
     require(html.count('data-model-focus="') == 8, "component inspector must expose eight focus targets")
     require("const componentFocusProfiles" in html and "function focusComponent" in html, "component focus camera profiles are missing")
     require("targetPivotX" in html and "targetPivotY" in html, "component focus centering is missing")
+    require(
+        'dragMode = event.button === 2 ? "vertical-pan" : "rotate"' in html
+        and 'mountViewer.addEventListener("contextmenu"' in html
+        and "targetPivotY = Math.max(-120, Math.min(120, targetPivotY - dy * 0.42))" in html,
+        "right-button vertical panning is missing",
+    )
     require('minimumDistance = activeComponentFocus === "overview" ? 70 : 55' in html, "deep component zoom limit drifted")
     require("dataset.targetCameraDistance" in html and "dataset.cameraDistance" in html, "3D zoom telemetry is missing")
     require("const modelDimensions" in html, "dimension-driven model object is missing")
@@ -163,7 +169,7 @@ def main() -> int:
         f"bench component visual scale drifted: {visual_scales}",
     )
 
-    require(wire_routing["length"] == 148, "wire-routing channel length drifted")
+    require(wire_routing["length"] == 122, "wire-routing channel length drifted")
     require(len(wire_routing["lanes"]) == 10, "wire-routing model must keep ten dedicated lanes")
     require(
         sum(lane["awg"] == 22 for lane in wire_routing["lanes"]) == 5
@@ -212,8 +218,8 @@ def main() -> int:
         "breadboard": components["mini_breadboard_170_point"]["layout"]["z"],
     }
     require(
-        list(component_z.values()) == sorted(component_z.values(), reverse=True),
-        f"component stack no longer follows the flipped battery-to-controller bench order: {component_z}",
+        list(component_z.values()) == sorted(component_z.values()),
+        f"rear electronics stack no longer follows the original bench order: {component_z}",
     )
     require(
         components["mini_breadboard_170_point"]["layout"]["x"] == 0
@@ -221,22 +227,36 @@ def main() -> int:
         "breadboard and XIAO must remain horizontally centered",
     )
     require(
+        "const columns = [-12.7, -10.16, -7.62, -5.08, -2.54, 2.54, 5.08, 7.62, 10.16, 12.7]" in html
+        and "const breadboardPortZ = breadboardZ + modelDimensions.breadboard.depth / 2 + 0.35" in html
+        and "fiveV: point(12.7, modelDimensions.xiao.centerY + 7.62, breadboardPortZ)" in html
+        and "ground: point(12.7, modelDimensions.xiao.centerY + 5.08, breadboardPortZ)" in html
+        and "pwm: point(-12.7, modelDimensions.xiao.centerY + 2.54, breadboardPortZ)" in html,
+        "breadboard wire endpoints no longer match XIAO 5V, GND, and D2 rows",
+    )
+    require(
         components["xalxmaw_inline_splitter_pair"]["layout"]["x_centers"] == [-6.75, 6.75],
         "inline splitters must remain joined side-by-side",
     )
     require(
-        components["servo_front_exposure_pocket"]["center_z"] == 89,
-        "Phase 1.5 servo opening must remain centered about 3.5in above the enclosure bottom",
+        components["servo_front_exposure_pocket"]["center_z"] == 132
+        and components["servo_front_exposure_pocket"]["height"] == 238
+        and components["servo_height_adjustment_cradle"]["servo_center_z_range"] == [22, 242],
+        "continuous servo travel contract drifted",
     )
     require(
-        "battery: { width: 43, height: 75, depth: 22, centerY: 92 }" in html
-        and "centerY: 37.5" in html
-        and "buck: { width: 40, height: 60, depth: 10, centerY: -9.5 }" in html
-        and "breadboard: { width: 35, height: 47, depth: 8.5, centerX: 0, centerY: -64 }" in html
-        and "servo: { width: 40.5, height: 37.5, depth: 20, centerY: -43.1 }" in html,
-        "HTML reversed-stack layout drifted",
+        "centersX: [-6.75, 6.75]" in html and "centerY: -37.5" in html,
+        "HTML splitter layout drifted",
     )
     require("addBuckModel" in html, "vertical buck detail model is missing")
+    require(
+        "depth: 56" in html
+        and "servoTrack: { railSpacing: 48" in html
+        and "const servoPlaneZ" in html
+        and "const servoCarriage" in html
+        and "const bodyZ = servoPlaneZ" in html,
+        "independent front servo plane is missing",
+    )
     require("powerSwitchEnvelope" not in html, "obsolete depth-stacked power-switch block returned")
     require("splitter-positive-to-servo" in html, "direct positive servo branch is missing")
     require('name: "controller5V", x: -4' in html and 'material: "wireRed"' in html, "controller 5V groove must remain red")
@@ -310,13 +330,13 @@ def main() -> int:
         "OpenSCAD groove centers no longer match the HTML cutaway",
     )
     require(
-        "battery_z = 224;" in scad
+        "case_d = 56;" in scad
         and "splitter_x_centers = [-6.75, 6.75];" in scad
-        and "splitter_z = 169.5;" in scad
-        and "buck_z = 122.5;" in scad
-        and "breadboard_z = 68;" in scad
-        and "servo_z = 88.9;" in scad,
-        "OpenSCAD reversed-stack placement no longer matches the clean bench map",
+        and "splitter_z = 94.5;" in scad
+        and "servo_center_z_min = 22;" in scad
+        and "servo_center_z_max = 242;" in scad
+        and "module servo_adjustment_track()" in scad,
+        "OpenSCAD independent servo-plane placement drifted",
     )
 
     print("Phase 2 HTML model validation: PASS")
@@ -327,8 +347,8 @@ def main() -> int:
     print("- Purchased inline splitter pair matches the 32 x 13.5 x 13mm model contract")
     print("- Representative hard-body visuals remain within the documented 4-5 px/mm scale")
     print("- Ten dedicated rear-wall grooves carry nine active wires plus one future-switch lane")
-    print("- Battery, splitters, vertical buck, and centered controller follow the flipped bench-map order")
-    print("- Front-plane servo remains centered 88.9mm above the enclosure bottom")
+    print("- Battery, splitters, vertical buck, and centered controller retain the original bench-map order")
+    print("- 56mm shell isolates the continuously adjustable 22-242mm front servo plane")
     print("- Bench wiring parts and print view use the 1120 x 2160 enclosure-stack layout")
     print("- Phase 1.5 viewer excludes the future Phase 2 solar skin and external status LED")
     print("- Back-side rotation hides only the door surface while preserving the mounting plate and Command strips")

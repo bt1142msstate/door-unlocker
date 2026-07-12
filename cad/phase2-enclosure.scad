@@ -16,7 +16,7 @@ show_clearance_blocks = false;
 show_labels = false;
 
 case_w = 72;
-case_d = 34;
+case_d = 56;
 case_h = 264;
 wall = 3.2;
 case_r = 7;
@@ -71,25 +71,30 @@ servo_w = 40.5;
 servo_d = 20;
 servo_h = 37.5;
 servo_z = 88.9;
+servo_y = front_y - servo_d / 2 - 1.2;
+servo_center_z_min = 22;
+servo_center_z_max = 242;
 
 servo_bay_w = 56;
-servo_bay_h = 52;
-servo_bay_z = 88.9;
-servo_front_pocket_w = servo_bay_w;
-servo_front_pocket_d = case_d - 6;
-servo_front_pocket_h = 58;
-servo_front_pocket_z = 89;
-servo_adjustment_offsets = [-5, 0, 5];
-servo_cradle_w = 42;
-servo_cradle_d = 23;
-servo_cradle_h = 3;
-servo_notch_w = 6;
-servo_notch_d = 20;
-servo_notch_h = 2.2;
+servo_bay_h = 46;
+servo_bay_z = servo_z;
+servo_front_pocket_w = 30;
+servo_front_pocket_d = 24;
+servo_front_pocket_h = 238;
+servo_front_pocket_z = case_h / 2;
+servo_track_spacing = 48;
+servo_track_w = 4;
+servo_track_d = 2.4;
+servo_track_h = servo_center_z_max - servo_center_z_min;
+servo_track_z = (servo_center_z_min + servo_center_z_max) / 2;
+servo_carriage_w = 52;
+servo_carriage_d = 3.2;
+servo_carriage_h = 46;
+servo_track_y = servo_y - servo_d / 2 - 1.5;
 
 electronics_bay_w = 64;
-electronics_bay_h = 146;
-electronics_bay_z = 113;
+electronics_bay_h = 90;
+electronics_bay_z = 117;
 
 service_cover_w = 66;
 service_cover_d = 2.2;
@@ -104,44 +109,44 @@ xiao_w = 21;
 xiao_d = 1.6;
 xiao_h = 17.8;
 xiao_x = 0;
-xiao_y = 6;
-xiao_z = 68;
+xiao_y = -5;
+xiao_z = 196;
 
 breadboard_w = 35;
 breadboard_d = 8.5;
 breadboard_h = 47;
 breadboard_x = 0;
-breadboard_y = 0;
-breadboard_z = 68;
+breadboard_y = -11;
+breadboard_z = 196;
 
 splitter_w = 13.5;
 splitter_d = 13;
 splitter_h = 32;
 splitter_x_centers = [-6.75, 6.75];
-splitter_y = 6.5;
-splitter_z = 169.5;
+splitter_y = -4.5;
+splitter_z = 94.5;
 
 buck_w = 40;
 buck_d = 10;
 buck_h = 60;
-buck_y = 0;
-buck_z = 122.5;
+buck_y = -11;
+buck_z = 141.5;
 
 battery_w = 43;
 battery_d = 22;
 battery_h = 75;
-battery_y = 2;
-battery_z = 224;
+battery_y = -9;
+battery_z = 40;
 
 battery_slot_w = 46.5;
 battery_slot_d = 25;
 battery_slot_h = 80.5;
-battery_slot_z = 224;
+battery_slot_z = 42;
 
 // Rear-wall service harness. Raised lips preserve the full structural wall
 // thickness and keep the harness attached to the sled when the cover is off.
-wire_channel_z_start = 42;
-wire_channel_z_end = 190;
+wire_channel_z_start = 80;
+wire_channel_z_end = 202;
 wire_channel_h = wire_channel_z_end - wire_channel_z_start;
 wire_channel_z = (wire_channel_z_start + wire_channel_z_end) / 2;
 wire_channel_rear_y = -case_d / 2 + wall;
@@ -221,15 +226,6 @@ module wire_harness_preview() {
           cylinder(h = wire_channel_h, d = wire_lane_od[index], center = true);
 }
 
-module battery_top_guides() {
-  guide_bottom_z = battery_z - battery_h / 2;
-  guide_h = case_h - guide_bottom_z;
-  color("#38413a")
-    for (x = [-24.1, 24.1])
-      translate([x, 0, guide_bottom_z + guide_h / 2])
-        rounded_prism([3.2, 8, guide_h], 1.2);
-}
-
 module dovetail_profile(neck_w, head_w, depth) {
   polygon(points = [
     [-neck_w / 2, 0],
@@ -258,22 +254,17 @@ module service_cover_dovetail_rail(length = service_cover_rail_h) {
     dovetail_profile(service_cover_rail_neck_w, service_cover_rail_head_w, service_cover_rail_depth);
 }
 
-module servo_adjustment_notches() {
-  for (offset = servo_adjustment_offsets) {
-    notch_z = servo_z + offset - servo_h / 2 - servo_cradle_h / 2;
-
-    // A removable cradle sits on left/right ledges so servo height can shift
-    // without loosening the tight side support in the bay.
-    color("#75d99f") {
-      for (x = [-20.5, 20.5])
-        translate([x, front_y - 15, notch_z])
-          cube([servo_notch_w, servo_notch_d, servo_notch_h], center = true);
-    }
-  }
+module servo_adjustment_track() {
+  // Continuous front-plane rails let the clamped carriage stop anywhere in
+  // the usable center range without touching the rear electronics layer.
+  color("#75d99f")
+    for (x = [-servo_track_spacing / 2, servo_track_spacing / 2])
+      translate([x, servo_track_y, servo_track_z])
+        cube([servo_track_w, servo_track_d, servo_track_h], center = true);
 
   color("#2f6f9f")
-    translate([0, front_y - 15, servo_z - servo_h / 2 - servo_cradle_h / 2])
-      cube([servo_cradle_w, servo_cradle_d, servo_cradle_h], center = true);
+    translate([0, servo_track_y + 0.3, servo_z])
+      cube([servo_carriage_w, servo_carriage_d, servo_carriage_h], center = true);
 }
 
 module shell_body() {
@@ -293,28 +284,22 @@ module shell_body() {
     front_pocket(led_w + 4, led_h + 4, led_z, 4);
 
     // Main service openings.
-    // Front-exposed servo pocket: the servo can protrude forward while the
-    // bay/cradle keeps side, bottom, and rear support.
+    // Continuous arm/pivot slot for the full-height servo carriage. The servo
+    // body remains inside the deeper front chamber.
     front_pocket(servo_front_pocket_w, servo_front_pocket_h, servo_front_pocket_z, servo_front_pocket_d);
     front_pocket(electronics_bay_w, electronics_bay_h, electronics_bay_z, case_d - 6);
     front_pocket(battery_slot_w, battery_slot_h, battery_slot_z, battery_slot_d);
 
-    // Top-loading battery mouth. The full-height service opening exposes the
-    // internal guides; this top relief lets the pack enter without removing
-    // the enclosure sled from the door plate.
-    translate([0, front_y - battery_slot_d / 2 + 0.2, case_h - 3])
-      cube([battery_slot_w, battery_slot_d + 0.6, 8], center = true);
+    // Bottom slide-up opening for battery cartridge.
+    translate([0, front_y - battery_slot_d / 2 + 0.2, 3])
+      cube([battery_slot_w, battery_slot_d + 0.6, 14], center = true);
 
     // Cable routing between bays.
-    cable_slot(22, 188, 24);
-    cable_slot(22, 154, 24);
-    cable_slot(-18, 93, 28);
+    cable_slot(22, 185, 36);
+    cable_slot(22, 174, 26);
+    cable_slot(-18, 84, 32);
 
     // Service bay screw holes.
-    screw_hole(-26, servo_bay_z + 23);
-    screw_hole(26, servo_bay_z + 23);
-    screw_hole(-26, servo_bay_z - 23);
-    screw_hole(26, servo_bay_z - 23);
     screw_hole(-29, electronics_bay_z + 40);
     screw_hole(29, electronics_bay_z + 40);
     screw_hole(-29, electronics_bay_z - 40);
@@ -405,15 +390,15 @@ module pill_led() {
 
 module servo_block() {
   color("#4a64d8")
-    translate([0, front_y + 1, servo_z])
+    translate([0, servo_y, servo_z])
       cube([servo_w, servo_d, servo_h], center = true);
 
   color("#111111")
-    translate([servo_w / 2 + 24, front_y + 4, servo_z + 6])
+    translate([servo_w / 2 + 24, front_y + 3.5, servo_z + 6])
       cube([64, 4, 8], center = true);
 
   color("#0b0b0b")
-    translate([0, front_y + 3, servo_z + 6])
+    translate([0, front_y + 2.8, servo_z + 6])
       rotate([90, 0, 0])
         cylinder(h = 8, d = 18, center = true);
 }
@@ -456,21 +441,15 @@ module battery_block() {
     translate([0, battery_y, battery_z])
       cube([battery_w, battery_d, battery_h], center = true);
 
-  // Small upper pull lip. The cartridge loads from the top and seats on the
-  // fixed XT30 dock below it.
+  // Small exposed pull lip. The cartridge is otherwise nearly flush.
   color("#111111")
-    translate([0, front_y - 5, battery_z + battery_h / 2 + 3])
+    translate([0, front_y - 5, 4])
       cube([28, 3.5, 4], center = true);
-
-  // Fixed lower dock shown as a component-fit envelope.
-  color("#f0b323")
-    translate([0, battery_y, battery_z - battery_h / 2 - 3.5])
-      cube([13, 9, 7], center = true);
 }
 
 module clearance_blocks() {
   color([1, 0.2, 0.2, 0.22]) {
-    translate([0, front_y + 1, servo_z])
+    translate([0, servo_y, servo_z])
       cube([servo_w + 1.2, servo_d + 1.2, servo_h + 1.2], center = true);
     translate([0, front_y - 18, battery_z])
       cube([battery_w + 3, battery_d + 3, battery_h + 5.5], center = true);
@@ -505,14 +484,13 @@ if (show_command_strips) command_strips();
 if (show_shell) {
   shell_body();
   wire_routing_channels();
-  battery_top_guides();
 }
 if (show_service_cover) service_cover();
 if (show_component_blocks) {
   solar_panel();
   pill_led();
   servo_block();
-  servo_adjustment_notches();
+  servo_adjustment_track();
   xiao_block();
   inline_splitter_pair();
   wire_harness_preview();

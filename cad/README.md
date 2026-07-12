@@ -16,7 +16,7 @@ This is a fit model, not a final print-ready product. Before printing a function
 - Use the constrained 2in-wide back plate when testing Command strips. It is flush with the 264mm enclosure and fits four 3M Command 17217 X-Large pairs in two columns by two rows. Each modeled pair is 4 3/8 x 7/8 x 1/16in, or about 111.1 x 22.2 x 1.6mm.
 - The X-Large strips fit tightly across the plate: two columns leave about 1.2mm side margin with a 4mm center gap. Large and Medium Command strips were checked, but they reduce total ideal capacity on this plate, so 17217 X-Large remains the selected adhesive.
 - The solid dovetail rails are 244mm long and open-ended, leaving 10mm end margin on the flush plate. The housing channel preview is 246mm long, leaving 9mm end margin. Use a small hidden detent or thumb-release feature so the sled does not creep off the rails.
-- The housing-fit simulation keeps the main shell at 72 x 34 x 264mm. The reversed current-hardware stack calculates to 259.5mm minimum height, so the selected shell retains about 4.5mm of design headroom, uses 85.4% of the available vertical span, and has no raw, clearance-envelope, or rear wire-channel collisions. The prototype power-switch envelope, branch-wire bends, and second solar panel still require physical layout resolution.
+- The housing-fit simulation keeps the main shell at 72 x 56 x 264mm. The rear battery, joined splitters, vertical buck, and breadboard/XIAO retain the clean bench order, while a separate front servo carriage moves continuously from z22 to z242. The model reports 3.8mm minimum clearance between expanded rear-component and servo envelopes, with no sampled collisions.
 - The 264mm mounting plate is intentionally flush with the enclosure so the door-side mount is mostly hidden after installation.
 - Decide whether the large LM2596 buck remains inside Phase 2 or is replaced by a smaller low-quiescent regulator/charger board.
 - Use `../docs/optimal-components.md` as the current migration target when replacing prototype power parts. The preferred direction is a 2S-capable low-IQ buck for the controller rail, a true high-side servo switch, protected 2S solar charging, and low-power battery measurement.
@@ -26,23 +26,23 @@ This is a fit model, not a final print-ready product. Before printing a function
 
 P1S/PLA Pure print assumptions:
 
-- Three printed parts: 50.8 x 7 x 264mm hidden door mounting plate, 72 x 34 x 264mm main enclosure/sled, and 66 x 2.2 x 252mm removable service cover.
+- Three printed parts: 50.8 x 7 x 264mm hidden door mounting plate, 72 x 56 x 264mm main enclosure/sled, and 66 x 2.2 x 252mm removable service cover.
 - The mounting plate is intentionally the same height as the main enclosure so it is hidden once the sled is installed. It uses open-ended rails plus a small internal detent instead of bulky visible top/bottom stops.
 - Print the mounting plate flat on the P1S bed.
 - The service cover is now a near full-height removable panel, not a short hatch, and should use shallow slide/dovetail rails so maintenance access does not require removing the whole enclosure from the door plate.
-- Component block layout from top to bottom: battery centered at z224, joined XALXMAW splitters at z169.5, purchased Seloky buck at z122.5, and purchased LampVPath breadboard/XIAO assembly at z68. The front-plane servo remains centered at z88.9 to match the measured handle height; depth separation prevents its overlapping height from colliding with the rear electronics. The buck uses the listing-derived 60 x 40 x 10mm envelope and is rotated to an installed 40 W x 10 D x 60 H orientation. The breadboard uses its purchased 35 W x 8.5 D x 47 H orientation.
-- The housing uses a front-exposed servo pocket modeled as 56 x 28 x 58mm around z89, so the servo can protrude from the enclosure face while the enclosure walls remain structural.
-- Servo height is adjustable with a removable 42 x 23 x 3mm cradle that can sit on 6 x 20 x 2.2mm left/right notch ledges at -5, 0, and +5mm from the default z88.9 servo center. The servo bay still hugs the body from the sides so the adjustment does not make the servo loose.
+- Rear component layout: battery at z40, joined XALXMAW splitters at z94.5, purchased Seloky buck at z141.5, and purchased LampVPath breadboard/XIAO assembly at z196. The buck uses the listing-derived 60 x 40 x 10mm envelope and is rotated to an installed 40 W x 10 D x 60 H orientation. The breadboard uses its purchased 35 W x 8.5 D x 47 H orientation.
+- The servo occupies a separate front plane in the deeper shell. A 30 W x 24 D x 238 H front slot exposes only the pivot and arm while the body stays within the enclosure.
+- Servo height is continuously adjustable on two 220mm rails with a 52 W x 3.2 D x 46 H clamped carriage. Its center range is z22 to z242, with z88.9 as the first prototype default.
 - Estimated Phase 2 mass budget with solar, no-solder breadboard, and servo-switch hardware: about 390g of
   components inside or attached to the housing, 390g of printed PLA parts, 638g for the
   removable enclosure with components, and 794g for the full door-supported assembly
   including the hidden plate and Command strips. The force simulation rounds the
   installed assembly up to 1.8lb.
-- Battery quick-swap plan: the pack drops into short chamfered guides from the top,
-  mates with a fixed lower XT30 dock, and is retained by a small thumb latch or
+- Battery quick-swap plan: the pack slides up from the bottom into chamfered guides,
+  mates with a fixed controller-side XT30 dock, and is retained by a small thumb latch or
   spring tab. Keep the 16 AWG dock leads fixed to the housing/inline-splitter path so battery swaps
   do not flex the internal wiring.
-- Wire-routing plan: two five-lane raised-lip cable combs run from z42 to z190 on the
+- Wire-routing plan: two five-lane raised-lip cable combs run from z84 to z167 on the
   inside rear wall so the complete harness stays attached to the enclosure when the
   service cover is removed. The 27mm right bank uses five 4.2mm-clear lanes for estimated
   3.0mm OD 16 AWG power conductors. The 21mm left bank uses five 3.0mm-clear lanes for
@@ -55,9 +55,8 @@ P1S/PLA Pure print assumptions:
   current data.
 - Solar panel plan: the selected Amazon test kit is three 6V/1W panels around
   110 x 60 x 3mm each. Use two in series for a 12V-class, roughly 2W peak input to a 2S
-  lithium solar charger. One panel fits below the current servo pocket; the second
-  full-size panel intersects the servo opening and is intentionally shown as a red
-  conflict envelope until a smaller panel or separate carrier is selected.
+  lithium solar charger. The full-height servo slot means the two panels need a split
+  arrangement or separate carrier; they are intentionally excluded from this Phase 1.5 viewer.
 - Servo power-cut plan: XIAO enables the load switch before moving the servo, keeps it on
   only while unlocked/holding the handle down, then sets PWM safe/low or high-impedance
   and cuts servo power when locked. Cheap MOSFET boards should be checked with a

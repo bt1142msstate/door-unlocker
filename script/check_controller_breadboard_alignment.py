@@ -36,15 +36,15 @@ def main() -> int:
     required = (
         'src="assets/component-breadboard-red-layer.png"',
         'src="assets/component-xiao-top-down-layer.png"',
-        'd="M2 237 V103.7 H19.5"',
-        'd="M151 0 V79.1 H136.3"',
-        'd="M136 0 V91.4"',
+        'd="M2 0 V103.7 H19.5"',
+        'd="M151 237 V79.1 H136.3"',
+        'd="M136 237 V91.4"',
         'id="controllerPowerWire"',
         'id="controllerGroundWire"',
         'id="controllerSignalWire"',
-        'const controllerPower = assemblyPoint(151, 0)',
-        'const controllerGround = assemblyPoint(136, 0)',
-        'const controllerSignal = assemblyPoint(2, 1)',
+        'const controllerPower = assemblyPoint(151, 1)',
+        'const controllerGround = assemblyPoint(136, 1)',
+        'const controllerSignal = assemblyPoint(2, 0)',
     )
     for marker in required:
         if marker not in HTML:
