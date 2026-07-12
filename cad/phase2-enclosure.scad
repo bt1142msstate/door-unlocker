@@ -70,15 +70,15 @@ led_z = 233;
 servo_w = 40.5;
 servo_d = 20;
 servo_h = 37.5;
-servo_z = 219;
+servo_z = 221;
 
 servo_bay_w = 56;
 servo_bay_h = 52;
-servo_bay_z = 219;
+servo_bay_z = 221;
 servo_front_pocket_w = servo_bay_w;
 servo_front_pocket_d = case_d - 6;
 servo_front_pocket_h = 58;
-servo_front_pocket_z = 209;
+servo_front_pocket_z = 211;
 servo_adjustment_offsets = [-5, 0, 5];
 servo_cradle_w = 42;
 servo_cradle_d = 23;
@@ -105,33 +105,33 @@ xiao_d = 1.6;
 xiao_h = 17.8;
 xiao_x = 0;
 xiao_y = 6;
-xiao_z = 175;
+xiao_z = 177;
 
 breadboard_w = 35;
 breadboard_d = 8.5;
 breadboard_h = 47;
 breadboard_x = 0;
 breadboard_y = 0;
-breadboard_z = 175;
+breadboard_z = 177;
 
 splitter_w = 32;
 splitter_d = 13.5;
 splitter_h = 13;
 splitter_x_centers = [-16, 16];
 splitter_y = 6.5;
-splitter_z = 86;
+splitter_z = 85;
 
-buck_w = 36;
-buck_d = 14;
-buck_h = 57;
+buck_w = 40;
+buck_d = 10;
+buck_h = 60;
 buck_y = 0;
-buck_z = 122;
+buck_z = 122.5;
 
 battery_w = 43;
 battery_d = 22;
 battery_h = 75;
 battery_y = 2;
-battery_z = 41;
+battery_z = 40;
 
 battery_slot_w = 46.5;
 battery_slot_d = 25;

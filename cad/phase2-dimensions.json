@@ -312,7 +312,7 @@
       "INJORA servo body 40.5 x 20 x 37.5mm",
       "Seeed XIAO board footprint 21 x 17.8mm",
       "XALXMAW 1-in/2-out splitter listing envelope 32 x 13 x 13.5mm",
-      "Seloky LM2596 module 57 x 36 x 14mm",
+      "Purchased Seloky B0DM946DHG buck 60 x 40 x 10mm rounded envelope",
       "3M 17217 strip footprint 111.1 x 22.2 x 1.6mm",
       "6V 1W test solar panel 110 x 60 x 3mm"
     ],
@@ -404,16 +404,16 @@
       "width": 56,
       "depth": 28,
       "height": 58,
-      "center_z": 209,
+      "center_z": 211,
       "source": "Front-exposed servo bay pocket",
       "clearance": 3,
       "notes": "Open front pocket that lets the servo protrude about 11mm from the enclosure face. Moving the body forward keeps every height detent clear of the centered controller assembly while the removable cradle still supports the servo from the back, bottom, and side walls. Final dimensions should be checked against the actual calibrated lock/unlock angles."
     },
     "servo_height_adjustment_cradle": {
       "type": "removable cradle on left/right notch ledges",
-      "servo_center_z_default": 219,
+      "servo_center_z_default": 221,
       "servo_center_z_offsets": [-5, 0, 5],
-      "servo_center_z_range": [214, 224],
+      "servo_center_z_range": [216, 226],
       "cradle_dimensions": {
         "width": 42,
         "depth": 23,
@@ -442,7 +442,7 @@
       "layout": {
         "x": 0,
         "y": 6,
-        "z": 175
+        "z": 177
       },
       "notes": "Board footprint is 21 x 17.8mm. The detailed cutaway renders Seeed's published STEP geometry, converted to an optimized color-preserving GLB, plus separate long header pins to represent the purchased pre-soldered board plugged into the vertical 170-point breadboard."
     },
@@ -450,14 +450,14 @@
       "width": 35,
       "depth": 8.5,
       "height": 47,
-      "source": "Standard 170-tie-point mini breadboard envelope: 47 x 35 x 8.5mm",
+      "source": "Purchased LampVPath B01KKE602W listing: 1.85 x 1.38 x 0.33in (47 x 35 x 8.5mm)",
       "clearance": 0.8,
       "layout": {
         "x": 0,
         "y": 0,
-        "z": 175
+        "z": 177
       },
-      "notes": "Viewer orientation is vertical so the 35mm side is enclosure width and the 47mm side is height. The XIAO is shown plugged into its front face. This is no-solder inspection geometry, not yet part of the core zero-collision result."
+      "notes": "The purchased breadboard envelope is modeled exactly. Viewer orientation is vertical, so the 35mm side is enclosure width and the 47mm side is height. The XIAO is shown plugged into its front face."
     },
     "xalxmaw_inline_splitter_pair": {
       "single_width": 32,
@@ -469,7 +469,7 @@
       "layout": {
         "x_centers": [-16, 16],
         "y": 6.5,
-        "z": 86
+        "z": 85
       },
       "notes": "The positive and ground connectors are modeled physically clipped side-by-side at the same height, matching the clean bench map while remaining electrically separate. Their combined 64mm width leaves about 0.8mm per side inside the 65.6mm inner shell. Verify the delivered parts with calipers before printing."
     },
@@ -483,18 +483,18 @@
       "notes": "Prototype board is included in mass/BOM planning. Do a multimeter check before final wiring; final design should switch servo positive with a true high-side load switch or smart high-side switch."
     },
     "lm2596_buck_current": {
-      "width": 57,
-      "depth": 14,
-      "height": 36,
-      "source": "Seloky LM2596 module manual: 57 x 36 x 14mm",
+      "width": 60,
+      "depth": 10,
+      "height": 40,
+      "source": "Purchased Seloky B0DM946DHG Amazon listing: 2.36 x 1.57 x 0.39in (59.94 x 39.88 x 9.91mm), rounded to a 60 x 40 x 10mm envelope",
       "clearance": 0.8,
       "layout": {
         "x": 0,
         "y": 0,
-        "z": 122,
+        "z": 122.5,
         "rotation_z_degrees": 90
       },
-      "notes": "This is the bulky current prototype buck. It is rotated vertically in the enclosure so its 36mm side spans the housing width and its 57mm side follows the clean bench stack. The detailed HTML model uses representative terminal, display, inductor, and trim-pot subgeometry. Future low-Iq regulation can shrink this bay."
+      "notes": "This is the purchased prototype buck. It is rotated vertically in the enclosure so its 40mm side spans the housing width and its 60mm side follows the clean bench stack. The detailed HTML model uses representative terminal, display, inductor, and trim-pot subgeometry. Future low-Iq regulation can shrink this bay."
     },
     "battery_2s_5000mah": {
       "width": 43,
@@ -505,7 +505,7 @@
       "layout": {
         "x": 0,
         "y": 2,
-        "z": 41
+        "z": 40
       },
       "slot": {
         "width": 46.5,

@@ -86,7 +86,7 @@ class HousingScenario:
     rail_end_margin_target_mm: float = 8.0
     mount_rail_length_mm: float = 224.0
     mount_channel_length_mm: float = 226.0
-    servo_default_center_z_mm: float = 219.0
+    servo_default_center_z_mm: float = 221.0
     servo_adjustment_offsets_mm: ClassVar[tuple[float, ...]] = (-5.0, 0.0, 5.0)
     servo_cradle_width_mm: float = 42.0
     servo_cradle_depth_mm: float = 23.0
@@ -97,7 +97,7 @@ class HousingScenario:
     servo_front_pocket_width_mm: float = 56.0
     servo_front_pocket_depth_mm: float = 28.0
     servo_front_pocket_height_mm: float = 58.0
-    servo_front_pocket_center_z_mm: float = 209.0
+    servo_front_pocket_center_z_mm: float = 211.0
     wire_channel_start_z_mm: float = 80.0
     wire_channel_end_z_mm: float = 202.0
     wire_channel_rib_width_mm: float = 1.0
@@ -128,11 +128,11 @@ def box_dict(box: Box) -> dict[str, object]:
 
 def physical_components() -> list[Box]:
     return [
-        Box("battery_2s_5000mah", 0, 2, 41, 43, 22, 75, 0.4),
-        Box("xalxmaw_inline_splitter_pair", 0, 6.5, 86, 64, 13.5, 13, 0.4),
-        Box("lm2596_buck_current_vertical", 0, 0, 122, 36, 14, 57, 0.4),
-        Box("controller_breadboard_assembly", 0, 0, 175, 35, 14, 47, 0.4),
-        Box("servo_body", 0, 18, 219, 40.5, 20, 37.5, 0.6, "front_exposed"),
+        Box("battery_2s_5000mah", 0, 2, 40, 43, 22, 75, 0.4),
+        Box("xalxmaw_inline_splitter_pair", 0, 6.5, 85, 64, 13.5, 13, 0.4),
+        Box("lm2596_buck_current_vertical", 0, 0, 122.5, 40, 10, 60, 0.4),
+        Box("controller_breadboard_assembly", 0, 0, 177, 35, 14, 47, 0.4),
+        Box("servo_body", 0, 18, 221, 40.5, 20, 37.5, 0.6, "front_exposed"),
     ]
 
 
@@ -158,9 +158,9 @@ def layout_features() -> list[Box]:
     return [
         Box("solar_panel_series_pair", 0, 18.7, 130, 60, 3, 220, 1.5, "surface"),
         Box("pill_status_led", 0, 18.9, 233, 22, 3, 5, 1.0, "surface"),
-        Box("servo_body", 0, 18, 219, 40.5, 20, 37.5, 0.6, "front_exposed"),
-        Box("servo_height_adjustment_cradle", 0, -2, 198.75, 42, 23, 3, 0.0, "adjustable_cradle"),
-        Box("servo_front_exposure_pocket", 0, 14, 209, 56, 28, 58, 0.0, "open_pocket"),
+        Box("servo_body", 0, 18, 221, 40.5, 20, 37.5, 0.6, "front_exposed"),
+        Box("servo_height_adjustment_cradle", 0, -2, 200.75, 42, 23, 3, 0.0, "adjustable_cradle"),
+        Box("servo_front_exposure_pocket", 0, 14, 211, 56, 28, 58, 0.0, "open_pocket"),
         Box("electronics_service_bay", 0, 3.2, 140, 64, 28, 120, 0.0, "bay"),
         Box("battery_slot", 0, 4.7, 41, 46.5, 25, 80.5, 0.0, "slot"),
     ]
@@ -290,7 +290,7 @@ def run_simulation(scenario: HousingScenario) -> dict[str, object]:
             "max_depth_utilization_percent": round(max_depth_usage * 100, 1),
             "worst_side_margin_mm": round(worst_side, 2),
             "worst_depth_margin_mm": round(worst_depth, 2),
-            "recommendation": "Keep the 72 x 34 x 244mm housing for the current prototype parts. It is tight: the height is the calculated minimum for this vertical layout, and the buck converter is the width driver.",
+            "recommendation": "Keep the 72 x 34 x 244mm housing for the current prototype parts. It is tight: the height is the calculated minimum for this vertical layout, while the joined splitter pair remains the width driver.",
         },
         "plate_height": {
             "housing_height_mm": scenario.case_height_mm,

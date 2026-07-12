@@ -14,7 +14,7 @@
     "rail_end_margin_target_mm": 8.0,
     "mount_rail_length_mm": 224.0,
     "mount_channel_length_mm": 226.0,
-    "servo_default_center_z_mm": 219.0,
+    "servo_default_center_z_mm": 221.0,
     "servo_cradle_width_mm": 42.0,
     "servo_cradle_depth_mm": 23.0,
     "servo_cradle_height_mm": 3.0,
@@ -24,7 +24,7 @@
     "servo_front_pocket_width_mm": 56.0,
     "servo_front_pocket_depth_mm": 28.0,
     "servo_front_pocket_height_mm": 58.0,
-    "servo_front_pocket_center_z_mm": 209.0,
+    "servo_front_pocket_center_z_mm": 211.0,
     "wire_channel_start_z_mm": 80.0,
     "wire_channel_end_z_mm": 202.0,
     "wire_channel_rib_width_mm": 1.0
@@ -46,7 +46,7 @@
     "max_depth_utilization_percent": 82.6,
     "worst_side_margin_mm": 0.4,
     "worst_depth_margin_mm": 0.15,
-    "recommendation": "Keep the 72 x 34 x 244mm housing for the current prototype parts. It is tight: the height is the calculated minimum for this vertical layout, and the buck converter is the width driver."
+    "recommendation": "Keep the 72 x 34 x 244mm housing for the current prototype parts. It is tight: the height is the calculated minimum for this vertical layout, while the joined splitter pair remains the width driver."
   },
   "plate_height": {
     "housing_height_mm": 244.0,
@@ -86,10 +86,10 @@
       },
       {
         "name": "lm2596_buck_current_vertical",
-        "expanded_width_mm": 36.8,
-        "expanded_depth_mm": 14.8,
-        "side_margin_mm": 14.4,
-        "depth_margin_mm": 6.4,
+        "expanded_width_mm": 40.8,
+        "expanded_depth_mm": 10.8,
+        "side_margin_mm": 12.4,
+        "depth_margin_mm": 8.4,
         "fits_width": true,
         "fits_depth": true,
         "front_protrusion_allowed": false
@@ -120,7 +120,7 @@
         "name": "battery_2s_5000mah",
         "x": 0,
         "y": 2,
-        "z": 41,
+        "z": 40,
         "width": 43,
         "depth": 22,
         "height": 75,
@@ -129,19 +129,19 @@
         "min": [
           -21.5,
           -9.0,
-          3.5
+          2.5
         ],
         "max": [
           21.5,
           13.0,
-          78.5
+          77.5
         ]
       },
       {
         "name": "xalxmaw_inline_splitter_pair",
         "x": 0,
         "y": 6.5,
-        "z": 86,
+        "z": 85,
         "width": 64,
         "depth": 13.5,
         "height": 13,
@@ -150,40 +150,40 @@
         "min": [
           -32.0,
           -0.25,
-          79.5
+          78.5
         ],
         "max": [
           32.0,
           13.25,
-          92.5
+          91.5
         ]
       },
       {
         "name": "lm2596_buck_current_vertical",
         "x": 0,
         "y": 0,
-        "z": 122,
-        "width": 36,
-        "depth": 14,
-        "height": 57,
+        "z": 122.5,
+        "width": 40,
+        "depth": 10,
+        "height": 60,
         "clearance": 0.4,
         "kind": "component",
         "min": [
-          -18.0,
-          -7.0,
-          93.5
+          -20.0,
+          -5.0,
+          92.5
         ],
         "max": [
-          18.0,
-          7.0,
-          150.5
+          20.0,
+          5.0,
+          152.5
         ]
       },
       {
         "name": "controller_breadboard_assembly",
         "x": 0,
         "y": 0,
-        "z": 175,
+        "z": 177,
         "width": 35,
         "depth": 14,
         "height": 47,
@@ -192,19 +192,19 @@
         "min": [
           -17.5,
           -7.0,
-          151.5
+          153.5
         ],
         "max": [
           17.5,
           7.0,
-          198.5
+          200.5
         ]
       },
       {
         "name": "servo_body",
         "x": 0,
         "y": 18,
-        "z": 219,
+        "z": 221,
         "width": 40.5,
         "depth": 20,
         "height": 37.5,
@@ -213,12 +213,12 @@
         "min": [
           -20.25,
           8.0,
-          200.25
+          202.25
         ],
         "max": [
           20.25,
           28.0,
-          237.75
+          239.75
         ]
       }
     ],
@@ -269,7 +269,7 @@
         "name": "servo_body",
         "x": 0,
         "y": 18,
-        "z": 219,
+        "z": 221,
         "width": 40.5,
         "depth": 20,
         "height": 37.5,
@@ -278,19 +278,19 @@
         "min": [
           -20.25,
           8.0,
-          200.25
+          202.25
         ],
         "max": [
           20.25,
           28.0,
-          237.75
+          239.75
         ]
       },
       {
         "name": "servo_height_adjustment_cradle",
         "x": 0,
         "y": -2,
-        "z": 198.75,
+        "z": 200.75,
         "width": 42,
         "depth": 23,
         "height": 3,
@@ -299,19 +299,19 @@
         "min": [
           -21.0,
           -13.5,
-          197.25
+          199.25
         ],
         "max": [
           21.0,
           9.5,
-          200.25
+          202.25
         ]
       },
       {
         "name": "servo_front_exposure_pocket",
         "x": 0,
         "y": 14,
-        "z": 209,
+        "z": 211,
         "width": 56,
         "depth": 28,
         "height": 58,
@@ -320,12 +320,12 @@
         "min": [
           -28.0,
           0.0,
-          180.0
+          182.0
         ],
         "max": [
           28.0,
           28.0,
-          238.0
+          240.0
         ]
       },
       {
@@ -707,8 +707,8 @@
       5.0
     ],
     "servo_center_z_range_mm": [
-      214.0,
-      224.0
+      216.0,
+      226.0
     ],
     "cradle_dimensions_mm": [
       42.0,
@@ -725,23 +725,23 @@
       28.0,
       58.0
     ],
-    "servo_front_exposure_pocket_center_z_mm": 209.0,
+    "servo_front_exposure_pocket_center_z_mm": 211.0,
     "collision_checks_by_detent": [
       {
         "offset_mm": -5.0,
-        "servo_center_z_mm": 214.0,
+        "servo_center_z_mm": 216.0,
         "raw_component_collisions": [],
         "clearance_envelope_collisions": []
       },
       {
         "offset_mm": 0.0,
-        "servo_center_z_mm": 219.0,
+        "servo_center_z_mm": 221.0,
         "raw_component_collisions": [],
         "clearance_envelope_collisions": []
       },
       {
         "offset_mm": 5.0,
-        "servo_center_z_mm": 224.0,
+        "servo_center_z_mm": 226.0,
         "raw_component_collisions": [],
         "clearance_envelope_collisions": []
       }

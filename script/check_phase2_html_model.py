@@ -134,9 +134,16 @@ def main() -> int:
 
     buck = components["lm2596_buck_current"]
     require(
-        (buck["width"], buck["height"], buck["depth"]) == (57, 36, 14),
-        "LM2596 envelope must remain 57 x 36 x 14mm",
+        (buck["width"], buck["height"], buck["depth"]) == (60, 40, 10),
+        "Purchased LM2596 envelope must remain 60 x 40 x 10mm",
     )
+    require("B0DM946DHG" in buck["source"], "purchased LM2596 source is missing")
+    breadboard = components["mini_breadboard_170_point"]
+    require(
+        (breadboard["width"], breadboard["height"], breadboard["depth"]) == (35, 47, 8.5),
+        "Purchased breadboard envelope must remain 35 W x 47 H x 8.5 D mm",
+    )
+    require("B01KKE602W" in breadboard["source"], "purchased breadboard source is missing")
     splitters = components["xalxmaw_inline_splitter_pair"]
     require(
         (splitters["single_width"], splitters["single_depth"], splitters["single_height"]) == (32, 13.5, 13),
@@ -220,10 +227,10 @@ def main() -> int:
         "inline splitters must remain joined side-by-side",
     )
     require(
-        components["servo_front_exposure_pocket"]["center_z"] == 209,
+        components["servo_front_exposure_pocket"]["center_z"] == 211,
         "Phase 1.5 servo opening no longer matches the fitted service cover",
     )
-    require("centersX: [-16, 16], centerY: -36" in html, "HTML splitter layout drifted")
+    require("centersX: [-16, 16], centerY: -37" in html, "HTML splitter layout drifted")
     require("addBuckModel" in html, "vertical buck detail model is missing")
     require("powerSwitchEnvelope" not in html, "obsolete depth-stacked power-switch block returned")
     require("splitter-positive-to-servo" in html, "direct positive servo branch is missing")
@@ -258,7 +265,7 @@ def main() -> int:
         "OpenSCAD groove centers no longer match the HTML cutaway",
     )
     require(
-        "splitter_x_centers = [-16, 16];" in scad and "splitter_z = 86;" in scad,
+        "splitter_x_centers = [-16, 16];" in scad and "splitter_z = 85;" in scad,
         "OpenSCAD splitter placement no longer matches the clean bench stack",
     )
 

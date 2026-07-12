@@ -2854,7 +2854,7 @@
           <div class="cad-dim"><span class="cad-dot" style="background:#23a06f"></span><span><b>XIAO controller</b><code>21 W x 17.8 H board</code><br>Vendor footprint with separate board thickness, header pins, and USB-C connector shown in the detailed cutaway.</span></div>
           <div class="cad-dim"><span class="cad-dot" style="background:#b8242d"></span><span><b>No-solder breadboard</b><code>35 W x 8.5 D x 47 H</code><br>Standard 170-point board shown vertically in the cutaway, with the XIAO and headers modeled separately on its front face.</span></div>
           <div class="cad-dim"><span class="cad-dot" style="background:#f28b32"></span><span><b>Inline splitter pair</b><code>2 x 32 W x 13.5 D x 13 H</code><br>The purchased 1-in/2-out connectors are physically joined side-by-side at one height while remaining electrically separate, matching the clean bench map.</span></div>
-          <div class="cad-dim"><span class="cad-dot" style="background:#d7b546"></span><span><b>Current buck module</b><code>57 W x 14 D x 36 H</code><br>Verified Seloky LM2596 module envelope. This can shrink later with the low-quiescent regulator plan.</span></div>
+          <div class="cad-dim"><span class="cad-dot" style="background:#d7b546"></span><span><b>Current buck module</b><code>40 W x 10 D x 60 H</code><br>Purchased Seloky B0DM946DHG envelope, rotated vertically. This can shrink later with the low-quiescent regulator plan.</span></div>
           <div class="cad-dim"><span class="cad-dot" style="background:#ef6c38"></span><span><b>Battery cartridge</b><code>43 W x 22 D x 75 H</code><br>Bottom-inserting pack in a 46.5 x 25 x 80.5mm slot, mostly inside the enclosure with only a small pull lip exposed.</span></div>
           <div class="cad-dim"><span class="cad-dot" style="background:#ffd166"></span><span><b>Battery quick swap</b><code>fixed XT30 dock + pull lip</code><br>The controller-side XT30 should be fixed to the housing with slight connector float. The battery slides up into chamfered guides, mates automatically, and releases with a thumb latch or spring tab.</span></div>
           <div class="cad-dim"><span class="cad-dot" style="background:#9bdcff"></span><span><b>Servo power switch</b><code>42 x 26 mm board footprint</code><br>Prototype MOSFET module cuts servo supply power when locked. Final wiring should switch the high side, keep common ground shared, and prevent PWM back-powering when the switch is off.</span></div>
@@ -2953,7 +2953,7 @@
         image: "assets/component-buck-vertical.png",
         description: "Adjustable step-down voltage regulator used to turn the 2S battery voltage into a safe 5.0V logic supply.",
         role: "Steps the 2S battery voltage down to 5.0V for the XIAO after adjustment.",
-        specs: ["LM2596 adjustable buck converter", "Verified module envelope: 57 x 36 x 14mm", "4.0-40V listed input range", "1.25-37V listed output range", "Set and verify 5.0V output before connecting the XIAO", "Unplug XIAO USB-C before feeding buck 5V into 5V/VBUS"],
+        specs: ["LM2596 adjustable buck converter", "Purchased listing: 2.36 x 1.57 x 0.39in", "Rounded CAD envelope: 60 x 40 x 10mm", "4.0-40V listed input range", "1.25-37V listed output range", "Set and verify 5.0V output before connecting the XIAO", "Unplug XIAO USB-C before feeding buck 5V into 5V/VBUS"],
         link: "https://www.amazon.com/dp/B0DM946DHG"
       },
       splitter: {
@@ -3570,13 +3570,13 @@
         enclosure: { width: 72, height: 244, depth: 34, wall: 3.2, radius: 7 },
         plate: { width: 50.8, height: 244, depth: 7, radius: 6 },
         serviceCover: { width: 66, height: 232, depth: 2.2, radius: 6 },
-        servo: { width: 40.5, height: 37.5, depth: 20, centerY: 97 },
+        servo: { width: 40.5, height: 37.5, depth: 20, centerY: 99 },
         servoPocket: { width: 56, height: 58, centerY: 87 },
-        battery: { width: 43, height: 75, depth: 22, centerY: -81 },
-        buck: { width: 36, height: 57, depth: 14, centerY: 0 },
-        xiao: { width: 21, height: 17.8, boardDepth: 1.6, centerX: 0, centerY: 53 },
-        splitter: { width: 32, height: 13, depth: 13.5, centersX: [-16, 16], centerY: -36 },
-        breadboard: { width: 35, height: 47, depth: 8.5, centerX: 0, centerY: 53 },
+        battery: { width: 43, height: 75, depth: 22, centerY: -82 },
+        buck: { width: 40, height: 60, depth: 10, centerY: 0.5 },
+        xiao: { width: 21, height: 17.8, boardDepth: 1.6, centerX: 0, centerY: 55 },
+        splitter: { width: 32, height: 13, depth: 13.5, centersX: [-16, 16], centerY: -37 },
+        breadboard: { width: 35, height: 47, depth: 8.5, centerX: 0, centerY: 55 },
         serviceRacewayDepth: 4,
         wireRouting: {
           startY: -42,
@@ -4287,11 +4287,11 @@
 
       const componentFocusProfiles = Object.freeze({
         overview: { label: "Full assembly", centerX: 0, centerY: 0, distance: 520, rotationX: -0.1, rotationY: -0.26, cutaway: true },
-        servo: { label: "Servo + arm", centerX: 20, centerY: 103, distance: 170, rotationX: -0.04, rotationY: -0.12, cutaway: true },
-        controller: { label: "Controller + breadboard", centerX: 0, centerY: 53, distance: 108, rotationX: -0.03, rotationY: -0.08, cutaway: true },
-        buck: { label: "LM2596 buck", centerX: 0, centerY: 0, distance: 128, rotationX: -0.04, rotationY: -0.1, cutaway: true },
-        splitters: { label: "Inline splitters", centerX: 0, centerY: -36, distance: 120, rotationX: -0.04, rotationY: -0.1, cutaway: true },
-        battery: { label: "2S battery", centerX: 0, centerY: -81, distance: 145, rotationX: -0.04, rotationY: -0.1, cutaway: true },
+        servo: { label: "Servo + arm", centerX: 20, centerY: 105, distance: 170, rotationX: -0.04, rotationY: -0.12, cutaway: true },
+        controller: { label: "Controller + breadboard", centerX: 0, centerY: 55, distance: 108, rotationX: -0.03, rotationY: -0.08, cutaway: true },
+        buck: { label: "LM2596 buck", centerX: 0, centerY: 0.5, distance: 132, rotationX: -0.04, rotationY: -0.1, cutaway: true },
+        splitters: { label: "Inline splitters", centerX: 0, centerY: -37, distance: 120, rotationX: -0.04, rotationY: -0.1, cutaway: true },
+        battery: { label: "2S battery", centerX: 0, centerY: -82, distance: 145, rotationX: -0.04, rotationY: -0.1, cutaway: true },
         wiring: { label: "Wiring harness", centerX: 0, centerY: 19, distance: 250, rotationX: -0.03, rotationY: -0.08, cutaway: true },
         mount: { label: "Plate + enclosure", centerX: 0, centerY: 0, distance: 450, rotationX: -0.1, rotationY: -0.26, cutaway: false }
       });

@@ -73,13 +73,13 @@ The X-Large strips fit, but the side margin is intentionally tight. Add shallow 
 
 The current CAD follows the same bottom-to-top order as the clean bench wiring map:
 
-- Battery center: **x 0, y 2, z 41 mm**
-- Joined XALXMAW splitters: centers at **x -16 and +16, y 6.5, z 86 mm**, each modeled **32 W x 13.5 D x 13 H mm**
-- Buck center: **x 0, y 0, z 122 mm**, rotated vertically to a **36 W x 14 D x 57 H mm** installed envelope
-- Breadboard/XIAO assembly center: **x 0, z 175 mm**, using a **35 W x 8.5 D x 47 H mm** breadboard envelope
-- Servo body center: **x 0, y 18, z 219 mm**; the body intentionally protrudes through the front pocket
-- Servo front exposure pocket: **56 W x 28 D x 58 H mm**, centered around **z 209 mm**
-- Servo-height adjustment cradle: **42 W x 23 D x 3 H mm**, with servo center detents at **214, 219, and 224 mm**
+- Battery center: **x 0, y 2, z 40 mm**
+- Joined XALXMAW splitters: centers at **x -16 and +16, y 6.5, z 85 mm**, each modeled **32 W x 13.5 D x 13 H mm**
+- Buck center: **x 0, y 0, z 122.5 mm**, rotated vertically to a **40 W x 10 D x 60 H mm** installed envelope. This comes from the purchased Seloky B0DM946DHG listing's 2.36 x 1.57 x 0.39in dimensions.
+- Breadboard/XIAO assembly center: **x 0, z 177 mm**, using the purchased LampVPath B01KKE602W **35 W x 8.5 D x 47 H mm** breadboard envelope
+- Servo body center: **x 0, y 18, z 221 mm**; the body intentionally protrudes through the front pocket
+- Servo front exposure pocket: **56 W x 28 D x 58 H mm**, centered around **z 211 mm**
+- Servo-height adjustment cradle: **42 W x 23 D x 3 H mm**, with servo center detents at **216, 221, and 226 mm**
 - Servo-height notch ledges: **6 W x 20 D x 2.2 H mm** left/right supports for each detent
 - Solar skin allowance: **60 W x 3 D x 220 H mm** on the outer/front surface, representing two stacked 110 x 60 mm panels wired in series. This is not an internal solid block; final panel split/placement still needs a print layout that avoids the servo pocket and service-cover seam.
 - Phase 2 hardware: the external LED, solar skin, charger, and servo power-switch board are intentionally excluded from the Phase 1.5 interactive viewer. Their fit envelopes remain future work.
