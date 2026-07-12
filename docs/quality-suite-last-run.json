@@ -11,7 +11,7 @@
     "sharedContractBehaviorVerified": true,
     "warningFree": true
   },
-  "durationSeconds": 4.91,
+  "durationSeconds": 3.59,
   "environment": {
     "arduinoCLI": "arduino-cli  Version: 1.5.1 Commit: Homebrew Date: 2026-06-05T09:39:33Z",
     "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
@@ -22,7 +22,7 @@
   "executedStepCount": 11,
   "expectedStepCount": 11,
   "fullSuitePassed": false,
-  "generatedAt": "2026-07-12T09:31:11.312523+00:00",
+  "generatedAt": "2026-07-12T09:45:07.875206+00:00",
   "limitations": [
     "Architecture and maintainability scores are transparent project heuristics, not Apple-issued grades.",
     "A fast run does not execute iOS adapter tests, firmware compilation, app builds, or HTML/CAD consistency checks.",
@@ -54,7 +54,7 @@
         "-p",
         "test_*.py"
       ],
-      "durationSeconds": 0.75,
+      "durationSeconds": 0.22,
       "exitCode": 0,
       "name": "Quality tooling negative-control tests",
       "status": "pass",
@@ -69,7 +69,7 @@
         "--threshold",
         "90.0"
       ],
-      "durationSeconds": 0.39,
+      "durationSeconds": 0.36,
       "exitCode": 0,
       "name": "Maintainability size/length gate",
       "status": "pass",
@@ -86,7 +86,7 @@
         "--write-graph",
         "docs/dependency-graph.md"
       ],
-      "durationSeconds": 0.13,
+      "durationSeconds": 0.1,
       "exitCode": 0,
       "name": "Low coupling / high modularity / independence gate",
       "status": "pass",
@@ -101,7 +101,7 @@
         "--threshold",
         "95.0"
       ],
-      "durationSeconds": 0.11,
+      "durationSeconds": 0.09,
       "exitCode": 0,
       "name": "iOS/Mac shared ownership and test-registration gate",
       "status": "pass",
@@ -114,7 +114,7 @@
         "python3",
         "script/check_fast_command_contract.py"
       ],
-      "durationSeconds": 0.05,
+      "durationSeconds": 0.04,
       "exitCode": 0,
       "name": "Fast lock/unlock structural contract gate",
       "status": "pass",
@@ -127,7 +127,7 @@
         "python3",
         "script/check_firmware_persistence_contract.py"
       ],
-      "durationSeconds": 0.03,
+      "durationSeconds": 0.02,
       "exitCode": 0,
       "name": "Controller persistence transaction contract gate",
       "status": "pass",
@@ -140,7 +140,7 @@
         "python3",
         "script/check_state_notification_delivery_contract.py"
       ],
-      "durationSeconds": 0.53,
+      "durationSeconds": 0.47,
       "exitCode": 0,
       "name": "Per-subscriber state delivery contract gate",
       "status": "pass",
@@ -153,7 +153,7 @@
         "python3",
         "script/check_mac_window_scene_contract.py"
       ],
-      "durationSeconds": 0.03,
+      "durationSeconds": 0.02,
       "exitCode": 0,
       "name": "Mac single-window scene contract gate",
       "status": "pass",
@@ -166,7 +166,7 @@
         "python3",
         "script/check_ios_launch_performance_proof.py"
       ],
-      "durationSeconds": 0.04,
+      "durationSeconds": 0.03,
       "exitCode": 0,
       "name": "Physical iPhone cold/warm launch performance proof",
       "status": "pass",
@@ -181,11 +181,11 @@
         "--package-path",
         "shared/DoorUnlockerShared"
       ],
-      "durationSeconds": 2.18,
+      "durationSeconds": 1.79,
       "exitCode": 0,
       "name": "Shared package independent tests",
       "status": "pass",
-      "summary": "Test Suite 'All tests' passed at 2026-07-12 04:31:10.601.",
+      "summary": "Test Suite 'All tests' passed at 2026-07-12 04:45:07.406.",
       "warningCount": 0,
       "warnings": []
     },
@@ -196,11 +196,11 @@
         "--package-path",
         "mac/DoorUnlockerAdmin"
       ],
-      "durationSeconds": 0.67,
+      "durationSeconds": 0.44,
       "exitCode": 0,
       "name": "Mac core/admin independent tests",
       "status": "pass",
-      "summary": "Test Suite 'All tests' passed at 2026-07-12 04:31:11.274.",
+      "summary": "Test Suite 'All tests' passed at 2026-07-12 04:45:07.845.",
       "warningCount": 0,
       "warnings": []
     }

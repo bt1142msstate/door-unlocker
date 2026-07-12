@@ -444,7 +444,14 @@
         "y": 6,
         "z": 177
       },
-      "notes": "Board footprint is 21 x 17.8mm. The detailed cutaway renders Seeed's published STEP geometry, converted to an optimized color-preserving GLB, plus separate long header pins to represent the purchased pre-soldered board plugged into the vertical 170-point breadboard."
+      "notes": "Board footprint is 21 x 17.8mm. The detailed cutaway renders Seeed's published STEP geometry, converted to an optimized color-preserving GLB, plus separate long header pins to represent the purchased pre-soldered board plugged into the vertical 170-point breadboard.",
+      "header_geometry": {
+        "pitch": 2.54,
+        "square_pin": 0.64,
+        "modeled_pin_length": 7.5,
+        "insulator_height": 2.54,
+        "source": "Standard 2.54mm straight male header geometry; GCT BG031 specifies 2.54mm pitch and 0.64mm square pins"
+      }
     },
     "mini_breadboard_170_point": {
       "width": 35,

@@ -16,3 +16,16 @@ GLB. It lets the project page load the exact model when opened directly from the
 filesystem without requiring a local web server. The interactive housing model
 adds separate long header pins because the purchased XIAO is the pre-soldered
 variant installed in a breadboard.
+
+The added header geometry uses a 2.54mm pitch, 0.64mm square posts, a 2.54mm
+insulator, and a 7.5mm modeled post length so the pins visibly enter the
+breadboard. The pitch and post section follow standard straight male-header
+dimensions; the post length is the fitted visualization allowance for this
+pre-soldered board and should be checked with calipers before a final enclosure.
+
+No downloaded LM2596 model is currently bundled. Public CAD models found during
+the July 2026 review represent the common approximately 45 x 21 x 13mm module
+without the voltmeter display, rather than the purchased Seloky B0DM946DHG
+60 x 40 x 10mm module. The viewer therefore uses a dimension-locked detailed
+procedural model instead of presenting a mismatched third-party CAD file as the
+real part.

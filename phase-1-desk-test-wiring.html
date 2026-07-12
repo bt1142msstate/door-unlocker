@@ -3395,8 +3395,8 @@
         servoBlack: new THREE.MeshStandardMaterial({ color: 0x090b0a, roughness: 0.56, metalness: 0.12 }),
         servoArm: new THREE.MeshStandardMaterial({ color: 0x0b0d0c, roughness: 0.3, metalness: 0.72 }),
         rubber: new THREE.MeshPhysicalMaterial({ color: 0x050606, roughness: 0.19, clearcoat: 0.82, clearcoatRoughness: 0.16 }),
-        battery: new THREE.MeshPhysicalMaterial({ color: 0x090b0a, roughness: 0.3, clearcoat: 0.42, clearcoatRoughness: 0.28 }),
-        batteryWrap: new THREE.MeshStandardMaterial({ color: 0x171a18, roughness: 0.44, metalness: 0.02 }),
+        battery: new THREE.MeshPhysicalMaterial({ color: 0x080a09, roughness: 0.2, clearcoat: 0.9, clearcoatRoughness: 0.14, sheen: 0.28, sheenRoughness: 0.34 }),
+        batteryWrap: new THREE.MeshPhysicalMaterial({ color: 0x111412, roughness: 0.22, metalness: 0.01, clearcoat: 0.82, clearcoatRoughness: 0.16 }),
         batteryLabel: new THREE.MeshStandardMaterial({ color: 0x8b9630, roughness: 0.68 }),
         xt30: new THREE.MeshStandardMaterial({ color: 0xf0a71b, roughness: 0.48 }),
         pcbBlue: new THREE.MeshStandardMaterial({ color: 0x1d4f92, roughness: 0.58, metalness: 0.04 }),
@@ -3575,6 +3575,7 @@
         battery: { width: 43, height: 75, depth: 22, centerY: -82 },
         buck: { width: 40, height: 60, depth: 10, centerY: 0.5 },
         xiao: { width: 21, height: 17.8, boardDepth: 1.6, centerX: 0, centerY: 55 },
+        xiaoHeader: { pitch: 2.54, pinSquare: 0.64, pinLength: 7.5, insulatorHeight: 2.54, rowCenterX: 8.9 },
         splitter: { width: 32, height: 13, depth: 13.5, centersX: [-16, 16], centerY: -37 },
         breadboard: { width: 35, height: 47, depth: 8.5, centerX: 0, centerY: 55 },
         serviceRacewayDepth: 4,
@@ -3870,6 +3871,29 @@
         trimScrew.position.set(-9, d.centerY - 15, board.position.z + 7.4);
         internalsGroup.add(trimScrew);
 
+        const regulator = roundedRectMesh(9.5, 7.2, 2.2, 0.7, materials.slot, 0.06);
+        regulator.position.set(-10.5, d.centerY + 1.5, board.position.z + 2.7);
+        internalsGroup.add(regulator);
+        [-3.2, -1.6, 0, 1.6, 3.2].forEach((offsetY) => {
+          const lead = boxMesh(2.8, 0.45, 0.35, materials.terminal);
+          lead.position.set(-4.4, d.centerY + 1.5 + offsetY, board.position.z + 2.05);
+          internalsGroup.add(lead);
+        });
+
+        const diode = roundedRectMesh(5.8, 3.4, 2.2, 0.7, materials.servoBlack, 0.04);
+        diode.position.set(-3, d.centerY - 8.5, board.position.z + 2.7);
+        internalsGroup.add(diode);
+
+        [-9, 15].forEach((offsetY) => {
+          const displayButton = roundedRectMesh(4.4, 4.4, 2.6, 0.7, materials.slot, 0.05);
+          displayButton.position.set(14.5, d.centerY + offsetY, board.position.z + 2.9);
+          internalsGroup.add(displayButton);
+          const buttonCap = cylinderMesh(1.35, 1, materials.terminal, 20);
+          buttonCap.rotation.x = Math.PI / 2;
+          buttonCap.position.set(14.5, d.centerY + offsetY, board.position.z + 4.65);
+          internalsGroup.add(buttonCap);
+        });
+
         [[-10, 13], [4, -12]].forEach(([x, y]) => {
           const capacitor = cylinderMesh(3.2, 7, materials.capacitor, 28);
           capacitor.rotation.x = Math.PI / 2;
@@ -3917,17 +3941,18 @@
         xiaoBoard.position.set(xiao.centerX, xiao.centerY, xiaoZ);
         xiaoFallback.add(xiaoBoard);
 
-        [-8.9, 8.9].forEach((pinX) => {
-          const headerCarrier = roundedRectMesh(2.2, 17.8, 2, 0.55, materials.slot, 0.06);
-          headerCarrier.position.set(pinX + xiao.centerX, xiao.centerY, xiaoZ - 1.3);
+        const headerSpec = modelDimensions.xiaoHeader;
+        [-headerSpec.rowCenterX, headerSpec.rowCenterX].forEach((pinX) => {
+          const headerCarrier = roundedRectMesh(2.2, 17.8, headerSpec.insulatorHeight, 0.55, materials.slot, 0.06);
+          headerCarrier.position.set(pinX + xiao.centerX, xiao.centerY, xiaoZ - 1.55);
           internalsGroup.add(headerCarrier);
           for (let pin = 0; pin < 7; pin += 1) {
-            const pinY = xiao.centerY - 7.62 + pin * 2.54;
+            const pinY = xiao.centerY - headerSpec.pitch * 3 + pin * headerSpec.pitch;
             const pad = roundedRectMesh(2.2, 1.8, 0.45, 0.7, materials.gold, 0.03);
             pad.position.set(pinX + xiao.centerX, pinY, xiaoZ + 1);
             xiaoFallback.add(pad);
-            const header = boxMesh(0.8, 0.8, 5, materials.gold);
-            header.position.set(pinX + xiao.centerX, pinY, xiaoZ - 2.2);
+            const header = boxMesh(headerSpec.pinSquare, headerSpec.pinSquare, headerSpec.pinLength, materials.gold);
+            header.position.set(pinX + xiao.centerX, pinY, xiaoZ - 2.8);
             internalsGroup.add(header);
           }
         });

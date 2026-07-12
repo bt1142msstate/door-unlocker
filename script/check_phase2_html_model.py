@@ -238,6 +238,12 @@ def main() -> int:
     require("servo-ground-brown-pigtail" in html and "materials.wireBrown" in html, "servo brown ground pigtail is missing")
     require("materials.wireBlue" not in html, "obsolete blue 5V harness returned")
     require("labelPlane(9, 18" in html and 'lines: ["5.0"]' in html, "realistic 5.0V buck display detail is missing")
+    require(
+        "const regulator = roundedRectMesh" in html
+        and "const diode = roundedRectMesh" in html
+        and "const displayButton = roundedRectMesh" in html,
+        "detailed procedural buck components are missing",
+    )
     require("xiaoFallback" in html and "xiaoFallback.visible = false" in html, "XIAO fallback handling is missing")
     require('dataset.xiaoModel = "official-step"' in html, "official XIAO runtime marker is missing")
     require(
@@ -247,6 +253,15 @@ def main() -> int:
         "official XIAO placement is no longer aligned from the published 2.54mm header grid",
     )
     require("headerCarrier" in html, "pre-soldered XIAO header carriers are missing")
+    require(
+        "xiaoHeader: { pitch: 2.54, pinSquare: 0.64, pinLength: 7.5, insulatorHeight: 2.54" in html
+        and "boxMesh(headerSpec.pinSquare, headerSpec.pinSquare, headerSpec.pinLength" in html,
+        "XIAO header geometry must retain standard 2.54mm pitch and 0.64mm square pins",
+    )
+    require(
+        components["xiao_nrf52840_sense_pinned"]["header_geometry"]["square_pin"] == 0.64,
+        "XIAO header dimension contract drifted",
+    )
     require(XIAO_GLB_PATH.is_file(), "official XIAO GLB asset is missing")
     require(XIAO_WRAPPER_PATH.is_file(), "official XIAO filesystem wrapper is missing")
     glb = XIAO_GLB_PATH.read_bytes()
