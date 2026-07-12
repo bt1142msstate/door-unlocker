@@ -264,9 +264,13 @@ def main() -> int:
     require('dataset.xiaoModel = "official-step"' in html, "official XIAO runtime marker is missing")
     require(
         "publishedHeaderDatum" in html
-        and "new THREE.Vector3(1.741, center.y, -6.1114)" in html
-        and 'dataset.xiaoAlignment = "published-header-grid"' in html,
-        "official XIAO placement is no longer aligned from the published 2.54mm header grid",
+        and "headerCenterX: 1.741" in html
+        and "headerCenterZ: -6.1114" in html
+        and "headerEdgeZ: [-15.0014, 2.7786]" in html
+        and 'officialHeaders.name = "xiaoOfficialCadAlignedHeaders"' in html
+        and "officialModel.add(officialHeaders)" in html
+        and 'dataset.xiaoAlignment = "official-cad-hole-centers"' in html,
+        "official XIAO headers must remain parented to the exact CAD plated-hole centers",
     )
     require("headerCarrier" in html, "pre-soldered XIAO header carriers are missing")
     require(
@@ -282,7 +286,12 @@ def main() -> int:
     )
     require(
         "header.position.set(pinX + xiao.centerX, pinY, xiaoZ - 1.7)" in html,
-        "XIAO header pins must traverse the controller PCB and seat inside the breadboard",
+        "fallback XIAO header pins must traverse the controller PCB and seat inside the breadboard",
+    )
+    require(
+        "header.position.set(pinX, officialCad.pinCenterY, edgeZ)" in html
+        and "fallbackHeaderHardware.visible = false" in html,
+        "official XIAO header pins must replace the fallback overlay and share the CAD transform",
     )
     require(
         components["xiao_nrf52840_sense_pinned"]["header_geometry"]["square_pin"] == 0.64,

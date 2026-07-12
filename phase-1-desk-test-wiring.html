@@ -3585,6 +3585,12 @@
           insulatorHeight: 2.54,
           rowCenterX: 8.89
         },
+        xiaoOfficialCad: {
+          headerCenterX: 1.741,
+          headerCenterZ: -6.1114,
+          headerEdgeZ: [-15.0014, 2.7786],
+          pinCenterY: -2
+        },
         splitter: {
           width: 32,
           height: 13,
@@ -3957,6 +3963,9 @@
         const xiaoZ = boardZ + breadboard.depth / 2 + 3.2;
         const xiaoFallback = new THREE.Group();
         internalsGroup.add(xiaoFallback);
+        const fallbackHeaderHardware = new THREE.Group();
+        fallbackHeaderHardware.name = "xiaoFallbackHeaderHardware";
+        internalsGroup.add(fallbackHeaderHardware);
         const xiaoBoard = roundedRectMesh(xiao.width, xiao.height, xiao.boardDepth, 1.8, materials.xiaoPCB, 0.08);
         xiaoBoard.position.set(xiao.centerX, xiao.centerY, xiaoZ);
         xiaoFallback.add(xiaoBoard);
@@ -3965,7 +3974,7 @@
         [-headerSpec.rowCenterX, headerSpec.rowCenterX].forEach((pinX) => {
           const headerCarrier = roundedRectMesh(2.2, 17.8, headerSpec.insulatorHeight, 0.55, materials.slot, 0.06);
           headerCarrier.position.set(pinX + xiao.centerX, xiao.centerY, xiaoZ - 1.55);
-          internalsGroup.add(headerCarrier);
+          fallbackHeaderHardware.add(headerCarrier);
           for (let pin = 0; pin < 7; pin += 1) {
             const pinY = xiao.centerY - headerSpec.pitch * 3 + pin * headerSpec.pitch;
             const pad = cylinderMesh(1.05, 0.32, materials.gold, 28);
@@ -3985,7 +3994,7 @@
               0.08
             );
             header.position.set(pinX + xiao.centerX, pinY, xiaoZ - 1.7);
-            internalsGroup.add(header);
+            fallbackHeaderHardware.add(header);
           }
         });
 
@@ -4034,10 +4043,50 @@
               object.castShadow = true;
               object.receiveShadow = true;
             });
+            const officialBounds = new THREE.Box3().setFromObject(officialModel);
+            const officialCenter = officialBounds.getCenter(new THREE.Vector3());
 
-            const bounds = new THREE.Box3().setFromObject(officialModel);
-            const center = bounds.getCenter(new THREE.Vector3());
-            const publishedHeaderDatum = new THREE.Vector3(1.741, center.y, -6.1114);
+            // Build the pre-soldered headers in the official STEP coordinate
+            // system. Parenting them to the CAD model guarantees every post
+            // remains concentric with its castellated plated-hole center.
+            const officialCad = modelDimensions.xiaoOfficialCad;
+            const officialHeaders = new THREE.Group();
+            officialHeaders.name = "xiaoOfficialCadAlignedHeaders";
+            officialCad.headerEdgeZ.forEach((edgeZ) => {
+              const carrier = roundedRectMesh(
+                17.8,
+                2.2,
+                headerSpec.insulatorHeight,
+                0.55,
+                materials.slot,
+                0.06
+              );
+              carrier.rotation.x = Math.PI / 2;
+              carrier.position.set(officialCad.headerCenterX, -0.75, edgeZ);
+              officialHeaders.add(carrier);
+
+              for (let pin = 0; pin < 7; pin += 1) {
+                const pinX = officialCad.headerCenterX - headerSpec.pitch * 3 + pin * headerSpec.pitch;
+                const header = roundedRectMesh(
+                  headerSpec.pinWidth,
+                  headerSpec.pinWidth,
+                  headerSpec.pinLength,
+                  headerSpec.pinCornerRadius,
+                  materials.gold,
+                  0.08
+                );
+                header.rotation.x = Math.PI / 2;
+                header.position.set(pinX, officialCad.pinCenterY, edgeZ);
+                officialHeaders.add(header);
+              }
+            });
+            officialModel.add(officialHeaders);
+
+            const publishedHeaderDatum = new THREE.Vector3(
+              officialCad.headerCenterX,
+              officialCenter.y,
+              officialCad.headerCenterZ
+            );
             officialModel.position.sub(publishedHeaderDatum);
 
             const anchor = new THREE.Group();
@@ -4051,8 +4100,9 @@
             anchor.add(faceOrientation);
             internalsGroup.add(anchor);
             xiaoFallback.visible = false;
+            fallbackHeaderHardware.visible = false;
             mountViewer.dataset.xiaoModel = "official-step";
-            mountViewer.dataset.xiaoAlignment = "published-header-grid";
+            mountViewer.dataset.xiaoAlignment = "official-cad-hole-centers";
           }, () => {
             xiaoFallback.visible = true;
           });
