@@ -1447,6 +1447,11 @@
       transform: translateY(8px);
     }
 
+    .mount-viewer[data-component-focus]:not([data-component-focus="overview"]) .model-callouts {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+
     .model-callout {
       min-width: 0;
       padding: 9px 10px;
@@ -1508,6 +1513,80 @@
       display: grid;
       gap: 10px;
       align-content: start;
+    }
+
+    .component-inspector {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid rgba(117,217,159,.28);
+      border-radius: 8px;
+      background: rgba(22,31,25,.88);
+      box-shadow: inset 0 0 0 1px rgba(243,247,241,.03);
+    }
+
+    .component-inspector-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+    }
+
+    .component-inspector-head span {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 950;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .component-inspector-head b {
+      color: var(--green);
+      font-size: 12px;
+      line-height: 1.2;
+      text-align: right;
+    }
+
+    .component-focus-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .component-focus-button {
+      display: grid;
+      grid-template-columns: 10px minmax(0, 1fr);
+      gap: 8px;
+      align-items: center;
+      min-height: 36px;
+      padding: 7px 9px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #181f1a;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.15;
+      font-weight: 850;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .component-focus-button:hover {
+      border-color: var(--line-strong);
+      color: var(--ink);
+    }
+
+    .component-focus-button[aria-pressed="true"] {
+      border-color: rgba(117,217,159,.52);
+      background: #214733;
+      color: #ecfff2;
+    }
+
+    .component-focus-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,.18) inset;
     }
 
     .mount-spec {
@@ -1797,7 +1876,8 @@
 
       .controls,
       dialog,
-      .detail-button {
+      .detail-button,
+      .component-inspector {
         display: none;
       }
 
@@ -2620,6 +2700,22 @@
         </div>
 
         <div class="mount-spec-grid" aria-label="Door mounting plate fit notes">
+          <div class="component-inspector" aria-label="3D component inspector">
+            <div class="component-inspector-head">
+              <span>Component inspector</span>
+              <b id="mountFocusReadout" aria-live="polite">Full assembly</b>
+            </div>
+            <div class="component-focus-list" role="group" aria-label="Focus the 3D model on a component">
+              <button class="component-focus-button" type="button" data-model-focus="overview" aria-pressed="true"><span class="component-focus-swatch" style="background:#75d99f"></span><span>Full assembly</span></button>
+              <button class="component-focus-button" type="button" data-model-focus="servo" aria-pressed="false"><span class="component-focus-swatch" style="background:#4a64d8"></span><span>Servo + arm</span></button>
+              <button class="component-focus-button" type="button" data-model-focus="controller" aria-pressed="false"><span class="component-focus-swatch" style="background:#b8242d"></span><span>Controller + breadboard</span></button>
+              <button class="component-focus-button" type="button" data-model-focus="buck" aria-pressed="false"><span class="component-focus-swatch" style="background:#1d4f92"></span><span>LM2596 buck</span></button>
+              <button class="component-focus-button" type="button" data-model-focus="splitters" aria-pressed="false"><span class="component-focus-swatch" style="background:#f18b2f"></span><span>Inline splitters</span></button>
+              <button class="component-focus-button" type="button" data-model-focus="battery" aria-pressed="false"><span class="component-focus-swatch" style="background:#8b9630"></span><span>2S battery</span></button>
+              <button class="component-focus-button" type="button" data-model-focus="wiring" aria-pressed="false"><span class="component-focus-swatch" style="background:#ffce45"></span><span>Wiring harness</span></button>
+              <button class="component-focus-button" type="button" data-model-focus="mount" aria-pressed="false"><span class="component-focus-swatch" style="background:#303a33"></span><span>Plate + enclosure</span></button>
+            </div>
+          </div>
           <div class="mount-spec"><span class="mount-dot" style="background:#253128"></span><span><b>Door mounting plate</b><code>2 in W x 244 mm H, 7 mm thick</code><br>Flush fixed backplate sized to hide behind the 244 mm enclosure, so the mount mostly disappears once the sled is installed.</span></div>
           <div class="mount-spec"><span class="mount-dot" style="background:#75d99f"></span><span><b>Dual captive dovetail rails</b><code>30 mm spacing, 224 mm solid rail</code><br>Raised male rails are formula-driven trapezoids: 8 mm neck, 14.35 mm head, 5.5 mm depth, and 0.40 mm per-side channel clearance. Rails are open-ended for easier slide-on removal.</span></div>
           <div class="mount-spec"><span class="mount-dot" style="background:#3c453f"></span><span><b>Printed parts</b><code>3 total</code><br>Print one flush hidden door mounting plate, one main enclosure sled, and one near full-height sliding service cover.</span></div>
@@ -3212,6 +3308,8 @@
     const harnessToggle = document.getElementById("mountHarnessToggle");
     const autoRotateToggle = document.getElementById("mountAutoRotateToggle");
     const resetViewButton = document.getElementById("mountResetView");
+    const componentFocusButtons = [...document.querySelectorAll("[data-model-focus]")];
+    const componentFocusReadout = document.getElementById("mountFocusReadout");
 
     async function startMountingPlateModel() {
       if (!mountCanvas || !mountViewer) return;
@@ -4180,9 +4278,23 @@
       let targetRotationX = -0.1;
       let targetRotationY = -0.26;
       let cameraDistance = 520;
+      let targetPivotX = 0;
+      let targetPivotY = 0;
+      let activeComponentFocus = "overview";
       let dragging = false;
       let lastPointerX = 0;
       let lastPointerY = 0;
+
+      const componentFocusProfiles = Object.freeze({
+        overview: { label: "Full assembly", centerX: 0, centerY: 0, distance: 520, rotationX: -0.1, rotationY: -0.26, cutaway: true },
+        servo: { label: "Servo + arm", centerX: 20, centerY: 103, distance: 170, rotationX: -0.04, rotationY: -0.12, cutaway: true },
+        controller: { label: "Controller + breadboard", centerX: 0, centerY: 53, distance: 108, rotationX: -0.03, rotationY: -0.08, cutaway: true },
+        buck: { label: "LM2596 buck", centerX: 0, centerY: 0, distance: 128, rotationX: -0.04, rotationY: -0.1, cutaway: true },
+        splitters: { label: "Inline splitters", centerX: 0, centerY: -36, distance: 120, rotationX: -0.04, rotationY: -0.1, cutaway: true },
+        battery: { label: "2S battery", centerX: 0, centerY: -81, distance: 145, rotationX: -0.04, rotationY: -0.1, cutaway: true },
+        wiring: { label: "Wiring harness", centerX: 0, centerY: 19, distance: 250, rotationX: -0.03, rotationY: -0.08, cutaway: true },
+        mount: { label: "Plate + enclosure", centerX: 0, centerY: 0, distance: 450, rotationX: -0.1, rotationY: -0.26, cutaway: false }
+      });
 
       const defaultZ = { door: 0, adhesive: 0, plate: 0, enclosure: 0, internals: 0, cover: 0 };
       const explodedZ = { door: -16, adhesive: -8, plate: 0, enclosure: 22, internals: 40, cover: 74 };
@@ -4200,9 +4312,10 @@
       }
 
       function updateInspectionVisibility() {
+        const componentCloseUp = activeComponentFocus !== "overview" && activeComponentFocus !== "mount";
         materials.cover.opacity = cutaway ? 0.24 : 0.94;
         materials.cover.depthWrite = !cutaway;
-        coverGroup.visible = !harnessFocus;
+        coverGroup.visible = !harnessFocus && !componentCloseUp;
         internalsGroup.visible = cutaway || exploded || harnessFocus;
         updateBackingVisibility();
       }
@@ -4234,26 +4347,54 @@
           setAutoRotate(false);
           explodeToggle?.setAttribute("aria-pressed", "false");
           cutawayToggle?.setAttribute("aria-pressed", "true");
-          targetRotationX = -0.04;
-          targetRotationY = -0.12;
-          cameraDistance = 410;
-        } else {
-          cameraDistance = 520;
         }
         updateInspectionVisibility();
       }
 
+      function updateComponentFocusControls() {
+        componentFocusButtons.forEach((button) => {
+          button.setAttribute("aria-pressed", button.dataset.modelFocus === activeComponentFocus ? "true" : "false");
+        });
+        const profile = componentFocusProfiles[activeComponentFocus];
+        if (componentFocusReadout && profile) componentFocusReadout.textContent = profile.label;
+        mountViewer.dataset.componentFocus = activeComponentFocus;
+      }
+
+      function focusComponent(key) {
+        const profile = componentFocusProfiles[key];
+        if (!profile) return;
+
+        activeComponentFocus = key;
+        exploded = false;
+        cutaway = profile.cutaway;
+        explodeToggle?.setAttribute("aria-pressed", "false");
+        cutawayToggle?.setAttribute("aria-pressed", cutaway ? "true" : "false");
+        setHarnessFocus(key === "wiring");
+        setAutoRotate(false);
+        targetPivotX = -profile.centerX;
+        targetPivotY = -profile.centerY;
+        targetRotationX = profile.rotationX;
+        targetRotationY = profile.rotationY;
+        cameraDistance = profile.distance;
+        mountViewer.dataset.targetCameraDistance = String(profile.distance);
+        updateComponentFocusControls();
+        updateInspectionVisibility();
+      }
+
       function resetView() {
-        targetRotationX = -0.1;
-        targetRotationY = -0.26;
-        cameraDistance = harnessFocus ? 410 : 520;
+        focusComponent("overview");
+        setAutoRotate(true);
       }
 
       explodeToggle?.addEventListener("click", () => setExploded(!exploded));
       cutawayToggle?.addEventListener("click", () => setCutaway(!cutaway));
-      harnessToggle?.addEventListener("click", () => setHarnessFocus(!harnessFocus));
+      harnessToggle?.addEventListener("click", () => focusComponent(harnessFocus ? "overview" : "wiring"));
       autoRotateToggle?.addEventListener("click", () => setAutoRotate(!autoRotate));
       resetViewButton?.addEventListener("click", resetView);
+      componentFocusButtons.forEach((button) => {
+        button.addEventListener("click", () => focusComponent(button.dataset.modelFocus));
+      });
+      updateComponentFocusControls();
       updateInspectionVisibility();
 
       mountViewer.addEventListener("pointerdown", (event) => {
@@ -4286,7 +4427,9 @@
 
       mountViewer.addEventListener("wheel", (event) => {
         event.preventDefault();
-        cameraDistance = Math.max(harnessFocus ? 360 : 440, Math.min(860, cameraDistance + event.deltaY * 0.18));
+        const minimumDistance = activeComponentFocus === "overview" ? 70 : 55;
+        cameraDistance = Math.max(minimumDistance, Math.min(860, cameraDistance + event.deltaY * 0.22));
+        mountViewer.dataset.targetCameraDistance = cameraDistance.toFixed(1);
       }, { passive: false });
 
       function resizeRenderer() {
@@ -4313,7 +4456,10 @@
 
         pivot.rotation.x += (targetRotationX - pivot.rotation.x) * 0.1;
         pivot.rotation.y += (targetRotationY - pivot.rotation.y) * 0.1;
+        pivot.position.x += (targetPivotX - pivot.position.x) * 0.1;
+        pivot.position.y += (targetPivotY - pivot.position.y) * 0.1;
         camera.position.z += (cameraDistance - camera.position.z) * 0.1;
+        mountViewer.dataset.cameraDistance = camera.position.z.toFixed(1);
         updateBackingVisibility();
 
         const z = exploded ? explodedZ : defaultZ;
