@@ -10,7 +10,7 @@ public final class DoorFirmwareDfuManager: NSObject {
     private let controllerServiceUUID = CBUUID(string: "7A5A2000-2B8D-4C3E-94E7-0B3C0DDAAF10")
     private let dfuNameFragments = ["dfu", "adadfu", "dfutarg"]
     private let dfuQueue: DispatchQueue
-    private let log: Logger
+    let log: Logger
     private let tuning: DoorFirmwareDfuTuning
     private weak var delegate: DoorFirmwareDfuManagerDelegate?
     private var central: CBCentralManager?
@@ -19,12 +19,13 @@ public final class DoorFirmwareDfuManager: NSObject {
     private var completionRecoveryTask: Task<Void, Never>?
     private var dfuInitiator: DFUServiceInitiator?
     private var dfuController: DFUServiceController?
-    private var isActive = false
-    private var updateStartedAt: Date?
-    private var uploadStartedAt: Date?
-    private var lastLoggedProgressBucket: Int?
-    private var packageBytes = 0
+    var isActive = false
+    var updateStartedAt: Date?
+    var uploadStartedAt: Date?
+    var lastLoggedProgressBucket: Int?
+    var packageBytes = 0
     private var detectsNormalControllerFirmware = false
+    private var allowsBootloaderUpload = true
 
     public init(
         delegate: DoorFirmwareDfuManagerDelegate,
@@ -39,10 +40,15 @@ public final class DoorFirmwareDfuManager: NSObject {
         super.init()
     }
 
-    public func start(packageURL: URL, detectsNormalControllerFirmware: Bool = false) {
+    public func start(
+        packageURL: URL,
+        detectsNormalControllerFirmware: Bool = false,
+        allowsBootloaderUpload: Bool = true
+    ) {
         cancel()
         isActive = true
         self.detectsNormalControllerFirmware = detectsNormalControllerFirmware
+        self.allowsBootloaderUpload = allowsBootloaderUpload
         self.packageURL = packageURL
         updateStartedAt = Date()
         uploadStartedAt = nil
@@ -58,6 +64,7 @@ public final class DoorFirmwareDfuManager: NSObject {
             scanTimeout=\(scanTimeout, privacy: .public)
             """
         )
+        emitTelemetry("scan_started", "packageBytes=\(packageBytes) prn=\(prn) objectDelay=\(objectDelay)")
         notify(status: "Looking for firmware update mode", progress: nil)
         central = CBCentralManager(delegate: self, queue: .main)
         scanTimeoutTask = Task { @MainActor [weak self] in
@@ -88,6 +95,7 @@ public final class DoorFirmwareDfuManager: NSObject {
         lastLoggedProgressBucket = nil
         packageBytes = 0
         detectsNormalControllerFirmware = false
+        allowsBootloaderUpload = true
     }
 }
 
@@ -114,6 +122,13 @@ extension DoorFirmwareDfuManager {
         return dfuNameFragments.contains { normalizedName.contains($0) }
     }
 
+    private func isNormalControllerFirmware(name: String?, advertisedServices: [CBUUID]) -> Bool {
+        DoorFirmwareRecoveryIdentity.isNormalController(
+            name: name,
+            advertisesControllerService: advertisedServices.contains(controllerServiceUUID)
+        )
+    }
+
     private func serviceList(from advertisementData: [String: Any]) -> String {
         let advertisedServices = advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] ?? []
         if advertisedServices.isEmpty {
@@ -135,6 +150,7 @@ extension DoorFirmwareDfuManager {
         scanTimeoutTask = nil
         uploadStartedAt = Date()
         log.info("DFU bootloader selected after \(self.elapsedText(since: self.updateStartedAt), privacy: .public)")
+        emitTelemetry("bootloader_selected")
         notify(status: "Starting firmware upload", progress: 0)
 
         do {
@@ -164,7 +180,7 @@ extension DoorFirmwareDfuManager {
         }
     }
 
-    private func notify(status: String, progress: Int?, estimatedSecondsRemaining: Int? = nil) {
+    func notify(status: String, progress: Int?, estimatedSecondsRemaining: Int? = nil) {
         guard isActive else { return }
         let update = DoorFirmwareDfuUpdate(
             status: status,
@@ -176,7 +192,7 @@ extension DoorFirmwareDfuManager {
         }
     }
 
-    private func finish() {
+    func finish() {
         guard isActive else { return }
         isActive = false
         scanTimeoutTask?.cancel()
@@ -191,6 +207,7 @@ extension DoorFirmwareDfuManager {
         let totalElapsed = elapsedText(since: updateStartedAt)
         let uploadElapsed = elapsedText(since: uploadStartedAt)
         log.info("DFU completed total=\(totalElapsed, privacy: .public) upload=\(uploadElapsed, privacy: .public)")
+        emitTelemetry("completed", "upload=\(uploadElapsed)")
         updateStartedAt = nil
         uploadStartedAt = nil
         lastLoggedProgressBucket = nil
@@ -200,7 +217,7 @@ extension DoorFirmwareDfuManager {
         }
     }
 
-    private func fail(_ message: String) {
+    func fail(_ message: String) {
         guard isActive else { return }
         isActive = false
         scanTimeoutTask?.cancel()
@@ -214,6 +231,7 @@ extension DoorFirmwareDfuManager {
         dfuInitiator = nil
         packageURL = nil
         log.error("DFU failed after \(self.elapsedText(since: self.updateStartedAt), privacy: .public): \(message, privacy: .public)")
+        emitTelemetry("failed", "message=\(message)")
         updateStartedAt = nil
         uploadStartedAt = nil
         lastLoggedProgressBucket = nil
@@ -223,12 +241,20 @@ extension DoorFirmwareDfuManager {
         }
     }
 
-    private func elapsedText(since start: Date?) -> String {
+    func elapsedText(since start: Date?) -> String {
         guard let start else { return "n/a" }
         return String(format: "%.1fs", Date().timeIntervalSince(start))
     }
 
-    private func estimatedSecondsRemaining(progress: Int, averageBytesPerSecond: Double) -> Int? {
+    func emitTelemetry(_ event: String, _ details: String? = nil) {
+#if DEBUG
+        let elapsed = updateStartedAt.map { Date().timeIntervalSince($0) } ?? 0
+        let suffix = details.map { " \($0)" } ?? ""
+        print(String(format: "DUFirmware %.3fs %@%@", elapsed, event, suffix))
+#endif
+    }
+
+    func estimatedSecondsRemaining(progress: Int, averageBytesPerSecond: Double) -> Int? {
         DoorFirmwareProgressEstimation.secondsRemaining(
             progress: progress,
             packageBytes: packageBytes,
@@ -237,7 +263,7 @@ extension DoorFirmwareDfuManager {
         )
     }
 
-    private func schedulePostUploadRecoveryIfNeeded(
+    func schedulePostUploadRecoveryIfNeeded(
         after delay: Duration,
         replacingExisting: Bool = false
     ) {
@@ -264,6 +290,7 @@ extension DoorFirmwareDfuManager {
         dfuController = nil
         dfuInitiator = nil
         detectsNormalControllerFirmware = true
+        allowsBootloaderUpload = false
         central?.stopScan()
         central?.delegate = nil
         central = CBCentralManager(delegate: self, queue: .main)
@@ -298,20 +325,33 @@ extension DoorFirmwareDfuManager: CBCentralManagerDelegate {
     ) {
         guard isActive else { return }
         let advertisedServices = advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] ?? []
-        if detectsNormalControllerFirmware {
-            if advertisedServices.contains(controllerServiceUUID) {
-                log.info("Normal controller firmware detected during DFU recovery scan")
-                cancel()
-                Task { @MainActor [weak self] in
-                    self?.delegate?.firmwareDfuManagerDidDetectControllerFirmware()
-                }
-            }
-            // Recovery probing must not select a still-advertising bootloader
-            // and accidentally start a second upload in the same session.
-            return
-        }
         let name = peripheral.name ?? advertisementData[CBAdvertisementDataLocalNameKey] as? String
-        guard shouldUsePeripheral(name: name, advertisementData: advertisementData) else { return }
+        let role: DoorFirmwareRecoveryPeripheralRole
+        if isNormalControllerFirmware(name: name, advertisedServices: advertisedServices) {
+            role = .normalController
+        } else if shouldUsePeripheral(name: name, advertisementData: advertisementData) {
+            role = .bootloader
+        } else {
+            role = .unrelated
+        }
+        switch DoorFirmwareRecoveryScanPolicy.action(
+            role: role,
+            detectsNormalControllerFirmware: detectsNormalControllerFirmware,
+            allowsBootloaderUpload: allowsBootloaderUpload
+        ) {
+        case .notifyNormalController:
+            log.info("Normal controller firmware detected during DFU recovery scan")
+            emitTelemetry("normal_firmware_detected")
+            cancel()
+            Task { @MainActor [weak self] in
+                self?.delegate?.firmwareDfuManagerDidDetectControllerFirmware()
+            }
+            return
+        case .ignore:
+            return
+        case .startBootloaderUpload:
+            break
+        }
         let bootloaderName = name ?? "unknown"
         let peripheralID = peripheral.identifier.uuidString
         let rssi = RSSI.intValue
@@ -324,67 +364,5 @@ extension DoorFirmwareDfuManager: CBCentralManagerDelegate {
             """
         )
         startDfu(target: peripheral)
-    }
-}
-
-extension DoorFirmwareDfuManager: DFUServiceDelegate, DFUProgressDelegate, LoggerDelegate {
-    public func dfuStateDidChange(to state: DFUState) {
-        guard isActive else { return }
-        switch state {
-        case .completed:
-            notify(status: "Firmware uploaded. Reconnecting...", progress: 100)
-            finish()
-        case .aborted:
-            fail("Firmware update was aborted.")
-        default:
-            notify(status: state.description, progress: nil)
-        }
-    }
-
-    public func dfuError(_ error: DFUError, didOccurWithMessage message: String) {
-        guard isActive else { return }
-        fail(message)
-    }
-
-    public func dfuProgressDidChange(
-        for part: Int,
-        outOf totalParts: Int,
-        to progress: Int,
-        currentSpeedBytesPerSecond: Double,
-        avgSpeedBytesPerSecond: Double
-    ) {
-        guard isActive else { return }
-        let status = totalParts > 1 ? "Uploading firmware part \(part) of \(totalParts)" : "Uploading firmware"
-        let averageKBs = max(0, avgSpeedBytesPerSecond / 1024)
-        let eta = estimatedSecondsRemaining(progress: progress, averageBytesPerSecond: avgSpeedBytesPerSecond)
-        notify(
-            status: "\(status) - \(Int(averageKBs.rounded())) KB/s",
-            progress: progress,
-            estimatedSecondsRemaining: eta
-        )
-        if progress >= 100 {
-            schedulePostUploadRecoveryIfNeeded(after: .seconds(12), replacingExisting: true)
-        }
-
-        let bucket = min(100, (progress / 10) * 10)
-        if bucket >= 10, bucket != lastLoggedProgressBucket {
-            lastLoggedProgressBucket = bucket
-            let uploadElapsed = elapsedText(since: uploadStartedAt)
-            log.info(
-                """
-                DFU progress \(progress, privacy: .public)% \
-                currentBps=\(currentSpeedBytesPerSecond, privacy: .public) \
-                avgBps=\(avgSpeedBytesPerSecond, privacy: .public) \
-                uploadElapsed=\(uploadElapsed, privacy: .public)
-                """
-            )
-        }
-    }
-
-    public func logWith(_ level: LogLevel, message: String) {
-        log.debug("NordicDFU[\(level.name(), privacy: .public)] \(message, privacy: .public)")
-#if DEBUG
-        print("DoorFirmwareDFU[\(level.name())] \(message)")
-#endif
     }
 }

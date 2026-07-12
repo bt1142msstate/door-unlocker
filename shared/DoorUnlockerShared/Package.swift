@@ -13,7 +13,7 @@ let package = Package(
         .library(name: "DoorUnlockerDFU", targets: ["DoorUnlockerDFU"])
     ],
     dependencies: [
-        .package(url: "https://github.com/NordicSemiconductor/IOS-DFU-Library", from: "4.16.0")
+        .package(path: "../../vendor/IOS-DFU-Library")
     ],
     targets: [
         .target(name: "DoorUnlockerShared"),

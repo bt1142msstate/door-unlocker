@@ -16,6 +16,9 @@ DFU_PRN="${DFU_PRN:-}"
 DFU_OBJECT_PREP_DELAY="${DFU_OBJECT_PREP_DELAY:-}"
 DFU_SCAN_TIMEOUT="${DFU_SCAN_TIMEOUT:-}"
 DFU_CONNECTION_TIMEOUT="${DFU_CONNECTION_TIMEOUT:-}"
+INTERRUPT_AT_PROGRESS="${INTERRUPT_AT_PROGRESS:-}"
+INTERRUPT_MODE="${INTERRUPT_MODE:-app-termination}"
+INTERRUPT_RELAUNCH_DELAY="${INTERRUPT_RELAUNCH_DELAY:-2}"
 RUN_ID="${RUN_ID:-$(date -u +"%Y%m%dT%H%M%SZ")}"
 OTA_TELEMETRY_DIR="${OTA_TELEMETRY_DIR:-$ROOT_DIR/docs/ota-telemetry}"
 OTA_REPORT_PATH="${OTA_REPORT_PATH:-$ROOT_DIR/docs/ota-last-run.json}"
@@ -44,6 +47,10 @@ Environment:
   DFU_OBJECT_PREP_DELAY  Optional debug benchmark object-prep delay override.
   DFU_SCAN_TIMEOUT       Optional debug benchmark DFU bootloader scan timeout.
   DFU_CONNECTION_TIMEOUT Optional debug benchmark DFU connection timeout.
+  INTERRUPT_AT_PROGRESS  Abruptly terminate the app at this upload percentage,
+                         or prompt for controller power removal, depending on mode.
+  INTERRUPT_MODE         app-termination (default) or controller-power-loss.
+  INTERRUPT_RELAUNCH_DELAY Seconds to wait before relaunch. Defaults to 2.
   RUN_ID                 Optional telemetry run id. Defaults to UTC timestamp.
   OTA_TELEMETRY_DIR      Defaults to docs/ota-telemetry.
   OTA_REPORT_PATH        Defaults to docs/ota-last-run.json.
@@ -115,6 +122,23 @@ if [[ -z "$TARGET_FIRMWARE" ]]; then
   )"
 fi
 
+if [[ -n "$INTERRUPT_AT_PROGRESS" ]] && {
+  ! [[ "$INTERRUPT_AT_PROGRESS" =~ ^[0-9]+$ ]] \
+    || (( INTERRUPT_AT_PROGRESS < 1 || INTERRUPT_AT_PROGRESS > 99 ));
+}; then
+  echo "INTERRUPT_AT_PROGRESS must be an integer from 1 through 99." >&2
+  exit 2
+fi
+
+if [[ "$INTERRUPT_MODE" != "app-termination" && "$INTERRUPT_MODE" != "controller-power-loss" ]]; then
+  echo "INTERRUPT_MODE must be app-termination or controller-power-loss." >&2
+  exit 2
+fi
+if [[ -n "$INTERRUPT_AT_PROGRESS" && "$INTERRUPT_MODE" == "controller-power-loss" && ! -t 0 ]]; then
+  echo "Controller power-loss injection requires an interactive terminal." >&2
+  exit 2
+fi
+
 if [[ -z "$TARGET_FIRMWARE" ]]; then
   echo "Could not determine target firmware version." >&2
   exit 1
@@ -170,6 +194,15 @@ mkdir -p "$OTA_TELEMETRY_DIR" "$(dirname "$OTA_REPORT_PATH")"
 launch_json="$OTA_TELEMETRY_DIR/${RUN_ID}-launch.json"
 launch_log="$OTA_TELEMETRY_DIR/${RUN_ID}-launch.log"
 app_console_log="$OTA_TELEMETRY_DIR/${RUN_ID}-app-console.log"
+timing_json="$OTA_TELEMETRY_DIR/${RUN_ID}-timing.json"
+resume_launch_json="$OTA_TELEMETRY_DIR/${RUN_ID}-resume-launch.json"
+resume_launch_log="$OTA_TELEMETRY_DIR/${RUN_ID}-resume-launch.log"
+process_snapshot_json="$OTA_TELEMETRY_DIR/${RUN_ID}-processes.json"
+terminate_json="$OTA_TELEMETRY_DIR/${RUN_ID}-terminate.json"
+terminate_log="$OTA_TELEMETRY_DIR/${RUN_ID}-terminate.log"
+interruption_performed=0
+interrupted_progress=""
+interruption_epoch=""
 
 write_ota_report() {
   local result="$1"
@@ -178,6 +211,10 @@ write_ota_report() {
   local message="$4"
   local ended_at
   ended_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+  if [[ -f "$app_console_log" ]]; then
+    "$ROOT_DIR/script/summarize_ota_timing.py" "$app_console_log" --output "$timing_json" >/dev/null || true
+  fi
 
   RESULT="$result" \
   VERIFIED_OVER="$verified_over" \
@@ -196,6 +233,15 @@ write_ota_report() {
   DFU_OBJECT_PREP_DELAY="$DFU_OBJECT_PREP_DELAY" \
   DFU_SCAN_TIMEOUT="$DFU_SCAN_TIMEOUT" \
   DFU_CONNECTION_TIMEOUT="$DFU_CONNECTION_TIMEOUT" \
+  INTERRUPT_AT_PROGRESS="$INTERRUPT_AT_PROGRESS" \
+  INTERRUPT_MODE="$INTERRUPT_MODE" \
+  INTERRUPTION_PERFORMED="$interruption_performed" \
+  INTERRUPTED_PROGRESS="$interrupted_progress" \
+  INTERRUPTION_EPOCH="$interruption_epoch" \
+  INTERRUPT_RELAUNCH_DELAY="$INTERRUPT_RELAUNCH_DELAY" \
+  RESUME_LAUNCH_LOG="$resume_launch_log" \
+  RESUME_LAUNCH_JSON="$resume_launch_json" \
+  TIMING_JSON="$timing_json" \
   VERIFIED_NOTIFICATION_NAME="${verified_notification_name:-}" \
   OBSERVER_LOG="${observer_log:-}" \
   OBSERVER_JSON="${observer_json:-}" \
@@ -232,6 +278,14 @@ def optional_float(value):
     except ValueError:
         return None
 
+def optional_json(value):
+    if not value or not Path(value).exists():
+        return None
+    try:
+        return json.loads(Path(value).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
 report = {
     "runId": os.environ["RUN_ID"],
     "result": os.environ["RESULT"],
@@ -256,6 +310,16 @@ report = {
         "scanTimeout": optional_float(os.environ["DFU_SCAN_TIMEOUT"]),
         "connectionTimeout": optional_float(os.environ["DFU_CONNECTION_TIMEOUT"]),
     },
+    "faultInjection": {
+        "type": os.environ["INTERRUPT_MODE"] if os.environ["INTERRUPTION_PERFORMED"] == "1" else None,
+        "requestedProgress": optional_int(os.environ["INTERRUPT_AT_PROGRESS"]),
+        "observedProgress": optional_int(os.environ["INTERRUPTED_PROGRESS"]),
+        "interruptionEpoch": optional_int(os.environ["INTERRUPTION_EPOCH"]),
+        "relaunchDelaySeconds": optional_float(os.environ.get("INTERRUPT_RELAUNCH_DELAY", "")),
+        "resumeLaunchLog": optional_existing_path(os.environ["RESUME_LAUNCH_LOG"]),
+        "resumeLaunchJson": optional_existing_path(os.environ["RESUME_LAUNCH_JSON"]),
+    },
+    "timing": optional_json(os.environ["TIMING_JSON"]),
     "verification": {
         "darwinNotification": optional_path(os.environ["VERIFIED_NOTIFICATION_NAME"]),
         "observerLog": optional_existing_path(os.environ["OBSERVER_LOG"]),
@@ -289,6 +353,90 @@ cleanup_observer() {
   fi
 }
 trap cleanup_observer EXIT
+
+latest_firmware_progress() {
+  [[ -f "$app_console_log" ]] || return 0
+  sed -n 's/.*DUFirmware [0-9.]*s progress percent=\([0-9][0-9]*\).*/\1/p' \
+    "$app_console_log" | tail -n 1
+}
+
+main_app_pid() {
+  rm -f "$process_snapshot_json"
+  xcrun devicectl device info processes \
+    --device "$DEVICE_UDID" \
+    --json-output "$process_snapshot_json" >/dev/null
+  /usr/bin/python3 - "$process_snapshot_json" <<'PY'
+import json
+import sys
+
+processes = json.load(open(sys.argv[1], encoding="utf-8"))["result"]["runningProcesses"]
+for process in processes:
+    executable = process.get("executable", "")
+    if executable.endswith("/DoorUnlocker.app/DoorUnlocker"):
+        print(process["processIdentifier"])
+        break
+PY
+}
+
+interrupt_and_relaunch_app() {
+  local pid
+  pid="$(main_app_pid)"
+  if [[ -z "$pid" ]]; then
+    echo "Could not locate the running Door Unlocker process for fault injection." >&2
+    return 1
+  fi
+
+  interruption_epoch="$(date +%s)"
+  echo "Fault injection: killing Door Unlocker pid=$pid at ${interrupted_progress}% upload."
+  xcrun devicectl device process terminate \
+    --device "$DEVICE_UDID" \
+    --pid "$pid" \
+    --kill \
+    --json-output "$terminate_json" \
+    --log-output "$terminate_log" >/dev/null
+  interruption_performed=1
+
+  if [[ -n "$app_console_pid" ]]; then
+    wait "$app_console_pid" 2>/dev/null || true
+    app_console_pid=""
+  fi
+  sleep "$INTERRUPT_RELAUNCH_DELAY"
+  printf '\nDUFaultInjection relaunch_after_app_termination\n' >> "$app_console_log"
+  xcrun devicectl device \
+    --json-output "$resume_launch_json" \
+    --log-output "$resume_launch_log" \
+    process launch \
+    --device "$DEVICE_UDID" \
+    --console \
+    "$BUNDLE_ID" >> "$app_console_log" 2>&1 &
+  app_console_pid=$!
+  sleep 2
+  if ! kill -0 "$app_console_pid" 2>/dev/null; then
+    echo "Door Unlocker exited immediately after the recovery relaunch." >&2
+    return 1
+  fi
+  echo "Door Unlocker relaunched; waiting for journal recovery and BLE verification."
+}
+
+interrupt_controller_power() {
+  interruption_epoch="$(date +%s)"
+  interruption_performed=1
+  echo
+  echo "POWER-LOSS INJECTION at ${interrupted_progress}%:"
+  echo "Disconnect controller power now, wait at least two seconds, reconnect power, then press Return."
+  command -v say >/dev/null 2>&1 && say "Disconnect and reconnect the door unlocker controller now" || true
+  read -r
+  printf '\nDUFaultInjection controller_power_loss_confirmed progress=%s\n' \
+    "$interrupted_progress" >> "$app_console_log"
+  echo "Power cycle confirmed; waiting for automatic journal recovery and BLE verification."
+}
+
+perform_progress_interruption() {
+  case "$INTERRUPT_MODE" in
+    app-termination) interrupt_and_relaunch_app ;;
+    controller-power-loss) interrupt_controller_power ;;
+  esac
+}
 
 verified_notification_name=""
 if [[ "$WIRELESS_ONLY" == "1" ]]; then
@@ -327,6 +475,7 @@ if [[ -n "$DFU_CONNECTION_TIMEOUT" ]]; then
   launch_args+=("--debug-dfu-connection-timeout" "$DFU_CONNECTION_TIMEOUT")
 fi
 
+start_epoch="$(date +%s)"
 if [[ "$WIRELESS_ONLY" == "1" ]]; then
   # Keep a console client attached for the duration of a foreground OTA proof.
   # Without this, a locked lab phone may suspend the app after CoreBluetooth
@@ -357,12 +506,18 @@ else
     "${launch_args[@]}"
 fi
 
-start_epoch="$(date +%s)"
 if [[ "$WIRELESS_ONLY" == "1" ]]; then
   echo "Wireless-only mode: iPhone OTA is running without controller USB-C."
   echo "Waiting for BLE verification from the iPhone app..."
   deadline=$((start_epoch + POLL_SECONDS))
   while (( "$(date +%s)" <= deadline )); do
+    if [[ -n "$INTERRUPT_AT_PROGRESS" && "$interruption_performed" == "0" ]]; then
+      interrupted_progress="$(latest_firmware_progress)"
+      if [[ -n "$interrupted_progress" ]] && (( interrupted_progress >= INTERRUPT_AT_PROGRESS )); then
+        perform_progress_interruption
+      fi
+    fi
+
     if [[ -n "$observer_log" ]] && grep -Fq "Observed '$verified_notification_name'" "$observer_log"; then
       end_epoch="$(date +%s)"
       duration=$((end_epoch - start_epoch))

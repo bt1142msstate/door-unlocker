@@ -123,6 +123,9 @@ def main() -> int:
     mac_firmware_request = ROOT / "mac/DoorUnlockerAdmin/Sources/DoorUnlockerAdmin/Stores/Modules/Firmware/DoorAdminStore+FirmwareRequest.swift"
     presentation = ROOT / "shared/DoorUnlockerShared/Sources/DoorUnlockerShared/DoorControlPresentationPolicy.swift"
     firmware_snapshot_policy = ROOT / "shared/DoorUnlockerShared/Sources/DoorUnlockerShared/DoorFirmwareSnapshotPolicy.swift"
+    firmware_transport_ownership = ROOT / "shared/DoorUnlockerShared/Sources/DoorUnlockerShared/DoorFirmwareTransportOwnership.swift"
+    firmware_recovery_scan_policy = ROOT / "shared/DoorUnlockerShared/Sources/DoorUnlockerShared/DoorFirmwareRecoveryScanPolicy.swift"
+    firmware_dfu_manager = ROOT / "shared/DoorUnlockerShared/Sources/DoorUnlockerDFU/DoorFirmwareDfuManager.swift"
     firmware = ROOT / "firmware/DoorUnlockerXiao/DoorUnlockerXiao.ino"
 
     require(ios, [
@@ -150,7 +153,20 @@ def main() -> int:
             failures.append("iOS secure-session recovery must preserve trusted pairing and link authentication")
     require(ios_firmware, [
         "var isFirmwareDfuTransportActive: Bool",
-        "firmwareUpdateEntryCommandSent || pendingFirmwareUpdatePackageURL == nil",
+        "DoorFirmwareTransportOwnership.isDfuTransportActive(",
+    ], failures)
+    require(firmware_transport_ownership, [
+        "isUpdateRunning && (entryCommandSent || !hasPendingPackage)",
+    ], failures)
+    require(firmware_recovery_scan_policy, [
+        "case .normalController where detectsNormalControllerFirmware:",
+        "case .bootloader where !detectsNormalControllerFirmware || allowsBootloaderUpload:",
+        "return .startBootloaderUpload",
+    ], failures)
+    require(firmware_dfu_manager, [
+        "allowsBootloaderUpload: Bool = true",
+        "DoorFirmwareRecoveryScanPolicy.action(",
+        "allowsBootloaderUpload = false",
     ], failures)
     require(ios_bluetooth, [
         "guard !isFirmwareDfuTransportActive",

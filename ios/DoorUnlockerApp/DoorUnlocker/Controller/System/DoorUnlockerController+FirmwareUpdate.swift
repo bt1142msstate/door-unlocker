@@ -11,8 +11,11 @@ import WidgetKit
 
 extension DoorUnlockerController {
     var isFirmwareDfuTransportActive: Bool {
-        isFirmwareUpdateRunning &&
-            (firmwareUpdateEntryCommandSent || pendingFirmwareUpdatePackageURL == nil)
+        DoorFirmwareTransportOwnership.isDfuTransportActive(
+            isUpdateRunning: isFirmwareUpdateRunning,
+            entryCommandSent: firmwareUpdateEntryCommandSent,
+            hasPendingPackage: pendingFirmwareUpdatePackageURL != nil
+        )
     }
 
     func startFirmwareUpdate(fromExternalPackageURL url: URL) {

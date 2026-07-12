@@ -1,0 +1,21 @@
+{
+  "appTerminationCases": [
+    {"passed": false, "phase": "upload-30", "report": null},
+    {"passed": false, "phase": "upload-80", "report": null}
+  ],
+  "bluetoothLossRecoveryPassed": false,
+  "bootloaderArtifactSha256": "replace-with-exact-candidate-hash",
+  "bootloaderVersion": "0.11.0",
+  "macWirelessUpdatePassed": false,
+  "pairingsAndSettingsPreserved": false,
+  "passed": false,
+  "powerLossCases": [
+    {"passed": false, "phase": "erase", "report": null},
+    {"passed": false, "phase": "upload-30", "report": null},
+    {"passed": false, "phase": "upload-80", "report": null},
+    {"passed": false, "phase": "post-validation", "report": null}
+  ],
+  "powerLossRollbackPassed": false,
+  "publicKeyId": "replace-with-public-key-id",
+  "unsignedPackageRejected": false
+}

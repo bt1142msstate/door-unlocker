@@ -169,6 +169,10 @@ def base_steps(args: argparse.Namespace) -> list[tuple[str, list[str]]]:
 
     steps.extend([
         (
+            "Signed OTA package and bootloader candidate contract",
+            ["python3", "script/check_ota_bootloader_contract.py"],
+        ),
+        (
             "Fast lock/unlock structural contract gate",
             ["python3", "script/check_fast_command_contract.py"],
         ),
@@ -193,16 +197,26 @@ def base_steps(args: argparse.Namespace) -> list[tuple[str, list[str]]]:
             [XCODE_SWIFT, "test", "--package-path", "shared/DoorUnlockerShared"],
         ),
         (
+            "Patched NordicDFU transport independent tests",
+            [XCODE_SWIFT, "test", "--package-path", "vendor/IOS-DFU-Library"],
+        ),
+        (
             "Mac core/admin independent tests",
             [XCODE_SWIFT, "test", "--package-path", "mac/DoorUnlockerAdmin"],
         ),
     ])
 
     if getattr(args, "firmware_release", False):
-        steps.append((
-            "Current package physical BLE OTA release proof",
-            ["python3", "script/check_firmware_release_proof.py"],
-        ))
+        steps.extend([
+            (
+                "Installed signed dual-bank bootloader and rollback proof",
+                ["python3", "script/check_ota_bootloader_contract.py", "--require-production"],
+            ),
+            (
+                "Current package physical BLE OTA release proof",
+                ["python3", "script/check_firmware_release_proof.py"],
+            ),
+        ])
 
     if not args.fast:
         steps.extend(

@@ -14,6 +14,8 @@ FQBN="${XIAO_FQBN:-Seeeduino:nrf52:xiaonRF52840Sense}"
 XIAO_OPTIMIZATION_FLAG="${XIAO_OPTIMIZATION_FLAG:--Os}"
 UF2CONV="${UF2CONV:-$HOME/Library/Arduino15/packages/Seeeduino/hardware/nrf52/1.1.13/tools/uf2conv/uf2conv.py}"
 NRFUTIL="${NRFUTIL:-$HOME/Library/Arduino15/packages/Seeeduino/hardware/nrf52/1.1.13/tools/adafruit-nrfutil/macos/adafruit-nrfutil}"
+FIRMWARE_SIGNING_KEY="${DOOR_FIRMWARE_SIGNING_KEY:-$HOME/Library/Application Support/Door Unlocker/FirmwareSigning/firmware-signing-key.pem}"
+SIGNING_TOOL_DIR="${DOOR_NRFUTIL_SIGNING_TOOL_DIR:-${TMPDIR:-/tmp}/door-unlocker-nrfutil-signing}"
 DFU_DEVICE_TYPE="${DFU_DEVICE_TYPE:-0x0052}"
 DFU_SOFTDEVICE_REQ="${DFU_SOFTDEVICE_REQ:-0x0123}"
 XIAO_VOLUME="${XIAO_VOLUME:-/Volumes/XIAO-SENSE}"
@@ -65,6 +67,18 @@ discover_usb_port() {
   printf '%s\n' "$discovered"
 }
 
+signed_nrfutil_command() {
+  local python="$SIGNING_TOOL_DIR/bin/python3"
+  if [[ ! -x "$python" ]]; then
+    /usr/bin/python3 -m venv "$SIGNING_TOOL_DIR"
+    "$SIGNING_TOOL_DIR/bin/pip" install --quiet \
+      "adafruit-nrfutil==0.5.3.post16" \
+      "ecdsa==0.19.1" \
+      "intelhex==2.3.0"
+  fi
+  printf '%s\n' "$python"
+}
+
 close_admin_app_for_serial_recovery() {
   osascript -e 'tell application id "io.github.bt1142msstate.DoorUnlockerAdmin" to quit' >/dev/null 2>&1 || true
   pkill -x DoorUnlocker >/dev/null 2>&1 || true
@@ -113,11 +127,23 @@ cp -X "$UF2_PATH" "$DIST_UF2_PATH"
 echo "UF2 ready at $DIST_UF2_PATH"
 
 echo "Creating BLE DFU package..."
-"$NRFUTIL" dfu genpkg \
-  --dev-type "$DFU_DEVICE_TYPE" \
-  --sd-req "$DFU_SOFTDEVICE_REQ" \
-  --application "$TMP_BUILD/DoorUnlockerXiao.ino.hex" \
-  "$DFU_ZIP_PATH"
+if [[ -f "$FIRMWARE_SIGNING_KEY" ]]; then
+  signing_python="$(signed_nrfutil_command)"
+  "$signing_python" "$ROOT_DIR/script/adafruit_nrfutil_py3.py" dfu genpkg \
+    --dev-type "$DFU_DEVICE_TYPE" \
+    --sd-req "$DFU_SOFTDEVICE_REQ" \
+    --application "$TMP_BUILD/DoorUnlockerXiao.ino.hex" \
+    --key-file "$FIRMWARE_SIGNING_KEY" \
+    "$DFU_ZIP_PATH"
+  echo "BLE DFU package signed with the local Door Unlocker firmware key."
+else
+  "$NRFUTIL" dfu genpkg \
+    --dev-type "$DFU_DEVICE_TYPE" \
+    --sd-req "$DFU_SOFTDEVICE_REQ" \
+    --application "$TMP_BUILD/DoorUnlockerXiao.ino.hex" \
+    "$DFU_ZIP_PATH"
+  echo "Warning: generated an unsigned DFU package because no signing key was found." >&2
+fi
 cp -X "$DFU_ZIP_PATH" "$DIST_DFU_ZIP_PATH"
 mkdir -p "$(dirname "$BUNDLED_DFU_ZIP_PATH")"
 cp -X "$DFU_ZIP_PATH" "$BUNDLED_DFU_ZIP_PATH"

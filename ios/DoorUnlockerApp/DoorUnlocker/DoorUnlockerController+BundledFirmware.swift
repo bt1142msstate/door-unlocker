@@ -131,6 +131,8 @@ extension DoorUnlockerController {
     func clearPendingBundledFirmwareUpdate() {
         firmwareUpdateRecoveryRetryTask?.cancel()
         firmwareUpdateRecoveryRetryTask = nil
+        firmwareDfuStartFallbackTask?.cancel()
+        firmwareDfuStartFallbackTask = nil
         let defaults = UserDefaults.standard
         defaults.removeObject(forKey: Self.pendingBundledFirmwareUpdateVersionKey)
         defaults.removeObject(forKey: Self.pendingBundledFirmwareUpdateStartedAtKey)
@@ -181,7 +183,10 @@ extension DoorUnlockerController {
         guard hasExplicitPendingUpdate,
               let targetVersion = pendingVersion else { return }
 
-        startInterruptedBundledFirmwareDfuResume(targetVersion: targetVersion, packageURL: packageURL)
+        probeNormalFirmwareBeforeInterruptedDfuResume(
+            targetVersion: targetVersion,
+            packageURL: packageURL
+        )
     }
 
     @discardableResult
@@ -219,5 +224,35 @@ extension DoorUnlockerController {
         recordStartupTelemetry("firmware_resume_dfu", details: targetVersion, once: false)
 #endif
         resumeFirmwareDfuUpload(packageURL: packageURL, status: "Resuming firmware update")
+    }
+
+    private func probeNormalFirmwareBeforeInterruptedDfuResume(
+        targetVersion: String,
+        packageURL: URL
+    ) {
+        persistPendingBundledFirmwareUpdate(targetVersion: targetVersion)
+        autoBundledFirmwareUpdateAttemptedVersion = nil
+        firmwareUpdateStatus = "Checking interrupted firmware update"
+#if DEBUG
+        recordStartupTelemetry("firmware_recovery_normal_probe", details: targetVersion, once: false)
+#endif
+        requestControllerConnectionIfNeeded()
+        firmwareDfuStartFallbackTask?.cancel()
+        firmwareDfuStartFallbackTask = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(4)) } catch { return }
+            await MainActor.run {
+                guard let self,
+                      !self.isFirmwareUpdateRunning,
+                      !self.isReady,
+                      self.firmwareUpdateJournalStore.load() != nil else {
+                    return
+                }
+                self.firmwareDfuStartFallbackTask = nil
+                self.startInterruptedBundledFirmwareDfuResume(
+                    targetVersion: targetVersion,
+                    packageURL: packageURL
+                )
+            }
+        }
     }
 }

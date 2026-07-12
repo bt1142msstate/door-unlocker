@@ -1,0 +1,18 @@
+{
+  "applicationStartAddress": "0x27000",
+  "artifact": "DoorUnlocker-XIAO-Sense-0.11.0-signed-dualbank.hex",
+  "artifactSha256": "c1ce4c372659a04a7c572fa197a31bffb7657cd57108f63d0d20b257eb978358",
+  "board": "xiao_nrf52840_ble_sense",
+  "bootloaderStartAddress": "0xF4000",
+  "bootloaderVersion": "0.11.0",
+  "dualBankApplicationMaxBytes": 397312,
+  "dualBankFirmware": true,
+  "forceUnsignedUF2": false,
+  "migrationArtifact": "DoorUnlocker-XIAO-Sense-0.11.0-signed-dualbank-migration.uf2",
+  "migrationArtifactSha256": "5320b8bf0adc2f0df27b6a52a58a9971f3cbdc0ae15dfffa4b674fcd88c5a5cb",
+  "publicKeyId": "573f0793ca490344789edc67ac72c062e53d24d7dcba0c37d6d33f12b37d2d97",
+  "reservedApplicationDataBytes": 40960,
+  "signedFirmwareRequired": true,
+  "softDeviceFirmwareId": "0x0123",
+  "softDeviceVersion": "7.3.0"
+}

@@ -11,7 +11,7 @@ import WidgetKit
 
 extension DoorUnlockerController {
     func scan() {
-        guard !isFirmwareUpdateRunning else {
+        guard !isFirmwareDfuTransportActive else {
             connectionState = "Updating firmware"
             return
         }

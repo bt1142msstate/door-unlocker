@@ -1,127 +1,170 @@
-# OTA Firmware Update Speed Plan
+# OTA Firmware Update Speed And Recovery Plan
 
-Date: 2026-07-08
+Date: 2026-07-12
 
-## Current Baseline
+## Current Evidence
 
-- Stable firmware: `0.1.0`
-- DFU package: `dist/DoorUnlockerXiao-dfu.zip`
-- Package size: `130,219` bytes
-- Application payload: `129,344` bytes
-- Fastest verified iPhone wireless proof: `94s`, verified over BLE by post-DFU `firmware_version:0.1.0`
-- Latest one-run iPhone wireless benchmark: stable PRN `8` / object delay `0.4s` completed in `113s`; PRN `8` / object delay `0.3s` completed in `114s`
-- Current production DFU tuning: PRN `8`, object-prep delay `0.4s`, scan timeout `18s`, connection timeout `20s`
+- Controller firmware source: `0.1.26`
+- Signed application payload: `134,452` bytes (`134,444` bytes reported by the Arduino sketch build before DFU packaging)
+- Signed DFU package: `DoorUnlockerXiao-dfu.zip`, DFU manifest `0.8`
+- Installed factory bootloader observed from `INFO_UF2.TXT`: Adafruit/Seeed `0.11.0`, S140 `7.3.0`
+- Installed wireless update protocol observed by Nordic DFU: Legacy DFU init-packet format `0.8`
+- Latest clean iPhone wireless-only proof: `92s` end to end
+- Measured upload portion of that proof: `82.68s`
+- Installed-bootloader ATT MTU: effectively the legacy `23`-byte path
+- Shared production tuning: PRN `8`, object-preparation delay `0.4s`
 
-## Fault-Tolerance Status
+The `92s` proof used a trusted iPhone, a signed BLE OTA-entry command, no controller USB connection, DFU upload, reboot, secure reconnection, and a post-reboot `firmware_version:0.1.26` notification. It proves the existing wireless path works. It does not prove atomic rollback or signed-package enforcement in the installed factory bootloader. Bootloader release `0.11.0` and Legacy DFU packet format `0.8` are separate version numbers.
 
-The iOS and macOS clients now share a durable firmware-update journal and recovery policy. The journal records the package path, byte count, SHA-256 fingerprint, target version, phase, attempts, last progress, and failure reason. It is retained until normal controller firmware reports the expected version.
+On July 12, the controller was recovered from its UF2 bootloader to application `0.1.26`. The protected controller state remained intact: two trusted devices, lock name, timeout, and servo angles all survived. The custom signed/dual-bank candidate was not installed because no J-Link/SWD recovery probe was attached.
 
-- Closing and reopening either app restarts the DFU client against the saved transaction.
-- A dropped BLE link or controller power loss pauses the transaction and schedules another bootloader/normal-mode probe instead of deleting it.
-- If the bootloader returns, Nordic DFU resume remains enabled and can continue from the offset reported by the bootloader.
-- If old normal firmware returns, the trusted app enters update mode again and cleanly restarts the transfer.
-- If the new normal firmware returns, the apps verify its version and clear the journal.
-- The Mac stores its staged ZIP under Application Support using same-volume replacement rather than relying on a temporary file.
+## Recovery Design
 
-This improves client recovery, but it does **not** yet prove atomic controller rollback. The Adafruit bootloader documents dual-bank rollback and signed-firmware enforcement as optional build settings that are disabled by default. The current `dist/DoorUnlockerXiao-dfu.zip` uses the legacy `0.5` manifest with a 14-byte init packet and does not prove that the installed bootloader enforces a signing key. Before a production release can claim safe power-loss rollback and bootloader-level authenticity:
+iOS and macOS share a durable firmware-update journal. It records the staged package, byte count, SHA-256 fingerprint, target version, phase, attempt count, last progress, and failure reason. The transaction is retained until normal firmware reports the expected version.
 
-1. Read and record the installed XIAO bootloader version/configuration.
-2. Build or install a board-correct bootloader with `DUALBANK_FW=1` and `SIGNED_FW=1` using a protected project signing key.
-3. Preserve a tested USB-C/J-Link recovery path for the one-time bootloader migration.
-4. Run repeated physical power cuts during erase, transfer, validation, activation, and first boot.
-5. Require `script/check_ota_bootloader_contract.py --require-production` plus the hardware fault-injection report before marking the OTA path production-ready.
+After an app relaunch or interrupted transport, recovery is normal-mode first:
 
-The measured end-to-end throughput ranges from about `1.12 KB/s` to `1.35 KB/s` using the full zip size. This includes app launch, secure OTA-entry command, bootloader scan, Nordic DFU setup, upload, reboot, reconnect, and firmware-version verification, so the raw upload throughput is higher than the end-to-end number.
+1. Probe the normal Door Unlocker service/name for four seconds.
+2. If expected firmware responds, verify it and clear the journal.
+3. If old firmware responds, use the trusted secure command to re-enter DFU and restart cleanly.
+4. If normal firmware does not respond, scan for the Nordic/Adafruit bootloader and restart the Legacy DFU transfer from the saved package.
+5. Keep the journal on Bluetooth loss, app termination, controller power loss, validation failure, or reboot timeout.
 
-## Primary Constraints
+The normal-first order matters because the legacy bootloader may reboot the previous valid application when its DFU central disappears. Searching only for the bootloader would leave both apps stuck even though healthy normal firmware had returned.
 
-1. The project uses Nordic Secure DFU through `NordicDFU` `4.16.0` on iOS and macOS. Nordic documents that PRNs can be disabled on modern iOS/macOS, but also warns that slow flash handling can fail or become very slow without PRNs.
-2. Nordic documents Secure DFU object-prep delay as a flash-preparation guard. For SDK 15-17 style bootloaders, the documented safe range is `0.3s` to `0.4s`; too little delay can trigger PRN `1` fallback, making DFU very slow.
-3. The Adafruit nRF52 bootloader README states that OTA PRN must be `8` or less or the bootloader can run out of memory. That makes PRN `8` the highest safe production value for the current XIAO/Adafruit bootloader path.
-4. Apple's BLE guidance requires accessory connection parameters that preserve discovery and connection stability. It also notes that some Apple devices scale a `15ms` fixed interval to `30ms`, so firmware-side connection-interval forcing is not a reliable path to instant speed.
-5. Nordic's S140 throughput tables show that BLE can move far more data than this project currently sees in ideal conditions, especially with larger ATT MTU and data length. The current bottleneck is therefore the bootloader/client DFU path and flash-write pacing, not the nRF52840 radio alone.
+The Mac stages its ZIP under Application Support with same-volume replacement. Neither app relies on a temporary file surviving relaunch.
 
-## What Is Already Maxed Safely
+## Signed Dual-Bank Candidate
 
-- PRN is already at `8`, the highest value documented as safe for Adafruit nRF52 OTA.
-- The firmware build uses `-Os`, which reduced the package to the current `127 KB` zip without changing behavior.
-- Both iPhone and Mac apps now consume the same shared `DoorFirmwareDfuTuning` defaults, so the tested speed setting does not drift between apps.
-- The iPhone verifier can now run controlled benchmark overrides without code edits:
+`script/build_secure_bootloader.sh` reproducibly builds Adafruit nRF52 Bootloader `0.11.0` for the exact `xiao_nrf52840_ble_sense` board with:
 
-```sh
-DFU_PRN=8 DFU_OBJECT_PREP_DELAY=0.3 ./script/verify_ios_ota.sh --wireless-only --target <new-version>
+- `DUALBANK_FW=1`
+- `SIGNED_FW=1`
+- project P-256 public key compiled into the bootloader
+- unsigned UF2 recovery disabled
+- S140 `7.3.0` / firmware ID `0x0123`, matching the XIAO application build
+- `397,312`-byte maximum dual-bank application size; the current `134,452`-byte payload fits with substantial margin
+- ATT MTU support raised from the legacy `23`-byte path to upstream's `247`
+
+The public key and candidate metadata are checked in at:
+
+- `docs/firmware-signing-public-key.pem`
+- `docs/firmware-signing-public-key.json`
+
+The private key is intentionally outside Git:
+
+```text
+~/Library/Application Support/Door Unlocker/FirmwareSigning/firmware-signing-key.pem
 ```
 
-For a repeatable matrix, use the benchmark runner. It runs each case serially and writes one JSON report per OTA attempt plus an aggregate `summary.json`.
+Back it up in a protected location before migrating hardware. A controller enforcing this key cannot accept future application images signed by a replacement key.
+
+The generated bootloader artifact is ignored under `dist/bootloader/`. Its expected SHA-256 is recorded in the public manifest. Rebuild it with:
 
 ```sh
-./script/benchmark_ios_ota_matrix.sh --target <new-version> --runs 3
+./script/build_secure_bootloader.sh
 ```
 
-For local iPhone hardware runs, keep the project team-neutral and pass your Apple team ID only through the environment when command-line signing needs it:
+`script/flash_xiao_uf2.sh --build-only` signs the application DFU package when the private key exists. The structural gate verifies the payload hash and P-256 ECDSA signature with OpenSSL:
 
 ```sh
-DEVELOPMENT_TEAM=<team-id> ./script/benchmark_ios_ota_matrix.sh --target <new-version> --runs 3
+python3 script/check_ota_bootloader_contract.py
 ```
 
-## Latest Hardware Benchmark
+This currently proves the signed package and candidate build. It deliberately reports these hardware claims as `NOT PROVEN`:
 
-Batch `20260708T043013Z` ran against the real bench controller and iPhone Air with the controller off USB-C. Both attempts verified over BLE by the post-DFU `firmware_version:0.1.0` notification.
+- exact candidate installed on the controller
+- dual-bank rollback under physical power loss
+- unsigned application rejection by the installed bootloader
 
-| PRN | Object delay | Result | Duration |
-| --- | --- | --- | --- |
-| `8` | `0.4s` | pass | `113s` |
-| `8` | `0.3s` | pass | `114s` |
+Production mode remains closed until all three are backed by `docs/ota-bootloader-installed-proof.json`:
 
-This does not justify promoting the `0.3s` object-delay candidate. The measured candidate was slightly slower in the one-run hardware check, and the benchmark promotion gate still requires repeated wireless-only proofs before changing production defaults.
+```sh
+python3 script/check_ota_bootloader_contract.py --require-production
+```
 
-## Next Safe Experiments
+## Why The Current Upload Is Slow
 
-Run these only after bumping the firmware version, rebuilding the DFU zip, and confirming the controller is not on USB-C for `--wireless-only` proofs.
+The current `82.68s` upload for roughly `134 KB` is about `1.6 KB/s`. The nRF52840 radio can move substantially more data. The installed factory bootloader's Legacy DFU path is the bottleneck because the measured session uses the minimum ATT MTU and conservative flash pacing.
 
-1. `PRN=8`, object delay `0.3s`
-   - Expected benefit: saves roughly `0.1s` per 4 KB data object, about `3s` for the current payload.
-   - Risk: low, still inside Nordic's documented range.
-   - Promotion rule: keep only if at least three iPhone wireless-only proofs pass and median end-to-end time improves.
+The upstream `0.11.0` candidate supports ATT MTU `247`. Upstream NordicDFU `4.16.0` nevertheless hardcodes Legacy DFU packets to `20` bytes, so the project vendors it with a focused Adafruit compatibility patch that uses CoreBluetooth's negotiated write payload and caps it at `244` bytes. Existing bootloaders still negotiate `20`; the new path activates only when the controller supports it. No speed claim will be published until the exact signed candidate and patched client are measured together.
 
-2. `PRN=4`, object delay `0.3s`
-   - Expected benefit: probably slower, but useful as a reliability comparison in noisy RF conditions.
-   - Risk: low.
-   - Promotion rule: do not promote unless it is both faster and more reliable than PRN `8`.
+PRN remains `8`, the largest value Adafruit documents as safe for OTA memory pressure. The configured `0.4s` object-preparation delay is ignored by this Legacy DFU protocol; it only matters if the project later migrates to Nordic Secure DFU. Optimize PRN only after bootloader migration so packet-size and acknowledgement changes are measured independently.
 
-3. Package-size reduction
-   - Expected benefit: linear. Each removed kilobyte saves about `0.7s` at the latest end-to-end rate.
-   - Risk: depends on code removed.
-   - Promotion rule: only remove dead code or split optional features when behavior remains covered by tests.
+## Repeatable Tests
 
-## Paths Not Recommended Right Now
+Clean iPhone wireless-only proof:
 
-- PRN greater than `8`: contradicts Adafruit bootloader guidance for OTA memory pressure.
-- PRN disabled for production: Nordic says it can improve speed, but our measured PRN `0` run was slower and the current bootloader has explicit PRN constraints.
-- Bootloader replacement just for speed: possible upside exists, but it changes the recovery/security boundary. Keep USB-C as recovery and only revisit bootloader changes after the app/firmware package size and measured PRN/object-delay matrix are exhausted.
-- Custom non-Nordic BLE firmware transfer: potentially much faster, but it would require a custom verified writer, rollback story, and recovery behavior. Treat it as a later engineering project, not a quick optimization.
+```sh
+RUN_ID=<run-id> \
+  ./script/verify_ios_ota.sh --wireless-only --target <new-version>
+```
 
-## Recommended Implementation Path
+App-termination injection at 30 percent:
 
-1. Keep stable production defaults at PRN `8` and object delay `0.4s`.
-2. Keep PRN `8` with object delay `0.3s` as a benchmark-only candidate unless a repeated hardware matrix beats the stable default.
-3. Record every proof in `docs/ota-last-run.json` plus detailed logs under `docs/ota-telemetry/`.
-4. Promote a faster default only after repeated wireless-only iPhone proofs and one Mac proof pass without USB-C recovery.
-5. Continue reducing firmware size when behavior can be preserved.
+```sh
+RUN_ID=<run-id> INTERRUPT_AT_PROGRESS=30 \
+  ./script/verify_ios_ota.sh --wireless-only --target <new-version>
+```
 
-## Benchmark Promotion Gate
+Interactive controller-power-loss injection at 30 percent:
 
-Do not change the production defaults unless all of the following are true:
+```sh
+RUN_ID=<run-id> INTERRUPT_MODE=controller-power-loss INTERRUPT_AT_PROGRESS=30 \
+  ./script/verify_ios_ota.sh --wireless-only --target <new-version>
+```
 
-1. `script/benchmark_ios_ota_matrix.sh --target <new-version> --runs 3` completes with no failed attempts for the candidate setting.
-2. The candidate median is faster than stable PRN `8`, object delay `0.4s` by at least `3s` end-to-end, or by at least `5%` if the package size has changed.
-3. One Mac `firmware-proof` run passes with the same candidate app defaults after promotion.
-4. The controller still verifies the firmware version over BLE after DFU, not USB-C.
-5. USB-C recovery remains available and no pairing/settings data is lost.
+Run the power-loss mode in a terminal. At the threshold it prompts the operator to remove controller power for at least two seconds, restore it, and confirm. The app remains alive so the resulting trace proves controller-side recovery rather than app relaunch behavior.
 
-## Source References
+The verifier installs the app, starts a real OTA, watches structured `DUFirmware` events, terminates the process at the requested progress, relaunches it without debug update arguments, and passes only after the independently observed post-update BLE version notification.
 
-- [Nordic iOS DFU Library `DFUServiceInitiator.swift`](https://github.com/NordicSemiconductor/IOS-DFU-Library/blob/main/Library/Classes/Implementation/DFUServiceInitiator.swift): PRN and object-prep delay behavior.
-- [Adafruit nRF52 Bootloader README](https://github.com/adafruit/Adafruit_nRF52_Bootloader): OTA PRN must be `8` or less.
-- [Apple Technical Q&A QA1931](https://developer.apple.com/library/archive/qa/qa1931/_index.html): BLE advertising and connection parameters for stable Apple-device connections.
-- [Nordic S140 SoftDevice throughput documentation](https://docs.nordicsemi.com/r/bundle/sds_s140/page/sds/s1xx/ble_data_throughput/ble_data_throughput.html): BLE throughput depends on ATT MTU, data length, connection interval, event length, and write/notification method.
+Summarize a console trace:
+
+```sh
+python3 script/summarize_ota_timing.py \
+  docs/ota-telemetry/<run>-app-console.log \
+  --output docs/ota-telemetry/<run>-timing.json
+```
+
+The same-version `--allow-current` mode is a script smoke test, not a release proof. A valid release proof must use a newly bumped firmware version so a stale installed image cannot satisfy the verifier.
+
+## Physical Fault Campaign
+
+The signed bootloader migration and power-loss campaign must be attended with USB-C/J-Link recovery available. Use one freshly bumped package per clean proof and retain all telemetry.
+
+Required cases:
+
+1. Clean iPhone wireless update.
+2. App termination during scan/connection.
+3. App termination around 30 percent and 80 percent upload.
+4. Bluetooth loss during upload, followed by reconnect.
+5. Controller power loss during erase/object preparation.
+6. Controller power loss around 30 percent and 80 percent upload.
+7. Power loss after validation but before first verified normal boot.
+8. Corrupt or wrong-signature package rejection while old firmware remains bootable.
+9. Valid signed package success after the rejection test.
+10. One clean Mac wireless update using the same shared DFU implementation.
+
+Every passed case must preserve trusted-device keys, lock name, timeout, servo angles, and a bootable previous or new application. Failed transfer attempts must not clear the journal or masquerade as successful verification.
+
+## Release Gates
+
+`python3 script/quality_suite.py` always verifies the signed package and candidate metadata. `python3 script/quality_suite.py --firmware-release` additionally requires:
+
+1. The installed-proof file matches the exact bootloader artifact SHA-256, public key ID, and bootloader version.
+2. Physical dual-bank rollback has passed.
+3. An unsigned package was rejected.
+4. The exact release DFU package passed wireless BLE entry/upload/reboot/version verification.
+5. App-termination recovery passed on iPhone.
+6. A clean Mac update passed with the same shared transport settings.
+7. Pairings and controller settings survived the campaign.
+
+Do not mark this goal complete or publish the bootloader migration as production-ready until those gates pass.
+
+## References
+
+- [Adafruit nRF52 Bootloader releases](https://github.com/adafruit/Adafruit_nRF52_Bootloader/releases)
+- [Adafruit nRF52 Bootloader build/security documentation](https://github.com/adafruit/Adafruit_nRF52_Bootloader)
+- [Nordic iOS DFU Library](https://github.com/NordicSemiconductor/IOS-DFU-Library)
+- [Apple Bluetooth accessory design guidance](https://developer.apple.com/accessories/Accessory-Design-Guidelines.pdf)
+- [Nordic S140 BLE throughput documentation](https://docs.nordicsemi.com/bundle/sds_s140/page/SDS/s1xx/ble_data_throughput/ble_data_throughput.html)

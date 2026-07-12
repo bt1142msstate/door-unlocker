@@ -4,39 +4,159 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import subprocess
 import sys
+import tempfile
 import zipfile
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_PACKAGE = ROOT / "dist" / "DoorUnlockerXiao-dfu.zip"
+DEFAULT_PACKAGE = ROOT / "ios" / "DoorUnlockerApp" / "DoorUnlocker" / "Firmware" / "DoorUnlockerXiao-dfu.zip"
+DEFAULT_BOOTLOADER_MANIFEST = ROOT / "docs" / "firmware-signing-public-key.json"
+DEFAULT_PUBLIC_KEY = ROOT / "docs" / "firmware-signing-public-key.pem"
+DEFAULT_INSTALLED_PROOF = ROOT / "docs" / "ota-bootloader-installed-proof.json"
+BOOTLOADER_BUILD_SCRIPT = ROOT / "script" / "build_secure_bootloader.sh"
+LEGACY_PACKET_SIZING = (
+    ROOT
+    / "vendor"
+    / "IOS-DFU-Library"
+    / "Library"
+    / "Classes"
+    / "Implementation"
+    / "LegacyDFU"
+    / "Characteristics"
+    / "LegacyDfuPacketSizing.swift"
+)
+LEGACY_PACKET_WRITER = LEGACY_PACKET_SIZING.with_name("DFUPacket.swift")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--package", type=Path, default=DEFAULT_PACKAGE)
+    parser.add_argument("--bootloader-manifest", type=Path, default=DEFAULT_BOOTLOADER_MANIFEST)
+    parser.add_argument("--public-key", type=Path, default=DEFAULT_PUBLIC_KEY)
+    parser.add_argument("--installed-proof", type=Path, default=DEFAULT_INSTALLED_PROOF)
     parser.add_argument("--require-production", action="store_true")
     args = parser.parse_args()
+
+    if not args.package.is_file():
+        print(f"NOT PROVEN: package_exists ({args.package})")
+        return 1 if args.require_production else 0
 
     with zipfile.ZipFile(args.package) as archive:
         names = set(archive.namelist())
         manifest = json.loads(archive.read("manifest.json"))
         application = manifest.get("manifest", {}).get("application", {})
+        bin_name = application.get("bin_file")
         dat_name = application.get("dat_file")
+        bin_bytes = archive.read(bin_name) if bin_name in names else b""
         dat_bytes = archive.read(dat_name) if dat_name in names else b""
 
-    legacy_manifest = manifest.get("manifest", {}).get("application", {}).get("init_packet_data") is not None
-    signature_enforced_by_package = not legacy_manifest and len(dat_bytes) > 64
+    package_manifest = manifest.get("manifest", {})
+    init_packet = application.get("init_packet_data", {})
+    package_signature_fields = (
+        float(package_manifest.get("dfu_version", 0)) >= 0.8
+        and bool(init_packet.get("firmware_hash"))
+        and bool(init_packet.get("init_packet_ecds"))
+        and len(dat_bytes) > 64
+    )
+    package_hash_matches = (
+        init_packet.get("firmware_hash") == hashlib.sha256(bin_bytes).hexdigest()
+        and init_packet.get("firmware_length") == len(bin_bytes)
+    )
+    package_signature_valid = package_signature_fields and verify_signature(
+        dat_bytes,
+        init_packet.get("init_packet_ecds", ""),
+        args.public_key,
+    )
+
+    bootloader_manifest = load_json(args.bootloader_manifest)
+    build_script = BOOTLOADER_BUILD_SCRIPT.read_text(encoding="utf-8")
+    candidate_signed = bootloader_manifest.get("signedFirmwareRequired") is True
+    candidate_dual_bank = bootloader_manifest.get("dualBankFirmware") is True
+    candidate_disables_unsigned_uf2 = bootloader_manifest.get("forceUnsignedUF2") is False
+    candidate_public_key_matches = (
+        public_key_id(args.public_key) == bootloader_manifest.get("publicKeyId")
+    )
+    candidate_build_flags_match = all(
+        marker in build_script
+        for marker in (
+            'SOFTDEVICE_VERSION="7.3.0"',
+            'SOFTDEVICE_FIRMWARE_ID="0x0123"',
+            '-DSD_VERSION="$SOFTDEVICE_VERSION"',
+            '-DDUALBANK_FW=ON',
+            '-DSIGNED_FW=ON',
+        )
+    ) and "-DFORCE_UF2=ON" not in build_script
+    package_softdevice_ids = [int(value) for value in init_packet.get("softdevice_req", [])]
+    candidate_softdevice_id = parse_numeric_id(bootloader_manifest.get("softDeviceFirmwareId"))
+    candidate_matches_package_softdevice = (
+        candidate_softdevice_id is not None
+        and candidate_softdevice_id in package_softdevice_ids
+    )
+    dual_bank_max_bytes = bootloader_manifest.get("dualBankApplicationMaxBytes")
+    candidate_package_fits_dual_bank = (
+        isinstance(dual_bank_max_bytes, int)
+        and len(bin_bytes) <= dual_bank_max_bytes
+    )
+    client_packet_sizing = (
+        LEGACY_PACKET_SIZING.read_text(encoding="utf-8")
+        + LEGACY_PACKET_WRITER.read_text(encoding="utf-8")
+    )
+    client_uses_dynamic_legacy_payload = all(
+        marker in client_packet_sizing
+        for marker in (
+            "maximumWriteValueLength",
+            "adafruitMaximumPayloadBytes = 244",
+            "legacyPayloadBytes = 20",
+        )
+    )
+
+    installed_proof = load_json(args.installed_proof)
+    installed_candidate = (
+        installed_proof.get("passed") is True
+        and installed_proof.get("bootloaderVersion") == bootloader_manifest.get("bootloaderVersion")
+        and installed_proof.get("publicKeyId") == bootloader_manifest.get("publicKeyId")
+        and installed_proof.get("bootloaderArtifactSha256")
+        == bootloader_manifest.get("artifactSha256")
+    )
+    power_loss_rollback = installed_proof.get("powerLossRollbackPassed") is True
+    unsigned_rejection = installed_proof.get("unsignedPackageRejected") is True
+    required_power_loss_cases = {"erase", "upload-30", "upload-80", "post-validation"}
+    required_app_termination_cases = {"upload-30", "upload-80"}
+    power_loss_campaign_complete = required_cases_passed(
+        installed_proof.get("powerLossCases"),
+        required_power_loss_cases,
+    )
+    app_termination_campaign_complete = required_cases_passed(
+        installed_proof.get("appTerminationCases"),
+        required_app_termination_cases,
+    )
 
     checks = {
         "package_exists": args.package.is_file(),
         "package_has_application": bool(application.get("bin_file")),
-        "bootloader_signature_enforcement_proven": signature_enforced_by_package,
-        # This cannot be proven from an application-only ZIP. It must be recorded
-        # from the installed bootloader build configuration and a power-cut test.
-        "installed_dual_bank_rollback_proven": False,
+        "package_hash_matches_payload": package_hash_matches,
+        "package_ecdsa_signature_valid": package_signature_valid,
+        "candidate_requires_signed_firmware": candidate_signed,
+        "candidate_uses_dual_bank": candidate_dual_bank,
+        "candidate_disables_unsigned_uf2": candidate_disables_unsigned_uf2,
+        "candidate_public_key_matches_manifest": candidate_public_key_matches,
+        "candidate_build_flags_match_manifest": candidate_build_flags_match,
+        "candidate_matches_package_softdevice": candidate_matches_package_softdevice,
+        "package_fits_candidate_dual_bank": candidate_package_fits_dual_bank,
+        "client_supports_negotiated_legacy_payload": client_uses_dynamic_legacy_payload,
+        "candidate_installed_and_verified": installed_candidate,
+        "installed_dual_bank_rollback_proven": power_loss_rollback,
+        "required_power_loss_cases_passed": power_loss_campaign_complete,
+        "required_app_termination_cases_passed": app_termination_campaign_complete,
+        "bluetooth_loss_recovery_passed": installed_proof.get("bluetoothLossRecoveryPassed") is True,
+        "mac_wireless_update_passed": installed_proof.get("macWirelessUpdatePassed") is True,
+        "pairings_and_settings_preserved": installed_proof.get("pairingsAndSettingsPreserved") is True,
+        "installed_bootloader_rejects_unsigned_package": unsigned_rejection,
     }
 
     for name, passed in checks.items():
@@ -44,12 +164,114 @@ def main() -> int:
 
     production_ready = all(checks.values())
     print(f"OTA bootloader production contract: {'PASS' if production_ready else 'NOT PROVEN'}")
-    if legacy_manifest:
-        print("Current package uses the legacy 0.5 init-packet format and does not prove signed-image enforcement.")
+    if not package_signature_valid:
+        print("Current package lacks a valid DFU 0.8 ECDSA signature for the recorded public key.")
+    if candidate_signed and candidate_dual_bank and not installed_candidate:
+        print("A signed dual-bank candidate exists, but physical installation has not been proven.")
     if not checks["installed_dual_bank_rollback_proven"]:
         print("Verify or install a DUALBANK_FW=1 bootloader before claiming power-loss rollback.")
 
     return 1 if args.require_production and not production_ready else 0
+
+
+def load_json(path: Path) -> dict:
+    if not path.is_file():
+        return {}
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def parse_numeric_id(value: object) -> int | None:
+    if isinstance(value, int):
+        return value
+    if not isinstance(value, str):
+        return None
+    try:
+        return int(value, 0)
+    except ValueError:
+        return None
+
+
+def public_key_id(public_key: Path) -> str | None:
+    if not public_key.is_file():
+        return None
+    result = subprocess.run(
+        ["openssl", "pkey", "-pubin", "-in", str(public_key), "-outform", "DER"],
+        capture_output=True,
+        check=False,
+    )
+    der = result.stdout
+    if result.returncode != 0 or len(der) < 65 or der[-65] != 0x04:
+        return None
+    return hashlib.sha256(der[-64:]).hexdigest()
+
+
+def required_cases_passed(value: object, required: set[str]) -> bool:
+    if not isinstance(value, list):
+        return False
+    passed = {
+        item.get("phase")
+        for item in value
+        if isinstance(item, dict)
+        and item.get("passed") is True
+        and evidence_path_exists(item.get("report"))
+    }
+    return required.issubset(passed)
+
+
+def evidence_path_exists(value: object) -> bool:
+    if not isinstance(value, str) or not value:
+        return False
+    path = Path(value)
+    return (path if path.is_absolute() else ROOT / path).is_file()
+
+
+def verify_signature(dat_bytes: bytes, manifest_signature: str, public_key: Path) -> bool:
+    if len(dat_bytes) < 65 or not public_key.is_file():
+        return False
+    raw_signature = dat_bytes[-64:]
+    if raw_signature.hex() != manifest_signature.lower():
+        return False
+    der_signature = encode_der_signature(raw_signature)
+    with tempfile.TemporaryDirectory() as directory:
+        directory_path = Path(directory)
+        payload = directory_path / "init-packet.bin"
+        signature = directory_path / "signature.der"
+        payload.write_bytes(dat_bytes[:-64])
+        signature.write_bytes(der_signature)
+        result = subprocess.run(
+            [
+                "openssl",
+                "dgst",
+                "-sha256",
+                "-verify",
+                str(public_key),
+                "-signature",
+                str(signature),
+                str(payload),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    return result.returncode == 0
+
+
+def encode_der_signature(raw_signature: bytes) -> bytes:
+    if len(raw_signature) != 64:
+        raise ValueError("P-256 signature must contain 64 bytes")
+
+    def integer(value: bytes) -> bytes:
+        value = value.lstrip(b"\0") or b"\0"
+        if value[0] & 0x80:
+            value = b"\0" + value
+        return b"\x02" + bytes([len(value)]) + value
+
+    encoded = integer(raw_signature[:32]) + integer(raw_signature[32:])
+    return b"\x30" + bytes([len(encoded)]) + encoded
 
 
 if __name__ == "__main__":

@@ -34,6 +34,8 @@ extension DoorAdminStore {
     func clearFirmwareUpdateJournal() {
         firmwareUpdateRecoveryRetryTask?.cancel()
         firmwareUpdateRecoveryRetryTask = nil
+        firmwareDfuStartFallbackTask?.cancel()
+        firmwareDfuStartFallbackTask = nil
         firmwareUpdateJournalStore.clear()
     }
 
@@ -61,12 +63,31 @@ extension DoorAdminStore {
         }
 
         expectedFirmwareVerificationVersion = journal.targetVersion
-        firmwareUpdateStatus = "Resuming firmware update"
+        firmwareUpdateStatus = "Checking interrupted firmware update"
         firmwareUpdateProgress = journal.lastProgress
-        isFirmwareUpdateRunning = true
+        isFirmwareUpdateRunning = false
         lastError = nil
-        updateFirmwareUpdateJournal(phase: .scanningForBootloader)
-        beginFirmwareDfuUpload(after: packageURL, detectsNormalControllerFirmware: true)
+        scanBluetooth()
+        firmwareDfuStartFallbackTask?.cancel()
+        firmwareDfuStartFallbackTask = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(4)) } catch { return }
+            await MainActor.run {
+                guard let self,
+                      !self.isFirmwareUpdateRunning,
+                      !self.isWirelessReady,
+                      self.firmwareUpdateJournalStore.load() != nil else {
+                    return
+                }
+                self.firmwareDfuStartFallbackTask = nil
+                self.isFirmwareUpdateRunning = true
+                self.firmwareUpdateStatus = "Resuming firmware update"
+                self.updateFirmwareUpdateJournal(phase: .scanningForBootloader)
+                self.beginFirmwareDfuUpload(
+                    after: packageURL,
+                    detectsNormalControllerFirmware: true
+                )
+            }
+        }
     }
 
     func reconcileFirmwareUpdateJournal(installedVersion: String) {
