@@ -29,3 +29,11 @@ without the voltmeter display, rather than the purchased Seloky B0DM946DHG
 60 x 40 x 10mm module. The viewer therefore uses a dimension-locked detailed
 procedural model instead of presenting a mismatched third-party CAD file as the
 real part.
+
+No exact XALXMAW B0B28GYYL2 splitter CAD model was located either. The available
+WAGO and industrial inline-connector STEP files describe different products.
+The viewer therefore models each purchased splitter from its listed
+32 x 13.5 x 13mm envelope with three orange levers, two output entries, one
+input entry, inspection windows, visible conductor contacts, housing seams, and
+coupling tabs. The delivered parts should still be checked with calipers before
+the final print.

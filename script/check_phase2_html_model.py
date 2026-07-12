@@ -72,6 +72,13 @@ def main() -> int:
     )
     require("addServoModel" in html, "servo detail model is missing")
     require("addInlineSplitters" in html, "inline splitter detail model is missing")
+    require(
+        'splitterGroup.name = centerX < 0 ? "positiveInlineSplitter" : "groundInlineSplitter"' in html
+        and "const inspectionWindow = roundedRectMesh" in html
+        and "const couplingTab = roundedRectMesh" in html
+        and "const internalBus = roundedRectMesh" in html,
+        "high-detail inline splitter geometry is missing",
+    )
     require("addWireRoutingChannels" in html, "wire-routing channel model is missing")
     require("addCompleteWireHarness" in html, "connected wire harness model is missing")
     require("upperSolarConflict" not in html, "Phase 2 solar hardware leaked into the Phase 1.5 viewer")
@@ -150,6 +157,12 @@ def main() -> int:
         "Inline splitter envelope must remain 32 x 13.5 x 13mm in the modeled orientation",
     )
     require("B0B28GYYL2" in html, "purchased inline splitter listing is missing")
+    require(
+        splitters["detail_geometry"]["ports"] == 3
+        and splitters["detail_geometry"]["levers"] == 3
+        and splitters["detail_geometry"]["coupling_tabs"] == 2,
+        "inline splitter detail contract drifted",
+    )
 
     # Hard-body visuals share the documented approximate 4-5 px/mm scale.
     # Harness leads and the servo arm intentionally extend beyond their component bodies.
@@ -230,7 +243,10 @@ def main() -> int:
         components["servo_front_exposure_pocket"]["center_z"] == 211,
         "Phase 1.5 servo opening no longer matches the fitted service cover",
     )
-    require("centersX: [-16, 16], centerY: -37" in html, "HTML splitter layout drifted")
+    require(
+        "centersX: [-16, 16]" in html and "centerY: -37" in html,
+        "HTML splitter layout drifted",
+    )
     require("addBuckModel" in html, "vertical buck detail model is missing")
     require("powerSwitchEnvelope" not in html, "obsolete depth-stacked power-switch block returned")
     require("splitter-positive-to-servo" in html, "direct positive servo branch is missing")

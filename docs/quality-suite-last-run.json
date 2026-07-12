@@ -11,7 +11,7 @@
     "sharedContractBehaviorVerified": true,
     "warningFree": true
   },
-  "durationSeconds": 3.59,
+  "durationSeconds": 3.56,
   "environment": {
     "arduinoCLI": "arduino-cli  Version: 1.5.1 Commit: Homebrew Date: 2026-06-05T09:39:33Z",
     "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
@@ -22,7 +22,7 @@
   "executedStepCount": 11,
   "expectedStepCount": 11,
   "fullSuitePassed": false,
-  "generatedAt": "2026-07-12T09:45:07.875206+00:00",
+  "generatedAt": "2026-07-12T09:54:48.410441+00:00",
   "limitations": [
     "Architecture and maintainability scores are transparent project heuristics, not Apple-issued grades.",
     "A fast run does not execute iOS adapter tests, firmware compilation, app builds, or HTML/CAD consistency checks.",
@@ -140,7 +140,7 @@
         "python3",
         "script/check_state_notification_delivery_contract.py"
       ],
-      "durationSeconds": 0.47,
+      "durationSeconds": 0.46,
       "exitCode": 0,
       "name": "Per-subscriber state delivery contract gate",
       "status": "pass",
@@ -181,11 +181,11 @@
         "--package-path",
         "shared/DoorUnlockerShared"
       ],
-      "durationSeconds": 1.79,
+      "durationSeconds": 1.8,
       "exitCode": 0,
       "name": "Shared package independent tests",
       "status": "pass",
-      "summary": "Test Suite 'All tests' passed at 2026-07-12 04:45:07.406.",
+      "summary": "Test Suite 'All tests' passed at 2026-07-12 04:54:47.951.",
       "warningCount": 0,
       "warnings": []
     },
@@ -196,11 +196,11 @@
         "--package-path",
         "mac/DoorUnlockerAdmin"
       ],
-      "durationSeconds": 0.44,
+      "durationSeconds": 0.43,
       "exitCode": 0,
       "name": "Mac core/admin independent tests",
       "status": "pass",
-      "summary": "Test Suite 'All tests' passed at 2026-07-12 04:45:07.845.",
+      "summary": "Test Suite 'All tests' passed at 2026-07-12 04:54:48.379.",
       "warningCount": 0,
       "warnings": []
     }

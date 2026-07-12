@@ -478,7 +478,16 @@
         "y": 6.5,
         "z": 85
       },
-      "notes": "The positive and ground connectors are modeled physically clipped side-by-side at the same height, matching the clean bench map while remaining electrically separate. Their combined 64mm width leaves about 0.8mm per side inside the 65.6mm inner shell. Verify the delivered parts with calipers before printing."
+      "notes": "The positive and ground connectors are modeled physically clipped side-by-side at the same height, matching the clean bench map while remaining electrically separate. Their combined 64mm width leaves about 0.8mm per side inside the 65.6mm inner shell. Verify the delivered parts with calipers before printing.",
+      "detail_geometry": {
+        "ports": 3,
+        "levers": 3,
+        "output_ports": 2,
+        "input_ports": 1,
+        "port_diameter": 4.3,
+        "coupling_tabs": 2,
+        "source": "Purchased B0B28GYYL2 listing imagery and measured listing envelope; no exact manufacturer CAD model was located"
+      }
     },
     "servo_power_switch_module": {
       "width": 42,

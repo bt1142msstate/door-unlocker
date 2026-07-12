@@ -3409,6 +3409,8 @@
         breadboardHole: new THREE.MeshStandardMaterial({ color: 0x171a18, roughness: 0.9 }),
         splitter: new THREE.MeshPhysicalMaterial({ color: 0xadb4b0, roughness: 0.38, transparent: true, opacity: 0.88 }),
         splitterLever: new THREE.MeshStandardMaterial({ color: 0xf18b2f, roughness: 0.48 }),
+        splitterContact: new THREE.MeshStandardMaterial({ color: 0xb9863e, roughness: 0.34, metalness: 0.72 }),
+        splitterPort: new THREE.MeshStandardMaterial({ color: 0x171a18, roughness: 0.86 }),
         routingChannel: new THREE.MeshStandardMaterial({ color: 0x6d8072, roughness: 0.64 }),
         wireYellow: new THREE.MeshStandardMaterial({ color: 0xffce45, emissive: 0x5a3d00, emissiveIntensity: 0.34, roughness: 0.44 }),
         wireBlack: new THREE.MeshStandardMaterial({ color: 0x424b45, emissive: 0x111713, emissiveIntensity: 0.26, roughness: 0.56 }),
@@ -3576,7 +3578,18 @@
         buck: { width: 40, height: 60, depth: 10, centerY: 0.5 },
         xiao: { width: 21, height: 17.8, boardDepth: 1.6, centerX: 0, centerY: 55 },
         xiaoHeader: { pitch: 2.54, pinSquare: 0.64, pinLength: 7.5, insulatorHeight: 2.54, rowCenterX: 8.9 },
-        splitter: { width: 32, height: 13, depth: 13.5, centersX: [-16, 16], centerY: -37 },
+        splitter: {
+          width: 32,
+          height: 13,
+          depth: 13.5,
+          centersX: [-16, 16],
+          centerY: -37,
+          portRadius: 2.15,
+          leverWidth: 9,
+          leverHeight: 3.4,
+          couplingTabWidth: 7,
+          couplingTabHeight: 2.2
+        },
         breadboard: { width: 35, height: 47, depth: 8.5, centerX: 0, centerY: 55 },
         serviceRacewayDepth: 4,
         wireRouting: {
@@ -4032,13 +4045,70 @@
       function addInlineSplitters() {
         const d = modelDimensions.splitter;
         d.centersX.forEach((centerX) => {
+          const splitterGroup = new THREE.Group();
+          splitterGroup.name = centerX < 0 ? "positiveInlineSplitter" : "groundInlineSplitter";
+          internalsGroup.add(splitterGroup);
+
           const body = roundedRectMesh(d.width, d.height, d.depth, 2.6, materials.splitter, 0.4);
           body.position.set(centerX, d.centerY, shellFrontZ - d.depth / 2 - 3.75);
-          internalsGroup.add(body);
-          [[-9, -3.1], [-9, 3.1], [9.5, 0]].forEach(([offsetX, offsetY]) => {
-            const lever = roundedRectMesh(9, 3.4, 2.4, 1.6, materials.splitterLever, 0.12);
+          splitterGroup.add(body);
+
+          const faceZ = body.position.z + d.depth / 2;
+          [[-13.2, -3.2], [-13.2, 3.2], [13.2, 0]].forEach(([offsetX, offsetY]) => {
+            const port = cylinderMesh(d.portRadius, 0.7, materials.splitterPort, 28);
+            port.rotation.x = Math.PI / 2;
+            port.position.set(centerX + offsetX, d.centerY + offsetY, faceZ + 0.42);
+            splitterGroup.add(port);
+          });
+
+          [[-8.8, -3.1], [-8.8, 3.1], [8.8, 0]].forEach(([offsetX, offsetY]) => {
+            const lever = roundedRectMesh(d.leverWidth, d.leverHeight, 2.4, 1.6, materials.splitterLever, 0.12);
             lever.position.set(centerX + offsetX, d.centerY + offsetY, body.position.z + d.depth / 2 + 0.9);
-            internalsGroup.add(lever);
+            splitterGroup.add(lever);
+            const pivotPin = cylinderMesh(0.72, 0.8, materials.splitterContact, 20);
+            pivotPin.rotation.x = Math.PI / 2;
+            pivotPin.position.set(centerX + offsetX - 2.8, d.centerY + offsetY, faceZ + 2.15);
+            splitterGroup.add(pivotPin);
+          });
+
+          [[-1.2, -3.1], [-1.2, 3.1]].forEach(([offsetX, offsetY]) => {
+            const inspectionWindow = roundedRectMesh(4.2, 2.5, 0.65, 0.55, materials.splitterPort, 0.03);
+            inspectionWindow.position.set(centerX + offsetX, d.centerY + offsetY, faceZ + 0.38);
+            splitterGroup.add(inspectionWindow);
+            const visibleContact = roundedRectMesh(2.8, 0.65, 0.35, 0.2, materials.splitterContact, 0.02);
+            visibleContact.position.set(centerX + offsetX, d.centerY + offsetY, faceZ + 0.78);
+            splitterGroup.add(visibleContact);
+          });
+
+          [-1, 1].forEach((side) => {
+            const couplingTab = roundedRectMesh(
+              d.couplingTabWidth,
+              d.couplingTabHeight,
+              5,
+              0.8,
+              materials.splitter,
+              0.06
+            );
+            couplingTab.position.set(
+              centerX,
+              d.centerY + side * (d.height / 2 + d.couplingTabHeight / 2 - 0.2),
+              body.position.z
+            );
+            splitterGroup.add(couplingTab);
+          });
+
+          const internalBus = roundedRectMesh(19, 1.1, 0.8, 0.35, materials.splitterContact, 0.03);
+          internalBus.position.set(centerX, d.centerY, body.position.z + 1.2);
+          splitterGroup.add(internalBus);
+
+          const centerSeam = boxMesh(0.35, d.height - 1.4, 0.28, materials.splitterPort);
+          centerSeam.position.set(centerX + 2.8, d.centerY, faceZ + 0.2);
+          splitterGroup.add(centerSeam);
+
+          splitterGroup.traverse((object) => {
+            if (!object.isMesh) return;
+            object.castShadow = true;
+            object.receiveShadow = true;
           });
         });
       }
