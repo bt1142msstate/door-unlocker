@@ -83,6 +83,8 @@ extension DoorUnlockerController {
                     firmwareUpdateProgress = nil
                     firmwareUpdateEstimatedSecondsRemaining = nil
                     isFirmwareUpdateRunning = false
+                    updatePendingFirmwareJournal(phase: .paused, error: error.localizedDescription)
+                    scheduleInterruptedFirmwareUpdateRetry()
                 }
                 if case .linkAuthentication = commandWriteIntent {
                     linkAuthenticationInFlight = false

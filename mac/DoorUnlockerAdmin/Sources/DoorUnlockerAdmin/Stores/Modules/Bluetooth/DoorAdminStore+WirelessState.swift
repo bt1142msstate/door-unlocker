@@ -62,6 +62,7 @@ extension DoorAdminStore {
             hasCurrentFirmwareVersionSnapshot = true
             refreshWirelessControllerMetadataSnapshotRetry()
             postFirmwareVerificationIfNeeded(controllerFirmwareVersion)
+            reconcileFirmwareUpdateJournal(installedVersion: controllerFirmwareVersion)
             if firmwareUpdateStatus == "Update complete. Verifying..." {
                 firmwareUpdateStatus = "Verified \(controllerFirmwareVersion)"
             } else if !isFirmwareUpdateRunning,

@@ -210,6 +210,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
     var firmwareUpdateEntryCommandSent = false
     var firmwareDfuStartFallbackTask: Task<Void, Never>?
     var firmwareUpdateCompletionResetTask: Task<Void, Never>?
+    var firmwareUpdateRecoveryRetryTask: Task<Void, Never>?
     var autoBundledFirmwareUpdateAttemptedVersion: String?
     var autoBundledFirmwareUpdateEvaluatedVersionPair: String?
     var didHandleDebugLaunchFirmwareUpdateArgument = false
@@ -275,6 +276,7 @@ final class DoorUnlockerController: NSObject, ObservableObject {
         startupCriticalSnapshotTask?.cancel()
         stateSnapshotRequestTimeoutTask?.cancel()
         firmwareVersionSnapshotRetryTask?.cancel()
+        firmwareUpdateRecoveryRetryTask?.cancel()
         controlNonceRecoveryTask?.cancel()
         controlNonceRequestTimeoutTask?.cancel()
         controllerNonceHandoffTimeoutTask?.cancel()

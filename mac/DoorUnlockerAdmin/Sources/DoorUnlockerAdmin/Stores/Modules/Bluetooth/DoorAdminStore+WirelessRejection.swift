@@ -24,7 +24,6 @@ extension DoorAdminStore {
         if rejectedFirmwareUpdate {
             pendingFirmwareUpdatePackageURL = nil
             firmwareUpdateEntryCommandSent = false
-            expectedFirmwareVerificationVersion = nil
             isAwaitingPostDfuFirmwareVerification = false
             didPostFirmwareVerificationNotification = false
             firmwareUpdateWatchdogTask?.cancel()
@@ -47,6 +46,10 @@ extension DoorAdminStore {
             case .other:
                 firmwareUpdateStatus = "Firmware update rejected"
                 lastError = "Controller rejected firmware update."
+            }
+            updateFirmwareUpdateJournal(phase: .paused, error: lastError)
+            if rejection.kind == .staleNonce || rejection.kind == .busy {
+                scheduleInterruptedFirmwareUpdateRetry()
             }
             fastDoorCommandInFlight = nil
             readStateIfPossible()

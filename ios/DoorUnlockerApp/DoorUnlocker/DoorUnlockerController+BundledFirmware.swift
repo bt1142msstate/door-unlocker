@@ -2,6 +2,10 @@ import DoorUnlockerShared
 import Foundation
 
 extension DoorUnlockerController {
+    private var firmwareUpdateJournalStore: DoorFirmwareUpdateJournalStore {
+        DoorFirmwareUpdateJournalStore(key: Self.firmwareUpdateJournalKey)
+    }
+
     var bundledFirmwarePackageURL: URL? {
         Bundle.main.url(forResource: "DoorUnlockerXiao-dfu", withExtension: "zip")
     }
@@ -92,16 +96,63 @@ extension DoorUnlockerController {
         let defaults = UserDefaults.standard
         defaults.set(targetVersion, forKey: Self.pendingBundledFirmwareUpdateVersionKey)
         defaults.set(Date().timeIntervalSince1970, forKey: Self.pendingBundledFirmwareUpdateStartedAtKey)
+        guard let packageURL = bundledFirmwarePackageURL else { return }
+        let packageBytes = (try? packageURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        let packageSHA256 = try? DoorFirmwarePackageFingerprint.sha256(of: packageURL)
+        var journal = firmwareUpdateJournalStore.load() ?? DoorFirmwareUpdateJournal(
+            targetVersion: targetVersion,
+            packagePath: packageURL.path,
+            packageByteCount: packageBytes,
+            packageSHA256: packageSHA256
+        )
+        if journal.targetVersion != targetVersion
+            || journal.packagePath != packageURL.path
+            || !DoorFirmwarePackageFingerprint.matches(journal, packageURL: packageURL) {
+            journal = DoorFirmwareUpdateJournal(
+                targetVersion: targetVersion,
+                packagePath: packageURL.path,
+                packageByteCount: packageBytes,
+                packageSHA256: packageSHA256
+            )
+        }
+        firmwareUpdateJournalStore.save(journal)
+    }
+
+    func updatePendingFirmwareJournal(
+        phase: DoorFirmwareUpdatePhase,
+        progress: Int? = nil,
+        error: String? = nil
+    ) {
+        guard var journal = firmwareUpdateJournalStore.load() else { return }
+        journal.transition(to: phase, progress: progress, error: error)
+        firmwareUpdateJournalStore.save(journal)
     }
 
     func clearPendingBundledFirmwareUpdate() {
+        firmwareUpdateRecoveryRetryTask?.cancel()
+        firmwareUpdateRecoveryRetryTask = nil
         let defaults = UserDefaults.standard
         defaults.removeObject(forKey: Self.pendingBundledFirmwareUpdateVersionKey)
         defaults.removeObject(forKey: Self.pendingBundledFirmwareUpdateStartedAtKey)
+        firmwareUpdateJournalStore.clear()
+    }
+
+    func scheduleInterruptedFirmwareUpdateRetry(after delay: Duration = .seconds(3)) {
+        guard firmwareUpdateJournalStore.load() != nil else { return }
+        firmwareUpdateRecoveryRetryTask?.cancel()
+        firmwareUpdateRecoveryRetryTask = Task { [weak self] in
+            do { try await Task.sleep(for: delay) } catch { return }
+            await MainActor.run {
+                guard let self, !self.isFirmwareUpdateRunning else { return }
+                self.firmwareUpdateRecoveryRetryTask = nil
+                self.resumeInterruptedBundledFirmwareUpdateIfNeeded()
+            }
+        }
     }
 
     func clearPendingBundledFirmwareUpdateIfVerified(installedVersion: String) {
-        guard let pendingVersion = UserDefaults.standard.string(forKey: Self.pendingBundledFirmwareUpdateVersionKey) else {
+        guard let pendingVersion = firmwareUpdateJournalStore.load()?.targetVersion
+            ?? UserDefaults.standard.string(forKey: Self.pendingBundledFirmwareUpdateVersionKey) else {
             return
         }
 
@@ -124,21 +175,11 @@ extension DoorUnlockerController {
         }
 
         let defaults = UserDefaults.standard
-        let pendingVersion = defaults.string(forKey: Self.pendingBundledFirmwareUpdateVersionKey)
+        let pendingVersion = firmwareUpdateJournalStore.load()?.targetVersion
+            ?? defaults.string(forKey: Self.pendingBundledFirmwareUpdateVersionKey)
         let hasExplicitPendingUpdate = pendingVersion?.isEmpty == false
         guard hasExplicitPendingUpdate,
               let targetVersion = pendingVersion else { return }
-
-        let startedAt = defaults.double(forKey: Self.pendingBundledFirmwareUpdateStartedAtKey)
-        if hasExplicitPendingUpdate,
-           startedAt > 0,
-           Date().timeIntervalSince1970 - startedAt > Self.pendingBundledFirmwareUpdateMaximumAge {
-#if DEBUG
-            recordStartupTelemetry("firmware_resume_expired", details: targetVersion, once: false)
-#endif
-            clearPendingBundledFirmwareUpdate()
-            return
-        }
 
         startInterruptedBundledFirmwareDfuResume(targetVersion: targetVersion, packageURL: packageURL)
     }
@@ -151,7 +192,8 @@ extension DoorUnlockerController {
             return false
         }
 
-        let pendingVersion = UserDefaults.standard.string(forKey: Self.pendingBundledFirmwareUpdateVersionKey)
+        let pendingVersion = firmwareUpdateJournalStore.load()?.targetVersion
+            ?? UserDefaults.standard.string(forKey: Self.pendingBundledFirmwareUpdateVersionKey)
         let hasPendingUpdate = pendingVersion?.isEmpty == false
         let bundledFirmwareIsNewer = DoorFirmwareUpdatePolicy.shouldInstallBundledFirmware(
             installedVersion: firmwareVersion,
@@ -170,7 +212,9 @@ extension DoorUnlockerController {
     }
 
     private func startInterruptedBundledFirmwareDfuResume(targetVersion: String, packageURL: URL) {
+        persistPendingBundledFirmwareUpdate(targetVersion: targetVersion)
         autoBundledFirmwareUpdateAttemptedVersion = targetVersion
+        updatePendingFirmwareJournal(phase: .scanningForBootloader)
 #if DEBUG
         recordStartupTelemetry("firmware_resume_dfu", details: targetVersion, once: false)
 #endif

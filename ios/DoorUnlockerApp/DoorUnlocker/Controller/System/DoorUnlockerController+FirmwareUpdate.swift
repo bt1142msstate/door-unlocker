@@ -84,6 +84,7 @@ extension DoorUnlockerController {
         isFirmwareUpdateRunning = true
         lastError = nil
         requestFirmwareUpdateNotificationAuthorizationIfNeeded()
+        updatePendingFirmwareJournal(phase: .preparing)
 
         if !sendPendingFirmwareUpdateCommandIfReady() {
             requestControllerConnectionIfNeeded()
@@ -124,6 +125,7 @@ extension DoorUnlockerController {
         recordStartupTelemetry("firmware_send_enter_ota", once: false)
 #endif
         firmwareUpdateStatus = "Requesting firmware update mode"
+        updatePendingFirmwareJournal(phase: .requestingBootloader)
         if writeAuthenticatedCommand("ENTER_OTA_DFU", intent: .firmwareUpdate(packageURL)) {
 #if DEBUG
             recordStartupTelemetry("firmware_send_enter_ota_written", once: false)
@@ -155,6 +157,7 @@ extension DoorUnlockerController {
 
     func beginFirmwareDfuUpload(after packageURL: URL, detectsNormalControllerFirmware: Bool = false) {
         firmwareUpdateStatus = "Waiting for update bootloader"
+        updatePendingFirmwareJournal(phase: .scanningForBootloader)
         firmwareUpdateProgress = nil
         firmwareUpdateEstimatedSecondsRemaining = nil
         firmwareDfuStartFallbackTask?.cancel()

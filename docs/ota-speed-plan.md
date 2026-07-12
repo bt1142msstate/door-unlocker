@@ -12,6 +12,25 @@ Date: 2026-07-08
 - Latest one-run iPhone wireless benchmark: stable PRN `8` / object delay `0.4s` completed in `113s`; PRN `8` / object delay `0.3s` completed in `114s`
 - Current production DFU tuning: PRN `8`, object-prep delay `0.4s`, scan timeout `18s`, connection timeout `20s`
 
+## Fault-Tolerance Status
+
+The iOS and macOS clients now share a durable firmware-update journal and recovery policy. The journal records the package path, byte count, SHA-256 fingerprint, target version, phase, attempts, last progress, and failure reason. It is retained until normal controller firmware reports the expected version.
+
+- Closing and reopening either app restarts the DFU client against the saved transaction.
+- A dropped BLE link or controller power loss pauses the transaction and schedules another bootloader/normal-mode probe instead of deleting it.
+- If the bootloader returns, Nordic DFU resume remains enabled and can continue from the offset reported by the bootloader.
+- If old normal firmware returns, the trusted app enters update mode again and cleanly restarts the transfer.
+- If the new normal firmware returns, the apps verify its version and clear the journal.
+- The Mac stores its staged ZIP under Application Support using same-volume replacement rather than relying on a temporary file.
+
+This improves client recovery, but it does **not** yet prove atomic controller rollback. The Adafruit bootloader documents dual-bank rollback and signed-firmware enforcement as optional build settings that are disabled by default. The current `dist/DoorUnlockerXiao-dfu.zip` uses the legacy `0.5` manifest with a 14-byte init packet and does not prove that the installed bootloader enforces a signing key. Before a production release can claim safe power-loss rollback and bootloader-level authenticity:
+
+1. Read and record the installed XIAO bootloader version/configuration.
+2. Build or install a board-correct bootloader with `DUALBANK_FW=1` and `SIGNED_FW=1` using a protected project signing key.
+3. Preserve a tested USB-C/J-Link recovery path for the one-time bootloader migration.
+4. Run repeated physical power cuts during erase, transfer, validation, activation, and first boot.
+5. Require `script/check_ota_bootloader_contract.py --require-production` plus the hardware fault-injection report before marking the OTA path production-ready.
+
 The measured end-to-end throughput ranges from about `1.12 KB/s` to `1.35 KB/s` using the full zip size. This includes app launch, secure OTA-entry command, bootloader scan, Nordic DFU setup, upload, reboot, reconnect, and firmware-version verification, so the raw upload throughput is higher than the end-to-end number.
 
 ## Primary Constraints

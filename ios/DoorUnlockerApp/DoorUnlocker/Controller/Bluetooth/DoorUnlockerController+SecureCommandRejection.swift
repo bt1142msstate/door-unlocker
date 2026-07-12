@@ -46,6 +46,10 @@ extension DoorUnlockerController {
                 firmwareUpdateStatus = "Firmware update rejected"
                 lastError = "Controller rejected firmware update."
             }
+            updatePendingFirmwareJournal(phase: .paused, error: lastError)
+            if rejection.kind == .staleNonce || rejection.kind == .busy {
+                scheduleInterruptedFirmwareUpdateRetry()
+            }
             return
         }
 

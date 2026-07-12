@@ -24,6 +24,7 @@ extension DoorAdminStore {
             expectedFirmwareVerificationVersion = expectedVersion
             isAwaitingPostDfuFirmwareVerification = false
             didPostFirmwareVerificationNotification = false
+            persistFirmwareUpdateJournal(packageURL: localPackageURL, targetVersion: expectedVersion)
             startFirmwareUpdate(packageURL: localPackageURL)
         } catch {
             expectedFirmwareVerificationVersion = nil
@@ -55,6 +56,7 @@ extension DoorAdminStore {
             firmwareUpdateProgress = nil
             isFirmwareUpdateRunning = true
             lastError = nil
+            persistFirmwareUpdateJournal(packageURL: localPackageURL, targetVersion: nil)
             switchUSBToWirelessFirmwareUpdateIfNeeded()
             beginFirmwareDfuUpload(after: localPackageURL, detectsNormalControllerFirmware: true)
         } catch {
@@ -66,14 +68,27 @@ extension DoorAdminStore {
     }
 
     func copyFirmwarePackageToTemporaryLocation(from url: URL) throws -> URL {
-        let destination = FileManager.default.temporaryDirectory
-            .appendingPathComponent("DoorUnlockerFirmware", isDirectory: true)
+        let applicationSupport = try FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        let destination = applicationSupport
+            .appendingPathComponent(DoorLocalCommandBridge.appBundleIdentifier, isDirectory: true)
+            .appendingPathComponent("Firmware", isDirectory: true)
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
         let packageURL = destination.appendingPathComponent("DoorUnlockerXiao-dfu.zip")
-        if FileManager.default.fileExists(atPath: packageURL.path) {
-            try FileManager.default.removeItem(at: packageURL)
+        let stagedURL = destination.appendingPathComponent("DoorUnlockerXiao-dfu.staged.zip")
+        if FileManager.default.fileExists(atPath: stagedURL.path) {
+            try FileManager.default.removeItem(at: stagedURL)
         }
-        try FileManager.default.copyItem(at: url, to: packageURL)
+        try FileManager.default.copyItem(at: url, to: stagedURL)
+        if FileManager.default.fileExists(atPath: packageURL.path) {
+            _ = try FileManager.default.replaceItemAt(packageURL, withItemAt: stagedURL)
+        } else {
+            try FileManager.default.moveItem(at: stagedURL, to: packageURL)
+        }
         return packageURL
     }
 
@@ -83,6 +98,7 @@ extension DoorAdminStore {
         firmwareDfuStartFallbackTask?.cancel()
         firmwareDfuStartFallbackTask = nil
         firmwareUpdateStatus = "Preparing firmware update"
+        updateFirmwareUpdateJournal(phase: .preparing)
         firmwareUpdateProgress = nil
         isFirmwareUpdateRunning = true
         lastError = nil
@@ -133,7 +149,6 @@ extension DoorAdminStore {
                 self.firmwareLog.error("Firmware update timed out before controller entered DFU mode")
                 self.pendingFirmwareUpdatePackageURL = nil
                 self.firmwareUpdateEntryCommandSent = false
-                self.expectedFirmwareVerificationVersion = nil
                 self.isAwaitingPostDfuFirmwareVerification = false
                 self.didPostFirmwareVerificationNotification = false
                 self.firmwareDfuStartFallbackTask?.cancel()
@@ -146,7 +161,9 @@ extension DoorAdminStore {
                 self.firmwareUpdateStatus = "Firmware update timed out"
                 self.firmwareUpdateProgress = nil
                 self.isFirmwareUpdateRunning = false
-                self.lastError = "The controller did not enter firmware update mode. Try again near the controller or use USB-C recovery."
+                self.lastError = "The controller did not enter firmware update mode. The app will keep trying."
+                self.updateFirmwareUpdateJournal(phase: .paused, error: self.lastError)
+                self.scheduleInterruptedFirmwareUpdateRetry()
                 self.firmwareUpdateWatchdogTask = nil
                 self.scanBluetooth()
             }

@@ -15,6 +15,9 @@ extension DoorAdminStore: DoorFirmwareDfuManagerDelegate {
         )
         firmwareUpdateStatus = update.status
         firmwareUpdateProgress = update.progress
+        if let progress = update.progress {
+            updateFirmwareUpdateJournal(phase: .uploading, progress: progress)
+        }
     }
 
     func firmwareDfuManagerDidDetectControllerFirmware() {
@@ -22,6 +25,7 @@ extension DoorAdminStore: DoorFirmwareDfuManagerDelegate {
         firmwareUpdateProgress = nil
         isFirmwareUpdateRunning = false
         firmwareUpdateEntryCommandSent = false
+        updateFirmwareUpdateJournal(phase: .verifying)
         firmwareDfuStartFallbackTask?.cancel()
         firmwareDfuStartFallbackTask = nil
         scanBluetooth()
@@ -35,6 +39,7 @@ extension DoorAdminStore: DoorFirmwareDfuManagerDelegate {
         firmwareDfuStartFallbackTask?.cancel()
         firmwareDfuStartFallbackTask = nil
         firmwareUpdateEntryCommandSent = false
+        updateFirmwareUpdateJournal(phase: .verifying, progress: 100)
         firmwareUpdateStatus = "Update complete. Verifying..."
         firmwareUpdateProgress = 100
         isFirmwareUpdateRunning = false
@@ -66,13 +71,14 @@ extension DoorAdminStore: DoorFirmwareDfuManagerDelegate {
         firmwareDfuStartFallbackTask = nil
         pendingFirmwareUpdatePackageURL = nil
         firmwareUpdateEntryCommandSent = false
-        expectedFirmwareVerificationVersion = nil
         isAwaitingPostDfuFirmwareVerification = false
         didPostFirmwareVerificationNotification = false
-        firmwareUpdateStatus = "Firmware update failed"
+        updateFirmwareUpdateJournal(phase: .paused, error: message)
+        firmwareUpdateStatus = "Firmware update paused"
         firmwareUpdateProgress = nil
         isFirmwareUpdateRunning = false
-        lastError = message
+        lastError = "Firmware update paused. It will resume after reconnecting."
+        scheduleInterruptedFirmwareUpdateRetry()
         scanBluetooth()
     }
 }

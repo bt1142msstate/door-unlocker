@@ -58,6 +58,7 @@ extension DoorAdminStore {
 
         didPostFirmwareVerificationNotification = true
         isAwaitingPostDfuFirmwareVerification = false
+        clearFirmwareUpdateJournal()
         firmwareLog.info("Firmware wirelessly verified version=\(version, privacy: .public)")
         DistributedNotificationCenter.default().postNotificationName(
             DoorLocalCommandBridge.firmwareVerifiedNotificationName,

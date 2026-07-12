@@ -249,7 +249,7 @@ extension DoorUnlockerController {
     static let knownPairedControllerKey = "DoorUnlockerKnownPairedController"
     static let pendingBundledFirmwareUpdateVersionKey = "DoorUnlockerPendingBundledFirmwareUpdateVersion"
     static let pendingBundledFirmwareUpdateStartedAtKey = "DoorUnlockerPendingBundledFirmwareUpdateStartedAt"
-    static let pendingBundledFirmwareUpdateMaximumAge: TimeInterval = 30 * 60
+    static let firmwareUpdateJournalKey = "DoorUnlockerFirmwareUpdateJournalV1"
     static let centralRestorationIdentifier = "io.github.bt1142msstate.DoorUnlocker.central"
 #if DEBUG
     static let debugFirmwareVerifiedNotificationPrefix = "io.github.bt1142msstate.DoorUnlocker.debugFirmwareVerified"

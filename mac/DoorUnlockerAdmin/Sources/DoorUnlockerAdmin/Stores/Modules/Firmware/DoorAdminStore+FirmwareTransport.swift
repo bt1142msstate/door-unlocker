@@ -45,6 +45,7 @@ extension DoorAdminStore {
         }
 
         firmwareUpdateStatus = "Requesting firmware update mode"
+        updateFirmwareUpdateJournal(phase: .requestingBootloader)
         firmwareLog.info("Sending secure OTA DFU entry command")
         switch sendWirelessCommandText("ENTER_OTA_DFU", intent: .firmwareUpdate(packageURL)) {
         case .sent:
@@ -67,16 +68,18 @@ extension DoorAdminStore {
         firmwareUpdateProgress = nil
         isFirmwareUpdateRunning = false
         pendingFirmwareUpdatePackageURL = nil
-        expectedFirmwareVerificationVersion = nil
         isAwaitingPostDfuFirmwareVerification = false
         didPostFirmwareVerificationNotification = false
         firmwareUpdateEntryCommandSent = false
+        updateFirmwareUpdateJournal(phase: .paused, error: "Could not request firmware update mode")
+        scheduleInterruptedFirmwareUpdateRetry()
         firmwareLog.error("Secure OTA DFU entry command failed before write")
         return false
     }
 
     func beginFirmwareDfuUpload(after packageURL: URL, detectsNormalControllerFirmware: Bool = false) {
         firmwareUpdateStatus = "Waiting for update bootloader"
+        updateFirmwareUpdateJournal(phase: .scanningForBootloader)
         firmwareUpdateProgress = nil
         firmwareUpdateWatchdogTask?.cancel()
         firmwareUpdateWatchdogTask = nil

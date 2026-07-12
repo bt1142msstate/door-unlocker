@@ -238,6 +238,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
     var pendingWirelessWriteIntents: [WirelessCommandWriteIntent] = []
     var firmwareUpdateWatchdogTask: Task<Void, Never>?
     var firmwareDfuStartFallbackTask: Task<Void, Never>?
+    var firmwareUpdateRecoveryRetryTask: Task<Void, Never>?
     lazy var firmwareDfuManager = DoorFirmwareDfuManager(
         delegate: self,
         logSubsystem: "io.github.bt1142msstate.DoorUnlockerAdmin",
@@ -271,6 +272,12 @@ final class DoorAdminStore: NSObject, ObservableObject {
         ensureBluetoothCentral()
         refreshPorts()
         startStateSyncLoop()
+        Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(500))
+            await MainActor.run {
+                self?.resumeInterruptedFirmwareUpdateIfNeeded()
+            }
+        }
     }
 
     deinit {
@@ -291,6 +298,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         wirelessLinkAuthenticationTimeoutTask?.cancel()
         secureLinkWatchdogTask?.cancel()
         firmwareUpdateWatchdogTask?.cancel()
+        firmwareUpdateRecoveryRetryTask?.cancel()
         DistributedNotificationCenter.default().removeObserver(self)
     }
 }

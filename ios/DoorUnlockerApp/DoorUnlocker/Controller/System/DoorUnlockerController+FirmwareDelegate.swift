@@ -14,6 +14,9 @@ extension DoorUnlockerController: DoorFirmwareDfuManagerDelegate {
         firmwareUpdateStatus = update.status
         firmwareUpdateProgress = update.progress
         firmwareUpdateEstimatedSecondsRemaining = update.estimatedSecondsRemaining
+        if let progress = update.progress {
+            updatePendingFirmwareJournal(phase: .uploading, progress: progress)
+        }
     }
 
     func firmwareDfuManagerDidDetectControllerFirmware() {
@@ -25,6 +28,8 @@ extension DoorUnlockerController: DoorFirmwareDfuManagerDelegate {
         firmwareUpdateEstimatedSecondsRemaining = nil
         isFirmwareUpdateRunning = false
         firmwareUpdateEntryCommandSent = false
+        autoBundledFirmwareUpdateAttemptedVersion = nil
+        updatePendingFirmwareJournal(phase: .verifying)
         firmwareDfuStartFallbackTask?.cancel()
         firmwareDfuStartFallbackTask = nil
         scan()
@@ -37,6 +42,7 @@ extension DoorUnlockerController: DoorFirmwareDfuManagerDelegate {
         firmwareUpdateEstimatedSecondsRemaining = nil
         isFirmwareUpdateRunning = false
         firmwareUpdateEntryCommandSent = false
+        updatePendingFirmwareJournal(phase: .verifying, progress: 100)
 #if DEBUG
         if debugExpectedFirmwareVersion != nil {
             debugFirmwareAwaitingPostDfuVerification = true
@@ -71,6 +77,10 @@ extension DoorUnlockerController: DoorFirmwareDfuManagerDelegate {
         firmwareUpdateEntryCommandSent = false
         if canRecoverBundledUpdate {
             autoBundledFirmwareUpdateAttemptedVersion = nil
+        }
+        updatePendingFirmwareJournal(phase: .paused, error: message)
+        if canRecoverBundledUpdate {
+            scheduleInterruptedFirmwareUpdateRetry()
         }
 #if DEBUG
         debugFirmwareAwaitingPostDfuVerification = false
