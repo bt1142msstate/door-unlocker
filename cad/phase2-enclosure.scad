@@ -17,7 +17,7 @@ show_labels = false;
 
 case_w = 72;
 case_d = 34;
-case_h = 244;
+case_h = 264;
 wall = 3.2;
 case_r = 7;
 front_y = case_d / 2;
@@ -70,15 +70,15 @@ led_z = 233;
 servo_w = 40.5;
 servo_d = 20;
 servo_h = 37.5;
-servo_z = 221;
+servo_z = 241;
 
 servo_bay_w = 56;
 servo_bay_h = 52;
-servo_bay_z = 221;
+servo_bay_z = 241;
 servo_front_pocket_w = servo_bay_w;
 servo_front_pocket_d = case_d - 6;
 servo_front_pocket_h = 58;
-servo_front_pocket_z = 211;
+servo_front_pocket_z = 231;
 servo_adjustment_offsets = [-5, 0, 5];
 servo_cradle_w = 42;
 servo_cradle_d = 23;
@@ -105,27 +105,27 @@ xiao_d = 1.6;
 xiao_h = 17.8;
 xiao_x = 0;
 xiao_y = 6;
-xiao_z = 177;
+xiao_z = 196;
 
 breadboard_w = 35;
 breadboard_d = 8.5;
 breadboard_h = 47;
 breadboard_x = 0;
 breadboard_y = 0;
-breadboard_z = 177;
+breadboard_z = 196;
 
-splitter_w = 32;
-splitter_d = 13.5;
-splitter_h = 13;
-splitter_x_centers = [-16, 16];
+splitter_w = 13.5;
+splitter_d = 13;
+splitter_h = 32;
+splitter_x_centers = [-6.75, 6.75];
 splitter_y = 6.5;
-splitter_z = 85;
+splitter_z = 94.5;
 
 buck_w = 40;
 buck_d = 10;
 buck_h = 60;
 buck_y = 0;
-buck_z = 122.5;
+buck_z = 141.5;
 
 battery_w = 43;
 battery_d = 22;
@@ -426,10 +426,10 @@ module inline_splitter_pair() {
     color("#c9d0cb")
       translate([x, splitter_y, splitter_z])
         cube([splitter_w, splitter_d, splitter_h], center = true);
-    for (lever = [[-9, -3.1], [-9, 3.1], [9.5, 0]]) {
+    for (lever = [[-3.2, 10.5], [3.2, 10.5], [0, -9]]) {
       color("#f28b32")
         translate([x + lever[0], splitter_y + splitter_d / 2 + 1.2, splitter_z + lever[1]])
-          cube([9, 2.4, 3.4], center = true);
+          cube([4.1, 2.4, 12.5], center = true);
     }
   }
 }

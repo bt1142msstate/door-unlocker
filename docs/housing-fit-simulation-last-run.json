@@ -2,19 +2,19 @@
   "inputs": {
     "case_width_mm": 72.0,
     "case_depth_mm": 34.0,
-    "case_height_mm": 244.0,
+    "case_height_mm": 264.0,
     "wall_mm": 3.2,
     "p1s_build_height_mm": 256.0,
     "plate_width_mm": 50.8,
     "plate_depth_mm": 7.0,
-    "plate_height_mm": 244.0,
-    "plate_max_height_mm": 244.0,
+    "plate_height_mm": 264.0,
+    "plate_max_height_mm": 264.0,
     "housing_top_margin_mm": 4.0,
     "housing_bottom_margin_mm": 1.5,
     "rail_end_margin_target_mm": 8.0,
-    "mount_rail_length_mm": 224.0,
-    "mount_channel_length_mm": 226.0,
-    "servo_default_center_z_mm": 221.0,
+    "mount_rail_length_mm": 244.0,
+    "mount_channel_length_mm": 246.0,
+    "servo_default_center_z_mm": 241.0,
     "servo_cradle_width_mm": 42.0,
     "servo_cradle_depth_mm": 23.0,
     "servo_cradle_height_mm": 3.0,
@@ -24,41 +24,41 @@
     "servo_front_pocket_width_mm": 56.0,
     "servo_front_pocket_depth_mm": 28.0,
     "servo_front_pocket_height_mm": 58.0,
-    "servo_front_pocket_center_z_mm": 211.0,
-    "wire_channel_start_z_mm": 80.0,
-    "wire_channel_end_z_mm": 202.0,
+    "servo_front_pocket_center_z_mm": 231.0,
+    "wire_channel_start_z_mm": 78.0,
+    "wire_channel_end_z_mm": 222.0,
     "wire_channel_rib_width_mm": 1.0
   },
   "housing": {
     "outer_dimensions_mm": [
       72.0,
       34.0,
-      244.0
+      264.0
     ],
     "inner_width_mm": 65.6,
     "inner_depth_mm": 27.6,
-    "p1s_height_margin_mm": 12.0,
-    "minimum_height_for_current_layout_mm": 244.0,
+    "p1s_height_margin_mm": -8.0,
+    "minimum_height_for_current_layout_mm": 264.0,
     "current_height_is_tight_minimum": true,
-    "vertical_used_span_mm": 239.25,
-    "vertical_utilization_percent": 98.1,
-    "max_width_utilization_percent": 98.8,
+    "vertical_used_span_mm": 259.25,
+    "vertical_utilization_percent": 98.2,
+    "max_width_utilization_percent": 66.8,
     "max_depth_utilization_percent": 82.6,
-    "worst_side_margin_mm": 0.4,
-    "worst_depth_margin_mm": 0.15,
-    "recommendation": "Keep the 72 x 34 x 244mm housing for the current prototype parts. It is tight: the height is the calculated minimum for this vertical layout, while the joined splitter pair remains the width driver."
+    "worst_side_margin_mm": 10.9,
+    "worst_depth_margin_mm": 0.4,
+    "recommendation": "Use the 72 x 34 x 264mm housing so the joined splitter pair can stand lengthwise with real bottom input and top output ports. Print the long parts flat and diagonally on the P1S bed."
   },
   "plate_height": {
-    "housing_height_mm": 244.0,
-    "current_plate_height_mm": 244.0,
+    "housing_height_mm": 264.0,
+    "current_plate_height_mm": 264.0,
     "plate_height_over_housing_mm": 0.0,
-    "minimum_plate_height_for_open_ended_rails_mm": 242.0,
+    "minimum_plate_height_for_open_ended_rails_mm": 262.0,
     "current_extra_above_minimum_mm": 2.0,
-    "recommended_plate_height_mm": 244.0,
+    "recommended_plate_height_mm": 264.0,
     "rail_end_margin_mm": 10.0,
     "channel_end_margin_mm": 9.0,
     "fits_flush_enclosure_height": true,
-    "recommendation": "Use the flush 244mm plate with open-ended rails and a hidden detent. It hides behind the enclosure and still leaves at least 9mm channel end margin."
+    "recommendation": "Use the flush 264mm plate with open-ended rails and a hidden detent. It hides behind the enclosure and still leaves at least 9mm channel end margin."
   },
   "components": {
     "collision_pairs_raw": [],
@@ -76,10 +76,10 @@
       },
       {
         "name": "xalxmaw_inline_splitter_pair",
-        "expanded_width_mm": 64.8,
-        "expanded_depth_mm": 14.3,
-        "side_margin_mm": 0.4,
-        "depth_margin_mm": 0.15,
+        "expanded_width_mm": 27.8,
+        "expanded_depth_mm": 13.8,
+        "side_margin_mm": 18.9,
+        "depth_margin_mm": 0.4,
         "fits_width": true,
         "fits_depth": true,
         "front_protrusion_allowed": false
@@ -141,28 +141,28 @@
         "name": "xalxmaw_inline_splitter_pair",
         "x": 0,
         "y": 6.5,
-        "z": 85,
-        "width": 64,
-        "depth": 13.5,
-        "height": 13,
+        "z": 94.5,
+        "width": 27,
+        "depth": 13,
+        "height": 32,
         "clearance": 0.4,
         "kind": "component",
         "min": [
-          -32.0,
-          -0.25,
+          -13.5,
+          0.0,
           78.5
         ],
         "max": [
-          32.0,
-          13.25,
-          91.5
+          13.5,
+          13.0,
+          110.5
         ]
       },
       {
         "name": "lm2596_buck_current_vertical",
         "x": 0,
         "y": 0,
-        "z": 122.5,
+        "z": 141.5,
         "width": 40,
         "depth": 10,
         "height": 60,
@@ -171,19 +171,19 @@
         "min": [
           -20.0,
           -5.0,
-          92.5
+          111.5
         ],
         "max": [
           20.0,
           5.0,
-          152.5
+          171.5
         ]
       },
       {
         "name": "controller_breadboard_assembly",
         "x": 0,
         "y": 0,
-        "z": 177,
+        "z": 196,
         "width": 35,
         "depth": 14,
         "height": 47,
@@ -192,19 +192,19 @@
         "min": [
           -17.5,
           -7.0,
-          153.5
+          172.5
         ],
         "max": [
           17.5,
           7.0,
-          200.5
+          219.5
         ]
       },
       {
         "name": "servo_body",
         "x": 0,
         "y": 18,
-        "z": 221,
+        "z": 241,
         "width": 40.5,
         "depth": 20,
         "height": 37.5,
@@ -213,12 +213,12 @@
         "min": [
           -20.25,
           8.0,
-          202.25
+          222.25
         ],
         "max": [
           20.25,
           28.0,
-          239.75
+          259.75
         ]
       }
     ],
@@ -227,7 +227,7 @@
         "name": "solar_panel_series_pair",
         "x": 0,
         "y": 18.7,
-        "z": 130,
+        "z": 140,
         "width": 60,
         "depth": 3,
         "height": 220,
@@ -236,19 +236,19 @@
         "min": [
           -30.0,
           17.2,
-          20.0
+          30.0
         ],
         "max": [
           30.0,
           20.2,
-          240.0
+          250.0
         ]
       },
       {
         "name": "pill_status_led",
         "x": 0,
         "y": 18.9,
-        "z": 233,
+        "z": 253,
         "width": 22,
         "depth": 3,
         "height": 5,
@@ -257,19 +257,19 @@
         "min": [
           -11.0,
           17.4,
-          230.5
+          250.5
         ],
         "max": [
           11.0,
           20.4,
-          235.5
+          255.5
         ]
       },
       {
         "name": "servo_body",
         "x": 0,
         "y": 18,
-        "z": 221,
+        "z": 241,
         "width": 40.5,
         "depth": 20,
         "height": 37.5,
@@ -278,19 +278,19 @@
         "min": [
           -20.25,
           8.0,
-          202.25
+          222.25
         ],
         "max": [
           20.25,
           28.0,
-          239.75
+          259.75
         ]
       },
       {
         "name": "servo_height_adjustment_cradle",
         "x": 0,
         "y": -2,
-        "z": 200.75,
+        "z": 220.75,
         "width": 42,
         "depth": 23,
         "height": 3,
@@ -299,19 +299,19 @@
         "min": [
           -21.0,
           -13.5,
-          199.25
+          219.25
         ],
         "max": [
           21.0,
           9.5,
-          202.25
+          222.25
         ]
       },
       {
         "name": "servo_front_exposure_pocket",
         "x": 0,
         "y": 14,
-        "z": 211,
+        "z": 231,
         "width": 56,
         "depth": 28,
         "height": 58,
@@ -320,22 +320,22 @@
         "min": [
           -28.0,
           0.0,
-          182.0
+          202.0
         ],
         "max": [
           28.0,
           28.0,
-          240.0
+          260.0
         ]
       },
       {
         "name": "electronics_service_bay",
         "x": 0,
         "y": 3.2,
-        "z": 140,
+        "z": 150,
         "width": 64,
         "depth": 28,
-        "height": 120,
+        "height": 140,
         "clearance": 0.0,
         "kind": "bay",
         "min": [
@@ -346,7 +346,7 @@
         "max": [
           32.0,
           17.2,
-          200.0
+          220.0
         ]
       },
       {
@@ -375,8 +375,8 @@
   "wire_routing": {
     "type": "symmetric raised-lip cable-comb raceway on the inside rear wall",
     "z_range_mm": [
-      80.0,
-      202.0
+      78.0,
+      222.0
     ],
     "lane_count": 10,
     "active_lane_count": 9,
@@ -490,210 +490,210 @@
         "name": "wire_channel_splitter_positive_to_servo",
         "x": -28.0,
         "y": -12.100000000000001,
-        "z": 141.0,
+        "z": 150.0,
         "width": 6.2,
         "depth": 3.4,
-        "height": 122.0,
+        "height": 144.0,
         "clearance": 0.0,
         "kind": "wire_routing",
         "min": [
           -31.1,
           -13.8,
-          80.0
+          78.0
         ],
         "max": [
           -24.9,
           -10.4,
-          202.0
+          222.0
         ]
       },
       {
         "name": "wire_channel_battery_positive_input",
         "x": -22.8,
         "y": -12.100000000000001,
-        "z": 141.0,
+        "z": 150.0,
         "width": 6.2,
         "depth": 3.4,
-        "height": 122.0,
+        "height": 144.0,
         "clearance": 0.0,
         "kind": "wire_routing",
         "min": [
           -25.9,
           -13.8,
-          80.0
+          78.0
         ],
         "max": [
           -19.7,
           -10.4,
-          202.0
+          222.0
         ]
       },
       {
         "name": "wire_channel_spare_high_current",
         "x": -17.6,
         "y": -12.100000000000001,
-        "z": 141.0,
+        "z": 150.0,
         "width": 6.2,
         "depth": 3.4,
-        "height": 122.0,
+        "height": 144.0,
         "clearance": 0.0,
         "kind": "wire_routing",
         "min": [
           -20.7,
           -13.8,
-          80.0
+          78.0
         ],
         "max": [
           -14.5,
           -10.4,
-          202.0
+          222.0
         ]
       },
       {
         "name": "wire_channel_pwm_signal",
         "x": -8.0,
         "y": -12.700000000000001,
-        "z": 141.0,
+        "z": 150.0,
         "width": 5.0,
         "depth": 2.2,
-        "height": 122.0,
+        "height": 144.0,
         "clearance": 0.0,
         "kind": "wire_routing",
         "min": [
           -10.5,
           -13.8,
-          80.0
+          78.0
         ],
         "max": [
           -5.5,
           -11.6,
-          202.0
+          222.0
         ]
       },
       {
         "name": "wire_channel_controller_5v",
         "x": -4.0,
         "y": -12.700000000000001,
-        "z": 141.0,
+        "z": 150.0,
         "width": 5.0,
         "depth": 2.2,
-        "height": 122.0,
+        "height": 144.0,
         "clearance": 0.0,
         "kind": "wire_routing",
         "min": [
           -6.5,
           -13.8,
-          80.0
+          78.0
         ],
         "max": [
           -1.5,
           -11.6,
-          202.0
+          222.0
         ]
       },
       {
         "name": "wire_channel_controller_ground",
         "x": 0.0,
         "y": -12.700000000000001,
-        "z": 141.0,
+        "z": 150.0,
         "width": 5.0,
         "depth": 2.2,
-        "height": 122.0,
+        "height": 144.0,
         "clearance": 0.0,
         "kind": "wire_routing",
         "min": [
           -2.5,
           -13.8,
-          80.0
+          78.0
         ],
         "max": [
           2.5,
           -11.6,
-          202.0
+          222.0
         ]
       },
       {
         "name": "wire_channel_buck_input_positive",
         "x": 4.0,
         "y": -12.700000000000001,
-        "z": 141.0,
+        "z": 150.0,
         "width": 5.0,
         "depth": 2.2,
-        "height": 122.0,
+        "height": 144.0,
         "clearance": 0.0,
         "kind": "wire_routing",
         "min": [
           1.5,
           -13.8,
-          80.0
+          78.0
         ],
         "max": [
           6.5,
           -11.6,
-          202.0
+          222.0
         ]
       },
       {
         "name": "wire_channel_buck_input_ground",
         "x": 8.0,
         "y": -12.700000000000001,
-        "z": 141.0,
+        "z": 150.0,
         "width": 5.0,
         "depth": 2.2,
-        "height": 122.0,
+        "height": 144.0,
         "clearance": 0.0,
         "kind": "wire_routing",
         "min": [
           5.5,
           -13.8,
-          80.0
+          78.0
         ],
         "max": [
           10.5,
           -11.6,
-          202.0
+          222.0
         ]
       },
       {
         "name": "wire_channel_battery_ground_input",
         "x": 22.8,
         "y": -12.100000000000001,
-        "z": 141.0,
+        "z": 150.0,
         "width": 6.2,
         "depth": 3.4,
-        "height": 122.0,
+        "height": 144.0,
         "clearance": 0.0,
         "kind": "wire_routing",
         "min": [
           19.7,
           -13.8,
-          80.0
+          78.0
         ],
         "max": [
           25.9,
           -10.4,
-          202.0
+          222.0
         ]
       },
       {
         "name": "wire_channel_splitter_ground_to_servo",
         "x": 28.0,
         "y": -12.100000000000001,
-        "z": 141.0,
+        "z": 150.0,
         "width": 6.2,
         "depth": 3.4,
-        "height": 122.0,
+        "height": 144.0,
         "clearance": 0.0,
         "kind": "wire_routing",
         "min": [
           24.9,
           -13.8,
-          80.0
+          78.0
         ],
         "max": [
           31.1,
           -10.4,
-          202.0
+          222.0
         ]
       }
     ],
@@ -707,8 +707,8 @@
       5.0
     ],
     "servo_center_z_range_mm": [
-      216.0,
-      226.0
+      236.0,
+      246.0
     ],
     "cradle_dimensions_mm": [
       42.0,
@@ -725,23 +725,23 @@
       28.0,
       58.0
     ],
-    "servo_front_exposure_pocket_center_z_mm": 211.0,
+    "servo_front_exposure_pocket_center_z_mm": 231.0,
     "collision_checks_by_detent": [
       {
         "offset_mm": -5.0,
-        "servo_center_z_mm": 216.0,
+        "servo_center_z_mm": 236.0,
         "raw_component_collisions": [],
         "clearance_envelope_collisions": []
       },
       {
         "offset_mm": 0.0,
-        "servo_center_z_mm": 221.0,
+        "servo_center_z_mm": 241.0,
         "raw_component_collisions": [],
         "clearance_envelope_collisions": []
       },
       {
         "offset_mm": 5.0,
-        "servo_center_z_mm": 226.0,
+        "servo_center_z_mm": 246.0,
         "raw_component_collisions": [],
         "clearance_envelope_collisions": []
       }

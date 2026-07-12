@@ -7,9 +7,9 @@
     "safety_factor": 3.0,
     "estimated_assembly_weight_lbf": 1.8,
     "plate_width_mm": 50.8,
-    "plate_height_mm": 244.0,
+    "plate_height_mm": 264.0,
     "current_concept_plate_width_mm": 50.8,
-    "current_concept_plate_height_mm": 244.0,
+    "current_concept_plate_height_mm": 264.0,
     "strip_length_mm": 111.125,
     "strip_width_mm": 22.224999999999998,
     "strip_thickness_mm": 1.5875,
@@ -19,11 +19,11 @@
     "rail_face_angle_deg": 60.0,
     "rail_neck_width_mm": 8.0,
     "rail_depth_mm": 5.5,
-    "rail_length_mm": 224.0,
-    "rail_channel_length_mm": 226.0,
+    "rail_length_mm": 244.0,
+    "rail_channel_length_mm": 246.0,
     "rail_spacing_mm": 30.0,
     "rail_channel_clearance_mm": 0.4,
-    "enclosure_height_mm": 244.0,
+    "enclosure_height_mm": 264.0,
     "rail_end_margin_target_mm": 8.0,
     "pla_pure_tensile_strength_z_mpa": 30.0,
     "pla_pure_bending_strength_z_mpa": 55.0,
@@ -66,7 +66,7 @@
       "used_width_mm": 48.45,
       "used_height_mm": 226.25,
       "side_margin_mm": 1.18,
-      "top_bottom_margin_mm": 8.88
+      "top_bottom_margin_mm": 18.88
     },
     "modeled_layout_note": "3D concept places two columns by two rows with centers at +/-13.1mm across and +/-57.6mm vertically, leaving about 1.2mm side margin, 8.9mm top/bottom margin, and 4.0mm between rows.",
     "alternative_strip_fit_comparison": [
@@ -87,7 +87,7 @@
           "used_width_mm": 48.45,
           "used_height_mm": 226.25,
           "side_margin_mm": 1.18,
-          "top_bottom_margin_mm": 8.88
+          "top_bottom_margin_mm": 18.88
         }
       },
       {
@@ -107,7 +107,7 @@
           "used_width_mm": 42.1,
           "used_height_mm": 188.15,
           "side_margin_mm": 4.35,
-          "top_bottom_margin_mm": 27.93
+          "top_bottom_margin_mm": 37.93
         }
       },
       {
@@ -127,7 +127,7 @@
           "used_width_mm": 35.75,
           "used_height_mm": 217.55,
           "side_margin_mm": 7.52,
-          "top_bottom_margin_mm": 13.23
+          "top_bottom_margin_mm": 23.23
         }
       }
     ],
@@ -159,14 +159,14 @@
     "capture_overlap_each_side_mm": 2.7754,
     "slides_without_interference": true,
     "straight_pull_off_blocked": true,
-    "rail_shear_stress_mpa_at_servo_stall": 0.0171,
-    "rail_length_mm": 224.0,
+    "rail_shear_stress_mpa_at_servo_stall": 0.0157,
+    "rail_length_mm": 244.0,
     "rail_bottom_z_mm": 10.0,
-    "rail_top_z_mm": 234.0,
+    "rail_top_z_mm": 254.0,
     "rail_bottom_end_margin_mm": 10.0,
     "rail_top_end_margin_mm": 10.0,
     "solid_rail_has_end_margin": true,
-    "channel_length_mm": 226.0,
+    "channel_length_mm": 246.0,
     "channel_bottom_end_margin_mm": 9.0,
     "channel_top_end_margin_mm": 9.0,
     "channel_has_end_margin": true,
@@ -177,8 +177,8 @@
     "printer": "Bambu Lab P1S",
     "assumed_nozzle_mm": 0.4,
     "allowable_stress_mpa_with_4x_margin": 7.5,
-    "rail_shear_safety_factor_vs_z_tensile": 1754.2,
-    "rail_shear_safety_factor_vs_design_allowable": 438.6,
+    "rail_shear_safety_factor_vs_z_tensile": 1910.9,
+    "rail_shear_safety_factor_vs_design_allowable": 477.7,
     "back_plate_bending_stress_mpa": 6.65,
     "back_plate_bending_safety_factor_vs_z_tensile": 4.5,
     "back_plate_bending_safety_factor_vs_z_bending": 8.3,
@@ -187,7 +187,7 @@
   },
   "recommendation": {
     "minimum_for_stall_with_3x_margin": 10,
-    "practical_recommendation": "The 2 inch x 244 mm flush plate fits only 4 X-Large pairs, which is below the 10 pairs needed for a 3x servo-stall margin. Use all 4 pairs only if measured handle force is low enough, or add a mechanical bracket/force limiter.",
+    "practical_recommendation": "The 2 inch x 264 mm flush plate fits only 4 X-Large pairs, which is below the 10 pairs needed for a 3x servo-stall margin. Use all 4 pairs only if measured handle force is low enough, or add a mechanical bracket/force limiter.",
     "critical_warning": "Do not trust this as certification. Command strips are not specified for repeated actuator torque or peel loading; do a staged physical load test before door use."
   }
 }

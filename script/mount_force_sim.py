@@ -24,9 +24,9 @@ class MountScenario:
     safety_factor: float = 3.0
     estimated_assembly_weight_lbf: float = 1.8
     plate_width_mm: float = 2.0 * 25.4
-    plate_height_mm: float = 244.0
+    plate_height_mm: float = 264.0
     current_concept_plate_width_mm: float = 2.0 * 25.4
-    current_concept_plate_height_mm: float = 244.0
+    current_concept_plate_height_mm: float = 264.0
     strip_length_mm: float = 4.375 * 25.4
     strip_width_mm: float = 0.875 * 25.4
     strip_thickness_mm: float = 0.0625 * 25.4
@@ -36,11 +36,11 @@ class MountScenario:
     rail_face_angle_deg: float = 60.0
     rail_neck_width_mm: float = 8.0
     rail_depth_mm: float = 5.5
-    rail_length_mm: float = 224.0
-    rail_channel_length_mm: float = 226.0
+    rail_length_mm: float = 244.0
+    rail_channel_length_mm: float = 246.0
     rail_spacing_mm: float = 30.0
     rail_channel_clearance_mm: float = 0.40
-    enclosure_height_mm: float = 244.0
+    enclosure_height_mm: float = 264.0
     rail_end_margin_target_mm: float = 8.0
     pla_pure_tensile_strength_z_mpa: float = 30.0
     pla_pure_bending_strength_z_mpa: float = 55.0

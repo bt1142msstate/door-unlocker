@@ -14,7 +14,7 @@ adhesive margin against a full servo-stall load.
 **Good to go for now:** print coupons, test the dovetail fit, bench-test the housing, and mock the plate on a safe test surface.
 
 **Not good to go yet:** trusting it on the real door unattended. Four X-Large Command strip
-pairs fit the 2 in x 244 mm plate, but they provide only about **1.28x** ideal static margin
+pairs fit the 2 in x 264 mm plate, but they provide only about **1.28x** ideal static margin
 against full servo stall plus estimated assembly weight. The preferred **3x** stall margin
 would require **10 pairs**, which do not fit this narrow hidden plate.
 
@@ -28,7 +28,7 @@ handle-attached bracket concept.
 | --- | --- | --- |
 | PLA dovetail rails | Pass | Rail shear stress is far below the conservative PLA allowance in this simplified model. |
 | Backplate bending | Pass | Calculated bending margin is acceptable for prototype testing, but physical creep testing is still required. |
-| Four X-Large strip fit | Pass | Four pairs fit as two columns by two rows on the 2 in x 244 mm plate. |
+| Four X-Large strip fit | Pass | Four pairs fit as two columns by two rows on the 2 in x 264 mm plate. |
 | Adhesive vs full servo stall at 3x margin | Fail | The current plate fits 4 pairs; the 3x stall target needs 10 pairs. |
 | Overall mount readiness | Conditional pass | Continue prototyping, but do not treat it as door-ready until measured handle-force and load tests pass. |
 
@@ -36,16 +36,16 @@ handle-attached bracket concept.
 
 - Command 20 lb X-Large Picture Hanging Strips: 3M lists four X-Large pairs as holding 20 lb on suitable smooth surfaces. That is treated as an ideal static picture-hanging capacity of 5 lb per pair.
 - Command 17217 X-Large strip footprint: 4 3/8 x 7/8 x 1/16 in, or about **111.1 x 22.2 x 1.6 mm**, used for plate fit planning and the 3D concept.
-- Smaller Command picture-hanging strips were checked against the same 2 in x 244 mm flush plate. Large 17206 strips fit more loosely but give less ideal capacity, while Medium 17204 strips can fit more pairs but still do not beat the four X-Large pairs on total ideal capacity.
+- Smaller Command picture-hanging strips were checked against the same 2 in x 264 mm flush plate. Large 17206 strips fit more loosely but give less ideal capacity, while Medium 17204 strips can fit more pairs but still do not beat the four X-Large pairs on total ideal capacity.
 - INJORA 35 kg servo: listing torque is 35 kg-cm at 8.4 V.
 - Servo arm: 56 mm metal horn.
-- Current adhesive plate constraint: 2 in wide by 244 mm tall, or 50.8 x 244 mm, sized to hide behind the enclosure while still fitting four vertical X-Large pairs as two rows of two.
+- Current adhesive plate constraint: 2 in wide by 264 mm tall, or 50.8 x 264 mm, sized to hide behind the enclosure while still fitting four vertical X-Large pairs as two rows of two.
 - Estimated full door-supported assembly weight: **1.8 lbf** rounded up from the
   solar and servo-switch-equipped Phase 2 mass budget. That includes the hidden mounting plate, Command
   strips, enclosure, battery, servo, controller, inline splitters, buck, wiring, service cover,
   two mini solar panels, solar charger allowance, battery monitor allowance, and servo
   power switch allowance.
-- Dovetail rail profile: 60 degree face, 8 mm neck, 5.5 mm depth, 14.3509 mm computed head, and 0.40 mm per-side channel clearance. Solid rails are 224 mm long and open-ended, with a hidden detent for retention.
+- Dovetail rail profile: 60 degree face, 8 mm neck, 5.5 mm depth, 14.3509 mm computed head, and 0.40 mm per-side channel clearance. Solid rails are 244 mm long and open-ended, with a hidden detent for retention.
 - Print target: Bambu Lab PLA Pure on a Bambu Lab P1S with the included 0.4 mm nozzle.
 - Conservative printed-part strength: Bambu PLA Pure Z-direction tensile strength is treated as 30 MPa; this is the layer-adhesion-sensitive value.
 
@@ -83,12 +83,12 @@ stall demand with 1.8 lb assembly weight = 15.58 lb
 3x servo-stall safety target = 46.74 lb
 pairs needed for servo-stall 3x = ceil(46.74 / 5) = 10 pairs
 
-2 in x 244 mm plate fit = 2 columns x 2 rows = 4 pairs
+2 in x 264 mm plate fit = 2 columns x 2 rows = 4 pairs
 max ideal static capacity = 4 x 5 lb = 20 lb
 static safety factor against servo stall + 1.8 lb assembly = 20 / 15.58 = 1.28x
 ```
 
-The constrained 2 in x 244 mm flush plate can fit **4 X-Large pairs maximum**. The fit is tight but valid:
+The constrained 2 in x 264 mm flush plate can fit **4 X-Large pairs maximum**. The fit is tight but valid:
 
 ```text
 X-Large strip pair = 111.1 H x 22.2 W x 1.6 D mm
@@ -96,7 +96,7 @@ two-column width = 22.2 + 4.0 gap + 22.2 = 48.4 mm
 side margin on 50.8 mm plate = (50.8 - 48.4) / 2 = 1.2 mm
 
 modeled row centers = +/-57.6 mm from plate center
-top/bottom margin = (244.0 - (115.1 + 111.1)) / 2 = 8.9 mm
+top/bottom margin = (264.0 - (115.1 + 111.1)) / 2 = 18.9 mm
 gap between rows = 115.1 - 111.1 = 4.0 mm
 ```
 
@@ -110,7 +110,7 @@ That is the optimal count for the current size limit because using fewer X-Large
 17204 Medium:  6 pairs fit, 15 lb ideal total capacity. More pieces, still less capacity.
 ```
 
-So the X-Large 17217 strips do fit and are still the best Command-strip choice for the current 2 in x 244 mm flush backplate.
+So the X-Large 17217 strips do fit and are still the best Command-strip choice for the current 2 in x 264 mm flush backplate.
 
 Four pairs do **not** meet a 3x margin against full servo stall. They can work only if the real measured handle force is low enough:
 
@@ -145,9 +145,9 @@ capture overlap each side = (14.3509 - 8.80) / 2 = 2.7754 mm
 
 The enclosure can slide along the rails because the channel is larger than the rail. It cannot pull straight off the plate because the rail head is wider than the channel neck.
 
-The solid rail span now runs from 10.0 mm to 234.0 mm on the 244 mm housing reference, leaving **10.0 mm** of end margin at both ends. The housing channel preview is 226 mm long, leaving **9.0 mm** of end margin at both ends.
+The solid rail span now runs from 10.0 mm to 254.0 mm on the 264 mm housing reference, leaving **10.0 mm** of end margin at both ends. The housing channel preview is 246 mm long, leaving **9.0 mm** of end margin at both ends.
 
-At servo stall, the simple two-rail neck shear stress is only about 0.0171 MPa, so the rails are not the expected limiting part in this model. Print orientation, layer adhesion, hidden-detent geometry, and local stress around screw/servo bosses still need physical test prints.
+At servo stall, the simple two-rail neck shear stress is only about 0.0157 MPa, so the rails are not the expected limiting part in this model. Print orientation, layer adhesion, hidden-detent geometry, and local stress around screw/servo bosses still need physical test prints.
 
 ## Bambu PLA Pure Printed-Part Check
 
@@ -157,9 +157,9 @@ This is still a first-order estimate, but it keeps the housing grounded in the a
 Bambu PLA Pure Z tensile strength = 30 MPa
 Design allowable with 4x printed-part margin = 7.5 MPa
 
-two-rail neck shear stress = 61.29 N / (2 x 8 mm x 224 mm)
-two-rail neck shear stress = 0.0171 MPa
-rail safety vs Z tensile = 1754.2x
+two-rail neck shear stress = 61.29 N / (2 x 8 mm x 244 mm)
+two-rail neck shear stress = 0.0157 MPa
+rail safety vs Z tensile = 1910.9x
 
 plate bending moment = 61.29 N x 45 mm = 2758 N-mm
 50.8 x 7 mm plate simple bending stress = 6.65 MPa
@@ -173,12 +173,12 @@ Interpretation: the PLA rails are comfortably above the calculated servo stall l
 
 ## P1S Tight-Fit Housing Assumptions
 
-- Main enclosure envelope: **72 W x 34 D x 244 H mm**, so it fits inside the P1S 256 mm build volume.
-- Door plate: **50.8 W x 7 D x 244 H mm**, matching the enclosure height so the mount is mostly hidden once installed.
-- Removable service cover: **66 W x 2.2 D x 232 H mm**, a near full-height maintenance face that should slide on shallow rails or dovetails without removing the enclosure from the door plate.
-- Print note: the flush plate fits the P1S volume and should be printed flat.
+- Main enclosure envelope: **72 W x 34 D x 264 H mm**. It exceeds one P1S axis by 8 mm but fits flat when rotated diagonally on the 256 x 256 mm bed.
+- Door plate: **50.8 W x 7 D x 264 H mm**, matching the enclosure height so the mount is mostly hidden once installed; print it flat and diagonally.
+- Removable service cover: **66 W x 2.2 D x 252 H mm**, a near full-height maintenance face that fits directly within one P1S axis.
+- Print note: confirm the slicer's skirt, purge-line, and toolhead-clearance envelope before starting either diagonal long-part print.
 - Dovetail channel clearance: **0.40 mm per side** as the tight default. Print coupons at 0.30, 0.40, 0.50, and 0.60 mm before printing the full plate.
-- Dovetail rail spacing: **30 mm center-to-center**, narrowed so the dual captive rails fit on the 2 in plate. Solid rail length is **224 mm**, and the housing channel preview is **226 mm**, leaving 10 mm and 9 mm end margins respectively.
+- Dovetail rail spacing: **30 mm center-to-center**, narrowed so the dual captive rails fit on the 2 in plate. Solid rail length is **244 mm**, and the housing channel preview is **246 mm**, leaving 10 mm and 9 mm end margins respectively.
 - Hard component clearance: about **0.6 mm per side** for servo/controller/buck fit surfaces.
 - Servo height adjustment: use a removable **42 W x 23 D x 3 H mm** cradle on **6 W x 20 D x 2.2 H mm** left/right notch ledges at **-5 / 0 / +5 mm** from the default servo height, so the servo can be aligned to the handle while still being tightly supported from the sides.
 - Battery clearance: about **1.5 mm per side**. The battery should be retained but not compressed.

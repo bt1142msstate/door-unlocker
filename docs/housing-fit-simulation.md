@@ -4,8 +4,8 @@ This check validates the Phase 2 housing as a tight component-packing model. It 
 
 ## Current Recommendation
 
-- Keep the main enclosure at **72 W x 34 D x 244 H mm** for the current prototype hardware.
-- Keep the door mounting plate at **50.8 W x 7 D x 244 H mm** so it hides behind the enclosure.
+- Use the main enclosure at **72 W x 34 D x 264 H mm** so the splitter pair can stand lengthwise.
+- Keep the door mounting plate at **50.8 W x 7 D x 264 H mm** so it hides behind the enclosure.
 - Use four **3M Command 17217 X-Large** picture-hanging pairs on the back plate. Each modeled pair is **111.1 x 22.2 x 1.6 mm**.
 - The housing height is already the calculated tight minimum for the current vertical layout.
 - Use open-ended dovetail rails plus a small hidden detent instead of visible top/bottom stops.
@@ -16,42 +16,42 @@ This check validates the Phase 2 housing as a tight component-packing model. It 
 ## Housing Fit Results
 
 ```text
-outer housing = 72 x 34 x 244 mm
+outer housing = 72 x 34 x 264 mm
 inner width = 72 - 2 x 3.2 = 65.6 mm
 inner depth = 34 - 2 x 3.2 = 27.6 mm
 
-minimum housing height for current layout = 244.0 mm
-P1S height margin = 256 - 244 = 12.0 mm
-vertical used span = 238.25 mm
-vertical utilization = 97.6%
-max width utilization = 89.3%
-max depth utilization = 90.6%
-worst side margin = 0.8 mm
-worst depth margin = 1.3 mm
+minimum housing height for current layout = 264.0 mm
+P1S single-axis margin = 256 - 264 = -8.0 mm; print flat and diagonally
+vertical used span = 259.25 mm
+vertical utilization = 98.2%
+max width utilization = 66.8%
+max depth utilization = 82.6%
+worst side margin = 10.9 mm
+worst depth margin = 0.4 mm
 raw component collisions = 0
 clearance-envelope collisions = 0
 wire-channel/component clearance collisions = 0
 ```
 
-The buck converter remains the width driver and the battery remains the depth driver. The purchased inline splitters reduce connector depth from 17 mm to 13.5 mm, but their 32 mm length leaves only **0.8 mm** lateral clearance in the horizontal service-bay orientation. The design still keeps the **34 mm** housing depth with **1.3 mm** worst-case modeled depth margin.
+The buck converter is the width driver and the battery is the depth driver. The purchased inline splitters now stand lengthwise as a joined 27 W x 13 D x 32 H mm pair, leaving **10.9 mm** minimum side margin. The design keeps the **34 mm** housing depth with **0.4 mm** worst-case modeled depth margin.
 
 ## Plate Height Results
 
 ```text
-housing height = 244.0 mm
-rail length = 224.0 mm
-channel length = 226.0 mm
+housing height = 264.0 mm
+rail length = 244.0 mm
+channel length = 246.0 mm
 target rail/channel end margins = 8.0 mm top + 8.0 mm bottom
-minimum plate height = 226.0 + 16.0 = 242.0 mm
+minimum plate height = 246.0 + 16.0 = 262.0 mm
 
-current plate height = 244.0 mm
+current plate height = 264.0 mm
 current plate over housing = 0.0 mm
 current extra above minimum = 2.0 mm
 solid rail end margin = 10.0 mm
 channel end margin = 9.0 mm
 ```
 
-That means the flush **2 in x 244 mm** plate works for this version if retention is handled by a low-profile internal detent or thumb-release feature. Do not use fully open rails with no retention at all.
+That means the flush **2 in x 264 mm** plate works for this version if retention is handled by a low-profile internal detent or thumb-release feature. Do not use fully open rails with no retention at all.
 
 ## Adhesive Layout
 
@@ -63,7 +63,7 @@ two-column width = 22.2 + 4.0 gap + 22.2 = 48.4 mm
 side margin = 1.2 mm each side
 
 modeled row centers = +/-57.6 mm from plate center
-top/bottom margin = 8.9 mm
+top/bottom margin = 18.9 mm
 gap between rows = 4.0 mm
 ```
 
@@ -74,17 +74,17 @@ The X-Large strips fit, but the side margin is intentionally tight. Add shallow 
 The current CAD follows the same bottom-to-top order as the clean bench wiring map:
 
 - Battery center: **x 0, y 2, z 40 mm**
-- Joined XALXMAW splitters: centers at **x -16 and +16, y 6.5, z 85 mm**, each modeled **32 W x 13.5 D x 13 H mm**
-- Buck center: **x 0, y 0, z 122.5 mm**, rotated vertically to a **40 W x 10 D x 60 H mm** installed envelope. This comes from the purchased Seloky B0DM946DHG listing's 2.36 x 1.57 x 0.39in dimensions.
-- Breadboard/XIAO assembly center: **x 0, z 177 mm**, using the purchased LampVPath B01KKE602W **35 W x 8.5 D x 47 H mm** breadboard envelope
-- Servo body center: **x 0, y 18, z 221 mm**; the body intentionally protrudes through the front pocket
-- Servo front exposure pocket: **56 W x 28 D x 58 H mm**, centered around **z 211 mm**
-- Servo-height adjustment cradle: **42 W x 23 D x 3 H mm**, with servo center detents at **216, 221, and 226 mm**
+- Joined XALXMAW splitters: centers at **x -6.75 and +6.75, y 6.5, z 94.5 mm**, each oriented **13.5 W x 13 D x 32 H mm**
+- Buck center: **x 0, y 0, z 141.5 mm**, rotated vertically to a **40 W x 10 D x 60 H mm** installed envelope.
+- Breadboard/XIAO assembly center: **x 0, z 196 mm**, using the purchased LampVPath B01KKE602W **35 W x 8.5 D x 47 H mm** breadboard envelope
+- Servo body center: **x 0, y 18, z 241 mm**; the body intentionally protrudes through the front pocket
+- Servo front exposure pocket: **56 W x 28 D x 58 H mm**, centered around **z 231 mm**
+- Servo-height adjustment cradle: **42 W x 23 D x 3 H mm**, with servo center detents at **236, 241, and 246 mm**
 - Servo-height notch ledges: **6 W x 20 D x 2.2 H mm** left/right supports for each detent
 - Solar skin allowance: **60 W x 3 D x 220 H mm** on the outer/front surface, representing two stacked 110 x 60 mm panels wired in series. This is not an internal solid block; final panel split/placement still needs a print layout that avoids the servo pocket and service-cover seam.
 - Phase 2 hardware: the external LED, solar skin, charger, and servo power-switch board are intentionally excluded from the Phase 1.5 interactive viewer. Their fit envelopes remain future work.
 
-This keeps the housing tight without requiring a larger shell for the current prototype parts. The adjustable cradle is intentionally coarse: the servo stays supported by the bay/cradle, and the servo can protrude through the front face while the enclosure walls remain structural.
+The 20 mm height increase removes the sideways splitter compromise. The adjustable cradle remains intentionally coarse: the servo stays supported by the bay/cradle, and the servo can protrude through the front face while the enclosure walls remain structural.
 
 ## Repeatable Wire Routing
 

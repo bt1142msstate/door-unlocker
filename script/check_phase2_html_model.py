@@ -172,8 +172,11 @@ def main() -> int:
         "inputBodyWidth: 8.2" in html
         and "outputBodyLength: 18.5" in html
         and "inputBodyLength: 15.5" in html
-        and "port.rotation.z = Math.PI / 2" in html,
-        "inline splitter must retain its narrow input stem, wide output head, and end-entry ports",
+        and "panelWithCircularHoles(" in html
+        and 'outputEndCap.name = "twoOutputEndCapWithOpenBores"' in html
+        and 'inputEndCap.name = "singleInputEndCapWithOpenBore"' in html
+        and "const bore = cylinderMesh" in html,
+        "inline splitter must retain its narrow input stem, wide output head, and true end-cap openings",
     )
 
     # Hard-body visuals share the documented approximate 4-5 px/mm scale.
@@ -248,15 +251,15 @@ def main() -> int:
         "breadboard and XIAO must remain horizontally centered",
     )
     require(
-        components["xalxmaw_inline_splitter_pair"]["layout"]["x_centers"] == [-16, 16],
+        components["xalxmaw_inline_splitter_pair"]["layout"]["x_centers"] == [-6.75, 6.75],
         "inline splitters must remain joined side-by-side",
     )
     require(
-        components["servo_front_exposure_pocket"]["center_z"] == 211,
+        components["servo_front_exposure_pocket"]["center_z"] == 231,
         "Phase 1.5 servo opening no longer matches the fitted service cover",
     )
     require(
-        "centersX: [-16, 16]" in html and "centerY: -37" in html,
+        "centersX: [-6.75, 6.75]" in html and "centerY: -37.5" in html,
         "HTML splitter layout drifted",
     )
     require("addBuckModel" in html, "vertical buck detail model is missing")
@@ -333,7 +336,7 @@ def main() -> int:
         "OpenSCAD groove centers no longer match the HTML cutaway",
     )
     require(
-        "splitter_x_centers = [-16, 16];" in scad and "splitter_z = 85;" in scad,
+        "splitter_x_centers = [-6.75, 6.75];" in scad and "splitter_z = 94.5;" in scad,
         "OpenSCAD splitter placement no longer matches the clean bench stack",
     )
 

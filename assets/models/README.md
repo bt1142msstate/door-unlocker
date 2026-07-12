@@ -41,5 +41,8 @@ input entry, inspection windows, visible conductor contacts, housing seams, and
 coupling tabs. The procedural silhouette follows the listing photography: the
 two-output end uses the full body width, the single-input end narrows to an
 estimated 8.2mm stem, and all three conductors enter through opposing lengthwise
-end faces. The delivered parts should still be checked with calipers before the
-final print.
+end faces. The end caps use actual circular mesh cutouts backed by recessed dark
+bores and visible copper contacts. The orange output levers are modeled as long
+pivoted handles that overhang the two-port end, matching the purchased-product
+photography. The delivered parts should still be checked with calipers before
+the final print.

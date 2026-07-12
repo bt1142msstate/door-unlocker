@@ -16,7 +16,7 @@
       "height": 256
     },
     "default_nozzle": 0.4,
-    "notes": "The 244mm enclosure, 244mm mounting plate, and 232mm removable service cover fit inside the P1S volume directly."
+    "notes": "The 264mm enclosure and mounting plate exceed one 256mm axis by 8mm, but their 72mm/50.8mm widths allow them to print flat and diagonally on the 256 x 256mm bed. The 252mm service cover fits directly."
   },
   "material": {
     "name": "Bambu Lab PLA Pure",
@@ -202,9 +202,9 @@
       "dimensions": {
         "width": 50.8,
         "depth": 7,
-        "height": 244
+        "height": 264
       },
-      "role": "Fixed 2in x 244mm adhesive spine that stays on the door and hides behind the enclosure once the sled is installed."
+      "role": "Fixed 2in x 264mm adhesive spine that stays on the door and hides behind the enclosure once the sled is installed."
     },
     {
       "name": "main_enclosure_sled",
@@ -212,7 +212,7 @@
       "dimensions": {
         "width": 72,
         "depth": 34,
-        "height": 244
+        "height": 264
       },
       "role": "Removable housing that slides onto the door plate and contains the servo, controller, wiring, inline lever splitters, buck, and battery slot."
     },
@@ -222,7 +222,7 @@
       "dimensions": {
         "width": 66,
         "depth": 2.2,
-        "height": 232
+        "height": 252
       },
       "role": "Near full-height front service cover that can slide off the housing on its own low-profile dovetail rails."
     }
@@ -230,14 +230,14 @@
   "enclosure": {
     "outer_width": 72,
     "outer_depth": 34,
-    "outer_height": 244,
+    "outer_height": 264,
     "wall": 3.2,
     "corner_radius": 7,
     "front_lip": 3,
     "back_plate_width": 50.8,
     "back_plate_depth": 7,
-    "back_plate_height": 244,
-    "back_plate_print_note": "The mounting plate is intentionally flush with the 244mm enclosure so it hides after installation. Open-ended rails plus a small hidden detent replace the earlier visible external retention geometry."
+    "back_plate_height": 264,
+    "back_plate_print_note": "The mounting plate is intentionally flush with the 264mm enclosure so it hides after installation. Print it flat and diagonally on the P1S bed. Open-ended rails plus a small hidden detent replace the earlier visible external retention geometry."
   },
   "adhesive_mount": {
     "selected_strip": {
@@ -258,14 +258,14 @@
     },
     "back_plate_layout": {
       "plate_width": 50.8,
-      "plate_height": 244,
+      "plate_height": 264,
       "columns": 2,
       "rows": 2,
       "pair_count": 4,
       "x_centers": [-13.1, 13.1],
-      "z_centers": [64.4, 179.6],
+      "z_centers": [74.4, 189.6],
       "side_margin": 1.2,
-      "top_bottom_margin": 8.9,
+      "top_bottom_margin": 18.9,
       "gap_between_columns": 4,
       "gap_between_rows": 4
     },
@@ -274,7 +274,7 @@
         "model": "17217 X-Large",
         "pairs_fit": 4,
         "ideal_capacity_lbf": 20,
-        "verdict": "Selected. Tightest width fit, but highest ideal capacity on the 2in x 244mm flush plate."
+        "verdict": "Selected. Tightest width fit, but highest ideal capacity on the 2in x 264mm flush plate."
       },
       {
         "model": "17206 Large",
@@ -292,19 +292,19 @@
     "notes": "The 17217 XL strips do fit on the current 2in plate, but the side margin is only about 1.2mm. Add shallow printed placement outlines or a simple installation jig so the strips land straight."
   },
   "housing_fit_simulation": {
-    "minimum_housing_height_for_current_layout": 244,
+    "minimum_housing_height_for_current_layout": 264,
     "current_housing_is_tight_minimum": true,
-    "vertical_utilization_percent": 98.1,
-    "max_width_utilization_percent": 98.8,
+    "vertical_utilization_percent": 98.2,
+    "max_width_utilization_percent": 66.8,
     "max_depth_utilization_percent": 82.6,
-    "worst_side_margin": 0.4,
-    "worst_depth_margin": 0.15,
+    "worst_side_margin": 10.9,
+    "worst_depth_margin": 0.4,
     "raw_component_collisions": 0,
     "clearance_envelope_collisions": 0,
-    "minimum_plate_height_for_open_ended_rails": 242,
-    "recommended_plate_height": 244,
+    "minimum_plate_height_for_open_ended_rails": 262,
+    "recommended_plate_height": 264,
     "wire_routing_channel_collisions": 0,
-    "notes": "Simulation keeps the 72 x 34 x 244mm housing and 50.8 x 244mm flush hidden plate. Its zero-collision result covers the Phase 1.5 servo, controller/breadboard, joined inline-splitter pair, vertical buck, battery, and ten rear-wall routing grooves. The interactive Phase 1.5 viewer intentionally excludes the future external LED, solar skin, charger, and servo-switch board; those remain separate Phase 2 fit work."
+    "notes": "Simulation uses a 72 x 34 x 264mm housing and 50.8 x 264mm flush hidden plate so the joined inline splitters can stand lengthwise with real end-entry wire ports. Its zero-collision target covers the Phase 1.5 servo, controller/breadboard, vertical buck, battery, and ten rear-wall routing grooves. The interactive Phase 1.5 viewer intentionally excludes the future external LED, solar skin, charger, and servo-switch board; those remain separate Phase 2 fit work."
   },
   "model_accuracy": {
     "coordinate_system": "Width is X, door-normal depth is Y in OpenSCAD and Z in the Three.js viewer, and vertical height is Z in OpenSCAD and Y in the Three.js viewer.",
@@ -341,13 +341,13 @@
     "rail_neck_width": 8,
     "rail_head_width": 14.35,
     "rail_depth": 5.5,
-    "rail_length": 224,
-    "channel_length": 226,
+    "rail_length": 244,
+    "channel_length": 246,
     "solid_rail_end_margin": 10,
     "channel_end_margin": 9,
     "channel_clearance_per_side": 0.4,
     "formula": "head_width = neck_width + 2 * rail_depth / tan(face_angle)",
-    "notes": "Male rails are narrowed to 30mm center spacing so both dovetails fit on a 2in-wide plate. The solid rails are 224mm long and the housing channel preview is 226mm long, leaving end margin on the flush 244mm plate. Matching female channels use the same 60 degree face angle plus 0.40mm per-side clearance so the enclosure can slide vertically while resisting straight pull-off. Print a coupon first before committing the full plate."
+    "notes": "Male rails are narrowed to 30mm center spacing so both dovetails fit on a 2in-wide plate. The solid rails are 244mm long and the housing channel preview is 246mm long, leaving end margin on the flush 264mm plate. Matching female channels use the same 60 degree face angle plus 0.40mm per-side clearance so the enclosure can slide vertically while resisting straight pull-off. Print a coupon first before committing the full plate."
   },
   "retention_detent": {
     "type": "hidden low-profile click detent or thumb-release",
@@ -361,11 +361,11 @@
     "type": "low-profile dual dovetail",
     "cover_width": 66,
     "cover_depth": 2.2,
-    "cover_height": 232,
+    "cover_height": 252,
     "rail_neck_width": 3.2,
     "rail_head_width": 5.51,
     "rail_depth": 2,
-    "rail_length": 214,
+    "rail_length": 234,
     "notes": "The service cover is now treated as a near full-height removable panel instead of a short hatch. It should slide into shallow cover rails or channels so maintenance access is possible without removing the enclosure from the door plate."
   },
   "components": {
@@ -404,16 +404,16 @@
       "width": 56,
       "depth": 28,
       "height": 58,
-      "center_z": 211,
+      "center_z": 231,
       "source": "Front-exposed servo bay pocket",
       "clearance": 3,
       "notes": "Open front pocket that lets the servo protrude about 11mm from the enclosure face. Moving the body forward keeps every height detent clear of the centered controller assembly while the removable cradle still supports the servo from the back, bottom, and side walls. Final dimensions should be checked against the actual calibrated lock/unlock angles."
     },
     "servo_height_adjustment_cradle": {
       "type": "removable cradle on left/right notch ledges",
-      "servo_center_z_default": 221,
+      "servo_center_z_default": 241,
       "servo_center_z_offsets": [-5, 0, 5],
-      "servo_center_z_range": [216, 226],
+      "servo_center_z_range": [236, 246],
       "cradle_dimensions": {
         "width": 42,
         "depth": 23,
@@ -442,7 +442,7 @@
       "layout": {
         "x": 0,
         "y": 6,
-        "z": 177
+        "z": 196
       },
       "notes": "Board footprint is 21 x 17.8mm. The detailed cutaway renders Seeed's published STEP geometry, converted to an optimized color-preserving GLB, plus separate long header pins to represent the purchased pre-soldered board plugged into the vertical 170-point breadboard.",
       "header_geometry": {
@@ -462,7 +462,7 @@
       "layout": {
         "x": 0,
         "y": 0,
-        "z": 177
+        "z": 196
       },
       "notes": "The purchased breadboard envelope is modeled exactly. Viewer orientation is vertical, so the 35mm side is enclosure width and the 47mm side is height. The XIAO is shown plugged into its front face."
     },
@@ -474,11 +474,11 @@
       "source": "Purchased XALXMAW B0B28GYYL2 listing dimension graphic: 1.25 x 0.51 x 0.53in, rounded to 32 x 13 x 13.5mm",
       "clearance": 1.5,
       "layout": {
-        "x_centers": [-16, 16],
+        "x_centers": [-6.75, 6.75],
         "y": 6.5,
-        "z": 85
+        "z": 94.5
       },
-      "notes": "The positive and ground connectors are modeled physically clipped side-by-side at the same height, matching the clean bench map while remaining electrically separate. Their combined 64mm width leaves about 0.8mm per side inside the 65.6mm inner shell. Verify the delivered parts with calipers before printing.",
+      "notes": "The positive and ground connectors are modeled physically clipped side-by-side and oriented lengthwise, with single-input ports toward the battery and dual-output ports toward the buck and servo. Their combined width is about 27mm. Verify the delivered parts with calipers before printing.",
       "detail_geometry": {
         "ports": 3,
         "levers": 3,
@@ -510,7 +510,7 @@
       "layout": {
         "x": 0,
         "y": 0,
-        "z": 122.5,
+        "z": 141.5,
         "rotation_z_degrees": 90
       },
       "notes": "This is the purchased prototype buck. It is rotated vertically in the enclosure so its 40mm side spans the housing width and its 60mm side follows the clean bench stack. The detailed HTML model uses representative terminal, display, inductor, and trim-pot subgeometry. Future low-Iq regulation can shrink this bay."
@@ -616,7 +616,7 @@
     "printed_part_masses_g": {
       "door_mounting_plate_with_dovetail_rails": {
         "mass": 142,
-        "source": "PLA Pure density estimate from the 50.8 x 7 x 244mm plate plus rails"
+        "source": "PLA Pure density estimate from the 50.8 x 7 x 264mm plate plus rails"
       },
       "main_enclosure_sled": {
         "mass": 205,
@@ -624,7 +624,7 @@
       },
       "removable_service_cover": {
         "mass": 43,
-        "source": "PLA Pure estimate for 66 x 2.2 x 232mm cover plus shallow rails"
+        "source": "PLA Pure estimate for 66 x 2.2 x 252mm cover plus shallow rails"
       }
     },
     "adhesive_and_install_masses_g": {
