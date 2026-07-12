@@ -74,6 +74,8 @@ def main() -> int:
     require("addInlineSplitters" in html, "inline splitter detail model is missing")
     require(
         'splitterGroup.name = centerX < 0 ? "positiveInlineSplitter" : "groundInlineSplitter"' in html
+        and 'outputBody.name = "twoOutputWideHousing"' in html
+        and 'inputBody.name = "singleInputNarrowHousing"' in html
         and "const inspectionWindow = roundedRectMesh" in html
         and "const couplingTab = roundedRectMesh" in html
         and "const internalBus = roundedRectMesh" in html,
@@ -160,8 +162,18 @@ def main() -> int:
     require(
         splitters["detail_geometry"]["ports"] == 3
         and splitters["detail_geometry"]["levers"] == 3
+        and splitters["detail_geometry"]["output_body_width"] == 13
+        and splitters["detail_geometry"]["input_body_width_estimate"] == 8.2
+        and splitters["detail_geometry"]["port_axis"] == "opposing lengthwise end faces"
         and splitters["detail_geometry"]["coupling_tabs"] == 2,
         "inline splitter detail contract drifted",
+    )
+    require(
+        "inputBodyWidth: 8.2" in html
+        and "outputBodyLength: 18.5" in html
+        and "inputBodyLength: 15.5" in html
+        and "port.rotation.z = Math.PI / 2" in html,
+        "inline splitter must retain its narrow input stem, wide output head, and end-entry ports",
     )
 
     # Hard-body visuals share the documented approximate 4-5 px/mm scale.

@@ -485,6 +485,9 @@
         "output_ports": 2,
         "input_ports": 1,
         "port_diameter": 4.3,
+        "output_body_width": 13,
+        "input_body_width_estimate": 8.2,
+        "port_axis": "opposing lengthwise end faces",
         "coupling_tabs": 2,
         "source": "Purchased B0B28GYYL2 listing imagery and measured listing envelope; no exact manufacturer CAD model was located"
       }

@@ -38,5 +38,8 @@ WAGO and industrial inline-connector STEP files describe different products.
 The viewer therefore models each purchased splitter from its listed
 32 x 13.5 x 13mm envelope with three orange levers, two output entries, one
 input entry, inspection windows, visible conductor contacts, housing seams, and
-coupling tabs. The delivered parts should still be checked with calipers before
-the final print.
+coupling tabs. The procedural silhouette follows the listing photography: the
+two-output end uses the full body width, the single-input end narrows to an
+estimated 8.2mm stem, and all three conductors enter through opposing lengthwise
+end faces. The delivered parts should still be checked with calipers before the
+final print.

@@ -3595,6 +3595,9 @@
           width: 32,
           height: 13,
           depth: 13.5,
+          outputBodyLength: 18.5,
+          inputBodyLength: 15.5,
+          inputBodyWidth: 8.2,
           centersX: [-16, 16],
           centerY: -37,
           portRadius: 2.15,
@@ -4118,21 +4121,42 @@
           splitterGroup.name = centerX < 0 ? "positiveInlineSplitter" : "groundInlineSplitter";
           internalsGroup.add(splitterGroup);
 
-          const body = roundedRectMesh(d.width, d.height, d.depth, 2.6, materials.splitter, 0.4);
-          body.position.set(centerX, d.centerY, shellFrontZ - d.depth / 2 - 3.75);
-          splitterGroup.add(body);
+          const bodyZ = shellFrontZ - d.depth / 2 - 3.75;
+          const outputBody = roundedRectMesh(
+            d.outputBodyLength,
+            d.height,
+            d.depth,
+            2.6,
+            materials.splitter,
+            0.4
+          );
+          outputBody.name = "twoOutputWideHousing";
+          outputBody.position.set(centerX - (d.width - d.outputBodyLength) / 2, d.centerY, bodyZ);
+          splitterGroup.add(outputBody);
 
-          const faceZ = body.position.z + d.depth / 2;
-          [[-13.2, -3.2], [-13.2, 3.2], [13.2, 0]].forEach(([offsetX, offsetY]) => {
+          const inputBody = roundedRectMesh(
+            d.inputBodyLength,
+            d.inputBodyWidth,
+            d.depth,
+            2.2,
+            materials.splitter,
+            0.38
+          );
+          inputBody.name = "singleInputNarrowHousing";
+          inputBody.position.set(centerX + (d.width - d.inputBodyLength) / 2, d.centerY, bodyZ);
+          splitterGroup.add(inputBody);
+
+          const faceZ = bodyZ + d.depth / 2;
+          [[-16, -3.2], [-16, 3.2], [16, 0]].forEach(([offsetX, offsetY]) => {
             const port = cylinderMesh(d.portRadius, 0.7, materials.splitterPort, 28);
-            port.rotation.x = Math.PI / 2;
-            port.position.set(centerX + offsetX, d.centerY + offsetY, faceZ + 0.42);
+            port.rotation.z = Math.PI / 2;
+            port.position.set(centerX + offsetX, d.centerY + offsetY, bodyZ);
             splitterGroup.add(port);
           });
 
           [[-8.8, -3.1], [-8.8, 3.1], [8.8, 0]].forEach(([offsetX, offsetY]) => {
             const lever = roundedRectMesh(d.leverWidth, d.leverHeight, 2.4, 1.6, materials.splitterLever, 0.12);
-            lever.position.set(centerX + offsetX, d.centerY + offsetY, body.position.z + d.depth / 2 + 0.9);
+            lever.position.set(centerX + offsetX, d.centerY + offsetY, faceZ + 0.9);
             splitterGroup.add(lever);
             const pivotPin = cylinderMesh(0.72, 0.8, materials.splitterContact, 20);
             pivotPin.rotation.x = Math.PI / 2;
@@ -4161,13 +4185,13 @@
             couplingTab.position.set(
               centerX,
               d.centerY + side * (d.height / 2 + d.couplingTabHeight / 2 - 0.2),
-              body.position.z
+              bodyZ
             );
             splitterGroup.add(couplingTab);
           });
 
           const internalBus = roundedRectMesh(19, 1.1, 0.8, 0.35, materials.splitterContact, 0.03);
-          internalBus.position.set(centerX, d.centerY, body.position.z + 1.2);
+          internalBus.position.set(centerX, d.centerY, bodyZ + 1.2);
           splitterGroup.add(internalBus);
 
           const centerSeam = boxMesh(0.35, d.height - 1.4, 0.28, materials.splitterPort);
