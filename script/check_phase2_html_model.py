@@ -281,7 +281,7 @@ def main() -> int:
         "publishedHeaderDatum" in html
         and "headerCenterX: 1.741" in html
         and "headerCenterZ: -6.1114" in html
-        and "headerEdgeZ: [-15.0014, 2.7786]" in html
+        and "headerEdgeZ: [-13.7314, 1.5086]" in html
         and 'officialHeaders.name = "xiaoOfficialCadAlignedHeaders"' in html
         and "officialModel.add(officialHeaders)" in html
         and 'dataset.xiaoAlignment = "official-cad-hole-centers"' in html,
@@ -293,7 +293,7 @@ def main() -> int:
         and "pinWidth: 0.64" in html
         and "pinLength: 8.2" in html
         and "pinCornerRadius: 0.1" in html
-        and "rowCenterX: 8.89" in html
+        and "rowCenterX: 7.62" in html
         and "roundedRectMesh(" in html
         and "headerSpec.pinWidth" in html
         and "headerSpec.pinCornerRadius" in html,

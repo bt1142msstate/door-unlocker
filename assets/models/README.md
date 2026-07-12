@@ -21,8 +21,8 @@ The added header geometry uses a 2.54mm pitch, 0.64mm square posts with lightly
 chamfered edges, a 2.54mm insulator, and an 8.2mm modeled post length so the
 pins visibly traverse the PCB and enter the breadboard. In the official-model
 path, the header assembly is parented directly to the Seeed CAD and centered on
-its extracted castellated-hole coordinates instead of using a separate visual
-overlay. The pitch and post section follow standard straight male-header
+the official KiCad footprint's through-hole rows at +/-7.62mm instead of the
+board edges at +/-8.89mm. The pitch and post section follow standard straight male-header
 dimensions; the fitted post length should still be checked with calipers before
 a final enclosure.
 
