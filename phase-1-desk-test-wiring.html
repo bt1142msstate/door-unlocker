@@ -3577,7 +3577,14 @@
         battery: { width: 43, height: 75, depth: 22, centerY: -82 },
         buck: { width: 40, height: 60, depth: 10, centerY: 0.5 },
         xiao: { width: 21, height: 17.8, boardDepth: 1.6, centerX: 0, centerY: 55 },
-        xiaoHeader: { pitch: 2.54, pinSquare: 0.64, pinLength: 7.5, insulatorHeight: 2.54, rowCenterX: 8.9 },
+        xiaoHeader: {
+          pitch: 2.54,
+          pinWidth: 0.64,
+          pinLength: 8.2,
+          pinCornerRadius: 0.1,
+          insulatorHeight: 2.54,
+          rowCenterX: 8.89
+        },
         splitter: {
           width: 32,
           height: 13,
@@ -3961,11 +3968,23 @@
           internalsGroup.add(headerCarrier);
           for (let pin = 0; pin < 7; pin += 1) {
             const pinY = xiao.centerY - headerSpec.pitch * 3 + pin * headerSpec.pitch;
-            const pad = roundedRectMesh(2.2, 1.8, 0.45, 0.7, materials.gold, 0.03);
+            const pad = cylinderMesh(1.05, 0.32, materials.gold, 28);
+            pad.rotation.x = Math.PI / 2;
             pad.position.set(pinX + xiao.centerX, pinY, xiaoZ + 1);
             xiaoFallback.add(pad);
-            const header = boxMesh(headerSpec.pinSquare, headerSpec.pinSquare, headerSpec.pinLength, materials.gold);
-            header.position.set(pinX + xiao.centerX, pinY, xiaoZ - 2.8);
+
+            // Standard 2.54 mm headers use a nominal 0.64 mm square shaft.
+            // Rounded corners and end bevels keep the model visually faithful
+            // while the longer shaft visibly traverses the PCB and breadboard.
+            const header = roundedRectMesh(
+              headerSpec.pinWidth,
+              headerSpec.pinWidth,
+              headerSpec.pinLength,
+              headerSpec.pinCornerRadius,
+              materials.gold,
+              0.08
+            );
+            header.position.set(pinX + xiao.centerX, pinY, xiaoZ - 1.7);
             internalsGroup.add(header);
           }
         });

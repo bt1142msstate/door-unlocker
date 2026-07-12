@@ -270,9 +270,19 @@ def main() -> int:
     )
     require("headerCarrier" in html, "pre-soldered XIAO header carriers are missing")
     require(
-        "xiaoHeader: { pitch: 2.54, pinSquare: 0.64, pinLength: 7.5, insulatorHeight: 2.54" in html
-        and "boxMesh(headerSpec.pinSquare, headerSpec.pinSquare, headerSpec.pinLength" in html,
-        "XIAO header geometry must retain standard 2.54mm pitch and 0.64mm square pins",
+        "pitch: 2.54" in html
+        and "pinWidth: 0.64" in html
+        and "pinLength: 8.2" in html
+        and "pinCornerRadius: 0.1" in html
+        and "rowCenterX: 8.89" in html
+        and "roundedRectMesh(" in html
+        and "headerSpec.pinWidth" in html
+        and "headerSpec.pinCornerRadius" in html,
+        "XIAO headers must retain the published 2.54mm grid and chamfered 0.64mm square-pin profile",
+    )
+    require(
+        "header.position.set(pinX + xiao.centerX, pinY, xiaoZ - 1.7)" in html,
+        "XIAO header pins must traverse the controller PCB and seat inside the breadboard",
     )
     require(
         components["xiao_nrf52840_sense_pinned"]["header_geometry"]["square_pin"] == 0.64,
