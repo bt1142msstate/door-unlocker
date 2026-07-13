@@ -17,6 +17,7 @@ public final class DoorFirmwareDfuManager: NSObject {
     private var packageURL: URL?
     private var signedPackageURL: URL?
     private var scanTimeoutTask: Task<Void, Never>?
+    var uploadStallTask: Task<Void, Never>?
     private var completionRecoveryTask: Task<Void, Never>?
     private var dfuInitiator: DFUServiceInitiator?
     private var dfuController: DFUServiceController?
@@ -24,6 +25,8 @@ public final class DoorFirmwareDfuManager: NSObject {
     var updateStartedAt: Date?
     var uploadStartedAt: Date?
     var lastLoggedProgressBucket: Int?
+    var highestReportedProgress: Int?
+    var didReportFinalPartComplete = false
     var packageBytes = 0
     var didInjectTransportLoss = false
     private var detectsNormalControllerFirmware = false
@@ -61,6 +64,9 @@ public final class DoorFirmwareDfuManager: NSObject {
         updateStartedAt = Date()
         uploadStartedAt = nil
         lastLoggedProgressBucket = nil
+        highestReportedProgress = nil
+        didReportFinalPartComplete = false
+        didInjectTransportLoss = false
         packageBytes = (try? packageURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
         let prn = tuning.packetReceiptNotificationParameter
         let objectDelay = tuning.dataObjectPreparationDelay
@@ -90,6 +96,8 @@ public final class DoorFirmwareDfuManager: NSObject {
         isActive = false
         scanTimeoutTask?.cancel()
         scanTimeoutTask = nil
+        uploadStallTask?.cancel()
+        uploadStallTask = nil
         completionRecoveryTask?.cancel()
         completionRecoveryTask = nil
         central?.stopScan()
@@ -102,6 +110,9 @@ public final class DoorFirmwareDfuManager: NSObject {
         updateStartedAt = nil
         uploadStartedAt = nil
         lastLoggedProgressBucket = nil
+        highestReportedProgress = nil
+        didReportFinalPartComplete = false
+        didInjectTransportLoss = false
         packageBytes = 0
         detectsNormalControllerFirmware = false
         allowsBootloaderUpload = true
@@ -164,6 +175,12 @@ extension DoorFirmwareDfuManager {
             "DFU bootloader selected after \(self.elapsedText(since: self.updateStartedAt), privacy: .public) profile=\(packageProfile.rawValue, privacy: .public) packageBytes=\(self.packageBytes, privacy: .public)"
         )
         emitTelemetry("bootloader_selected", "profile=\(packageProfile.rawValue) packageBytes=\(packageBytes)")
+        Task { @MainActor [weak self] in
+            self?.delegate?.firmwareDfuManagerDidSelectBootloader(
+                name: bootloaderName ?? "unknown",
+                packageProfile: packageProfile.rawValue
+            )
+        }
         notify(status: "Starting firmware upload", progress: 0)
 
         do {
@@ -184,10 +201,12 @@ extension DoorFirmwareDfuManager {
             if dfuController == nil {
                 fail("Firmware upload could not start.")
             } else {
-                // Nordic occasionally omits both its terminal progress and
-                // completed callbacks after a successful reboot. Always bound
-                // the upload phase with an independent normal-mode probe.
-                schedulePostUploadRecoveryIfNeeded(after: .seconds(120))
+                scheduleUploadStallFailure(
+                    after: .seconds(45),
+                    part: 1,
+                    totalParts: 1,
+                    progress: 0
+                )
             }
         } catch {
             fail(error.localizedDescription)
@@ -211,6 +230,8 @@ extension DoorFirmwareDfuManager {
         isActive = false
         scanTimeoutTask?.cancel()
         scanTimeoutTask = nil
+        uploadStallTask?.cancel()
+        uploadStallTask = nil
         completionRecoveryTask?.cancel()
         completionRecoveryTask = nil
         central?.stopScan()
@@ -226,6 +247,8 @@ extension DoorFirmwareDfuManager {
         updateStartedAt = nil
         uploadStartedAt = nil
         lastLoggedProgressBucket = nil
+        highestReportedProgress = nil
+        didReportFinalPartComplete = false
         packageBytes = 0
         Task { @MainActor [weak self] in
             self?.delegate?.firmwareDfuManagerDidFinish()
@@ -237,6 +260,8 @@ extension DoorFirmwareDfuManager {
         isActive = false
         scanTimeoutTask?.cancel()
         scanTimeoutTask = nil
+        uploadStallTask?.cancel()
+        uploadStallTask = nil
         completionRecoveryTask?.cancel()
         completionRecoveryTask = nil
         central?.stopScan()
@@ -251,6 +276,8 @@ extension DoorFirmwareDfuManager {
         updateStartedAt = nil
         uploadStartedAt = nil
         lastLoggedProgressBucket = nil
+        highestReportedProgress = nil
+        didReportFinalPartComplete = false
         packageBytes = 0
         Task { @MainActor [weak self] in
             self?.delegate?.firmwareDfuManagerDidFail(message)
@@ -288,6 +315,28 @@ extension DoorFirmwareDfuManager {
         }
     }
 
+    func scheduleUploadStallFailure(
+        after delay: Duration,
+        part: Int,
+        totalParts: Int,
+        progress: Int
+    ) {
+        uploadStallTask?.cancel()
+        uploadStallTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: delay)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled, let self, self.isActive else { return }
+            self.uploadStallTask = nil
+            self.fail(
+                "Firmware upload stalled at part \(part) of \(totalParts), \(progress)%. "
+                    + "Keep the controller powered and retry the update."
+            )
+        }
+    }
+
     func schedulePostUploadRecoveryIfNeeded(
         after delay: Duration,
         replacingExisting: Bool = false
@@ -310,6 +359,16 @@ extension DoorFirmwareDfuManager {
     private func beginPostUploadRecoveryScan() {
         guard isActive else { return }
         completionRecoveryTask = nil
+        guard DoorFirmwareCompletionRecoveryPolicy.shouldProbeNormalFirmware(
+            didReportFinalPartComplete: didReportFinalPartComplete
+        ) else {
+            let progress = highestReportedProgress.map(String.init) ?? "none"
+            log.info(
+                "DFU completion watchdog elapsed before upload completion; leaving active transfer untouched progress=\(progress, privacy: .public)"
+            )
+            emitTelemetry("completion_watchdog_ignored", "progress=\(progress)")
+            return
+        }
         log.warning("DFU completion callback missing after 100%; scanning for normal controller firmware")
         notify(status: "Firmware uploaded. Verifying controller...", progress: 100)
         dfuController = nil

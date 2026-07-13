@@ -2,7 +2,9 @@
 
 `script/quality_suite.py` is the project-level gate for release changes. It combines self-tested quality tooling, architecture heuristics, executable tests, coverage evidence, firmware compilation, app builds, and wiring/CAD consistency checks.
 
-The suite also runs the dual-bank power-loss model against the exact bundled firmware size. It tests every whole transfer percentage and the transactional activation journal across erase, copy, settings, reboot, corruption, and commit boundaries. It fails if the image no longer fits, single-bank fallback is enabled, commit ordering is unsafe, or any modeled cut lacks a deterministic recovery. Exact-hardware activation recovery still requires attended physical proof.
+The suite also runs the dual-bank recovery model against the exact bundled firmware size. It tests every whole transfer percentage plus activation erase, copy, settings, reboot, and corruption boundaries. It fails if the image no longer fits, single-bank fallback is enabled, the removed custom activation path returns, or an invalid application would not recover through BLE DFU. Exact-hardware activation recovery still requires physical proof before production promotion.
+
+The fast suite and GitHub CI also run `check_ota_bootloader_contract.py --require-release-invariant` from a clean-checkout-compatible artifact set. Every firmware revision must remain application-only, fit the dual-bank region, carry a valid signature, and retain the separately signed bootloader that provides invalid-app BLE DFU plus double-reset USB recovery. A release cannot pass CI by relying on ignored local `dist/` files.
 
 ## Default Suite
 
@@ -66,7 +68,7 @@ python3 script/quality_suite.py --install-ios
 
 `--live-mixed-client` runs repeated iPhone/Mac relaunch recovery, alternating cross-client lock/unlock commands, and durable setting changes. It requires both trusted apps and the controller to be available, and it writes private raw telemetry to ignored local report files.
 
-`--firmware-release` requires a checked-in physical proof whose firmware version and payload hash match the exact current DFU package. It also requires the exact installed signed bootloader hash, unsigned-package rejection, app-termination and Bluetooth-loss recovery, Mac wireless verification, preserved controller state, and the complete physical power-loss campaign. A newly built bootloader hash invalidates earlier physical evidence until the installed candidate and required cases are reverified.
+`--firmware-release` requires a checked-in physical proof whose firmware version and payload hash match the exact current signed DFU package. It also requires two consecutive no-USB BLE transitions, an exact-candidate read-only USB mount plus signed serial recovery exercise, the exact installed signed bootloader hash, unsigned-package rejection, app-termination and Bluetooth-loss recovery, Mac wireless verification, preserved controller state, and the complete physical power-loss campaign. A newly built bootloader hash invalidates earlier physical evidence until the installed candidate and required cases are reverified.
 
 ## What The Suite Measures
 

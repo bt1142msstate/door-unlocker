@@ -116,6 +116,25 @@ extension DoorAdminStore {
         ) {
         case .completed:
             clearFirmwareUpdateJournal()
+        case .activationFailed:
+            firmwareLog.error(
+                "Firmware activation failed; controller returned version=\(installedVersion, privacy: .public)"
+            )
+            recordRuntimeTelemetry(
+                "firmware_activation_failed",
+                details: installedVersion,
+                once: false
+            )
+            clearFirmwareUpdateJournal()
+            pendingFirmwareUpdatePackageURL = nil
+            expectedFirmwareVerificationVersion = nil
+            isAwaitingPostDfuFirmwareVerification = false
+            didPostFirmwareVerificationNotification = false
+            isFirmwareUpdateRunning = false
+            firmwareUpdateStatus = "Firmware activation failed"
+            firmwareUpdateProgress = nil
+            firmwareUpdateEstimatedSecondsRemaining = nil
+            lastError = "The upload completed, but the controller restarted on firmware \(installedVersion). The update was stopped instead of retrying automatically."
         case .restartFromNormalFirmware:
             guard !isFirmwareUpdateRunning else { return }
             expectedFirmwareVerificationVersion = journal.targetVersion

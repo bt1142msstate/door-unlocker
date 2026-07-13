@@ -1,0 +1,33 @@
+{
+  "capturedAt": "2026-07-13T17:43:08.682175+00:00",
+  "rawStatusSha256": "18ccbd3f754916d7398f74d103a004d1b66c30028071fbf1b9ddca2aab7b7ba9",
+  "schemaVersion": 1,
+  "serialPort": "/dev/cu.usbmodem3101",
+  "status": {
+    "auto_lock_seconds": "15",
+    "ble_connected_count": "1",
+    "ble_connected_device": "1\tBrandon's iPhone Air\ttrusted=yes",
+    "ble_max_connections": "4",
+    "connected_count": "2",
+    "firmware_version": "0.1.32",
+    "last_unlock": "No unlock recorded",
+    "lock_angle": "95",
+    "lock_name": "College View Door",
+    "max_connections": "4",
+    "max_pairs": "4",
+    "model": "DoorUnlocker-XIAO-v4",
+    "paired_count": "2",
+    "pairing_mode": "locked",
+    "servo_angle_range": "10-170",
+    "servo_min_angle_gap": "0",
+    "state": "locked",
+    "unlock_angle": "20",
+    "unlocked": "no"
+  },
+  "usbDevice": {
+    "name": "XIAO nRF52840 Sense",
+    "productId": "32837",
+    "serialNumber": "D990A89672FA5F20",
+    "vendorId": "0x2886"
+  }
+}

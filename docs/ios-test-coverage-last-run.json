@@ -5,13 +5,13 @@
   "targets": [
     {
       "coveredLines": 2035,
-      "executableLines": 15228,
-      "lineCoverage": 0.13363540845810348,
+      "executableLines": 15275,
+      "lineCoverage": 0.1332242225859247,
       "name": "DoorUnlocker.app"
     },
     {
       "coveredLines": 0,
-      "executableLines": 475,
+      "executableLines": 569,
       "lineCoverage": 0,
       "name": "DoorUnlockerDFU"
     },

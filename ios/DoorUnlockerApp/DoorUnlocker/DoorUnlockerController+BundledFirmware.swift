@@ -32,6 +32,7 @@ extension DoorUnlockerController {
         }
 
         if let targetVersion = bundledFirmwareVersion {
+            UserDefaults.standard.removeObject(forKey: Self.failedFirmwareActivationVersionKey)
             persistPendingBundledFirmwareUpdate(targetVersion: targetVersion, resetAttempts: true)
         }
 #if DEBUG
@@ -70,6 +71,7 @@ extension DoorUnlockerController {
               !isFirmwareUpdateVerifying,
               pendingFirmwareUpdatePackageURL == nil,
               let targetVersion = bundledFirmwareVersion,
+              UserDefaults.standard.string(forKey: Self.failedFirmwareActivationVersionKey) != targetVersion,
               autoBundledFirmwareUpdateAttemptedVersion != targetVersion else {
             return
         }
@@ -179,6 +181,41 @@ extension DoorUnlockerController {
         recordStartupTelemetry("firmware_pending_cleared", details: "\(installedVersion)->\(pendingVersion)", once: false)
 #endif
         clearPendingBundledFirmwareUpdate()
+        UserDefaults.standard.removeObject(forKey: Self.failedFirmwareActivationVersionKey)
+    }
+
+    @discardableResult
+    func stopFirmwareUpdateAfterActivationMismatchIfNeeded(installedVersion: String) -> Bool {
+        guard let journal = firmwareUpdateJournalStore.load(),
+              DoorFirmwareRecoveryPolicy.action(
+                journal: journal,
+                installedVersion: installedVersion,
+                isNormalControllerReady: true,
+                isBootloaderDetected: false,
+                isPackageAvailable: bundledFirmwarePackageURL != nil
+              ) == .activationFailed,
+              let targetVersion = journal.targetVersion else {
+            return false
+        }
+
+        UserDefaults.standard.set(targetVersion, forKey: Self.failedFirmwareActivationVersionKey)
+        clearPendingBundledFirmwareUpdate()
+        autoBundledFirmwareUpdateAttemptedVersion = targetVersion
+        pendingFirmwareUpdatePackageURL = nil
+        firmwareUpdateEntryCommandSent = false
+        isFirmwareUpdateRunning = false
+        firmwareUpdateProgress = nil
+        firmwareUpdateEstimatedSecondsRemaining = nil
+        firmwareUpdateStatus = "Firmware activation failed"
+        lastError = "The upload completed, but the controller restarted on firmware \(installedVersion). The update was stopped instead of retrying automatically."
+#if DEBUG
+        recordStartupTelemetry(
+            "firmware_activation_failed",
+            details: "expected=\(targetVersion) actual=\(installedVersion)",
+            once: false
+        )
+#endif
+        return true
     }
 
     func resumeInterruptedBundledFirmwareUpdateIfNeeded() {

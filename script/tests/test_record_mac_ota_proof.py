@@ -1,5 +1,7 @@
 import importlib.util
+import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 
@@ -12,6 +14,21 @@ SPEC.loader.exec_module(MODULE)
 
 
 class RecordMacOtaProofTests(unittest.TestCase):
+    def test_package_payload_hash_ignores_zip_container_metadata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            first = Path(directory) / "first.zip"
+            second = Path(directory) / "second.zip"
+            for path, year in ((first, 2024), (second, 2026)):
+                with zipfile.ZipFile(path, "w") as archive:
+                    info = zipfile.ZipInfo("firmware.bin", (year, 1, 1, 0, 0, 0))
+                    archive.writestr(info, b"firmware")
+
+            self.assertNotEqual(first.read_bytes(), second.read_bytes())
+            self.assertEqual(
+                MODULE.package_payload_sha256(first),
+                MODULE.package_payload_sha256(second),
+            )
+
     def test_orders_interleaved_process_logs_by_wall_clock(self):
         events = MODULE.parsed_events(
             "\n".join(
@@ -32,6 +49,10 @@ class RecordMacOtaProofTests(unittest.TestCase):
             ],
         )
         self.assertEqual((events[-1][0] - events[0][0]).total_seconds(), 4)
+
+    def test_update_owner_suffix_is_part_of_the_same_ota_state(self):
+        event = "wireless_state_received firmware_update:ota_dfu:Brandon's Mac mini"
+        self.assertTrue(event.startswith("wireless_state_received firmware_update:ota_dfu"))
 
 
 if __name__ == "__main__":

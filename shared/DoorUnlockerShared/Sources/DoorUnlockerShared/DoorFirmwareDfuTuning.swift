@@ -2,6 +2,7 @@ import Foundation
 
 public struct DoorFirmwareDfuTuning: Equatable, Sendable {
     public static let optimizedBootloaderName = "DoorDFU"
+    public static let optimizedBootloaderNamePrefix = optimizedBootloaderName
     public static let maxAdafruitPacketReceiptNotificationParameter: UInt16 = 32
     public static let defaultPacketReceiptNotificationParameter: UInt16 = 9
     public static let defaultMacPacketReceiptNotificationParameter: UInt16 =
@@ -33,6 +34,11 @@ public struct DoorFirmwareDfuTuning: Equatable, Sendable {
     }
 
     public static let stableDefault = DoorFirmwareDfuTuning()
+
+    public static func isOptimizedBootloaderName(_ name: String?) -> Bool {
+        guard let name else { return false }
+        return name.hasPrefix(optimizedBootloaderNamePrefix)
+    }
 
     public func packetReceiptNotificationParameter(forBootloaderNamed name: String?) -> UInt16 {
         return packetReceiptNotificationParameter

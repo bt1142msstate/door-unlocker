@@ -1,4 +1,5 @@
 import Foundation
+import DoorUnlockerShared
 import NordicDFU
 import OSLog
 
@@ -29,6 +30,24 @@ extension DoorFirmwareDfuManager: DFUServiceDelegate, DFUProgressDelegate, Logge
         avgSpeedBytesPerSecond: Double
     ) {
         guard isActive else { return }
+        highestReportedProgress = max(highestReportedProgress ?? 0, progress)
+        let isFinalPartComplete = DoorFirmwareCompletionRecoveryPolicy.isFinalPartComplete(
+            part: part,
+            totalParts: totalParts,
+            progress: progress
+        )
+        if isFinalPartComplete {
+            didReportFinalPartComplete = true
+            uploadStallTask?.cancel()
+            uploadStallTask = nil
+        } else {
+            scheduleUploadStallFailure(
+                after: .seconds(45),
+                part: part,
+                totalParts: totalParts,
+                progress: progress
+            )
+        }
         if !didInjectTransportLoss,
            let threshold = tuning.transportLossAtProgress,
            progress >= threshold,
@@ -46,7 +65,7 @@ extension DoorFirmwareDfuManager: DFUServiceDelegate, DFUProgressDelegate, Logge
             progress: progress,
             estimatedSecondsRemaining: eta
         )
-        if progress >= 100 {
+        if isFinalPartComplete {
             schedulePostUploadRecoveryIfNeeded(after: .seconds(12), replacingExisting: true)
         }
 

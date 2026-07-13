@@ -58,7 +58,12 @@ extension DoorAdminStore {
 
         didPostFirmwareVerificationNotification = true
         isAwaitingPostDfuFirmwareVerification = false
+        isFirmwareUpdateRunning = false
+        expectedFirmwareVerificationVersion = nil
+        firmwareUpdateWatchdogTask?.cancel()
+        firmwareUpdateWatchdogTask = nil
         clearFirmwareUpdateJournal()
+        scheduleStableFirmwareVerification(version: version)
         firmwareLog.info("Firmware wirelessly verified version=\(version, privacy: .public)")
         DistributedNotificationCenter.default().postNotificationName(
             DoorLocalCommandBridge.firmwareVerifiedNotificationName,
@@ -66,6 +71,24 @@ extension DoorAdminStore {
             userInfo: [DoorLocalCommandBridge.firmwareVersionKey: version],
             deliverImmediately: true
         )
+    }
+
+    func scheduleStableFirmwareVerification(version: String) {
+        pendingStableFirmwareVerificationVersion = nil
+        firmwareStableVerificationTask?.cancel()
+        firmwareStableVerificationTask = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(15)) } catch { return }
+            await MainActor.run {
+                guard let self else { return }
+                self.firmwareStableVerificationTask = nil
+                self.pendingStableFirmwareVerificationVersion = version
+                // Force a new controller response instead of satisfying the
+                // delayed check from the metadata cached immediately after DFU.
+                self.hasCurrentFirmwareVersionSnapshot = false
+                self.refreshWirelessControllerMetadataSnapshotRetry()
+                self.requestWirelessStateNotificationSnapshotReplay()
+            }
+        }
     }
 
     @objc func handleLocalCommandNotification(_ notification: Notification) {

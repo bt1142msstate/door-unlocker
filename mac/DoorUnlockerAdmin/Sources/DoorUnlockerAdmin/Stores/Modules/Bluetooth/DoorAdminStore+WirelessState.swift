@@ -55,6 +55,14 @@ extension DoorAdminStore {
         }
 
         if let controllerFirmwareVersion = ControllerStateParser.firmwareVersion(from: newState) {
+            if pendingStableFirmwareVerificationVersion == controllerFirmwareVersion {
+                pendingStableFirmwareVerificationVersion = nil
+                recordRuntimeTelemetry(
+                    "firmware_update_stable_verified",
+                    details: controllerFirmwareVersion,
+                    once: false
+                )
+            }
             var nextStatus = status
             nextStatus.firmwareVersion = controllerFirmwareVersion
             status = nextStatus
@@ -64,6 +72,18 @@ extension DoorAdminStore {
             refreshWirelessControllerMetadataSnapshotRetry()
             postFirmwareVerificationIfNeeded(controllerFirmwareVersion)
             reconcileFirmwareUpdateJournal(installedVersion: controllerFirmwareVersion)
+            let finishesUntargetedRecovery = expectedFirmwareVerificationVersion == nil
+                && isFirmwareUpdateRunning
+                && (
+                    firmwareUpdateStatus == "Update complete. Verifying..."
+                        || firmwareUpdateStatus == "Controller firmware found. Reconnecting..."
+                )
+            if finishesUntargetedRecovery {
+                isFirmwareUpdateRunning = false
+                firmwareUpdateWatchdogTask?.cancel()
+                firmwareUpdateWatchdogTask = nil
+                clearFirmwareUpdateJournal()
+            }
             if firmwareUpdateStatus == "Update complete. Verifying..." {
                 firmwareUpdateStatus = "Verified \(controllerFirmwareVersion)"
             } else if !isFirmwareUpdateRunning,

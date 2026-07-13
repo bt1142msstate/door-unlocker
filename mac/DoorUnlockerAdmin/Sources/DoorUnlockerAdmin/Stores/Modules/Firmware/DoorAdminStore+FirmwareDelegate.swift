@@ -6,6 +6,14 @@ import Foundation
 import os
 
 extension DoorAdminStore: DoorFirmwareDfuManagerDelegate {
+    func firmwareDfuManagerDidSelectBootloader(name: String, packageProfile: String) {
+        recordRuntimeTelemetry(
+            "firmware_bootloader_selected",
+            details: "name=\(name) profile=\(packageProfile)",
+            once: false
+        )
+    }
+
     func firmwareDfuManagerDidUpdate(_ update: DoorFirmwareDfuUpdate) {
         firmwareLog.info("DFU status=\(update.status, privacy: .public) progress=\(update.progress ?? -1, privacy: .public)")
         recordRuntimeTelemetry(
@@ -25,11 +33,11 @@ extension DoorAdminStore: DoorFirmwareDfuManagerDelegate {
         firmwareUpdateStatus = "Controller firmware found. Reconnecting..."
         firmwareUpdateProgress = nil
         firmwareUpdateEstimatedSecondsRemaining = nil
-        isFirmwareUpdateRunning = false
         firmwareUpdateEntryCommandSent = false
         updateFirmwareUpdateJournal(phase: .verifying)
         firmwareDfuStartFallbackTask?.cancel()
         firmwareDfuStartFallbackTask = nil
+        schedulePostDfuVerificationWatchdog()
         scanBluetooth()
     }
 
@@ -45,11 +53,11 @@ extension DoorAdminStore: DoorFirmwareDfuManagerDelegate {
         firmwareUpdateStatus = "Update complete. Verifying..."
         firmwareUpdateProgress = 100
         firmwareUpdateEstimatedSecondsRemaining = nil
-        isFirmwareUpdateRunning = false
         if expectedFirmwareVerificationVersion != nil {
             isAwaitingPostDfuFirmwareVerification = true
             didPostFirmwareVerificationNotification = false
         }
+        schedulePostDfuVerificationWatchdog()
         wirelessIdleDisconnectTask?.cancel()
         wirelessIdleDisconnectTask = nil
         Task { [weak self] in
@@ -95,5 +103,24 @@ extension DoorAdminStore: DoorFirmwareDfuManagerDelegate {
             scheduleInterruptedFirmwareUpdateRetry()
         }
         scanBluetooth()
+    }
+
+    func schedulePostDfuVerificationWatchdog() {
+        firmwareUpdateWatchdogTask?.cancel()
+        firmwareUpdateWatchdogTask = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(60)) } catch { return }
+            await MainActor.run {
+                guard let self, self.isFirmwareUpdateRunning else { return }
+                self.firmwareUpdateWatchdogTask = nil
+                self.isFirmwareUpdateRunning = false
+                self.isAwaitingPostDfuFirmwareVerification = false
+                self.firmwareUpdateStatus = "Firmware verification paused"
+                self.firmwareUpdateProgress = nil
+                self.lastError = "The upload finished, but the controller did not report its firmware version. Verification will resume after reconnecting."
+                self.updateFirmwareUpdateJournal(phase: .paused, error: self.lastError)
+                self.scheduleInterruptedFirmwareUpdateRetry()
+                self.scanBluetooth()
+            }
+        }
     }
 }

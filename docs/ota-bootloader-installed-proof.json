@@ -1,101 +1,47 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "passed": true,
-  "installedAt": "2026-07-12T20:54:58-05:00",
+  "reason": "The exact deterministic bootloader was installed over signed Mac BLE OTA, reported its content-bound identity over USB, mounted read-only, and completed signed USB CDC recovery to firmware 0.1.32 with pairings and settings preserved. Broader production fault-injection evidence is tracked separately.",
+  "installedAt": "2026-07-13T12:25:49Z",
   "board": "xiao_nrf52840_ble_sense",
   "bootloaderVersion": "0.11.0",
   "bootloaderArtifactPath": "dist/bootloader/DoorUnlocker-XIAO-Sense-0.11.0-signed-dualbank.hex",
-  "bootloaderArtifactSha256": "06fe4678a8a93a7e377739e60e2353d68817371ed9d21c473e54fcda2ae43c42",
+  "bootloaderArtifactSha256": "428192f5d7ddbdeeda9a7cb1ed9710a827a8b5054e03cb50c01335011476d61d",
+  "bootloaderCodeArtifactSha256": "600b76172de0d8f7ef624ddee17846efe8fd0f59ce27d36d1134008ad27351b1",
+  "otaBootloaderArtifactSha256": "7cc545b04cf4f02628b0e9abfa94622afb96577fe6a02128906d6fdcf133623e",
+  "expectedUsbRecoveryBuildId": "b2409e808fefca642042",
   "publicKeyId": "573f0793ca490344789edc67ac72c062e53d24d7dcba0c37d6d33f12b37d2d97",
   "dualBankFirmware": true,
   "singleBankFallbackDisabled": true,
-  "swdRecoveryAvailable": false,
   "installationVerification": {
-    "method": "behavioral BLE proof",
-    "runId": "20260712-dualbank-install-proof-r3",
-    "advertisedName": "DoorDFU",
+    "method": "signed bootloader-only BLE OTA from the trusted Mac app; normal firmware verified after reboot",
+    "advertisedName": "DoorDFUStable",
+    "packageProfile": "signed-fast",
     "signedPackageAccepted": true,
     "signatureValidationPassed": true,
-    "firmwareVersionVerifiedOverBle": "0.1.26"
+    "firmwareVersionVerifiedOverBle": "0.1.32",
+    "exactUsbBuildIdentityObserved": true
   },
+  "usbRecoveryVerifiedAt": "2026-07-13T17:45:00.203836+00:00",
+  "usbRecoveryProofPath": "docs/usb-recovery-proof.json",
+  "usbRecoveryProofSha256": "f614064f0132f20d65f6b8f0c4d6a2e113e89e70ed93940322fc60b4df35c184",
+  "usbHardwareSerialNumber": "D990A89672FA5F20",
   "pairingsAndSettingsPreserved": true,
-  "trustedDeviceCount": 2,
   "lockName": "College View Door",
-  "autoLockSeconds": 30,
+  "autoLockSeconds": 15,
   "lockAngle": 95,
   "unlockAngle": 20,
+  "usbRecoveryProofPassed": true,
   "powerLossRollbackPassed": false,
-  "powerLossCases": [
-    {
-      "phase": "upload-30",
-      "passed": true,
-      "runId": "20260712-dualbank-powerloss30-r1",
-      "durationSeconds": 62,
-      "restoredFirmwareVersion": "0.1.26",
-      "verifiedOver": "ble",
-      "report": "docs/ota-telemetry/20260712-dualbank-powerloss30-r1-app-console.log"
-    },
-    {
-      "phase": "upload-80",
-      "passed": true,
-      "runId": "20260712-dualbank-powerloss80-r1",
-      "durationSeconds": 73,
-      "restoredFirmwareVersion": "0.1.26",
-      "verifiedOver": "ble",
-      "report": "docs/ota-telemetry/20260712-dualbank-powerloss80-r1-app-console.log"
-    }
-  ],
-  "appTerminationCases": [
-    {
-      "phase": "upload-30",
-      "passed": true,
-      "runId": "20260712-dualbank-app-termination30-r1",
-      "durationSeconds": 77,
-      "verifiedFirmwareVersion": "0.1.26",
-      "verifiedOver": "ble",
-      "report": "docs/ota-telemetry/20260712-dualbank-app-termination30-r1-app-console.log"
-    },
-    {
-      "phase": "upload-80",
-      "passed": true,
-      "runId": "20260712-dualbank-app-termination80-r1",
-      "durationSeconds": 96,
-      "verifiedFirmwareVersion": "0.1.26",
-      "verifiedOver": "ble",
-      "report": "docs/ota-telemetry/20260712-dualbank-app-termination80-r1-app-console.log"
-    }
-  ],
-  "bluetoothLossRecoveryPassed": true,
-  "bluetoothLossRecoveryEvidence": {
-    "phase": "upload-40",
-    "runId": "20260712-dualbank-bluetooth-loss40-r1",
-    "durationSeconds": 81,
-    "verifiedFirmwareVersion": "0.1.26",
-    "verifiedOver": "ble"
-  },
-  "optimizedIPhoneUpdateEvidence": {
-    "runId": "20260712-doordfu-prn8-r1",
-    "packetReceiptNotificationParameter": 8,
-    "durationSeconds": 25,
-    "uploadSeconds": 8.94,
-    "verifiedFirmwareVersion": "0.1.26",
-    "verifiedOver": "ble",
-    "controllerUsbAttached": false
-  },
+  "powerLossCases": [],
+  "appTerminationCases": [],
+  "bluetoothLossRecoveryPassed": false,
   "macWirelessUpdatePassed": true,
-  "macWirelessUpdateEvidence": {
-    "runId": "20260713T035056Z-mac",
-    "packetReceiptNotificationParameter": 16,
-    "durationSeconds": 43,
-    "uploadSeconds": 26,
-    "verifiedFirmwareVersion": "0.1.26",
-    "verifiedOver": "ble",
-    "controllerUsbAttached": false
-  },
-  "unsignedPackageRejected": true,
-  "unsignedPackageRejectionEvidence": {
-    "runId": "20260712-dualbank-install-proof-r1",
-    "packageProfile": "factory-crc",
-    "result": "rejected during DFU initialization by signed DoorDFU bootloader"
+  "unsignedPackageRejected": false,
+  "historicalEvidenceNotTransferable": {
+    "priorBootloaderArtifactSha256": "b0185d60ebc73c4dd41fc2fe8d90f20d6068da6eb04b2b69dbfc615d3e11b5bb",
+    "priorUsbRecoveryBuildId": "c2bc2d5cf3f0f7bed09a",
+    "priorFirmwareVersionVerifiedOverBle": "0.1.32",
+    "reason": "Physical evidence is content-bound and cannot be reused after the bootloader hash changes."
   }
 }

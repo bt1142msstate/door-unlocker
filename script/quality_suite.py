@@ -167,6 +167,10 @@ def base_steps(args: argparse.Namespace) -> list[tuple[str, list[str]]]:
     if not args.fast:
         steps.append(("Controller firmware compile and package verification", ["./script/flash_xiao_uf2.sh", "--build-only"]))
         steps.append(("Signed dual-bank bootloader reproducible build", ["./script/build_secure_bootloader.sh"]))
+        steps.append((
+            "Byte-for-byte bootloader reproducibility proof",
+            ["python3", "script/verify_bootloader_reproducibility.py", "--write-proof"],
+        ))
 
     steps.extend([
         (
@@ -174,7 +178,11 @@ def base_steps(args: argparse.Namespace) -> list[tuple[str, list[str]]]:
             [
                 "python3",
                 "script/check_ota_bootloader_contract.py",
-                *([] if args.fast else ["--require-candidate"]),
+                *(
+                    ["--require-release-invariant"]
+                    if args.fast
+                    else ["--require-candidate"]
+                ),
             ],
         ),
         (
@@ -224,6 +232,10 @@ def base_steps(args: argparse.Namespace) -> list[tuple[str, list[str]]]:
             (
                 "Current package physical BLE OTA release proof",
                 ["python3", "script/check_firmware_release_proof.py"],
+            ),
+            (
+                "Consecutive OTA and USB recovery promotion proof",
+                ["python3", "script/check_ota_promotion_proof.py"],
             ),
         ])
 

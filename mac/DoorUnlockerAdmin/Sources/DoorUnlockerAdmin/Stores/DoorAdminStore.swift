@@ -255,6 +255,8 @@ final class DoorAdminStore: NSObject, ObservableObject {
     var expectedFirmwareVerificationVersion: String?
     var isAwaitingPostDfuFirmwareVerification = false
     var didPostFirmwareVerificationNotification = false
+    var pendingStableFirmwareVerificationVersion: String?
+    var firmwareStableVerificationTask: Task<Void, Never>?
     var wirelessReconnectAttempt = 0
     var isWirelessStateNotificationEnabled = false
     let runtimeTelemetryStartedAt = ProcessInfo.processInfo.systemUptime
@@ -305,6 +307,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         secureLinkWatchdogTask?.cancel()
         firmwareUpdateWatchdogTask?.cancel()
         firmwareUpdateRecoveryRetryTask?.cancel()
+        firmwareStableVerificationTask?.cancel()
         observedFirmwareUpdateTimeoutTask?.cancel()
         DistributedNotificationCenter.default().removeObserver(self)
     }

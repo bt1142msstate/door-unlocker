@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BOOTLOADER_VERSION="0.11.0"
 BOOTLOADER_REPOSITORY="https://github.com/adafruit/Adafruit_nRF52_Bootloader.git"
+BOOTLOADER_UPSTREAM_COMMIT="c67f0bcf0fa8e841426335b1bbde91cda6ca1f50"
 BOARD="xiao_nrf52840_ble_sense"
 SOFTDEVICE_VERSION="7.3.0"
 SOFTDEVICE_FIRMWARE_ID="0x0123"
@@ -11,7 +12,6 @@ APPLICATION_START_ADDRESS="0x27000"
 BOOTLOADER_START_ADDRESS="0xF4000"
 RESERVED_APPLICATION_DATA_BYTES="40960"
 DUAL_BANK_APPLICATION_MAX_BYTES="397312"
-ACTIVATION_JOURNAL_ADDRESS="0x000E9000"
 OTA_MEMORY_LAYOUT_HEADER="$ROOT_DIR/firmware/DoorUnlockerXiao/OtaMemoryLayout.h"
 ATT_MTU_BYTES="247"
 MAX_DFU_PAYLOAD_BYTES="244"
@@ -23,7 +23,7 @@ PHY_PREFERENCE="${DOOR_BOOTLOADER_PHY_PREFERENCE:-auto}"
 HCI_RX_QUEUE_SIZE="${DOOR_BOOTLOADER_HCI_RX_QUEUE_SIZE:-16}"
 PSTORAGE_QUEUE_SIZE="${DOOR_BOOTLOADER_PSTORAGE_QUEUE_SIZE:-18}"
 BUILD_PROFILE="${DOOR_BOOTLOADER_BUILD_PROFILE:-release-candidate}"
-CANDIDATE_DFU_DEVICE_NAME="DoorDFU"
+CANDIDATE_DFU_DEVICE_NAME="DoorDFUStable"
 DEFAULT_TO_OTA_DFU="ON"
 KEY_DIR="${DOOR_FIRMWARE_SIGNING_DIR:-$HOME/Library/Application Support/Door Unlocker/FirmwareSigning}"
 KEY_PATH="${DOOR_FIRMWARE_SIGNING_KEY:-$KEY_DIR/firmware-signing-key.pem}"
@@ -42,7 +42,6 @@ else
   PUBLIC_MANIFEST="${DOOR_BOOTLOADER_PUBLIC_MANIFEST:-$OUTPUT_DIR/manifest.json}"
 fi
 PUBLIC_KEY_PEM="$ROOT_DIR/docs/firmware-signing-public-key.pem"
-TRANSACTIONAL_ACTIVATION_DIR="$ROOT_DIR/bootloader/transactional_activation"
 BOOTLOADER_PATCHER="$ROOT_DIR/script/patch_secure_bootloader.py"
 ARM_GCC_DIR="${ARM_GCC_DIR:-$HOME/Library/Arduino15/packages/Seeeduino/tools/arm-none-eabi-gcc/9-2019q4/bin}"
 GENERATE_KEY=0
@@ -129,7 +128,37 @@ QX="$(printf '%s\n' "$key_values" | sed -n '1p')"
 QY="$(printf '%s\n' "$key_values" | sed -n '2p')"
 PUBLIC_KEY_ID="$(printf '%s\n' "$key_values" | sed -n '3p')"
 git clone --depth 1 --branch "$BOOTLOADER_VERSION" "$BOOTLOADER_REPOSITORY" "$SOURCE_DIR"
+if [[ "$(git -C "$SOURCE_DIR" rev-parse HEAD)" != "$BOOTLOADER_UPSTREAM_COMMIT" ]]; then
+  echo "Upstream bootloader tag no longer resolves to the audited commit." >&2
+  exit 1
+fi
 git -C "$SOURCE_DIR" submodule update --init lib/nrfx lib/tinycrypt lib/tinyusb lib/uf2
+SOURCE_DATE_EPOCH="$(git -C "$SOURCE_DIR" show -s --format=%ct "$BOOTLOADER_UPSTREAM_COMMIT")"
+ARM_GCC_VERSION="$($ARM_GCC_DIR/arm-none-eabi-gcc --version | head -n 1)"
+CMAKE_VERSION="$(cmake --version | head -n 1)"
+BUILD_SCRIPT_SHA256="$(shasum -a 256 "$ROOT_DIR/script/build_secure_bootloader.sh" | awk '{print $1}')"
+PATCHER_SHA256="$(shasum -a 256 "$BOOTLOADER_PATCHER" | awk '{print $1}')"
+export SOURCE_DATE_EPOCH TZ=UTC LC_ALL=C
+
+BOOTLOADER_BUILD_ID="$({
+  printf '%s\n' \
+    "door-unlocker-recovery-v1" \
+    "$BOOTLOADER_UPSTREAM_COMMIT" \
+    "$BOARD" \
+    "$SOFTDEVICE_VERSION" \
+    "$PUBLIC_KEY_ID" \
+    "$MIN_CONNECTION_INTERVAL_MS" \
+    "$MAX_CONNECTION_INTERVAL_MS" \
+    "$FLASH_LOCAL_LATENCY_EVENTS" \
+    "$PHY_PREFERENCE" \
+    "$HCI_RX_QUEUE_SIZE" \
+    "$PSTORAGE_QUEUE_SIZE" \
+    "$SOURCE_DATE_EPOCH" \
+    "$ARM_GCC_VERSION" \
+    "$CMAKE_VERSION" \
+    "$BUILD_SCRIPT_SHA256" \
+    "$PATCHER_SHA256"
+} | shasum -a 256 | awk '{print substr($1, 1, 20)}')"
 
 # Upstream DEFAULT_TO_OTA_DFU also redirects an intentional double-reset to BLE.
 # Keep automatic invalid-app BLE recovery without sacrificing the USB UF2 escape hatch.
@@ -155,7 +184,7 @@ PY
 
 /usr/bin/python3 "$BOOTLOADER_PATCHER" \
   --source "$SOURCE_DIR" \
-  --module "$TRANSACTIONAL_ACTIVATION_DIR" \
+  --build-id "$BOOTLOADER_BUILD_ID" \
   --flash-local-latency "$FLASH_LOCAL_LATENCY_EVENTS" \
   --phy-mode "$PHY_PREFERENCE" \
   --hci-rx-queue-size "$HCI_RX_QUEUE_SIZE" \
@@ -200,14 +229,16 @@ require_source_marker "$SOURCE_DIR/lib/sdk11/components/libraries/bootloader_dfu
   'if (m_image_size > DFU_IMAGE_MAX_SIZE_BANKED)'
 require_source_marker "$SOURCE_DIR/lib/sdk11/components/libraries/bootloader_dfu/dfu_dual_bank.c" \
   'm_functions.prepare = dfu_prepare_func_swap_erase;'
-require_source_marker "$SOURCE_DIR/src/door_activation_journal.c" \
-  'flash_nrf5x_erase(DFU_BANK_0_REGION_START, image_size);'
-require_source_marker "$SOURCE_DIR/src/door_activation_journal.c" \
-  'NRF_POWER->GPREGRET = 0;'
 require_source_marker "$SOURCE_DIR/lib/sdk11/components/libraries/bootloader_dfu/dfu_dual_bank.c" \
-  'return door_activation_stage(m_start_packet.app_image_size, m_image_crc);'
+  'm_functions.activate = dfu_activate_app;'
 require_source_marker "$SOURCE_DIR/lib/sdk11/components/libraries/bootloader_dfu/dfu_dual_bank.c" \
   'if (dfu_region_is_erased(DFU_BANK_1_REGION_START, image_size))'
+require_source_marker "$SOURCE_DIR/lib/sdk11/components/libraries/bootloader_dfu/bootloader_util.c" \
+  '#error "Door Unlocker requires nRF52840 ACL flash protection"'
+require_source_marker "$SOURCE_DIR/lib/sdk11/components/libraries/bootloader_dfu/bootloader_util.c" \
+  'bootloader_util_flash_protect(0, MBR_SIZE);'
+require_source_marker "$SOURCE_DIR/lib/sdk11/components/libraries/bootloader_dfu/bootloader_util.c" \
+  'bootloader_util_flash_protect(BOOTLOADER_REGION_START, area_size);'
 
 grep -Fqx "constexpr uint32_t OTA_APPLICATION_START = $APPLICATION_START_ADDRESS;" \
   "$OTA_MEMORY_LAYOUT_HEADER" || {
@@ -227,6 +258,7 @@ cmake -S "$SOURCE_DIR" -B "$BUILD_DIR" \
   -DSD_VERSION="$SOFTDEVICE_VERSION" \
   -DDUALBANK_FW=ON \
   -DDEFAULT_TO_OTA_DFU="$DEFAULT_TO_OTA_DFU" \
+  -DFORCE_UF2=ON \
   -DSIGNED_FW=ON \
   -DSIGNED_FW_QX="$QX" \
   -DSIGNED_FW_QY="$QY" \
@@ -251,8 +283,19 @@ grep -Fqx 'DUALBANK_FW:BOOL=ON' "$BUILD_DIR/CMakeCache.txt" || {
   echo "Built bootloader did not retain DUALBANK_FW=ON." >&2
   exit 1
 }
+grep -Fqx 'FORCE_UF2:BOOL=ON' "$BUILD_DIR/CMakeCache.txt" || {
+  echo "Built bootloader does not expose the USB recovery volume." >&2
+  exit 1
+}
+require_source_marker "$SOURCE_DIR/src/usb/msc_uf2.c" "bool tud_msc_is_writable_cb(uint8_t lun)"
+require_source_marker "$SOURCE_DIR/src/usb/msc_uf2.c" "return false;"
+require_source_marker "$SOURCE_DIR/src/usb/uf2/ghostfat.c" "Door-Bootloader-ID: $BOOTLOADER_BUILD_ID"
 grep -Fq 'dfu_dual_bank.c.obj' "$BUILD_DIR/CMakeFiles/bootloader.dir/link.txt" || {
   echo "Built bootloader does not link the dual-bank implementation." >&2
+  exit 1
+}
+grep -Fq 'bootloader_util.c.obj' "$BUILD_DIR/CMakeFiles/bootloader.dir/link.txt" || {
+  echo "Built bootloader does not link application flash protection." >&2
   exit 1
 }
 if grep -Fq 'dfu_single_bank.c.obj' "$BUILD_DIR/CMakeFiles/bootloader.dir/link.txt"; then
@@ -263,8 +306,8 @@ fi
 mkdir -p "$OUTPUT_DIR"
 BOOTLOADER_HEX="$OUTPUT_DIR/DoorUnlocker-XIAO-Sense-${BOOTLOADER_VERSION}-signed-dualbank.hex"
 BOOTLOADER_UF2="$OUTPUT_DIR/DoorUnlocker-XIAO-Sense-${BOOTLOADER_VERSION}-signed-dualbank-migration.uf2"
-BOOTLOADER_CODE_BIN="$OUTPUT_DIR/DoorUnlocker-XIAO-Sense-${BOOTLOADER_VERSION}-transactional-code.bin"
-BOOTLOADER_DFU_PACKAGE="$OUTPUT_DIR/DoorUnlocker-XIAO-Sense-${BOOTLOADER_VERSION}-transactional-bootloader-dfu.zip"
+BOOTLOADER_CODE_BIN="$OUTPUT_DIR/DoorUnlocker-XIAO-Sense-${BOOTLOADER_VERSION}-verified-code.bin"
+BOOTLOADER_DFU_PACKAGE="$OUTPUT_DIR/DoorUnlocker-XIAO-Sense-${BOOTLOADER_VERSION}-verified-bootloader-dfu.zip"
 BOOTLOADER_DFU_RELEASE="$RELEASE_DIR/$(basename "$BOOTLOADER_DFU_PACKAGE")"
 cp -X "$BUILD_DIR/bootloader_mbr.hex" "$BOOTLOADER_HEX"
 cp -X "$BUILD_DIR/bootloader_mbr.uf2" "$BOOTLOADER_UF2"
@@ -282,16 +325,21 @@ from intelhex import IntelHex
 source = IntelHex(os.environ["BOOTLOADER_HEX"])
 bootloader_start = int(os.environ["BOOTLOADER_START_ADDRESS"], 0)
 settings_start = int(os.environ["BOOTLOADER_SETTINGS_ADDRESS"], 0)
-code_segments = [
+code_segments = sorted(
     (start, end)
     for start, end in source.segments()
     if bootloader_start <= start < settings_start and end <= settings_start
-]
-if len(code_segments) != 1 or code_segments[0][0] != bootloader_start:
-    raise SystemExit(f"Expected one contiguous bootloader code segment, got {code_segments}")
-start, end = code_segments[0]
+)
+if not code_segments or code_segments[0][0] != bootloader_start:
+    raise SystemExit(f"Expected bootloader code to begin at 0x{bootloader_start:X}, got {code_segments}")
+for (_, previous_end), (start, _) in zip(code_segments, code_segments[1:]):
+    if start < previous_end:
+        raise SystemExit(f"Bootloader code segments overlap: {code_segments}")
+end = max(segment_end for _, segment_end in code_segments)
+if end > settings_start:
+    raise SystemExit(f"Bootloader code reaches 0x{end:X}, beyond settings at 0x{settings_start:X}")
 Path(os.environ["BOOTLOADER_CODE_BIN"]).write_bytes(
-    bytes(source[address] for address in range(start, end))
+    source.tobinstr(start=bootloader_start, end=end - 1, pad=0xFF)
 )
 PY
 
@@ -325,7 +373,6 @@ APPLICATION_START_ADDRESS="$APPLICATION_START_ADDRESS" \
 BOOTLOADER_START_ADDRESS="$BOOTLOADER_START_ADDRESS" \
 RESERVED_APPLICATION_DATA_BYTES="$RESERVED_APPLICATION_DATA_BYTES" \
 DUAL_BANK_APPLICATION_MAX_BYTES="$DUAL_BANK_APPLICATION_MAX_BYTES" \
-ACTIVATION_JOURNAL_ADDRESS="$ACTIVATION_JOURNAL_ADDRESS" \
 ATT_MTU_BYTES="$ATT_MTU_BYTES" \
 MAX_DFU_PAYLOAD_BYTES="$MAX_DFU_PAYLOAD_BYTES" \
 GAP_EVENT_LENGTH_UNITS="$GAP_EVENT_LENGTH_UNITS" \
@@ -338,6 +385,13 @@ PSTORAGE_QUEUE_SIZE="$PSTORAGE_QUEUE_SIZE" \
 BUILD_PROFILE="$BUILD_PROFILE" \
 CANDIDATE_DFU_DEVICE_NAME="$CANDIDATE_DFU_DEVICE_NAME" \
 DEFAULT_TO_OTA_DFU="$DEFAULT_TO_OTA_DFU" \
+BOOTLOADER_UPSTREAM_COMMIT="$BOOTLOADER_UPSTREAM_COMMIT" \
+BOOTLOADER_BUILD_ID="$BOOTLOADER_BUILD_ID" \
+SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" \
+ARM_GCC_VERSION="$ARM_GCC_VERSION" \
+CMAKE_VERSION="$CMAKE_VERSION" \
+BUILD_SCRIPT_SHA256="$BUILD_SCRIPT_SHA256" \
+PATCHER_SHA256="$PATCHER_SHA256" \
 PUBLIC_MANIFEST="$PUBLIC_MANIFEST" \
 /usr/bin/python3 <<'PY'
 import hashlib
@@ -350,16 +404,6 @@ artifact = Path(os.environ["BOOTLOADER_HEX"])
 migration_artifact = Path(os.environ["BOOTLOADER_UF2"])
 code_artifact = Path(os.environ["BOOTLOADER_CODE_BIN"])
 ota_artifact = Path(os.environ["BOOTLOADER_DFU_PACKAGE"])
-
-application_start = int(os.environ["APPLICATION_START_ADDRESS"], 0)
-bootloader_start = int(os.environ["BOOTLOADER_START_ADDRESS"], 0)
-reserved_bytes = int(os.environ["RESERVED_APPLICATION_DATA_BYTES"])
-dual_bank_bytes = int(os.environ["DUAL_BANK_APPLICATION_MAX_BYTES"])
-journal_address = int(os.environ["ACTIVATION_JOURNAL_ADDRESS"], 0)
-if journal_address != application_start + 2 * dual_bank_bytes:
-    raise SystemExit("Activation journal is not immediately after bank 1")
-if journal_address + 4096 > bootloader_start - reserved_bytes:
-    raise SystemExit("Activation journal overlaps reserved application data")
 
 blocks = []
 raw_uf2 = migration_artifact.read_bytes()
@@ -391,6 +435,13 @@ ranges.append((range_start, range_end))
 manifest = {
     "board": os.environ["BOARD"],
     "bootloaderVersion": os.environ["BOOTLOADER_VERSION"],
+    "bootloaderUpstreamCommit": os.environ["BOOTLOADER_UPSTREAM_COMMIT"],
+    "usbRecoveryBuildId": os.environ["BOOTLOADER_BUILD_ID"],
+    "sourceDateEpoch": int(os.environ["SOURCE_DATE_EPOCH"]),
+    "armGccVersion": os.environ["ARM_GCC_VERSION"],
+    "cmakeVersion": os.environ["CMAKE_VERSION"],
+    "buildScriptSha256": os.environ["BUILD_SCRIPT_SHA256"],
+    "patcherSha256": os.environ["PATCHER_SHA256"],
     "softDeviceVersion": os.environ["SOFTDEVICE_VERSION"],
     "softDeviceFirmwareId": os.environ["SOFTDEVICE_FIRMWARE_ID"],
     "applicationStartAddress": os.environ["APPLICATION_START_ADDRESS"],
@@ -411,18 +462,25 @@ manifest = {
     "defaultToOtaDfu": os.environ["DEFAULT_TO_OTA_DFU"] == "ON",
     "invalidAppDefaultsToOtaDfu": True,
     "doubleResetUsbRecoveryPreserved": True,
+    "usbMassStorageRecoveryVolume": True,
+    "usbRecoveryVolumeLabel": "XIAO-SENSE",
+    "usbRecoveryVolumeReadOnly": True,
+    "usbCdcSignedRecovery": True,
+    "applicationPackagesPreserveBootloader": True,
+    "applicationFlashWriteProtection": "ACL",
+    "mbrWriteProtectedFromApplication": True,
+    "bootloaderWriteProtectedFromApplication": True,
     "dataLengthExtension": True,
     "automaticTwoMegabitPhy": True,
     "flashWritePacing": True,
     "verifiedBlankBankEraseBypass": True,
-    "backgroundInactiveBankPreparation": True,
+    "backgroundInactiveBankPreparation": False,
     "dualBankFirmware": True,
     "singleBankFallbackDisabled": True,
     "interruptedTransferRetainsBank0": True,
     "activationPowerLossRequiresPhysicalProof": True,
-    "transactionalActivationJournal": True,
-    "activationJournalAddress": f"0x{journal_address:08X}",
-    "activationResumesAfterReset": True,
+    "activationUsesUpstreamSettings": True,
+    "interruptedActivationRecoversOverBle": True,
     "signedFirmwareRequired": True,
     "forceUnsignedUF2": False,
     "publicKeyId": os.environ["PUBLIC_KEY_ID"],

@@ -58,8 +58,10 @@ def main() -> int:
     parser.add_argument("--proof", type=Path, default=ROOT / "docs/firmware-release-proof.json")
     args = parser.parse_args()
     proof_path = args.proof if args.proof.is_absolute() else ROOT / args.proof
-    package_path = ROOT / "dist/DoorUnlockerXiao-dfu.zip"
-    bundled_package_path = ROOT / "ios/DoorUnlockerApp/DoorUnlocker/Firmware/DoorUnlockerXiao-dfu.zip"
+    package_path = ROOT / "dist/DoorUnlockerXiao-signed-dfu.zip"
+    bundled_package_path = (
+        ROOT / "ios/DoorUnlockerApp/DoorUnlocker/Firmware/DoorUnlockerXiao-signed-dfu.zip"
+    )
 
     if not proof_path.exists() or not package_path.exists() or not bundled_package_path.exists():
         print("Firmware release proof: FAIL")

@@ -65,6 +65,27 @@ final class DoorFirmwareUpdateJournalTests: XCTestCase {
         )
     }
 
+    func testOldNormalFirmwareDoesNotRetryAfterCompletedUpload() {
+        let journal = DoorFirmwareUpdateJournal(
+            targetVersion: "0.2.0",
+            packagePath: "/firmware.zip",
+            packageByteCount: 130_000,
+            phase: .verifying,
+            lastProgress: 100
+        )
+
+        XCTAssertEqual(
+            DoorFirmwareRecoveryPolicy.action(
+                journal: journal,
+                installedVersion: "0.1.9",
+                isNormalControllerReady: true,
+                isBootloaderDetected: false,
+                isPackageAvailable: true
+            ),
+            .activationFailed
+        )
+    }
+
     func testInstalledTargetCompletesWithoutAnotherUpload() {
         let journal = DoorFirmwareUpdateJournal(
             targetVersion: "0.2.0",

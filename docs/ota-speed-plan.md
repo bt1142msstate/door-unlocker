@@ -6,15 +6,17 @@ This document preserves benchmark and fault-recovery history. For release decisi
 
 ## Current Evidence
 
-- Controller firmware source: `0.1.30`
-- Signed application payload: `134,452` bytes (`134,444` bytes reported by the Arduino sketch build before DFU packaging)
+- Controller firmware source: `0.1.32`
+- Signed application payload: `134,612` bytes
 - Factory package: `DoorUnlockerXiao-dfu.zip`, DFU manifest `0.5` with CRC16
 - Signed candidate package: `DoorUnlockerXiao-signed-dfu.zip`, DFU manifest `0.8` with P-256 ECDSA
-- Installed bootloader: project-signed Adafruit nRF52 Bootloader `0.11.0`, dual-bank, S140 `7.3.0`, advertising `DoorDFU`; the latest OTA session sent the release-candidate artifact with SHA-256 `6e00ea51eefd81d90429e45ed33c3d2543e19a30147e4f8ae3bfcdd46eb9a5f9`
-- Production-proof status: application and bootloader OTA behavior has been demonstrated, but the content-bound installed-proof file still refers to an older artifact. Production promotion remains blocked until the exact current artifact completes the full interruption and unsigned-rejection campaign.
+- Installed bootloader: an earlier corrected project-signed Adafruit nRF52 Bootloader `0.11.0`, dual-bank, S140 `7.3.0`, advertising `DoorDFUStable`; signed application transitions through `0.1.32` have activated over BLE.
+- Candidate bootloader: SHA-256 `600b76172de0d8f7ef624ddee17846efe8fd0f59ce27d36d1134008ad27351b1`, recovery build ID `b2409e808fefca642042`, with a compile-enforced nRF52840 ACL guard for the MBR and bootloader/settings range.
+- Production-proof status: the exact candidate reported that ID from a physical double-reset USB mount and passed signed serial recovery; production remains blocked on the remaining required interruption and unsigned-rejection campaign.
 - Installed wireless update protocol: Legacy DFU init-packet format `0.8` with P-256 ECDSA enforcement
 - Latest fixed-15 iPhone wireless-only proof: three consecutive PRN `9` uploads at `15,149`, `16,300`, and `17,170 B/s`; two later unattended-phone transfers measured `11,535` and `10,201 B/s`
-- Latest Mac wireless-only comparison: PRN `9` sustained about `6 KB/s`; PRN `0`, `4`, and `32` each regressed to about `3-4 KB/s`
+- Historical Mac wireless-only comparison: PRN `9` sustained about `6 KB/s`; PRN `0`, `4`, and `32` each regressed to about `3-4 KB/s`
+- Exact `v0.3.0-beta.1` Mac proof: PRN `9` completed safely but regressed to roughly `1.2 KB/s` (`111s` upload, `143s` through delayed verification); current sender code still uses the shared measured profile, so the macOS connection-throughput regression remains open
 - Installed signed bootloader negotiated Legacy DFU payload: `244` bytes
 - Measured release tuning: iPhone and Mac PRN `9`, object-preparation delay `0.3s`, fixed `15ms` interval, automatic PHY, 16 HCI receive buffers, 18 flash-queue entries, and flash local latency `50`
 
@@ -56,15 +58,15 @@ Nordic DFU also defines SoftDevice-capable packages, but this project has not ye
 
 - `DUALBANK_FW=1`
 - `SIGNED_FW=1`
-- invalid applications default to BLE `DoorDFU`
-- intentional reset-button double press remains USB UF2 recovery
+- invalid applications default to BLE `DoorDFUStable`
+- intentional reset-button double press mounts the read-only `XIAO-SENSE` recovery volume and exposes signed USB CDC serial DFU
+- `INFO_UF2.TXT` reports the deterministic Door Unlocker recovery build ID
 - project P-256 public key compiled into the bootloader
-- unsigned UF2 recovery disabled
+- raw UF2 writes rejected; signed USB recovery uses serial DFU
 - S140 `7.3.0` / firmware ID `0x0123`, matching the XIAO application build
-- `397,312`-byte maximum dual-bank application size; the current `134,452`-byte payload fits with substantial margin
-- transactional activation journal at `0xE9000`, the otherwise-unused page between bank 1 and reserved application data
-- bank 0 is changed only after the signed/hash-verified bank-1 image and its journal are durable
-- boot-time activation is idempotent; erase, copy, settings-write, or journal-clear interruption resumes safely
+- `397,312`-byte maximum dual-bank application size; the current `134,612`-byte payload fits with substantial margin
+- upstream Nordic dual-bank activation and persisted bootloader settings; the removed custom activation journal is not part of the release design
+- bank 0 remains bootable during interrupted transfer; activation power-loss behavior remains a required exact-hardware proof
 - ATT MTU support raised from the legacy `23`-byte path to upstream's `247`
 - maximum Legacy DFU write payload `244` bytes, data-length extension, and automatic 2 Mbps PHY negotiation
 - fixed `15ms` connection interval, connection-event extension, and accelerated flash-write pacing
@@ -157,7 +159,7 @@ RUN_ID=<run-id> INTERRUPT_MODE=controller-power-loss INTERRUPT_AT_PROGRESS=30 \
 
 The verifier normally refuses this physical mode unless the exact signed dual-bank bootloader has an installed proof, its recovery artifact hash matches, and an SWD recovery path is recorded as available. An explicit `--accept-no-swd-recovery-risk` override exists only for attended testing after the operator accepts the replacement-hardware risk. At the threshold it terminates the updater to freeze a genuinely partial image and opens the reusable SwiftUI physical-handoff assistant. **Start countdown** speaks the 3-2-1 instructions; **Power restored** returns control directly to the waiting verifier after the operator has removed controller power for at least two seconds and restored it. The same assistant accepts direct, spoken USB-C and one-/two-press reset requests without exposing a console. A terminal fallback remains available with `PHYSICAL_HANDOFF_MODE=terminal`.
 
-`script/simulate_dual_bank_power_loss.py` models cuts at every whole transfer percentage and every activation erase page, copied word, settings commit, journal commit/clear boundary, reboot boundary, and corrupt-image path. For the current payload that is 100 transfer points and 33,680 activation points. It verifies that each state either boots the untouched previous firmware, resumes from immutable bank 1, or boots the CRC-verified replacement. Simulation complements rather than replaces attended exact-hardware power-loss tests.
+`script/simulate_dual_bank_power_loss.py` models every whole transfer percentage and upstream activation interruption boundaries. It verifies the expected bank-safety invariants, but it complements rather than replaces attended exact-hardware power-loss and USB recovery tests.
 
 Reusable attended presets are available for other recovery scripts:
 
@@ -172,7 +174,7 @@ The helper process blocks the caller until the confirmation button is pressed, s
 
 The verifier installs the app, starts a real OTA, watches structured `DUFirmware` events, and injects the requested failure. It passes only after the app receives the target firmware version over BLE. Signed `DoorDFU` app-termination runs at 30% and 80% passed in `77s` and `96s`; a 40% Bluetooth transport loss recovered and verified in `81s`. The earlier factory 30% controller-power-loss failure remains the baseline superseded by the signed candidate's successful 30% and 80% battery cuts.
 
-The first signed dual-bank candidate was installed on July 12 and behaviorally identified by its fresh `DoorDFU` advertisement and successful P-256 package validation. A CoreBluetooth cache issue initially presented the old `AdaDFU` peripheral name; the shared iOS/macOS manager now prefers the live advertisement name. Real battery cuts at 30% and 80% then passed without USB recovery: the previous `0.1.26` firmware booted, reauthenticated, and was verified over BLE in `62s` and `73s`, respectively. Those runs remain useful transfer-interruption evidence, but they do not prove the later transactional activation artifact because its bootloader hash differs.
+The first signed dual-bank candidate was installed on July 12 and behaviorally identified by its fresh `DoorDFU` advertisement and successful P-256 package validation. A CoreBluetooth cache issue initially presented the old `AdaDFU` peripheral name; the shared iOS/macOS manager now prefers the live advertisement name. Real battery cuts at 30% and 80% returned to the previous `0.1.26` firmware and preserved controller state. Those runs remain useful transfer-interruption evidence, but a changed bootloader hash always requires a new content-bound physical proof.
 
 Summarize a console trace:
 
@@ -214,6 +216,8 @@ Every passed case must preserve trusted-device keys, lock name, timeout, servo a
 5. App-termination recovery passed on iPhone.
 6. A clean Mac update passed with the same shared transport settings.
 7. Pairings and controller settings survived the campaign.
+8. Two consecutive newly built versions activated and were verified over BLE without controller USB.
+9. The exact bootloader mounted `XIAO-SENSE` read-only and recovered the signed application through USB serial DFU.
 
 Do not mark this goal complete or publish the bootloader migration as production-ready until those gates pass.
 
@@ -227,7 +231,7 @@ Do not mark this goal complete or publish the bootloader migration as production
 
 ### 2026-07-13 migration sequence and final result
 
-- Firmware `0.1.28` added incremental inactive-bank preparation and the `ota_staging_ready` snapshot field. The first installed bootloader still imposed a 3.49-second start delay and initially rejected two bootloader-only packages during initialization.
+- Firmware `0.1.28` temporarily added application-side inactive-bank preparation and `ota_staging_ready`. Both were later removed so bank ownership remains entirely inside the bootloader; see the July 13 activation incident report.
 - Correcting the bootloader package hardware revision to the XIAO nRF52840 value `52840` resolved that rejection. Signed bootloader-only packages then installed successfully over BLE from a trusted client.
 - The fixed-15, forced-2-Mbps, fixed-30, flash-latency, and queue-depth variants were all installed and replaced wirelessly. The final controller was returned wirelessly to the release profile: fixed `15ms`, automatic PHY, PRN `9`, flash local latency `50`, and `16/18` queues.
 - Terminal integrity or compatibility failures clear the saved transaction in both clients, preventing a rejected package from restarting after normal firmware reconnects.

@@ -24,6 +24,35 @@ SIMULATOR_SPEC.loader.exec_module(SIMULATOR)
 
 
 class OtaBootloaderContractTests(unittest.TestCase):
+    def test_usb_recovery_proof_is_bound_to_hardware_reported_build_and_file_hash(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proof_path = Path(directory) / "usb-proof.json"
+            proof = {
+                "passed": True,
+                "observedBootloaderBuildId": "build-1",
+                "expectedBootloaderBuildId": "build-1",
+                "usbRecoveryBuildIdentityMatches": True,
+                "usbRecoveryVolumeMounted": True,
+                "usbRecoveryVolumeReadOnly": True,
+                "usbRecoveryWriteRejected": True,
+                "signedSerialRecoveryPassed": True,
+                "pairingsAndSettingsPreserved": True,
+                "packageImageTypes": ["application"],
+            }
+            proof_path.write_text(json.dumps(proof), encoding="utf-8")
+            installed = {
+                "usbRecoveryProofSha256": hashlib.sha256(proof_path.read_bytes()).hexdigest()
+            }
+            manifest = {"usbRecoveryBuildId": "build-1"}
+
+            self.assertTrue(
+                MODULE.usb_recovery_proof_matches(proof, installed, manifest, proof_path)
+            )
+            manifest["usbRecoveryBuildId"] = "build-2"
+            self.assertFalse(
+                MODULE.usb_recovery_proof_matches(proof, installed, manifest, proof_path)
+            )
+
     @staticmethod
     def uf2_bytes(addresses, family=0xD663823C):
         blocks = []
@@ -79,15 +108,37 @@ class OtaBootloaderContractTests(unittest.TestCase):
             )
         )
 
-    def test_transactional_bootloader_ota_package_matches_exact_candidate(self):
+    def test_verified_bootloader_ota_package_matches_exact_candidate(self):
         manifest = json.loads(
             (ROOT / "docs/firmware-signing-public-key.json").read_text(encoding="utf-8")
         )
-        checks = MODULE.bootloader_ota_artifact_checks(
-            manifest,
-            ROOT / "dist/bootloader",
-            ROOT / "docs/firmware-signing-public-key.pem",
+        release = ROOT / "bootloader/releases" / manifest["otaBootloaderArtifact"]
+        with tempfile.TemporaryDirectory() as directory:
+            artifact_dir = Path(directory)
+            staged_release = artifact_dir / release.name
+            staged_release.write_bytes(release.read_bytes())
+            with zipfile.ZipFile(release) as archive:
+                package_manifest = json.loads(archive.read("manifest.json"))["manifest"]["bootloader"]
+                code = archive.read(package_manifest["bin_file"])
+            (artifact_dir / manifest["bootloaderCodeArtifact"]).write_bytes(code)
+            checks = MODULE.bootloader_ota_artifact_checks(
+                manifest,
+                artifact_dir,
+                ROOT / "docs/firmware-signing-public-key.pem",
+            )
+
+        self.assertTrue(all(checks.values()), checks)
+
+    def test_checked_in_bootloader_release_self_verifies_without_dist_code(self):
+        manifest = json.loads(
+            (ROOT / "docs/firmware-signing-public-key.json").read_text(encoding="utf-8")
         )
+        with tempfile.TemporaryDirectory() as directory:
+            checks = MODULE.bootloader_ota_artifact_checks(
+                manifest,
+                Path(directory),
+                ROOT / "docs/firmware-signing-public-key.pem",
+            )
 
         self.assertTrue(all(checks.values()), checks)
 
@@ -120,6 +171,40 @@ class OtaBootloaderContractTests(unittest.TestCase):
         self.assertGreaterEqual(float(signed_manifest["manifest"]["dfu_version"]), 0.8)
         self.assertGreater(len(signed_dat), 64)
 
+    def test_application_release_packages_cannot_replace_the_bootloader(self):
+        self.assertTrue(
+            MODULE.application_package_only(
+                {"application": {}, "dfu_version": 0.8}
+            )
+        )
+        for image_type in ("bootloader", "softdevice", "softdevice_bootloader"):
+            with self.subTest(image_type=image_type):
+                self.assertFalse(
+                    MODULE.application_package_only(
+                        {
+                            "application": {},
+                            image_type: {},
+                            "dfu_version": 0.8,
+                        }
+                    )
+                )
+
+    def test_application_uf2_is_restricted_to_application_bank(self):
+        manifest = {
+            "applicationStartAddress": "0x27000",
+            "dualBankApplicationMaxBytes": 397312,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "application.uf2"
+            path.write_bytes(self.uf2_bytes([0x27000, 0x27100], family=0xADA52840))
+            checks = MODULE.application_uf2_artifact_checks(path, manifest)
+            self.assertTrue(all(checks.values()), checks)
+
+            path.write_bytes(self.uf2_bytes([0xF4000], family=0xADA52840))
+            checks = MODULE.application_uf2_artifact_checks(path, manifest)
+            self.assertTrue(checks["application_uf2_structure_valid"])
+            self.assertFalse(checks["application_uf2_preserves_bootloader"])
+
     def test_der_encoding_handles_high_bit_and_leading_zero(self):
         raw = bytes.fromhex("80" + "00" * 31 + "00" * 31 + "01")
         encoded = MODULE.encode_der_signature(raw)
@@ -141,6 +226,67 @@ class OtaBootloaderContractTests(unittest.TestCase):
             manifest["publicKeyId"],
         )
 
+    def test_bootloader_build_pins_compile_time_for_reproducible_bytes(self):
+        source = (ROOT / "script/build_secure_bootloader.sh").read_text(encoding="utf-8")
+        self.assertIn("SOURCE_DATE_EPOCH", source)
+        self.assertIn("export SOURCE_DATE_EPOCH TZ=UTC LC_ALL=C", source)
+        self.assertIn('"$BUILD_SCRIPT_SHA256"', source)
+        self.assertIn('"$PATCHER_SHA256"', source)
+
+    def test_reproducibility_proof_is_bound_to_every_bootloader_artifact(self):
+        manifest = {
+            "usbRecoveryBuildId": "build-id",
+            "bootloaderUpstreamCommit": "commit",
+            "sourceDateEpoch": 123,
+            "buildScriptSha256": "script",
+            "patcherSha256": "patcher",
+            "artifactSha256": "hex",
+            "migrationArtifactSha256": "uf2",
+            "bootloaderCodeArtifactSha256": "code",
+            "otaBootloaderArtifactSha256": "zip",
+        }
+        proof = {
+            "passed": True,
+            "usbRecoveryBuildId": "build-id",
+            "bootloaderUpstreamCommit": "commit",
+            "sourceDateEpoch": 123,
+            "buildScriptSha256": "script",
+            "patcherSha256": "patcher",
+            "artifactHashes": {
+                "artifact": "hex",
+                "migrationArtifact": "uf2",
+                "bootloaderCodeArtifact": "code",
+                "otaBootloaderArtifact": "zip",
+            },
+        }
+        self.assertTrue(MODULE.reproducibility_proof_matches(proof, manifest))
+        proof["artifactHashes"]["otaBootloaderArtifact"] = "different"
+        self.assertFalse(MODULE.reproducibility_proof_matches(proof, manifest))
+
+    def test_fault_tolerance_profile_requires_application_write_protection(self):
+        profile = {
+            "dualBankFirmware": True,
+            "singleBankFallbackDisabled": True,
+            "interruptedTransferRetainsBank0": True,
+            "activationPowerLossRequiresPhysicalProof": True,
+            "activationUsesUpstreamSettings": True,
+            "interruptedActivationRecoversOverBle": True,
+            "defaultToOtaDfu": True,
+            "invalidAppDefaultsToOtaDfu": True,
+            "doubleResetUsbRecoveryPreserved": True,
+            "usbMassStorageRecoveryVolume": True,
+            "usbRecoveryVolumeLabel": "XIAO-SENSE",
+            "usbRecoveryVolumeReadOnly": True,
+            "usbCdcSignedRecovery": True,
+            "applicationPackagesPreserveBootloader": True,
+            "applicationFlashWriteProtection": "ACL",
+            "mbrWriteProtectedFromApplication": True,
+            "bootloaderWriteProtectedFromApplication": True,
+        }
+        self.assertTrue(MODULE.candidate_fault_tolerance_profile_valid(profile))
+        profile["bootloaderWriteProtectedFromApplication"] = False
+        self.assertFalse(MODULE.candidate_fault_tolerance_profile_valid(profile))
+
     def test_candidate_speed_profile_requires_every_optimized_transport_setting(self):
         profile = {
             "attMtuBytes": 247,
@@ -148,12 +294,12 @@ class OtaBootloaderContractTests(unittest.TestCase):
             "gapEventLengthUnits": 12,
             "minimumConnectionIntervalMs": 15,
             "maximumConnectionIntervalMs": 15,
-            "dfuDeviceName": "DoorDFU",
+            "dfuDeviceName": "DoorDFUStable",
             "dataLengthExtension": True,
             "automaticTwoMegabitPhy": True,
             "flashWritePacing": True,
             "verifiedBlankBankEraseBypass": True,
-            "backgroundInactiveBankPreparation": True,
+            "backgroundInactiveBankPreparation": False,
         }
         self.assertTrue(MODULE.candidate_speed_profile_valid(profile))
 
@@ -169,12 +315,19 @@ class OtaBootloaderContractTests(unittest.TestCase):
             "singleBankFallbackDisabled": True,
             "interruptedTransferRetainsBank0": True,
             "activationPowerLossRequiresPhysicalProof": True,
-            "transactionalActivationJournal": True,
-            "activationResumesAfterReset": True,
-            "activationJournalAddress": "0x000E9000",
+            "activationUsesUpstreamSettings": True,
+            "interruptedActivationRecoversOverBle": True,
             "defaultToOtaDfu": True,
             "invalidAppDefaultsToOtaDfu": True,
             "doubleResetUsbRecoveryPreserved": True,
+            "usbMassStorageRecoveryVolume": True,
+            "usbRecoveryVolumeLabel": "XIAO-SENSE",
+            "usbRecoveryVolumeReadOnly": True,
+            "usbCdcSignedRecovery": True,
+            "applicationPackagesPreserveBootloader": True,
+            "applicationFlashWriteProtection": "ACL",
+            "mbrWriteProtectedFromApplication": True,
+            "bootloaderWriteProtectedFromApplication": True,
         }
         self.assertTrue(MODULE.candidate_fault_tolerance_profile_valid(profile))
 
@@ -184,20 +337,21 @@ class OtaBootloaderContractTests(unittest.TestCase):
                 mutated[key] = False
                 self.assertFalse(MODULE.candidate_fault_tolerance_profile_valid(mutated))
 
-    def test_transactional_activation_source_has_safe_commit_order(self):
+    def test_custom_activation_path_is_rejected(self):
         manifest = json.loads(
             (ROOT / "docs/firmware-signing-public-key.json").read_text(encoding="utf-8")
         )
-        source = (
-            ROOT / "bootloader/transactional_activation/door_activation_journal.c"
-        ).read_text(encoding="utf-8")
-        self.assertTrue(MODULE.transactional_activation_contract_valid(manifest, source))
-
-        unsafe = source.replace(
-            "uint32_t const result = clear_journal();",
-            "uint32_t const result = NRF_SUCCESS;",
+        manifest["activationUsesUpstreamSettings"] = True
+        manifest["interruptedActivationRecoversOverBle"] = True
+        build_script = 'require_source_marker "$SOURCE" "m_functions.activate = dfu_activate_app;"'
+        self.assertTrue(
+            MODULE.upstream_activation_contract_valid(manifest, build_script, "")
         )
-        self.assertFalse(MODULE.transactional_activation_contract_valid(manifest, unsafe))
+        self.assertFalse(
+            MODULE.upstream_activation_contract_valid(
+                manifest, build_script, "door_activation_journal"
+            )
+        )
 
     def test_required_fault_cases_must_all_be_named_and_passed(self):
         required = {"erase", "upload-30"}
@@ -225,23 +379,25 @@ class OtaBootloaderContractTests(unittest.TestCase):
         manifest = {
             "dualBankApplicationMaxBytes": 397312,
             "singleBankFallbackDisabled": True,
-            "transactionalActivationJournal": True,
-            "activationResumesAfterReset": True,
+            "activationUsesUpstreamSettings": True,
+            "interruptedActivationRecoversOverBle": True,
+            "invalidAppDefaultsToOtaDfu": True,
         }
         report = SIMULATOR.simulate(manifest, 134452)
         self.assertTrue(report["passed"])
         self.assertEqual(len(report["powerCutCases"]), 100)
         self.assertTrue(report["allPreActivationCasesBootPreviousFirmware"])
         self.assertTrue(report["activationCopyRequiresPhysicalProof"])
-        self.assertTrue(report["allActivationCasesRecover"])
+        self.assertTrue(report["allActivationCasesRecoverOverBle"])
         self.assertGreater(report["activationCutPointsModeled"], 30_000)
 
     def test_dual_bank_simulation_rejects_oversized_image(self):
         manifest = {
             "dualBankApplicationMaxBytes": 397312,
             "singleBankFallbackDisabled": True,
-            "transactionalActivationJournal": True,
-            "activationResumesAfterReset": True,
+            "activationUsesUpstreamSettings": True,
+            "interruptedActivationRecoversOverBle": True,
+            "invalidAppDefaultsToOtaDfu": True,
         }
         report = SIMULATOR.simulate(manifest, 397313)
         self.assertFalse(report["passed"])

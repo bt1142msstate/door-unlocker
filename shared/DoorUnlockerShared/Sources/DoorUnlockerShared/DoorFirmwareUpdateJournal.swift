@@ -118,6 +118,7 @@ public struct DoorFirmwareUpdateJournalStore {
 public enum DoorFirmwareRecoveryAction: Equatable, Sendable {
     case none
     case completed
+    case activationFailed
     case waitForController
     case needsPackage
     case resumeBootloaderUpload
@@ -142,6 +143,19 @@ public enum DoorFirmwareRecoveryPolicy {
         }
         if journal.targetVersion == nil, journal.phase == .verifying, isNormalControllerReady {
             return .completed
+        }
+
+        // A completed upload that reconnects to a known older application is
+        // an activation failure, not a transport interruption. Retrying the
+        // same payload immediately can overwrite the staged recovery image
+        // and trap clients in an endless upload loop.
+        if journal.targetVersion != nil,
+           journal.phase == .verifying,
+           journal.lastProgress == 100,
+           isNormalControllerReady,
+           let installedVersion,
+           installedVersion.lowercased() != "unknown" {
+            return .activationFailed
         }
 
         guard isPackageAvailable else { return .needsPackage }

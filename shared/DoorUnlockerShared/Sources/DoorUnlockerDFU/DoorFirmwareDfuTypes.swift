@@ -15,7 +15,12 @@ public struct DoorFirmwareDfuUpdate: Equatable, Sendable {
 @MainActor
 public protocol DoorFirmwareDfuManagerDelegate: AnyObject {
     func firmwareDfuManagerDidUpdate(_ update: DoorFirmwareDfuUpdate)
+    func firmwareDfuManagerDidSelectBootloader(name: String, packageProfile: String)
     func firmwareDfuManagerDidDetectControllerFirmware()
     func firmwareDfuManagerDidFinish()
     func firmwareDfuManagerDidFail(_ message: String)
+}
+
+public extension DoorFirmwareDfuManagerDelegate {
+    func firmwareDfuManagerDidSelectBootloader(name: String, packageProfile: String) {}
 }

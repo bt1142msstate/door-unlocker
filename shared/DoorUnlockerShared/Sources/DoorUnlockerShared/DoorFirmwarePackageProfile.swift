@@ -5,7 +5,7 @@ public enum DoorFirmwarePackageProfile: String, Equatable, Sendable {
     case signed = "signed-fast"
 
     public static func select(forBootloaderNamed name: String?) -> Self {
-        name == DoorFirmwareDfuTuning.optimizedBootloaderName
+        DoorFirmwareDfuTuning.isOptimizedBootloaderName(name)
             ? .signed
             : .factoryCompatible
     }

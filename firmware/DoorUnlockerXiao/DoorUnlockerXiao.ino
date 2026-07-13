@@ -8,7 +8,6 @@
 #include "nrf_soc.h"
 #include <Adafruit_LittleFS.h>
 #include <InternalFileSystem.h>
-#include "StagingBankMaintenance.h"
 
 using namespace Adafruit_LittleFS_Namespace;
 
@@ -42,7 +41,7 @@ static const uint16_t MIN_UNLOCK_HOLD_TIMEOUT_SECONDS = 5;
 static const uint16_t MAX_UNLOCK_HOLD_TIMEOUT_SECONDS = 120;
 static const char DEFAULT_LOCK_NAME[] = "My Lock";
 static const char CONTROLLER_MODEL_NAME[] = "DoorUnlocker-XIAO-v4";
-static const char CONTROLLER_FIRMWARE_VERSION[] = "0.1.30";
+static const char CONTROLLER_FIRMWARE_VERSION[] = "0.1.32";
 // Fresh random-static BLE identity for the app-layer-security firmware. This
 // avoids stale iOS/macOS OS-level bond records from the earlier encrypted-GATT
 // builds while preserving trusted app keys in LittleFS.
@@ -2456,9 +2455,6 @@ void processPendingStateStartupSnapshots() {
     snprintf(payload, sizeof(payload), "health:%s", internalFsReady ? "ok" : "storage_fault");
     notifyStateSubscriber(connHandle, payload);
     publishStateTo(connHandle, currentStateText());
-    if (stagingBankMaintenanceComplete()) {
-      notifyStateSubscriber(connHandle, "ota_staging_ready");
-    }
   }
 }
 
@@ -4197,7 +4193,6 @@ void setup() {
 
   setupDoorService();
   startAdvertising();
-  beginStagingBankMaintenance(millis());
 
   Serial.print(CONTROLLER_MODEL_NAME);
   Serial.println(" ready");
@@ -4225,11 +4220,5 @@ void loop() {
   handleUnlockTimeout();
   refreshUnlockCountdownValueIfChanged();
   updateStatusLed();
-  if (serviceStagingBankMaintenance(
-        millis(),
-        servoMoving || unlocked || bleCommandQueueCount > 0 || settingApplyStatusActive
-      )) {
-    notifyStateSubscribers("ota_staging_ready");
-  }
   delay(MAIN_LOOP_IDLE_DELAY_MS);
 }

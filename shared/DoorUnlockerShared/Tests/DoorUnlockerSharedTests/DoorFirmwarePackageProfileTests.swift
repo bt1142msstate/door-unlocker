@@ -43,11 +43,14 @@ final class DoorFirmwarePackageProfileTests: XCTestCase {
         )
     }
 
-    func testBootloaderNameMatchIsExact() {
+    func testVersionedOptimizedBootloaderUsesSignedPackage() {
         XCTAssertEqual(
-            DoorFirmwarePackageProfile.select(forBootloaderNamed: "DoorDFU-test"),
-            .factoryCompatible
+            DoorFirmwarePackageProfile.select(forBootloaderNamed: "DoorDFUStable"),
+            .signed
         )
+    }
+
+    func testBootloaderNameMatchIsCaseSensitive() {
         XCTAssertEqual(
             DoorFirmwarePackageProfile.select(forBootloaderNamed: "doordfu"),
             .factoryCompatible
@@ -62,7 +65,7 @@ final class DoorFirmwarePackageProfileTests: XCTestCase {
         )
         XCTAssertTrue(
             DoorFirmwarePackageProfile.primaryPackageCanSatisfySignedProfile(
-                fileName: "DoorUnlocker-XIAO-Sense-0.11.0-transactional-bootloader-dfu.zip"
+                fileName: "DoorUnlocker-XIAO-Sense-0.11.0-verified-bootloader-dfu.zip"
             )
         )
         XCTAssertFalse(
@@ -75,9 +78,9 @@ final class DoorFirmwarePackageProfileTests: XCTestCase {
     func testSignedPackageIdentitySurvivesStaging() {
         XCTAssertEqual(
             DoorFirmwarePackageProfile.stagedFileName(
-                for: "DoorUnlocker-XIAO-Sense-0.11.0-transactional-bootloader-dfu.zip"
+                for: "DoorUnlocker-XIAO-Sense-0.11.0-verified-bootloader-dfu.zip"
             ),
-            "DoorUnlocker-XIAO-Sense-0.11.0-transactional-bootloader-dfu.zip"
+            "DoorUnlocker-XIAO-Sense-0.11.0-verified-bootloader-dfu.zip"
         )
         XCTAssertEqual(
             DoorFirmwarePackageProfile.stagedFileName(for: "factory.zip"),

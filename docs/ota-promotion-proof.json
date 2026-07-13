@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 2,
+  "passed": false,
+  "reason": "Historical transitions passed, but fresh content-bound transitions and exact-build physical USB recovery are required for the rebuilt candidate.",
+  "bootloaderCodeArtifactSha256": "600b76172de0d8f7ef624ddee17846efe8fd0f59ce27d36d1134008ad27351b1",
+  "otaBootloaderArtifactSha256": "7cc545b04cf4f02628b0e9abfa94622afb96577fe6a02128906d6fdcf133623e",
+  "transitions": [
+    {
+      "passed": true,
+      "fromFirmware": "0.1.30",
+      "toFirmware": "0.1.31",
+      "startedAt": "2026-07-13T11:26:40Z",
+      "verifiedAt": "2026-07-13T11:27:15Z",
+      "uploadSeconds": 26.9,
+      "packetReceiptNotificationParameter": 9,
+      "verifiedOver": "ble",
+      "controllerUsbAttached": false
+    },
+    {
+      "passed": true,
+      "fromFirmware": "0.1.31",
+      "toFirmware": "0.1.32",
+      "startedAt": "2026-07-13T11:28:31Z",
+      "verifiedAt": "2026-07-13T11:31:02Z",
+      "uploadSeconds": 135.0,
+      "packetReceiptNotificationParameter": 9,
+      "verifiedOver": "ble",
+      "controllerUsbAttached": false,
+      "note": "The transport completed and activated 0.1.32; a client watchdog incorrectly displayed completion at 82%. The watchdog regression is now gated so it cannot interrupt an active transfer."
+    }
+  ]
+}

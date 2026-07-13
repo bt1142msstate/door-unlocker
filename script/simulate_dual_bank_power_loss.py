@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exhaustively model transfer and transactional-activation interruptions."""
+"""Model dual-bank transfer and wireless recovery after activation interruption."""
 
 from __future__ import annotations
 
@@ -54,46 +54,32 @@ def simulate(manifest: dict, payload_bytes: int) -> dict:
         for case in cases
     )
     page_bytes = 4096
-    journal_words = 9
     settings_words = 8
     bank_pages = ceil(payload_bytes / page_bytes) if fits else 0
     image_words = ceil(payload_bytes / 4) if fits else 0
 
-    # A cut while creating the journal either leaves it invalid, in which case
-    # untouched bank 0 boots, or complete, in which case recovery activates it.
-    # Once the journal is valid, every bank-0 erase/copy and settings-write cut
-    # retries from immutable bank 1. During final journal erase, either the
-    # journal still validates and retries harmlessly, or new bank 0 boots.
+    # The proven SDK 11 path retains bank 0 throughout transfer. Activation can
+    # make bank 0 invalid, but the bootloader then defaults to BLE DFU and the
+    # app can retransmit without a cable. This intentionally does not claim
+    # automatic transactional resume during the copy itself.
     activation_phases = [
-        {
-            "phase": "journal-stage",
-            "cutPoints": journal_words + 2,
-            "recovery": "previous-firmware-or-resume",
-            "invariant": "bank-0-untouched-until-valid-journal",
-        },
         {
             "phase": "bank0-erase",
             "cutPoints": bank_pages + 1,
-            "recovery": "resume-from-verified-bank1",
-            "invariant": "valid-journal-retained",
+            "recovery": "bootloader-advertises-for-wireless-retry",
+            "invariant": "invalid-app-defaults-to-ble-dfu",
         },
         {
             "phase": "bank0-copy",
             "cutPoints": image_words + 1,
-            "recovery": "resume-from-verified-bank1",
-            "invariant": "source-bank-never-modified",
+            "recovery": "bootloader-advertises-for-wireless-retry",
+            "invariant": "no-physical-recovery-required",
         },
         {
             "phase": "settings-commit",
             "cutPoints": settings_words + 2,
-            "recovery": "resume-from-verified-bank1",
-            "invariant": "journal-cleared-after-settings-verify",
-        },
-        {
-            "phase": "journal-clear",
-            "cutPoints": journal_words + 2,
-            "recovery": "resume-or-boot-new-firmware",
-            "invariant": "new-bank0-and-settings-already-valid",
+            "recovery": "boot-new-firmware-or-wireless-retry",
+            "invariant": "settings-decide-boot-or-dfu",
         },
     ]
     activation_cut_points = sum(phase["cutPoints"] for phase in activation_phases)
@@ -104,37 +90,38 @@ def simulate(manifest: dict, payload_bytes: int) -> dict:
             "passed": fits,
         },
         {
-            "fault": "corrupt-bank1-after-journal",
-            "outcome": "crc-rejected-before-bank0-erase",
+            "fault": "corrupt-bank1-before-activation",
+            "outcome": "validation-rejected-bank0-unchanged",
             "passed": fits,
         },
         {
             "fault": "corrupt-bank0-copy",
-            "outcome": "crc-rejected-journal-retained-for-retry",
+            "outcome": "invalid-app-enters-wireless-dfu",
             "passed": fits,
         },
         {
             "fault": "corrupt-or-interrupted-settings-write",
-            "outcome": "journal-retained-for-retry",
+            "outcome": "new-app-boots-or-wireless-dfu-retry",
             "passed": fits,
         },
         {
             "fault": "reset-before-or-after-activation",
-            "outcome": "resume-or-boot-verified-new-firmware",
+            "outcome": "previous-app-new-app-or-wireless-dfu-retry",
             "passed": fits,
         },
     ]
-    transactional = (
-        manifest.get("transactionalActivationJournal") is True
-        and manifest.get("activationResumesAfterReset") is True
+    wireless_recovery = (
+        manifest.get("activationUsesUpstreamSettings") is True
+        and manifest.get("interruptedActivationRecoversOverBle") is True
+        and manifest.get("invalidAppDefaultsToOtaDfu") is True
     )
-    activation_passed = fits and transactional and all(
+    activation_passed = fits and wireless_recovery and all(
         fault["passed"] for fault in fault_cases
     )
 
     return {
         "schemaVersion": 2,
-        "model": "dual-bank-transfer-and-transactional-activation",
+        "model": "dual-bank-transfer-and-wireless-activation-recovery",
         "payloadBytes": payload_bytes,
         "dualBankMaximumBytes": maximum,
         "payloadFits": fits,
@@ -142,11 +129,12 @@ def simulate(manifest: dict, payload_bytes: int) -> dict:
         "powerCutCases": cases,
         "invalidSignatureCase": invalid_signature,
         "allPreActivationCasesBootPreviousFirmware": transfer_passed,
-        "transactionalActivationJournal": transactional,
+        "activationUsesUpstreamSettings": manifest.get("activationUsesUpstreamSettings") is True,
+        "activationRecoversOverBle": wireless_recovery,
         "activationPhases": activation_phases,
         "activationCutPointsModeled": activation_cut_points,
         "activationFaultCases": fault_cases,
-        "allActivationCasesRecover": activation_passed,
+        "allActivationCasesRecoverOverBle": activation_passed,
         "activationCopyRequiresPhysicalProof": True,
         "passed": (
             transfer_passed

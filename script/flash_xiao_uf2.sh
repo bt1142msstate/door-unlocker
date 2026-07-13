@@ -96,15 +96,20 @@ try_serial_dfu_recovery() {
     return 1
   fi
 
-  echo "Trying serial DFU recovery on $serial_port..."
+  local recovery_package="$DIST_DFU_ZIP_PATH"
+  if [[ -f "$DIST_SIGNED_DFU_ZIP_PATH" ]]; then
+    recovery_package="$DIST_SIGNED_DFU_ZIP_PATH"
+  fi
+
+  echo "Trying signed serial DFU recovery on $serial_port..."
   close_admin_app_for_serial_recovery
-  if "$NRFUTIL" dfu serial -pkg "$DIST_DFU_ZIP_PATH" -p "$serial_port" -b 115200; then
+  if "$NRFUTIL" dfu serial -pkg "$recovery_package" -p "$serial_port" -b 115200; then
     echo "Serial DFU recovery complete."
     return 0
   fi
 
   echo "Serial DFU did not answer; trying 1200-baud bootloader touch..."
-  if "$NRFUTIL" dfu serial -pkg "$DIST_DFU_ZIP_PATH" -p "$serial_port" -b 115200 -t 1200; then
+  if "$NRFUTIL" dfu serial -pkg "$recovery_package" -p "$serial_port" -b 115200 -t 1200; then
     echo "Serial DFU recovery complete."
     return 0
   fi
@@ -158,6 +163,7 @@ else
   echo "Warning: no signed DoorDFU package was generated because no signing key was found." >&2
 fi
 echo "Bundled app firmware packages synchronized."
+python3 "$ROOT_DIR/script/check_ota_bootloader_contract.py" --require-firmware-artifacts
 
 if [[ "$BUILD_ONLY" == "1" ]]; then
   exit 0
@@ -200,6 +206,12 @@ if [[ ! -d "$XIAO_VOLUME" ]]; then
 fi
 
 echo "Copying UF2 to $XIAO_VOLUME..."
+if try_serial_dfu_recovery; then
+  exit 0
+fi
+
+# Factory bootloaders expose a writable UF2 disk. Door Unlocker's signed
+# bootloader intentionally exposes a read-only disk and recovers over CDC above.
 cp -X "$UF2_PATH" "$XIAO_VOLUME/"
 sync
 echo "Flash complete."

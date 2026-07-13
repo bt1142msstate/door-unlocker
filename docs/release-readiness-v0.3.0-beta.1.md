@@ -2,7 +2,7 @@
 
 **PRERELEASE BETA. NOT YET A PRODUCTION HARDWARE RELEASE.**
 
-This release identifies the current shared iPhone/Mac command path, signed wireless update flow, multi-client synchronization, and firmware-update progress reporting. It remains a beta because the exact current transactional bootloader artifact has not completed every physical power-loss and unsigned-package case required by the production firmware gate.
+This release identifies the shared iPhone/Mac command path, signed wireless update flow, multi-client synchronization, and firmware-update progress reporting. The custom transactional activation path has been removed in favor of the upstream Nordic dual-bank/settings implementation. Exact-build signed USB recovery now passes. It remains a beta because the current bootloader artifact has not completed every physical power-loss, updater-interruption, Bluetooth-loss, and unsigned-package case required by the production firmware gate.
 
 ## Versions
 
@@ -10,7 +10,7 @@ This release identifies the current shared iPhone/Mac command path, signed wirel
 | --- | --- |
 | iPhone app, widget, and controls | `0.3.0` build `4` |
 | Mac app and CLI | `0.3.0` build `4` |
-| Controller firmware | `0.1.30` |
+| Controller firmware | `0.1.32` current development build |
 | Release tag | `v0.3.0-beta.1` |
 
 ## Included
@@ -24,11 +24,13 @@ This release identifies the current shared iPhone/Mac command path, signed wirel
 
 ## Validation Standard
 
-The current `python3 script/quality_suite.py` campaign passed 23 of 24 gates. All shared, Mac, and iOS adapter tests; firmware/bootloader contracts; generic app builds; and wiring/CAD checks passed. The only failure is the content-bound physical iPhone launch proof: the release identity and critical sources changed after the prior benchmark, and the paired phone was unavailable for recollection. Machine-readable results are stored beside this report.
+The latest `python3 script/quality_suite.py --fast` campaign passed 12 of 14 gates. Firmware/bootloader contracts and shared/Mac tests pass. The open gates are the maintainability score (`84.8/100` against a `90` target) and the content-bound physical iPhone launch proof, because release identity and critical sources changed after the prior benchmark. Machine-readable results are stored beside this report.
 
 This gap is acceptable for a GitHub prerelease, but not for promotion to a non-beta stable release. Reinstall the exact build on the physical iPhone, run `python3 script/benchmark_ios_launch_gates.py --samples 10`, then rerun the full suite before stable promotion.
 
-The stricter `python3 script/quality_suite.py --firmware-release` gate is intentionally separate. It requires content-bound proof that the exact current bootloader artifact is installed and passed the full physical rollback, interruption, preservation, and unsigned-rejection campaign. Until that passes, USB-C/SWD remain recovery fallbacks and the bootloader must not be described as production-proven.
+The exact signed Mac OTA release-proof run passed BLE entry, upload, reboot, immediate verification, and a fresh controller snapshot after 15 seconds. Its `111s` upload (roughly `1.2 KB/s`) is slower than the historical roughly `6 KB/s` Mac baseline, so Mac OTA throughput remains a beta performance issue. iPhone OTA remains the preferred routine path while this is investigated.
+
+The stricter `python3 script/quality_suite.py --firmware-release` gate is intentionally separate. It requires content-bound proof that the exact current bootloader artifact is installed, completed two consecutive OTA transitions, mounted its read-only USB recovery volume, recovered through signed serial DFU, and passed the full rollback, interruption, preservation, and unsigned-rejection campaign. Until that passes, the bootloader must not be described as production-proven.
 
 ## Safety Boundary
 

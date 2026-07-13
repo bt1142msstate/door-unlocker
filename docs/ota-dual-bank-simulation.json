@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "model": "dual-bank-transfer-and-transactional-activation",
-  "payloadBytes": 135060,
+  "model": "dual-bank-transfer-and-wireless-activation-recovery",
+  "payloadBytes": 134620,
   "dualBankMaximumBytes": 397312,
   "payloadFits": true,
   "singleBankFallbackDisabled": true,
@@ -15,693 +15,693 @@
     },
     {
       "cutAtProgressPercent": 1,
-      "stagedBytes": 1350,
+      "stagedBytes": 1346,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 2,
-      "stagedBytes": 2701,
+      "stagedBytes": 2692,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 3,
-      "stagedBytes": 4051,
+      "stagedBytes": 4038,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 4,
-      "stagedBytes": 5402,
+      "stagedBytes": 5384,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 5,
-      "stagedBytes": 6753,
+      "stagedBytes": 6731,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 6,
-      "stagedBytes": 8103,
+      "stagedBytes": 8077,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 7,
-      "stagedBytes": 9454,
+      "stagedBytes": 9423,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 8,
-      "stagedBytes": 10804,
+      "stagedBytes": 10769,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 9,
-      "stagedBytes": 12155,
+      "stagedBytes": 12115,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 10,
-      "stagedBytes": 13506,
+      "stagedBytes": 13462,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 11,
-      "stagedBytes": 14856,
+      "stagedBytes": 14808,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 12,
-      "stagedBytes": 16207,
+      "stagedBytes": 16154,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 13,
-      "stagedBytes": 17557,
+      "stagedBytes": 17500,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 14,
-      "stagedBytes": 18908,
+      "stagedBytes": 18846,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 15,
-      "stagedBytes": 20259,
+      "stagedBytes": 20193,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 16,
-      "stagedBytes": 21609,
+      "stagedBytes": 21539,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 17,
-      "stagedBytes": 22960,
+      "stagedBytes": 22885,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 18,
-      "stagedBytes": 24310,
+      "stagedBytes": 24231,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 19,
-      "stagedBytes": 25661,
+      "stagedBytes": 25577,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 20,
-      "stagedBytes": 27012,
+      "stagedBytes": 26924,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 21,
-      "stagedBytes": 28362,
+      "stagedBytes": 28270,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 22,
-      "stagedBytes": 29713,
+      "stagedBytes": 29616,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 23,
-      "stagedBytes": 31063,
+      "stagedBytes": 30962,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 24,
-      "stagedBytes": 32414,
+      "stagedBytes": 32308,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 25,
-      "stagedBytes": 33765,
+      "stagedBytes": 33655,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 26,
-      "stagedBytes": 35115,
+      "stagedBytes": 35001,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 27,
-      "stagedBytes": 36466,
+      "stagedBytes": 36347,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 28,
-      "stagedBytes": 37816,
+      "stagedBytes": 37693,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 29,
-      "stagedBytes": 39167,
+      "stagedBytes": 39039,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 30,
-      "stagedBytes": 40518,
+      "stagedBytes": 40386,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 31,
-      "stagedBytes": 41868,
+      "stagedBytes": 41732,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 32,
-      "stagedBytes": 43219,
+      "stagedBytes": 43078,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 33,
-      "stagedBytes": 44569,
+      "stagedBytes": 44424,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 34,
-      "stagedBytes": 45920,
+      "stagedBytes": 45770,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 35,
-      "stagedBytes": 47271,
+      "stagedBytes": 47117,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 36,
-      "stagedBytes": 48621,
+      "stagedBytes": 48463,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 37,
-      "stagedBytes": 49972,
+      "stagedBytes": 49809,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 38,
-      "stagedBytes": 51322,
+      "stagedBytes": 51155,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 39,
-      "stagedBytes": 52673,
+      "stagedBytes": 52501,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 40,
-      "stagedBytes": 54024,
+      "stagedBytes": 53848,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 41,
-      "stagedBytes": 55374,
+      "stagedBytes": 55194,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 42,
-      "stagedBytes": 56725,
+      "stagedBytes": 56540,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 43,
-      "stagedBytes": 58075,
+      "stagedBytes": 57886,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 44,
-      "stagedBytes": 59426,
+      "stagedBytes": 59232,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 45,
-      "stagedBytes": 60777,
+      "stagedBytes": 60579,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 46,
-      "stagedBytes": 62127,
+      "stagedBytes": 61925,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 47,
-      "stagedBytes": 63478,
+      "stagedBytes": 63271,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 48,
-      "stagedBytes": 64828,
+      "stagedBytes": 64617,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 49,
-      "stagedBytes": 66179,
+      "stagedBytes": 65963,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 50,
-      "stagedBytes": 67530,
+      "stagedBytes": 67310,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 51,
-      "stagedBytes": 68880,
+      "stagedBytes": 68656,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 52,
-      "stagedBytes": 70231,
+      "stagedBytes": 70002,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 53,
-      "stagedBytes": 71581,
+      "stagedBytes": 71348,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 54,
-      "stagedBytes": 72932,
+      "stagedBytes": 72694,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 55,
-      "stagedBytes": 74283,
+      "stagedBytes": 74041,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 56,
-      "stagedBytes": 75633,
+      "stagedBytes": 75387,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 57,
-      "stagedBytes": 76984,
+      "stagedBytes": 76733,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 58,
-      "stagedBytes": 78334,
+      "stagedBytes": 78079,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 59,
-      "stagedBytes": 79685,
+      "stagedBytes": 79425,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 60,
-      "stagedBytes": 81036,
+      "stagedBytes": 80772,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 61,
-      "stagedBytes": 82386,
+      "stagedBytes": 82118,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 62,
-      "stagedBytes": 83737,
+      "stagedBytes": 83464,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 63,
-      "stagedBytes": 85087,
+      "stagedBytes": 84810,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 64,
-      "stagedBytes": 86438,
+      "stagedBytes": 86156,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 65,
-      "stagedBytes": 87789,
+      "stagedBytes": 87503,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 66,
-      "stagedBytes": 89139,
+      "stagedBytes": 88849,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 67,
-      "stagedBytes": 90490,
+      "stagedBytes": 90195,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 68,
-      "stagedBytes": 91840,
+      "stagedBytes": 91541,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 69,
-      "stagedBytes": 93191,
+      "stagedBytes": 92887,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 70,
-      "stagedBytes": 94542,
+      "stagedBytes": 94234,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 71,
-      "stagedBytes": 95892,
+      "stagedBytes": 95580,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 72,
-      "stagedBytes": 97243,
+      "stagedBytes": 96926,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 73,
-      "stagedBytes": 98593,
+      "stagedBytes": 98272,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 74,
-      "stagedBytes": 99944,
+      "stagedBytes": 99618,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 75,
-      "stagedBytes": 101295,
+      "stagedBytes": 100965,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 76,
-      "stagedBytes": 102645,
+      "stagedBytes": 102311,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 77,
-      "stagedBytes": 103996,
+      "stagedBytes": 103657,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 78,
-      "stagedBytes": 105346,
+      "stagedBytes": 105003,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 79,
-      "stagedBytes": 106697,
+      "stagedBytes": 106349,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 80,
-      "stagedBytes": 108048,
+      "stagedBytes": 107696,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 81,
-      "stagedBytes": 109398,
+      "stagedBytes": 109042,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 82,
-      "stagedBytes": 110749,
+      "stagedBytes": 110388,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 83,
-      "stagedBytes": 112099,
+      "stagedBytes": 111734,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 84,
-      "stagedBytes": 113450,
+      "stagedBytes": 113080,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 85,
-      "stagedBytes": 114801,
+      "stagedBytes": 114427,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 86,
-      "stagedBytes": 116151,
+      "stagedBytes": 115773,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 87,
-      "stagedBytes": 117502,
+      "stagedBytes": 117119,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 88,
-      "stagedBytes": 118852,
+      "stagedBytes": 118465,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 89,
-      "stagedBytes": 120203,
+      "stagedBytes": 119811,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 90,
-      "stagedBytes": 121554,
+      "stagedBytes": 121158,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 91,
-      "stagedBytes": 122904,
+      "stagedBytes": 122504,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 92,
-      "stagedBytes": 124255,
+      "stagedBytes": 123850,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 93,
-      "stagedBytes": 125605,
+      "stagedBytes": 125196,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 94,
-      "stagedBytes": 126956,
+      "stagedBytes": 126542,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 95,
-      "stagedBytes": 128307,
+      "stagedBytes": 127889,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 96,
-      "stagedBytes": 129657,
+      "stagedBytes": 129235,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 97,
-      "stagedBytes": 131008,
+      "stagedBytes": 130581,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 98,
-      "stagedBytes": 132358,
+      "stagedBytes": 131927,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
     },
     {
       "cutAtProgressPercent": 99,
-      "stagedBytes": 133709,
+      "stagedBytes": 133273,
       "bank0RemainsValid": true,
       "bootSelectionAfterRestore": "previous-firmware",
       "entersBootloaderBecauseOfCut": false
@@ -713,40 +713,29 @@
     "bootSelectionAfterRestore": "previous-firmware"
   },
   "allPreActivationCasesBootPreviousFirmware": true,
-  "transactionalActivationJournal": true,
+  "activationUsesUpstreamSettings": true,
+  "activationRecoversOverBle": true,
   "activationPhases": [
-    {
-      "phase": "journal-stage",
-      "cutPoints": 11,
-      "recovery": "previous-firmware-or-resume",
-      "invariant": "bank-0-untouched-until-valid-journal"
-    },
     {
       "phase": "bank0-erase",
       "cutPoints": 34,
-      "recovery": "resume-from-verified-bank1",
-      "invariant": "valid-journal-retained"
+      "recovery": "bootloader-advertises-for-wireless-retry",
+      "invariant": "invalid-app-defaults-to-ble-dfu"
     },
     {
       "phase": "bank0-copy",
-      "cutPoints": 33766,
-      "recovery": "resume-from-verified-bank1",
-      "invariant": "source-bank-never-modified"
+      "cutPoints": 33656,
+      "recovery": "bootloader-advertises-for-wireless-retry",
+      "invariant": "no-physical-recovery-required"
     },
     {
       "phase": "settings-commit",
       "cutPoints": 10,
-      "recovery": "resume-from-verified-bank1",
-      "invariant": "journal-cleared-after-settings-verify"
-    },
-    {
-      "phase": "journal-clear",
-      "cutPoints": 11,
-      "recovery": "resume-or-boot-new-firmware",
-      "invariant": "new-bank0-and-settings-already-valid"
+      "recovery": "boot-new-firmware-or-wireless-retry",
+      "invariant": "settings-decide-boot-or-dfu"
     }
   ],
-  "activationCutPointsModeled": 33832,
+  "activationCutPointsModeled": 33700,
   "activationFaultCases": [
     {
       "fault": "corrupt-transfer-before-validation",
@@ -754,27 +743,27 @@
       "passed": true
     },
     {
-      "fault": "corrupt-bank1-after-journal",
-      "outcome": "crc-rejected-before-bank0-erase",
+      "fault": "corrupt-bank1-before-activation",
+      "outcome": "validation-rejected-bank0-unchanged",
       "passed": true
     },
     {
       "fault": "corrupt-bank0-copy",
-      "outcome": "crc-rejected-journal-retained-for-retry",
+      "outcome": "invalid-app-enters-wireless-dfu",
       "passed": true
     },
     {
       "fault": "corrupt-or-interrupted-settings-write",
-      "outcome": "journal-retained-for-retry",
+      "outcome": "new-app-boots-or-wireless-dfu-retry",
       "passed": true
     },
     {
       "fault": "reset-before-or-after-activation",
-      "outcome": "resume-or-boot-verified-new-firmware",
+      "outcome": "previous-app-new-app-or-wireless-dfu-retry",
       "passed": true
     }
   ],
-  "allActivationCasesRecover": true,
+  "allActivationCasesRecoverOverBle": true,
   "activationCopyRequiresPhysicalProof": true,
   "passed": true
 }

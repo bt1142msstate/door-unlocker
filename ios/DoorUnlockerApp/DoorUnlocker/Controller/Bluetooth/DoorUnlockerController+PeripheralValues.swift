@@ -138,7 +138,12 @@ extension DoorUnlockerController {
                 UserDefaults.standard.set(controllerFirmwareVersion, forKey: Self.cachedFirmwareVersionKey)
                 hasCurrentFirmwareVersionSnapshot = true
                 refreshControllerMetadataSnapshotRetry()
-                clearPendingBundledFirmwareUpdateIfVerified(installedVersion: controllerFirmwareVersion)
+                let activationFailed = stopFirmwareUpdateAfterActivationMismatchIfNeeded(
+                    installedVersion: controllerFirmwareVersion
+                )
+                if !activationFailed {
+                    clearPendingBundledFirmwareUpdateIfVerified(installedVersion: controllerFirmwareVersion)
+                }
                 finishObservedFirmwareUpdate(version: controllerFirmwareVersion)
 #if DEBUG
                 handleDebugFirmwareVersionVerification(controllerFirmwareVersion)
@@ -152,7 +157,9 @@ extension DoorUnlockerController {
                     notifyFirmwareUpdateFinished(version: controllerFirmwareVersion)
                     scheduleFirmwareUpdateSuccessReset()
                 }
-                evaluateBundledFirmwareAutoUpdate(installedVersion: controllerFirmwareVersion)
+                if !activationFailed {
+                    evaluateBundledFirmwareAutoUpdate(installedVersion: controllerFirmwareVersion)
+                }
                 updatePairingState(from: "paired")
                 return
             }
