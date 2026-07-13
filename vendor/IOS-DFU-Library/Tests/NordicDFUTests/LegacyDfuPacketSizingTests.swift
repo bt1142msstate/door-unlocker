@@ -39,6 +39,16 @@ final class LegacyDfuPacketSizingTests: XCTestCase {
         )
     }
 
+    func testUsesNegotiatedPayloadForStableDoorUnlockerBootloader() {
+        XCTAssertEqual(
+            LegacyDfuPacketSizing.payloadBytes(
+                maximumWriteValueLength: 244,
+                peripheralName: "DoorDFUStable"
+            ),
+            244
+        )
+    }
+
     func testCapsPayloadAtBootloaderMaximum() {
         XCTAssertEqual(
             LegacyDfuPacketSizing.payloadBytes(

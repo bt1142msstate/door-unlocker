@@ -8,7 +8,8 @@ enum LegacyDfuPacketSizing {
         maximumWriteValueLength: Int,
         peripheralName: String?
     ) -> UInt32 {
-        guard peripheralName == optimizedBootloaderName || peripheralName == factoryBootloaderName else {
+        let isDoorUnlockerBootloader = peripheralName?.hasPrefix(optimizedBootloaderName) == true
+        guard isDoorUnlockerBootloader || peripheralName == factoryBootloaderName else {
             return UInt32(legacyPayloadBytes)
         }
         return UInt32(

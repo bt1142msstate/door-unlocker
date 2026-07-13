@@ -254,6 +254,7 @@ def main() -> int:
             "legacyPayloadBytes = 20",
             'factoryBootloaderName = "AdaDFU"',
             'optimizedBootloaderName = "DoorDFU"',
+            "peripheralName?.hasPrefix(optimizedBootloaderName)",
             "isOptimizedBootloaderName",
             "resolvedBootloaderName(",
             "cachedPeripheralName: peripheral.name",
