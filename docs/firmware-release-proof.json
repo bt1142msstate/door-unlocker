@@ -1,14 +1,19 @@
 {
-  "durationSeconds": 86,
-  "endedAt": "2026-07-11T19:46:22Z",
+  "durationSeconds": 43.0,
+  "endedAt": "2026-07-13T03:51:39Z",
+  "entryCommandElapsedMilliseconds": 0,
   "entryCommandOver": "ble",
-  "message": "Trusted iPhone sent a signed BLE OTA command, uploaded the package, rebooted, and verified firmware 0.1.26 over BLE.",
+  "message": "Trusted Mac sent a signed BLE OTA command, uploaded the package, rebooted, and verified 0.1.26 over BLE.",
   "package": {
     "bytes": 135327,
     "payloadSha256": "4a23218ae7879ecd6c84becb5a8ca84d94626547b334f4a3871c02267b53cf62"
   },
+  "packetReceiptNotificationParameter": 16,
   "result": "pass",
+  "runId": "20260713T035056Z-mac",
+  "startedAt": "2026-07-13T03:50:56Z",
   "targetFirmware": "0.1.26",
+  "uploadSeconds": 26.0,
   "usbRecoveryCommandUsed": false,
   "verifiedOver": "ble"
 }

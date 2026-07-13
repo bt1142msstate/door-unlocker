@@ -29,6 +29,15 @@ extension DoorFirmwareDfuManager: DFUServiceDelegate, DFUProgressDelegate, Logge
         avgSpeedBytesPerSecond: Double
     ) {
         guard isActive else { return }
+        if !didInjectTransportLoss,
+           let threshold = tuning.transportLossAtProgress,
+           progress >= threshold,
+           progress < 100 {
+            didInjectTransportLoss = true
+            emitTelemetry("fault_transport_loss_injected", "percent=\(progress)")
+            fail("Bluetooth transport disconnected during firmware update.")
+            return
+        }
         let status = totalParts > 1 ? "Uploading firmware part \(part) of \(totalParts)" : "Uploading firmware"
         let averageKBs = max(0, avgSpeedBytesPerSecond / 1024)
         let eta = estimatedSecondsRemaining(progress: progress, averageBytesPerSecond: avgSpeedBytesPerSecond)

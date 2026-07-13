@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "runId": "20260712-wireless-powerloss40-r2",
+  "testedAt": "2026-07-12",
+  "installedBootloader": {
+    "version": "0.11.0",
+    "softDevice": "S140 7.3.0",
+    "profile": "factory single-bank AdaDFU"
+  },
+  "fault": {
+    "type": "controller-power-loss",
+    "requestedProgressPercent": 30,
+    "lastObservedProgressPercent": 50,
+    "powerRemovedForAtLeastSeconds": 2,
+    "controllerUsbAttachedDuringWirelessTest": false
+  },
+  "result": "factory-wireless-recovery-failed",
+  "observations": {
+    "clientJournalRecoveryStarted": true,
+    "clientRetryAttempts": 3,
+    "bootloaderLedFlashedRed": true,
+    "bleBootloaderAdvertisementObservedAfterPowerRestore": false,
+    "postUpdateFirmwareNotificationObserved": false,
+    "cause": "The installed factory bootloader invalidated the single application bank and restarted in USB DFU rather than BLE OTA DFU after power restoration."
+  },
+  "usbRecovery": {
+    "required": true,
+    "succeeded": true,
+    "restoredFirmwareVersion": "0.1.26",
+    "controllerHealth": "operational",
+    "trustedDeviceCount": 2,
+    "lockName": "College View Door",
+    "autoLockSeconds": 30,
+    "lockAngle": 95,
+    "unlockAngle": 20,
+    "pairingsAndSettingsPreserved": true
+  },
+  "candidateRequirement": {
+    "dualBankFirmware": true,
+    "invalidAppDefaultsToOtaDfu": true,
+    "doubleResetUsbRecoveryPreserved": true,
+    "physicalCandidateRetestRequired": true
+  },
+  "telemetry": "docs/ota-telemetry/20260712-wireless-powerloss40-r2-app-console.log"
+}

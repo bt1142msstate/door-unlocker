@@ -90,6 +90,9 @@ def main() -> int:
     candidate_signed = bootloader_manifest.get("signedFirmwareRequired") is True
     candidate_dual_bank = bootloader_manifest.get("dualBankFirmware") is True
     candidate_disables_unsigned_uf2 = bootloader_manifest.get("forceUnsignedUF2") is False
+    candidate_wireless_invalid_app_recovery = candidate_fault_tolerance_profile_valid(
+        bootloader_manifest
+    )
     candidate_public_key_matches = (
         public_key_id(args.public_key) == bootloader_manifest.get("publicKeyId")
     )
@@ -100,7 +103,10 @@ def main() -> int:
             'SOFTDEVICE_FIRMWARE_ID="0x0123"',
             '-DSD_VERSION="$SOFTDEVICE_VERSION"',
             '-DDUALBANK_FW=ON',
+            '-DDEFAULT_TO_OTA_DFU="$DEFAULT_TO_OTA_DFU"',
             '-DSIGNED_FW=ON',
+            "Could not uniquely preserve double-reset USB recovery",
+            "if (!valid_app && !dfu_start)",
             "VerifyingKey.from_pem(public_key.read_text())",
         )
     ) and "-DFORCE_UF2=ON" not in build_script
@@ -145,11 +151,12 @@ def main() -> int:
             "legacyPayloadBytes = 20",
             'factoryBootloaderName = "AdaDFU"',
             'optimizedBootloaderName = "DoorDFU"',
-            "peripheralName: peripheral.name",
-            "optimizedBootloaderPacketReceiptNotificationParameter: UInt16 = 1",
-            ".packetReceiptNotificationParameter(forBootloaderNamed: peripheral.name)",
+            "resolvedBootloaderName(",
+            "cachedPeripheralName: peripheral.name",
+            "return packetReceiptNotificationParameter",
+            ".packetReceiptNotificationParameter(forBootloaderNamed: bootloaderName)",
             "signedPackageURL",
-            "packageURL(forBootloaderNamed: peripheral.name)",
+            "packageURL(forBootloaderNamed: bootloaderName)",
         )
     )
     migration_checks = migration_artifact_checks(
@@ -188,6 +195,7 @@ def main() -> int:
         "candidate_requires_signed_firmware": candidate_signed,
         "candidate_uses_dual_bank": candidate_dual_bank,
         "candidate_disables_unsigned_uf2": candidate_disables_unsigned_uf2,
+        "candidate_defaults_invalid_app_recovery_to_ble": candidate_wireless_invalid_app_recovery,
         "candidate_public_key_matches_manifest": candidate_public_key_matches,
         "candidate_build_flags_match_manifest": candidate_build_flags_match,
         "candidate_has_high_throughput_transport": candidate_speed_profile,
@@ -230,7 +238,10 @@ def main() -> int:
     if candidate_signed and candidate_dual_bank and not installed_candidate:
         print("A signed dual-bank candidate exists, but physical installation has not been proven.")
     if not checks["installed_dual_bank_rollback_proven"]:
-        print("Verify or install a DUALBANK_FW=1 bootloader before claiming power-loss rollback.")
+        if installed_candidate:
+            print("Complete the required erase and post-validation physical interruption cases before claiming production rollback.")
+        else:
+            print("Verify or install a DUALBANK_FW=1 bootloader before claiming power-loss rollback.")
 
     if args.require_production and not production_ready:
         return 1
@@ -287,6 +298,21 @@ def candidate_speed_profile_valid(manifest: dict) -> bool:
         and manifest.get("automaticTwoMegabitPhy") is True
         and manifest.get("flashWritePacing") is True
     )
+
+
+def candidate_fault_tolerance_profile_valid(manifest: dict) -> bool:
+    """Require staged transfer, no single-bank fallback, and recovery paths."""
+    return (
+        manifest.get("dualBankFirmware") is True
+        and manifest.get("singleBankFallbackDisabled") is True
+        and manifest.get("interruptedTransferRetainsBank0") is True
+        and manifest.get("activationPowerLossRequiresPhysicalProof") is True
+        and manifest.get("defaultToOtaDfu") is True
+        and manifest.get("invalidAppDefaultsToOtaDfu") is True
+        and manifest.get("doubleResetUsbRecoveryPreserved") is True
+    )
+
+
 def migration_artifact_checks(manifest: dict, artifact_dir: Path) -> dict[str, bool]:
     artifact_name = manifest.get("migrationArtifact")
     artifact = artifact_dir / artifact_name if isinstance(artifact_name, str) else None

@@ -1,9 +1,11 @@
 {
   "claims": {
     "bootloaderCandidateReproduces": true,
+    "dualBankTransferPowerLossModeled": true,
     "endToEndCrossPlatformBluetoothParityVerified": false,
     "firmwareCompiles": true,
     "liveBluetoothHardwareVerified": false,
+    "physicalHandoffAssistantVerified": true,
     "physicalIOSLaunchPerformanceVerified": true,
     "platformAdapterVectorsVerified": true,
     "platformBuildParityVerified": true,
@@ -12,7 +14,7 @@
     "sharedContractBehaviorVerified": true,
     "warningFree": false
   },
-  "durationSeconds": 96.42,
+  "durationSeconds": 128.99,
   "environment": {
     "arduinoCLI": "arduino-cli  Version: 1.5.1 Commit: Homebrew Date: 2026-06-05T09:39:33Z",
     "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
@@ -20,10 +22,10 @@
     "swift": "swift-driver version: 1.148.6 Apple Swift version 6.3.3 (swiftlang-6.3.3.1.3 clang-2100.1.1.101) | Target: arm64-apple-macosx26.0",
     "xcode": "Xcode 26.6 | Build version 17F113"
   },
-  "executedStepCount": 22,
-  "expectedStepCount": 22,
+  "executedStepCount": 24,
+  "expectedStepCount": 24,
   "fullSuitePassed": true,
-  "generatedAt": "2026-07-12T23:59:26.187373+00:00",
+  "generatedAt": "2026-07-13T03:56:58.070010+00:00",
   "limitations": [
     "Architecture and maintainability scores are transparent project heuristics, not Apple-issued grades.",
     "A fast run does not execute iOS adapter tests, firmware compilation, app builds, or HTML/CAD consistency checks.",
@@ -55,7 +57,7 @@
         "-p",
         "test_*.py"
       ],
-      "durationSeconds": 0.27,
+      "durationSeconds": 1.21,
       "exitCode": 0,
       "name": "Quality tooling negative-control tests",
       "status": "pass",
@@ -70,7 +72,7 @@
         "--threshold",
         "90.0"
       ],
-      "durationSeconds": 0.36,
+      "durationSeconds": 0.4,
       "exitCode": 0,
       "name": "Maintainability size/length gate",
       "status": "pass",
@@ -87,7 +89,7 @@
         "--write-graph",
         "docs/dependency-graph.md"
       ],
-      "durationSeconds": 0.1,
+      "durationSeconds": 0.12,
       "exitCode": 0,
       "name": "Low coupling / high modularity / independence gate",
       "status": "pass",
@@ -102,7 +104,7 @@
         "--threshold",
         "95.0"
       ],
-      "durationSeconds": 0.09,
+      "durationSeconds": 0.1,
       "exitCode": 0,
       "name": "iOS/Mac shared ownership and test-registration gate",
       "status": "pass",
@@ -115,7 +117,7 @@
         "./script/flash_xiao_uf2.sh",
         "--build-only"
       ],
-      "durationSeconds": 23.58,
+      "durationSeconds": 28.33,
       "exitCode": 0,
       "name": "Controller firmware compile and package verification",
       "status": "pass",
@@ -129,7 +131,7 @@
       "command": [
         "./script/build_secure_bootloader.sh"
       ],
-      "durationSeconds": 21.37,
+      "durationSeconds": 22.17,
       "exitCode": 0,
       "name": "Signed dual-bank bootloader reproducible build",
       "status": "pass",
@@ -149,7 +151,20 @@
       "exitCode": 0,
       "name": "Signed OTA package and bootloader candidate contract",
       "status": "pass",
-      "summary": "Verify or install a DUALBANK_FW=1 bootloader before claiming power-loss rollback.",
+      "summary": "Complete the required erase and post-validation physical interruption cases before claiming production rollback.",
+      "warningCount": 0,
+      "warnings": []
+    },
+    {
+      "command": [
+        "python3",
+        "script/simulate_dual_bank_power_loss.py"
+      ],
+      "durationSeconds": 0.04,
+      "exitCode": 0,
+      "name": "Dual-bank pre-activation power-loss simulation",
+      "status": "pass",
+      "summary": "PASS: 134452 bytes within 397312-byte bank; 100 pre-activation power-cut points modeled.",
       "warningCount": 0,
       "warnings": []
     },
@@ -158,7 +173,7 @@
         "python3",
         "script/check_fast_command_contract.py"
       ],
-      "durationSeconds": 0.04,
+      "durationSeconds": 0.07,
       "exitCode": 0,
       "name": "Fast lock/unlock structural contract gate",
       "status": "pass",
@@ -184,7 +199,7 @@
         "python3",
         "script/check_state_notification_delivery_contract.py"
       ],
-      "durationSeconds": 0.46,
+      "durationSeconds": 0.49,
       "exitCode": 0,
       "name": "Per-subscriber state delivery contract gate",
       "status": "pass",
@@ -210,11 +225,11 @@
         "python3",
         "script/check_ios_launch_performance_proof.py"
       ],
-      "durationSeconds": 0.03,
+      "durationSeconds": 0.04,
       "exitCode": 0,
       "name": "Physical iPhone cold/warm launch performance proof",
       "status": "pass",
-      "summary": "iOS launch performance proof: PASS (cold median/p95 291.5/467ms; warm median/p95 0.0/0ms)",
+      "summary": "iOS launch performance proof: PASS (cold median/p95 459.0/751ms; warm median/p95 0.0/2ms)",
       "warningCount": 0,
       "warnings": []
     },
@@ -225,11 +240,11 @@
         "--package-path",
         "shared/DoorUnlockerShared"
       ],
-      "durationSeconds": 1.98,
+      "durationSeconds": 3.31,
       "exitCode": 0,
       "name": "Shared package independent tests",
       "status": "pass",
-      "summary": "Test Suite 'All tests' passed at 2026-07-12 18:58:38.119.",
+      "summary": "Test Suite 'All tests' passed at 2026-07-12 22:55:45.453.",
       "warningCount": 0,
       "warnings": []
     },
@@ -240,11 +255,11 @@
         "--package-path",
         "vendor/IOS-DFU-Library"
       ],
-      "durationSeconds": 0.41,
+      "durationSeconds": 0.46,
       "exitCode": 0,
       "name": "Patched NordicDFU transport independent tests",
       "status": "pass",
-      "summary": "Test Suite 'All tests' passed at 2026-07-12 18:58:38.529.",
+      "summary": "Test Suite 'All tests' passed at 2026-07-12 22:55:45.918.",
       "warningCount": 0,
       "warnings": []
     },
@@ -255,11 +270,11 @@
         "--package-path",
         "mac/DoorUnlockerAdmin"
       ],
-      "durationSeconds": 0.76,
+      "durationSeconds": 6.7,
       "exitCode": 0,
       "name": "Mac core/admin independent tests",
       "status": "pass",
-      "summary": "Test Suite 'All tests' passed at 2026-07-12 18:58:39.293.",
+      "summary": "Test Suite 'All tests' passed at 2026-07-12 22:55:52.618.",
       "warningCount": 0,
       "warnings": []
     },
@@ -268,7 +283,7 @@
         "python3",
         "script/run_ios_tests.py"
       ],
-      "durationSeconds": 34.99,
+      "durationSeconds": 48.38,
       "exitCode": 0,
       "name": "iOS adapter tests",
       "status": "pass",
@@ -291,7 +306,7 @@
         "-quiet",
         "build"
       ],
-      "durationSeconds": 3.88,
+      "durationSeconds": 7.98,
       "exitCode": 0,
       "name": "iOS app generic build",
       "status": "pass",
@@ -304,7 +319,7 @@
         "./script/build_and_run.sh",
         "--verify"
       ],
-      "durationSeconds": 1.58,
+      "durationSeconds": 2.01,
       "exitCode": 0,
       "name": "Mac app build",
       "status": "pass",
@@ -314,10 +329,29 @@
     },
     {
       "command": [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift",
+        "build",
+        "--package-path",
+        "tools/DoorUnlockerHandoff",
+        "-c",
+        "release",
+        "--product",
+        "door-unlocker-handoff"
+      ],
+      "durationSeconds": 0.45,
+      "exitCode": 0,
+      "name": "Physical handoff assistant build",
+      "status": "pass",
+      "summary": "Build of product 'door-unlocker-handoff' complete! (0.10s)",
+      "warningCount": 0,
+      "warnings": []
+    },
+    {
+      "command": [
         "python3",
         "script/check_bench_wiring_paths.py"
       ],
-      "durationSeconds": 2.24,
+      "durationSeconds": 2.52,
       "exitCode": 0,
       "name": "Bench wiring path model",
       "status": "pass",
@@ -330,7 +364,7 @@
         "python3",
         "script/check_controller_breadboard_alignment.py"
       ],
-      "durationSeconds": 2.08,
+      "durationSeconds": 2.06,
       "exitCode": 0,
       "name": "Controller breadboard alignment model",
       "status": "pass",
@@ -343,7 +377,7 @@
         "python3",
         "script/check_splitter_card_alignment.py"
       ],
-      "durationSeconds": 2.06,
+      "durationSeconds": 1.97,
       "exitCode": 0,
       "name": "Inline splitter alignment model",
       "status": "pass",

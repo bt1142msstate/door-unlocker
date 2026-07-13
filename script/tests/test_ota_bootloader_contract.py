@@ -14,6 +14,13 @@ SPEC = importlib.util.spec_from_file_location("check_ota_bootloader_contract", M
 assert SPEC and SPEC.loader
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
+SIMULATOR_PATH = ROOT / "script/simulate_dual_bank_power_loss.py"
+SIMULATOR_SPEC = importlib.util.spec_from_file_location(
+    "simulate_dual_bank_power_loss", SIMULATOR_PATH
+)
+assert SIMULATOR_SPEC and SIMULATOR_SPEC.loader
+SIMULATOR = importlib.util.module_from_spec(SIMULATOR_SPEC)
+SIMULATOR_SPEC.loader.exec_module(SIMULATOR)
 
 
 class OtaBootloaderContractTests(unittest.TestCase):
@@ -142,6 +149,24 @@ class OtaBootloaderContractTests(unittest.TestCase):
                 mutated[key] = False if profile[key] is True else -1
                 self.assertFalse(MODULE.candidate_speed_profile_valid(mutated))
 
+    def test_candidate_fault_tolerance_requires_dual_bank_and_wireless_invalid_app_recovery(self):
+        profile = {
+            "dualBankFirmware": True,
+            "singleBankFallbackDisabled": True,
+            "interruptedTransferRetainsBank0": True,
+            "activationPowerLossRequiresPhysicalProof": True,
+            "defaultToOtaDfu": True,
+            "invalidAppDefaultsToOtaDfu": True,
+            "doubleResetUsbRecoveryPreserved": True,
+        }
+        self.assertTrue(MODULE.candidate_fault_tolerance_profile_valid(profile))
+
+        for key in profile:
+            with self.subTest(key=key):
+                mutated = dict(profile)
+                mutated[key] = False
+                self.assertFalse(MODULE.candidate_fault_tolerance_profile_valid(mutated))
+
     def test_required_fault_cases_must_all_be_named_and_passed(self):
         required = {"erase", "upload-30"}
         self.assertTrue(
@@ -163,6 +188,26 @@ class OtaBootloaderContractTests(unittest.TestCase):
                 required,
             )
         )
+
+    def test_dual_bank_simulation_keeps_previous_firmware_at_every_transfer_cut(self):
+        manifest = {
+            "dualBankApplicationMaxBytes": 397312,
+            "singleBankFallbackDisabled": True,
+        }
+        report = SIMULATOR.simulate(manifest, 134452)
+        self.assertTrue(report["passed"])
+        self.assertEqual(len(report["powerCutCases"]), 100)
+        self.assertTrue(report["allPreActivationCasesBootPreviousFirmware"])
+        self.assertTrue(report["activationCopyRequiresPhysicalProof"])
+
+    def test_dual_bank_simulation_rejects_oversized_image(self):
+        manifest = {
+            "dualBankApplicationMaxBytes": 397312,
+            "singleBankFallbackDisabled": True,
+        }
+        report = SIMULATOR.simulate(manifest, 397313)
+        self.assertFalse(report["passed"])
+        self.assertFalse(report["payloadFits"])
 
     def test_migration_artifact_accepts_only_expected_flash_regions(self):
         addresses = [0x00000000, 0x000F4000, 0x000FD800, 0x10001000]

@@ -8,17 +8,18 @@ Date: 2026-07-12
 - Signed application payload: `134,452` bytes (`134,444` bytes reported by the Arduino sketch build before DFU packaging)
 - Factory package: `DoorUnlockerXiao-dfu.zip`, DFU manifest `0.5` with CRC16
 - Signed candidate package: `DoorUnlockerXiao-signed-dfu.zip`, DFU manifest `0.8` with P-256 ECDSA
-- Installed factory bootloader observed from `INFO_UF2.TXT`: Adafruit/Seeed `0.11.0`, S140 `7.3.0`
-- Installed wireless update protocol observed by Nordic DFU: Legacy DFU init-packet format `0.8`
-- Latest optimized iPhone BLE proof: `19s` end to end, with controller USB-C attached only as a recovery/power anchor
-- Measured upload portion of that proof: `7.05s` (`~19 KB/s` average)
-- Previous controller-unplugged proof: `92s` end to end / `82.68s` upload
-- Installed factory bootloader negotiated Legacy DFU payload: `244` bytes
-- Shared production tuning: PRN `8`, object-preparation delay `0.4s`
+- Installed bootloader: project-signed Adafruit nRF52 Bootloader `0.11.0`, dual-bank, S140 `7.3.0`, advertising `DoorDFU`
+- Installed wireless update protocol: Legacy DFU init-packet format `0.8` with P-256 ECDSA enforcement
+- Latest optimized iPhone wireless-only proof: `25s` end to end / `8.94s` upload with PRN `8`
+- Latest optimized Mac wireless-only proof: `43s` end to end / `26s` upload with PRN `16`
+- Installed signed bootloader negotiated Legacy DFU payload: `244` bytes
+- Measured production tuning: iPhone PRN `8`, Mac PRN `16`, object-preparation delay `0.4s`
 
-The earlier `92s` proof used a trusted iPhone, a signed BLE OTA-entry command, no controller USB connection, DFU upload, reboot, secure reconnection, and a post-reboot `firmware_version:0.1.26` notification. The optimized `19s` proof used the same BLE entry/upload/verification path while controller USB-C remained attached only as a recovery anchor; no USB recovery command was used. A final optimized controller-unplugged run is still required. Neither proof establishes atomic rollback or signed-package enforcement in the installed factory bootloader.
+The current iPhone and Mac proofs use a trusted device, a signed BLE OTA-entry command, no controller USB connection, the signed `DoorDFU` package, reboot, secure reconnection, and a post-reboot `firmware_version:0.1.26` notification. The earlier factory-bootloader `19s` proof remains useful as a historical throughput baseline only.
 
-On July 12, the controller was recovered from its UF2 bootloader to application `0.1.26`. The protected controller state remained intact: two trusted devices, lock name, timeout, and servo angles all survived. The custom signed/dual-bank candidate was not installed because no J-Link/SWD recovery probe was attached.
+On July 12, a real controller-power-loss test removed battery power after an iPhone transfer crossed 30 percent. The factory single-bank bootloader did not advertise `AdaDFU` after power returned; it flashed red in USB DFU mode while the relaunched iPhone correctly retried its journal three times. USB UF2 recovery restored application `0.1.26`. The protected controller state remained intact: two trusted devices, lock name `College View Door`, 30-second timeout, and `95`/`20` servo angles all survived. The machine-readable baseline is `docs/ota-factory-power-loss-baseline.json`.
+
+That failure became an explicit architectural gate. The signed dual-bank candidate was installed with the operator's explicit no-SWD risk acceptance. It stages the replacement while the old application remains bootable, defaults an invalid application to BLE `DoorDFU`, and preserves a deliberate reset-button double press as a recovery path. Real battery cuts at 30% and 80% both returned to normal firmware `0.1.26` without USB recovery and preserved all trusted devices and settings.
 
 ## Recovery Design
 
@@ -42,6 +43,8 @@ The Mac stages its ZIP under Application Support with same-volume replacement. N
 
 - `DUALBANK_FW=1`
 - `SIGNED_FW=1`
+- invalid applications default to BLE `DoorDFU`
+- intentional reset-button double press remains USB UF2 recovery
 - project P-256 public key compiled into the bootloader
 - unsigned UF2 recovery disabled
 - S140 `7.3.0` / firmware ID `0x0123`, matching the XIAO application build
@@ -77,13 +80,7 @@ python3 script/check_ota_bootloader_contract.py
 
 The same gate parses the one-time migration UF2 block by block. It verifies UF2 structure, nRF52 family ID, artifact hash, and the exact recorded address ranges. It fails if any block touches S140, the application, or the reserved Door Unlocker pairing/settings region. It also checks that the reproducible source and public manifest retain the exact high-throughput BLE profile above. A full quality-suite run rebuilds the candidate and requires that reproducibility contract to pass.
 
-This currently proves the signed package and candidate build. It deliberately reports these hardware claims as `NOT PROVEN`:
-
-- exact candidate installed on the controller
-- dual-bank rollback under physical power loss
-- unsigned application rejection by the installed bootloader
-
-Production mode remains closed until all three are backed by `docs/ota-bootloader-installed-proof.json`:
+`docs/ota-bootloader-installed-proof.json` now proves the exact candidate hash, signed-package acceptance, unsigned factory-envelope rejection, preserved controller state, iPhone and Mac wireless updates, app-termination recovery, Bluetooth-loss recovery, and physical upload cuts at 30% and 80%. Production mode remains closed only on the deterministic erase and post-validation physical interruption cases:
 
 ```sh
 python3 script/check_ota_bootloader_contract.py --require-production
@@ -91,11 +88,11 @@ python3 script/check_ota_bootloader_contract.py --require-production
 
 ## Measured Throughput
 
-The original `82.68s` upload for roughly `134 KB` was about `1.6 KB/s`. The optimized iPhone run transferred the same application in `7.05s`, averaging about `19 KB/s`.
+The original `82.68s` upload for roughly `134 KB` was about `1.6 KB/s`. The optimized iPhone run transferred the same application in `7.29s`, averaging about `19 KB/s`.
 
 Upstream NordicDFU `4.16.0` hardcodes Legacy DFU packets to `20` bytes, so the project vendors it with a focused compatibility patch. Initial 244-byte physical runs uploaded in `9.54-13.89s` but failed final CRC because the factory `AdaDFU` bootloader was given an ECDSA init packet it does not understand. The same binary wrapped in AdaDFU's legacy CRC16 package uploaded in `7.05s` and returned `Validate Firmware: Success`. The client now enables 244-byte writes only for known `AdaDFU` and `DoorDFU` names; unknown bootloaders remain at 20 bytes. Package selection happens after discovery: `AdaDFU` gets CRC16 and `DoorDFU` gets ECDSA.
 
-Factory PRN remains `8`. On the Mac, physical PRN `0`, `8`, and `16` runs all validated, but `8` was fastest of those runs at roughly `5 KB/s`; the bottleneck is macOS/factory-bootloader scheduling rather than payload size. `DoorDFU` uses PRN `1` until its larger-payload dual-bank behavior is physically proven. The configured `0.4s` object-preparation delay is ignored by Legacy DFU.
+Factory and signed `DoorDFU` updates use PRN `8` on iPhone. A signed PRN `16` iPhone comparison produced essentially the same result (`8.85s` versus `8.94s` upload), so PRN `8` remains the better feedback/stability tradeoff. Mac keeps its measured PRN `16` default; on installed `DoorDFU` this reduced upload time from `51s` at PRN `1` to `26s`. The configured `0.4s` object-preparation delay is ignored by Legacy DFU.
 
 ## Repeatable Tests
 
@@ -120,9 +117,24 @@ RUN_ID=<run-id> INTERRUPT_MODE=controller-power-loss INTERRUPT_AT_PROGRESS=30 \
   ./script/verify_ios_ota.sh --wireless-only --target <new-version>
 ```
 
-Run the power-loss mode in a terminal. At the threshold it prompts the operator to remove controller power for at least two seconds, restore it, and confirm. The app remains alive so the resulting trace proves controller-side recovery rather than app relaunch behavior.
+The verifier normally refuses this physical mode unless the exact signed dual-bank bootloader has an installed proof, its recovery artifact hash matches, and an SWD recovery path is recorded as available. An explicit `--accept-no-swd-recovery-risk` override exists only for attended testing after the operator accepts the replacement-hardware risk. At the threshold it terminates the updater to freeze a genuinely partial image and opens the reusable SwiftUI physical-handoff assistant. **Start countdown** speaks the 3-2-1 instructions; **Power restored** returns control directly to the waiting verifier after the operator has removed controller power for at least two seconds and restored it. The same assistant accepts direct, spoken USB-C and one-/two-press reset requests without exposing a console. A terminal fallback remains available with `PHYSICAL_HANDOFF_MODE=terminal`.
 
-The verifier installs the app, starts a real OTA, watches structured `DUFirmware` events, terminates the process at the requested progress, and relaunches without requesting another update. It passes only after the relaunched app receives the target firmware version over BLE. Physical 30% and 80% app-termination runs both passed; each restarted the factory Legacy DFU transaction cleanly, validated, and cleared the journal.
+`script/simulate_dual_bank_power_loss.py` models a cut at every whole percentage from 0 through 99. It verifies that the current application-sized payload fits the dedicated staging bank, that no single-bank fallback is allowed, and that pre-validation interruption selects the previous firmware. This simulation does not replace the attended activation-copy test; that final, short phase remains a physical production gate.
+
+Reusable attended presets are available for other recovery scripts:
+
+```sh
+./script/physical_handoff.sh --preset connect-usb
+./script/physical_handoff.sh --preset return-to-battery
+./script/physical_handoff.sh --preset reset-once
+./script/physical_handoff.sh --preset reset-twice
+```
+
+The helper process blocks the caller until the confirmation button is pressed, so the waiting test resumes automatically without polling chat or exposing a terminal workflow.
+
+The verifier installs the app, starts a real OTA, watches structured `DUFirmware` events, and injects the requested failure. It passes only after the app receives the target firmware version over BLE. Signed `DoorDFU` app-termination runs at 30% and 80% passed in `77s` and `96s`; a 40% Bluetooth transport loss recovered and verified in `81s`. The earlier factory 30% controller-power-loss failure remains the baseline superseded by the signed candidate's successful 30% and 80% battery cuts.
+
+The signed dual-bank candidate was installed on July 12 and behaviorally identified by its fresh `DoorDFU` advertisement and successful P-256 package validation. A CoreBluetooth cache issue initially presented the old `AdaDFU` peripheral name; the shared iOS/macOS manager now prefers the live advertisement name. Real battery cuts at 30% and 80% then passed without USB recovery: the previous `0.1.26` firmware booted, reauthenticated, and was verified over BLE in `62s` and `73s`, respectively.
 
 Summarize a console trace:
 

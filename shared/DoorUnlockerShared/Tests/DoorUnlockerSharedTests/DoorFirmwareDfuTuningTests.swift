@@ -2,16 +2,27 @@ import XCTest
 @testable import DoorUnlockerShared
 
 final class DoorFirmwareDfuTuningTests: XCTestCase {
-    func testOptimizedBootloaderUsesPerPacketAcknowledgements() {
+    func testOptimizedBootloaderUsesPlatformReceiptWindow() {
         let tuning = DoorFirmwareDfuTuning(packetReceiptNotificationParameter: 8)
 
         XCTAssertEqual(
             tuning.packetReceiptNotificationParameter(forBootloaderNamed: "DoorDFU"),
-            1
+            8
         )
         XCTAssertEqual(
             tuning.packetReceiptNotificationParameter(forBootloaderNamed: "AdaDFU"),
             8
+        )
+    }
+
+    func testOptimizedBootloaderUsesMacReceiptWindow() {
+        let tuning = DoorFirmwareDfuTuning(
+            packetReceiptNotificationParameter: DoorFirmwareDfuTuning.defaultMacPacketReceiptNotificationParameter
+        )
+
+        XCTAssertEqual(
+            tuning.packetReceiptNotificationParameter(forBootloaderNamed: "DoorDFU"),
+            16
         )
     }
     func testStableDefaultMatchesMeasuredSafePath() {
@@ -19,6 +30,16 @@ final class DoorFirmwareDfuTuningTests: XCTestCase {
         XCTAssertEqual(DoorFirmwareDfuTuning.stableDefault.dataObjectPreparationDelay, 0.4)
         XCTAssertEqual(DoorFirmwareDfuTuning.stableDefault.scanTimeout, 18)
         XCTAssertEqual(DoorFirmwareDfuTuning.stableDefault.connectionTimeout, 20)
+    }
+
+    func testMacDefaultUsesMeasuredFactoryBootloaderReceiptWindow() {
+        let tuning = DoorFirmwareDfuTuning.from(
+            arguments: ["DoorUnlocker"],
+            environment: [:],
+            defaultPacketReceiptNotificationParameter: DoorFirmwareDfuTuning.defaultMacPacketReceiptNotificationParameter
+        )
+
+        XCTAssertEqual(tuning.packetReceiptNotificationParameter, 16)
     }
 
     func testBuildsBenchmarkLaunchArguments() {
@@ -44,17 +65,29 @@ final class DoorFirmwareDfuTuningTests: XCTestCase {
         XCTAssertEqual(tuning.dataObjectPreparationDelay, 0.3)
         XCTAssertEqual(tuning.scanTimeout, 12)
         XCTAssertEqual(tuning.connectionTimeout, 15)
+        XCTAssertNil(tuning.transportLossAtProgress)
+    }
+
+    func testParsesOneShotTransportLossFaultInjectionProgress() {
+        let tuning = DoorFirmwareDfuTuning.from(
+            arguments: ["DoorUnlocker", "--debug-dfu-transport-loss-progress", "37"],
+            environment: [:]
+        )
+
+        XCTAssertEqual(tuning.transportLossAtProgress, 37)
+        XCTAssertNil(DoorFirmwareDfuTuning(transportLossAtProgress: 0).transportLossAtProgress)
+        XCTAssertNil(DoorFirmwareDfuTuning(transportLossAtProgress: 100).transportLossAtProgress)
     }
 
     func testClampsToCurrentBootloaderSafeRange() {
         let tuning = DoorFirmwareDfuTuning(
-            packetReceiptNotificationParameter: 30,
+            packetReceiptNotificationParameter: 100,
             dataObjectPreparationDelay: 0,
             scanTimeout: 1,
             connectionTimeout: 120
         )
 
-        XCTAssertEqual(tuning.packetReceiptNotificationParameter, 8)
+        XCTAssertEqual(tuning.packetReceiptNotificationParameter, 32)
         XCTAssertEqual(tuning.dataObjectPreparationDelay, 0.3)
         XCTAssertEqual(tuning.scanTimeout, 5)
         XCTAssertEqual(tuning.connectionTimeout, 60)

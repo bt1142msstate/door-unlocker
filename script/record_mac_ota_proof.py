@@ -73,6 +73,7 @@ def main() -> int:
         raise SystemExit("No signed BLE firmware-entry command precedes verification")
 
     run = events[entry_index:verification_index + 1]
+    tuning = next((event for _, _, event in run if event.startswith("firmware_update_tuning prn=")), None)
     ota_state = next((time for time, _, event in run if event == "wireless_state_received firmware_update:ota_dfu"), None)
     upload_start = next((time for time, _, event in run if event.endswith("progress=0") and "Uploading firmware" in event), None)
     upload_end = next((time for time, _, event in run if event == "firmware_update_uploaded"), None)
@@ -94,6 +95,9 @@ def main() -> int:
             "bytes": PACKAGE_PATH.stat().st_size,
             "payloadSha256": package_payload_sha256(PACKAGE_PATH),
         },
+        "packetReceiptNotificationParameter": (
+            int(tuning.rsplit("=", 1)[1]) if tuning is not None else None
+        ),
         "result": "pass",
         "runId": started_at.strftime("%Y%m%dT%H%M%SZ") + "-mac",
         "startedAt": started_at.isoformat().replace("+00:00", "Z"),

@@ -11,7 +11,7 @@ public final class DoorFirmwareDfuManager: NSObject {
     private let dfuNameFragments = ["dfu", "adadfu", "dfutarg"]
     private let dfuQueue: DispatchQueue
     let log: Logger
-    private let tuning: DoorFirmwareDfuTuning
+    let tuning: DoorFirmwareDfuTuning
     private weak var delegate: DoorFirmwareDfuManagerDelegate?
     private var central: CBCentralManager?
     private var packageURL: URL?
@@ -25,8 +25,13 @@ public final class DoorFirmwareDfuManager: NSObject {
     var uploadStartedAt: Date?
     var lastLoggedProgressBucket: Int?
     var packageBytes = 0
+    var didInjectTransportLoss = false
     private var detectsNormalControllerFirmware = false
     private var allowsBootloaderUpload = true
+
+    public var configuredPacketReceiptNotificationParameter: UInt16 {
+        tuning.packetReceiptNotificationParameter
+    }
 
     public init(
         delegate: DoorFirmwareDfuManagerDelegate,
@@ -141,9 +146,9 @@ extension DoorFirmwareDfuManager {
         return advertisedServices.map(\.uuidString).joined(separator: ",")
     }
 
-    private func startDfu(target peripheral: CBPeripheral) {
+    private func startDfu(target peripheral: CBPeripheral, bootloaderName: String?) {
         guard isActive,
-              let packageURL = packageURL(forBootloaderNamed: peripheral.name) else {
+              let packageURL = packageURL(forBootloaderNamed: bootloaderName) else {
             fail("Firmware package is missing.")
             return
         }
@@ -153,7 +158,7 @@ extension DoorFirmwareDfuManager {
         scanTimeoutTask?.cancel()
         scanTimeoutTask = nil
         uploadStartedAt = Date()
-        let packageProfile = DoorFirmwarePackageProfile.select(forBootloaderNamed: peripheral.name)
+        let packageProfile = DoorFirmwarePackageProfile.select(forBootloaderNamed: bootloaderName)
         packageBytes = (try? packageURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
         log.info(
             "DFU bootloader selected after \(self.elapsedText(since: self.updateStartedAt), privacy: .public) profile=\(packageProfile.rawValue, privacy: .public) packageBytes=\(self.packageBytes, privacy: .public)"
@@ -171,7 +176,7 @@ extension DoorFirmwareDfuManager {
             initiator.dataObjectPreparationDelay = tuning.dataObjectPreparationDelay
             initiator.forceDfu = true
             initiator.packetReceiptNotificationParameter = tuning
-                .packetReceiptNotificationParameter(forBootloaderNamed: peripheral.name)
+                .packetReceiptNotificationParameter(forBootloaderNamed: bootloaderName)
             initiator.forceScanningForNewAddressInLegacyDfu = true
             dfuInitiator = initiator
             dfuController = initiator.with(firmware: firmware).start(target: peripheral)
@@ -345,7 +350,11 @@ extension DoorFirmwareDfuManager: CBCentralManagerDelegate {
     ) {
         guard isActive else { return }
         let advertisedServices = advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] ?? []
-        let name = peripheral.name ?? advertisementData[CBAdvertisementDataLocalNameKey] as? String
+        let advertisedLocalName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
+        let name = DoorFirmwarePackageProfile.resolvedBootloaderName(
+            advertisedLocalName: advertisedLocalName,
+            cachedPeripheralName: peripheral.name
+        )
         let role: DoorFirmwareRecoveryPeripheralRole
         if isNormalControllerFirmware(name: name, advertisedServices: advertisedServices) {
             role = .normalController
@@ -383,6 +392,6 @@ extension DoorFirmwareDfuManager: CBCentralManagerDelegate {
             services=\(advertisedServiceList, privacy: .public)
             """
         )
-        startDfu(target: peripheral)
+        startDfu(target: peripheral, bootloaderName: name)
     }
 }

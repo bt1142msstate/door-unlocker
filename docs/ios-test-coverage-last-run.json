@@ -4,21 +4,21 @@
   "source": "build/quality/ios-tests.xcresult",
   "targets": [
     {
-      "coveredLines": 2044,
+      "coveredLines": 2075,
       "executableLines": 15085,
-      "lineCoverage": 0.13549883990719258,
+      "lineCoverage": 0.13755386145177328,
       "name": "DoorUnlocker.app"
     },
     {
       "coveredLines": 0,
-      "executableLines": 456,
+      "executableLines": 472,
       "lineCoverage": 0,
       "name": "DoorUnlockerDFU"
     },
     {
       "coveredLines": 498,
-      "executableLines": 1388,
-      "lineCoverage": 0.35878962536023057,
+      "executableLines": 1415,
+      "lineCoverage": 0.3519434628975265,
       "name": "DoorUnlockerShared"
     },
     {
@@ -28,9 +28,9 @@
       "name": "DoorUnlockerTests.xctest"
     },
     {
-      "coveredLines": 59,
+      "coveredLines": 63,
       "executableLines": 1198,
-      "lineCoverage": 0.049248747913188645,
+      "lineCoverage": 0.052587646076794656,
       "name": "DoorUnlockerWidget.appex"
     }
   ]

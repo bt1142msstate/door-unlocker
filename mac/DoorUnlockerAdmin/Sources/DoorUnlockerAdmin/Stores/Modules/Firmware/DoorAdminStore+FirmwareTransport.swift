@@ -86,6 +86,11 @@ extension DoorAdminStore {
         firmwareDfuStartFallbackTask?.cancel()
         firmwareDfuStartFallbackTask = nil
         firmwareLog.info("Starting Nordic DFU manager package=\(packageURL.path, privacy: .public)")
+        recordRuntimeTelemetry(
+            "firmware_update_tuning",
+            details: "prn=\(firmwareDfuManager.configuredPacketReceiptNotificationParameter)",
+            once: false
+        )
         prepareWirelessSessionForFirmwareDfu()
         firmwareDfuManager.start(
             packageURL: packageURL,

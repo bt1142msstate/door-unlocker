@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "passed": true,
+  "installedAt": "2026-07-12T20:54:58-05:00",
+  "board": "xiao_nrf52840_ble_sense",
+  "bootloaderVersion": "0.11.0",
+  "bootloaderArtifactPath": "dist/bootloader/DoorUnlocker-XIAO-Sense-0.11.0-signed-dualbank.hex",
+  "bootloaderArtifactSha256": "06fe4678a8a93a7e377739e60e2353d68817371ed9d21c473e54fcda2ae43c42",
+  "publicKeyId": "573f0793ca490344789edc67ac72c062e53d24d7dcba0c37d6d33f12b37d2d97",
+  "dualBankFirmware": true,
+  "singleBankFallbackDisabled": true,
+  "swdRecoveryAvailable": false,
+  "installationVerification": {
+    "method": "behavioral BLE proof",
+    "runId": "20260712-dualbank-install-proof-r3",
+    "advertisedName": "DoorDFU",
+    "signedPackageAccepted": true,
+    "signatureValidationPassed": true,
+    "firmwareVersionVerifiedOverBle": "0.1.26"
+  },
+  "pairingsAndSettingsPreserved": true,
+  "trustedDeviceCount": 2,
+  "lockName": "College View Door",
+  "autoLockSeconds": 30,
+  "lockAngle": 95,
+  "unlockAngle": 20,
+  "powerLossRollbackPassed": false,
+  "powerLossCases": [
+    {
+      "phase": "upload-30",
+      "passed": true,
+      "runId": "20260712-dualbank-powerloss30-r1",
+      "durationSeconds": 62,
+      "restoredFirmwareVersion": "0.1.26",
+      "verifiedOver": "ble",
+      "report": "docs/ota-telemetry/20260712-dualbank-powerloss30-r1-app-console.log"
+    },
+    {
+      "phase": "upload-80",
+      "passed": true,
+      "runId": "20260712-dualbank-powerloss80-r1",
+      "durationSeconds": 73,
+      "restoredFirmwareVersion": "0.1.26",
+      "verifiedOver": "ble",
+      "report": "docs/ota-telemetry/20260712-dualbank-powerloss80-r1-app-console.log"
+    }
+  ],
+  "appTerminationCases": [
+    {
+      "phase": "upload-30",
+      "passed": true,
+      "runId": "20260712-dualbank-app-termination30-r1",
+      "durationSeconds": 77,
+      "verifiedFirmwareVersion": "0.1.26",
+      "verifiedOver": "ble",
+      "report": "docs/ota-telemetry/20260712-dualbank-app-termination30-r1-app-console.log"
+    },
+    {
+      "phase": "upload-80",
+      "passed": true,
+      "runId": "20260712-dualbank-app-termination80-r1",
+      "durationSeconds": 96,
+      "verifiedFirmwareVersion": "0.1.26",
+      "verifiedOver": "ble",
+      "report": "docs/ota-telemetry/20260712-dualbank-app-termination80-r1-app-console.log"
+    }
+  ],
+  "bluetoothLossRecoveryPassed": true,
+  "bluetoothLossRecoveryEvidence": {
+    "phase": "upload-40",
+    "runId": "20260712-dualbank-bluetooth-loss40-r1",
+    "durationSeconds": 81,
+    "verifiedFirmwareVersion": "0.1.26",
+    "verifiedOver": "ble"
+  },
+  "optimizedIPhoneUpdateEvidence": {
+    "runId": "20260712-doordfu-prn8-r1",
+    "packetReceiptNotificationParameter": 8,
+    "durationSeconds": 25,
+    "uploadSeconds": 8.94,
+    "verifiedFirmwareVersion": "0.1.26",
+    "verifiedOver": "ble",
+    "controllerUsbAttached": false
+  },
+  "macWirelessUpdatePassed": true,
+  "macWirelessUpdateEvidence": {
+    "runId": "20260713T035056Z-mac",
+    "packetReceiptNotificationParameter": 16,
+    "durationSeconds": 43,
+    "uploadSeconds": 26,
+    "verifiedFirmwareVersion": "0.1.26",
+    "verifiedOver": "ble",
+    "controllerUsbAttached": false
+  },
+  "unsignedPackageRejected": true,
+  "unsignedPackageRejectionEvidence": {
+    "runId": "20260712-dualbank-install-proof-r1",
+    "packageProfile": "factory-crc",
+    "result": "rejected during DFU initialization by signed DoorDFU bootloader"
+  }
+}

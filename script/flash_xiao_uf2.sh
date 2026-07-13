@@ -184,9 +184,8 @@ while [[ ! -d "$XIAO_VOLUME" && $(date +%s) -lt $deadline ]]; do
 done
 
 if [[ ! -d "$XIAO_VOLUME" ]]; then
-  echo "The XIAO is not in UF2 bootloader mode yet." >&2
-  echo "Double-press reset now, then leave the board plugged in." >&2
-  deadline=$(( $(date +%s) + 60 ))
+  "$ROOT_DIR/script/physical_handoff.sh" --preset reset-twice >/dev/null
+  deadline=$(( $(date +%s) + 30 ))
   while [[ ! -d "$XIAO_VOLUME" && $(date +%s) -lt $deadline ]]; do
     sleep 1
   done

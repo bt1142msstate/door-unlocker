@@ -2,9 +2,9 @@ import Foundation
 
 public struct DoorFirmwareDfuTuning: Equatable, Sendable {
     public static let optimizedBootloaderName = "DoorDFU"
-    public static let optimizedBootloaderPacketReceiptNotificationParameter: UInt16 = 1
-    public static let maxAdafruitPacketReceiptNotificationParameter: UInt16 = 8
+    public static let maxAdafruitPacketReceiptNotificationParameter: UInt16 = 32
     public static let defaultPacketReceiptNotificationParameter: UInt16 = 8
+    public static let defaultMacPacketReceiptNotificationParameter: UInt16 = 16
     public static let defaultDataObjectPreparationDelay: TimeInterval = 0.4
     public static let defaultScanTimeout: TimeInterval = 18
     public static let defaultConnectionTimeout: TimeInterval = 20
@@ -13,12 +13,14 @@ public struct DoorFirmwareDfuTuning: Equatable, Sendable {
     public var dataObjectPreparationDelay: TimeInterval
     public var scanTimeout: TimeInterval
     public var connectionTimeout: TimeInterval
+    public var transportLossAtProgress: Int?
 
     public init(
         packetReceiptNotificationParameter: UInt16 = Self.defaultPacketReceiptNotificationParameter,
         dataObjectPreparationDelay: TimeInterval = Self.defaultDataObjectPreparationDelay,
         scanTimeout: TimeInterval = Self.defaultScanTimeout,
-        connectionTimeout: TimeInterval = Self.defaultConnectionTimeout
+        connectionTimeout: TimeInterval = Self.defaultConnectionTimeout,
+        transportLossAtProgress: Int? = nil
     ) {
         self.packetReceiptNotificationParameter = Self.clampedPacketReceiptNotificationParameter(
             packetReceiptNotificationParameter
@@ -26,23 +28,30 @@ public struct DoorFirmwareDfuTuning: Equatable, Sendable {
         self.dataObjectPreparationDelay = Self.clampedDataObjectPreparationDelay(dataObjectPreparationDelay)
         self.scanTimeout = Self.clampedTimeout(scanTimeout, min: 5, max: 60)
         self.connectionTimeout = Self.clampedTimeout(connectionTimeout, min: 5, max: 60)
+        self.transportLossAtProgress = transportLossAtProgress.flatMap { (1...99).contains($0) ? $0 : nil }
     }
 
     public static let stableDefault = DoorFirmwareDfuTuning()
 
     public func packetReceiptNotificationParameter(forBootloaderNamed name: String?) -> UInt16 {
-        name == Self.optimizedBootloaderName
-            ? Self.optimizedBootloaderPacketReceiptNotificationParameter
-            : packetReceiptNotificationParameter
+        return packetReceiptNotificationParameter
     }
 
-    public static func fromProcessInfo(_ processInfo: ProcessInfo = .processInfo) -> DoorFirmwareDfuTuning {
-        from(arguments: processInfo.arguments, environment: processInfo.environment)
+    public static func fromProcessInfo(
+        _ processInfo: ProcessInfo = .processInfo,
+        defaultPacketReceiptNotificationParameter: UInt16 = DoorFirmwareDfuTuning.defaultPacketReceiptNotificationParameter
+    ) -> DoorFirmwareDfuTuning {
+        from(
+            arguments: processInfo.arguments,
+            environment: processInfo.environment,
+            defaultPacketReceiptNotificationParameter: defaultPacketReceiptNotificationParameter
+        )
     }
 
     public static func from(
         arguments: [String],
-        environment: [String: String] = ProcessInfo.processInfo.environment
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        defaultPacketReceiptNotificationParameter: UInt16 = DoorFirmwareDfuTuning.defaultPacketReceiptNotificationParameter
     ) -> DoorFirmwareDfuTuning {
         DoorFirmwareDfuTuning(
             packetReceiptNotificationParameter: UInt16(
@@ -64,7 +73,12 @@ public struct DoorFirmwareDfuTuning: Equatable, Sendable {
                 optionalArgumentValue(named: "--debug-dfu-connection-timeout", arguments: arguments)
                     ?? environment["DOOR_UNLOCKER_DFU_CONNECTION_TIMEOUT"]
                     ?? ""
-            ) ?? defaultConnectionTimeout
+            ) ?? defaultConnectionTimeout,
+            transportLossAtProgress: Int(
+                optionalArgumentValue(named: "--debug-dfu-transport-loss-progress", arguments: arguments)
+                    ?? environment["DOOR_UNLOCKER_DFU_TRANSPORT_LOSS_PROGRESS"]
+                    ?? ""
+            )
         )
     }
 

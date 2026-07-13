@@ -178,6 +178,10 @@ def base_steps(args: argparse.Namespace) -> list[tuple[str, list[str]]]:
             ],
         ),
         (
+            "Dual-bank pre-activation power-loss simulation",
+            ["python3", "script/simulate_dual_bank_power_loss.py"],
+        ),
+        (
             "Fast lock/unlock structural contract gate",
             ["python3", "script/check_fast_command_contract.py"],
         ),
@@ -250,6 +254,19 @@ def base_steps(args: argparse.Namespace) -> list[tuple[str, list[str]]]:
                 (
                     "Mac app build",
                     ["./script/build_and_run.sh", "--verify"],
+                ),
+                (
+                    "Physical handoff assistant build",
+                    [
+                        XCODE_SWIFT,
+                        "build",
+                        "--package-path",
+                        "tools/DoorUnlockerHandoff",
+                        "-c",
+                        "release",
+                        "--product",
+                        "door-unlocker-handoff",
+                    ],
                 ),
                 (
                     "Bench wiring path model",
@@ -470,6 +487,14 @@ def write_report(
             "bootloaderCandidateReproduces": step_passed(
                 steps,
                 "Signed dual-bank bootloader reproducible build",
+            ),
+            "dualBankTransferPowerLossModeled": step_passed(
+                steps,
+                "Dual-bank pre-activation power-loss simulation",
+            ),
+            "physicalHandoffAssistantVerified": step_passed(
+                steps,
+                "Physical handoff assistant build",
             ),
             "physicalIOSLaunchPerformanceVerified": step_passed(
                 steps,

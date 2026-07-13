@@ -17,6 +17,7 @@ GAP_EVENT_LENGTH_UNITS="12"
 MIN_CONNECTION_INTERVAL_MS="15"
 MAX_CONNECTION_INTERVAL_MS="30"
 CANDIDATE_DFU_DEVICE_NAME="DoorDFU"
+DEFAULT_TO_OTA_DFU="ON"
 KEY_DIR="${DOOR_FIRMWARE_SIGNING_DIR:-$HOME/Library/Application Support/Door Unlocker/FirmwareSigning}"
 KEY_PATH="${DOOR_FIRMWARE_SIGNING_KEY:-$KEY_DIR/firmware-signing-key.pem}"
 WORK_DIR="${DOOR_BOOTLOADER_WORK_DIR:-${TMPDIR:-/tmp}/door-unlocker-secure-bootloader}"
@@ -89,6 +90,28 @@ PUBLIC_KEY_ID="$(printf '%s\n' "$key_values" | sed -n '3p')"
 git clone --depth 1 --branch "$BOOTLOADER_VERSION" "$BOOTLOADER_REPOSITORY" "$SOURCE_DIR"
 git -C "$SOURCE_DIR" submodule update --init lib/nrfx lib/tinycrypt lib/tinyusb lib/uf2
 
+# Upstream DEFAULT_TO_OTA_DFU also redirects an intentional double-reset to BLE.
+# Keep automatic invalid-app BLE recovery without sacrificing the USB UF2 escape hatch.
+BOOTLOADER_MAIN_SOURCE="$SOURCE_DIR/src/main.c"
+SOURCE_PATH="$BOOTLOADER_MAIN_SOURCE" /usr/bin/python3 <<'PY'
+import os
+from pathlib import Path
+
+path = Path(os.environ["SOURCE_PATH"])
+source = path.read_text(encoding="utf-8")
+old = """  if (!valid_app || dfu_start) {
+    _ota_dfu = 1;
+  }
+"""
+new = """  if (!valid_app && !dfu_start) {
+    _ota_dfu = 1;
+  }
+"""
+if source.count(old) != 1:
+    raise SystemExit("Could not uniquely preserve double-reset USB recovery")
+path.write_text(source.replace(old, new), encoding="utf-8")
+PY
+
 require_source_marker() {
   local file="$1"
   local marker="$2"
@@ -112,6 +135,16 @@ require_source_marker "$SOURCE_DIR/lib/sdk11/components/libraries/bootloader_dfu
   "#define SPEEDUP_FLASH_WRITES                 1"
 require_source_marker "$SOURCE_DIR/lib/sdk11/components/libraries/bootloader_dfu/dfu_transport_ble.c" \
   "BLE_GAP_EVT_DATA_LENGTH_UPDATE_REQUEST"
+require_source_marker "$SOURCE_DIR/CMakeLists.txt" \
+  'option(DUALBANK_FW "Enable dual bank DFU support" OFF)'
+require_source_marker "$SOURCE_DIR/CMakeLists.txt" \
+  '${SDK11_DIR}/libraries/bootloader_dfu/dfu_dual_bank.c'
+require_source_marker "$SOURCE_DIR/lib/sdk11/components/libraries/bootloader_dfu/dfu_dual_bank.c" \
+  'mp_storage_handle_active = &m_storage_handle_swap;'
+require_source_marker "$SOURCE_DIR/lib/sdk11/components/libraries/bootloader_dfu/dfu_dual_bank.c" \
+  'if (m_image_size > DFU_IMAGE_MAX_SIZE_BANKED)'
+require_source_marker "$SOURCE_DIR/lib/sdk11/components/libraries/bootloader_dfu/dfu_dual_bank.c" \
+  'm_functions.prepare = dfu_prepare_func_swap_erase;'
 
 export PATH="$ARM_GCC_DIR:$PATH"
 pushd "$SOURCE_DIR" >/dev/null
@@ -119,6 +152,7 @@ cmake -S "$SOURCE_DIR" -B "$BUILD_DIR" \
   -DBOARD="$BOARD" \
   -DSD_VERSION="$SOFTDEVICE_VERSION" \
   -DDUALBANK_FW=ON \
+  -DDEFAULT_TO_OTA_DFU="$DEFAULT_TO_OTA_DFU" \
   -DSIGNED_FW=ON \
   -DSIGNED_FW_QX="$QX" \
   -DSIGNED_FW_QY="$QY" \
@@ -138,6 +172,19 @@ path.write_text(source.replace(old, new), encoding="utf-8")
 PY
 cmake --build "$BUILD_DIR" --parallel
 popd >/dev/null
+
+grep -Fqx 'DUALBANK_FW:BOOL=ON' "$BUILD_DIR/CMakeCache.txt" || {
+  echo "Built bootloader did not retain DUALBANK_FW=ON." >&2
+  exit 1
+}
+grep -Fq 'dfu_dual_bank.c.obj' "$BUILD_DIR/CMakeFiles/bootloader.dir/link.txt" || {
+  echo "Built bootloader does not link the dual-bank implementation." >&2
+  exit 1
+}
+if grep -Fq 'dfu_single_bank.c.obj' "$BUILD_DIR/CMakeFiles/bootloader.dir/link.txt"; then
+  echo "Built bootloader unexpectedly links the single-bank implementation." >&2
+  exit 1
+fi
 
 mkdir -p "$OUTPUT_DIR"
 BOOTLOADER_HEX="$OUTPUT_DIR/DoorUnlocker-XIAO-Sense-${BOOTLOADER_VERSION}-signed-dualbank.hex"
@@ -162,6 +209,7 @@ GAP_EVENT_LENGTH_UNITS="$GAP_EVENT_LENGTH_UNITS" \
 MIN_CONNECTION_INTERVAL_MS="$MIN_CONNECTION_INTERVAL_MS" \
 MAX_CONNECTION_INTERVAL_MS="$MAX_CONNECTION_INTERVAL_MS" \
 CANDIDATE_DFU_DEVICE_NAME="$CANDIDATE_DFU_DEVICE_NAME" \
+DEFAULT_TO_OTA_DFU="$DEFAULT_TO_OTA_DFU" \
 PUBLIC_MANIFEST="$PUBLIC_MANIFEST" \
 /usr/bin/python3 <<'PY'
 import hashlib
@@ -215,10 +263,16 @@ manifest = {
     "minimumConnectionIntervalMs": int(os.environ["MIN_CONNECTION_INTERVAL_MS"]),
     "maximumConnectionIntervalMs": int(os.environ["MAX_CONNECTION_INTERVAL_MS"]),
     "dfuDeviceName": os.environ["CANDIDATE_DFU_DEVICE_NAME"],
+    "defaultToOtaDfu": os.environ["DEFAULT_TO_OTA_DFU"] == "ON",
+    "invalidAppDefaultsToOtaDfu": True,
+    "doubleResetUsbRecoveryPreserved": True,
     "dataLengthExtension": True,
     "automaticTwoMegabitPhy": True,
     "flashWritePacing": True,
     "dualBankFirmware": True,
+    "singleBankFallbackDisabled": True,
+    "interruptedTransferRetainsBank0": True,
+    "activationPowerLossRequiresPhysicalProof": True,
     "signedFirmwareRequired": True,
     "forceUnsignedUF2": False,
     "publicKeyId": os.environ["PUBLIC_KEY_ID"],

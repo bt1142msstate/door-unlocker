@@ -24,6 +24,45 @@ final class DoorFirmwareRetryPolicyTests: XCTestCase {
         )
     }
 
+    func testNordicIntegrityAndCompatibilityErrorsAreTerminal() {
+        let terminalMessages = [
+            "CRC Error",
+            "Signature missing",
+            "Signature mismatch",
+            "Invalid hash type",
+            "Hashing failed",
+            "Operation failed. Ensure the firmware targets that device type and version.",
+            "Invalid object",
+            "Unsupported type",
+            "Package changed after staging"
+        ]
+
+        for message in terminalMessages {
+            XCTAssertEqual(
+                DoorFirmwareRetryPolicy.disposition(for: message),
+                .terminal,
+                message
+            )
+        }
+    }
+
+    func testTransportAndVerificationInterruptionsRemainRetryable() {
+        let transientMessages = [
+            "Bluetooth transport disconnected during firmware update.",
+            "Controller did not advertise firmware update mode.",
+            "Post-update firmware verification timed out.",
+            "Controller reboot was not observed yet."
+        ]
+
+        for message in transientMessages {
+            XCTAssertEqual(
+                DoorFirmwareRetryPolicy.disposition(for: message),
+                .retryable,
+                message
+            )
+        }
+    }
+
     func testAttemptCountTracksUploadsRatherThanPreparationPhases() {
         var journal = journal(attemptCount: 0)
 

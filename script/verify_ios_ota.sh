@@ -20,15 +20,19 @@ DFU_CONNECTION_TIMEOUT="${DFU_CONNECTION_TIMEOUT:-}"
 INTERRUPT_AT_PROGRESS="${INTERRUPT_AT_PROGRESS:-}"
 INTERRUPT_MODE="${INTERRUPT_MODE:-app-termination}"
 INTERRUPT_RELAUNCH_DELAY="${INTERRUPT_RELAUNCH_DELAY:-2}"
+PHYSICAL_HANDOFF_MODE="${PHYSICAL_HANDOFF_MODE:-auto}"
+ACCEPT_NO_SWD_RECOVERY_RISK="${ACCEPT_NO_SWD_RECOVERY_RISK:-0}"
 RUN_ID="${RUN_ID:-$(date -u +"%Y%m%dT%H%M%SZ")}"
 OTA_TELEMETRY_DIR="${OTA_TELEMETRY_DIR:-$ROOT_DIR/docs/ota-telemetry}"
 OTA_REPORT_PATH="${OTA_REPORT_PATH:-$ROOT_DIR/docs/ota-last-run.json}"
+BOOTLOADER_MANIFEST_PATH="${BOOTLOADER_MANIFEST_PATH:-$ROOT_DIR/docs/firmware-signing-public-key.json}"
+BOOTLOADER_INSTALLED_PROOF_PATH="${BOOTLOADER_INSTALLED_PROOF_PATH:-$ROOT_DIR/docs/ota-bootloader-installed-proof.json}"
 DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 export DEVELOPER_DIR
 
 usage() {
   cat <<USAGE
-usage: script/verify_ios_ota.sh [--device-udid UDID] [--target VERSION] [--port PATH] [--allow-current] [--wireless-only] [--controller-usb-anchor]
+usage: script/verify_ios_ota.sh [--device-udid UDID] [--target VERSION] [--port PATH] [--allow-current] [--wireless-only] [--controller-usb-anchor] [--accept-no-swd-recovery-risk]
 
 Installs the iPhone app, launches it with the bundled-firmware OTA debug URL,
 and verifies that the target firmware version is reported by the controller.
@@ -52,12 +56,75 @@ Environment:
   DFU_CONNECTION_TIMEOUT Optional debug benchmark DFU connection timeout.
   INTERRUPT_AT_PROGRESS  Abruptly terminate the app at this upload percentage,
                          or prompt for controller power removal, depending on mode.
-  INTERRUPT_MODE         app-termination (default) or controller-power-loss.
+  INTERRUPT_MODE         app-termination (default), bluetooth-loss, or
+                         controller-power-loss.
   INTERRUPT_RELAUNCH_DELAY Seconds to wait before relaunch. Defaults to 2.
+  PHYSICAL_HANDOFF_MODE  auto (default), gui, or terminal for attended steps.
+  ACCEPT_NO_SWD_RECOVERY_RISK
+                         Set only by explicit operator acceptance when the
+                         installed dual-bank candidate is proven but no SWD
+                         recovery probe is present.
   RUN_ID                 Optional telemetry run id. Defaults to UTC timestamp.
   OTA_TELEMETRY_DIR      Defaults to docs/ota-telemetry.
   OTA_REPORT_PATH        Defaults to docs/ota-last-run.json.
+  BOOTLOADER_INSTALLED_PROOF_PATH
+                         Exact installed-candidate proof required before a
+                         physical controller-power-loss test can start.
 USAGE
+}
+
+require_safe_power_loss_testbed() {
+  /usr/bin/python3 - "$BOOTLOADER_MANIFEST_PATH" "$BOOTLOADER_INSTALLED_PROOF_PATH" "$ACCEPT_NO_SWD_RECOVERY_RISK" <<'PY'
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+manifest_path = Path(sys.argv[1])
+proof_path = Path(sys.argv[2])
+accept_no_swd = sys.argv[3] == "1"
+
+def fail(message: str) -> None:
+    print(f"Refusing physical controller power-loss test: {message}", file=sys.stderr)
+    raise SystemExit(1)
+
+if not manifest_path.is_file():
+    fail(f"bootloader manifest is missing: {manifest_path}")
+if not proof_path.is_file():
+    fail(
+        "the signed dual-bank bootloader has no installed proof. "
+        "Use app termination or bluetooth-loss testing until the candidate is "
+        "installed with an SWD recovery probe available."
+    )
+
+manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+proof = json.loads(proof_path.read_text(encoding="utf-8"))
+required = {
+    "passed": True,
+    "bootloaderVersion": manifest.get("bootloaderVersion"),
+    "publicKeyId": manifest.get("publicKeyId"),
+    "bootloaderArtifactSha256": manifest.get("artifactSha256"),
+    "dualBankFirmware": True,
+}
+for key, expected in required.items():
+    if proof.get(key) != expected:
+        fail(f"installed proof field {key!r} must equal {expected!r}")
+
+artifact = Path(proof.get("bootloaderArtifactPath", ""))
+if not artifact.is_file():
+    fail("the exact installed bootloader artifact is not available for recovery")
+actual_hash = hashlib.sha256(artifact.read_bytes()).hexdigest()
+if actual_hash != manifest.get("artifactSha256"):
+    fail("the recovery artifact hash does not match the installed bootloader proof")
+
+if proof.get("swdRecoveryAvailable") is not True and not accept_no_swd:
+    fail("SWD recovery is not available; explicit no-probe risk acceptance is required")
+if proof.get("swdRecoveryAvailable") is not True:
+    print("WARNING: physical test accepted without SWD recovery.", file=sys.stderr)
+    print("Physical power-loss preflight passed by explicit no-probe risk acceptance.")
+else:
+    print("Physical power-loss preflight passed: dual-bank bootloader and SWD recovery are proven.")
+PY
 }
 
 notification_suffix() {
@@ -87,6 +154,9 @@ while [[ $# -gt 0 ]]; do
     --controller-usb-anchor)
       WIRELESS_ONLY=1
       CONTROLLER_USB_ANCHOR=1
+      ;;
+    --accept-no-swd-recovery-risk)
+      ACCEPT_NO_SWD_RECOVERY_RISK=1
       ;;
     --help|-h)
       usage
@@ -154,12 +224,16 @@ if [[ -n "$INTERRUPT_AT_PROGRESS" ]] && {
   exit 2
 fi
 
-if [[ "$INTERRUPT_MODE" != "app-termination" && "$INTERRUPT_MODE" != "controller-power-loss" ]]; then
-  echo "INTERRUPT_MODE must be app-termination or controller-power-loss." >&2
+if [[ "$INTERRUPT_MODE" != "app-termination" && "$INTERRUPT_MODE" != "bluetooth-loss" && "$INTERRUPT_MODE" != "controller-power-loss" ]]; then
+  echo "INTERRUPT_MODE must be app-termination, bluetooth-loss, or controller-power-loss." >&2
   exit 2
 fi
-if [[ -n "$INTERRUPT_AT_PROGRESS" && "$INTERRUPT_MODE" == "controller-power-loss" && ! -t 0 ]]; then
-  echo "Controller power-loss injection requires an interactive terminal." >&2
+
+if [[ -n "$INTERRUPT_AT_PROGRESS" && "$INTERRUPT_MODE" == "controller-power-loss" ]]; then
+  require_safe_power_loss_testbed
+fi
+if [[ "$PHYSICAL_HANDOFF_MODE" != "auto" && "$PHYSICAL_HANDOFF_MODE" != "gui" && "$PHYSICAL_HANDOFF_MODE" != "terminal" ]]; then
+  echo "PHYSICAL_HANDOFF_MODE must be auto, gui, or terminal." >&2
   exit 2
 fi
 
@@ -175,9 +249,17 @@ fi
 
 if [[ "$WIRELESS_ONLY" == "1" ]]; then
   if [[ "$CONTROLLER_USB_ANCHOR" != "1" && -n "$("${CLI[@]}" status 2>/dev/null || true)" ]]; then
-    echo "Controller USB-C serial is visible. Unplug controller USB-C before running --wireless-only." >&2
-    echo "The iPhone can stay connected to the Mac; only the controller must be off USB-C." >&2
-    exit 1
+    "$ROOT_DIR/script/physical_handoff.sh" \
+      --mode "$PHYSICAL_HANDOFF_MODE" \
+      --preset "return-to-battery" >/dev/null
+    usb_release_deadline=$(( $(date +%s) + 20 ))
+    while [[ -n "$("${CLI[@]}" status 2>/dev/null || true)" && $(date +%s) -lt $usb_release_deadline ]]; do
+      sleep 1
+    done
+    if [[ -n "$("${CLI[@]}" status 2>/dev/null || true)" ]]; then
+      echo "Controller USB-C is still visible after the battery-power handoff." >&2
+      exit 1
+    fi
   fi
 else
   current_status="$("${CLI[@]}" status 2>/dev/null || true)"
@@ -389,6 +471,12 @@ latest_firmware_progress() {
     "$app_console_log" | tail -n 1
 }
 
+latest_transport_loss_progress() {
+  [[ -f "$app_console_log" ]] || return 0
+  sed -n 's/.*DUFirmware [0-9.]*s fault_transport_loss_injected percent=\([0-9][0-9]*\).*/\1/p' \
+    "$app_console_log" | tail -n 1
+}
+
 app_console_has_verified_firmware() {
   [[ -f "$app_console_log" ]] || return 1
   grep -Eq "firmware_pending_cleared .*->${TARGET_FIRMWARE//./\\.}([[:space:]]|$)" "$app_console_log"
@@ -412,7 +500,7 @@ for process in processes:
 PY
 }
 
-interrupt_and_relaunch_app() {
+terminate_updater_for_fault_injection() {
   local pid
   pid="$(main_app_pid)"
   if [[ -z "$pid" ]]; then
@@ -420,22 +508,22 @@ interrupt_and_relaunch_app() {
     return 1
   fi
 
-  interruption_epoch="$(date +%s)"
-  echo "Fault injection: killing Door Unlocker pid=$pid at ${interrupted_progress}% upload."
+  echo "Fault injection: terminating Door Unlocker pid=$pid at ${interrupted_progress}% upload."
   xcrun devicectl device process terminate \
     --device "$DEVICE_UDID" \
     --pid "$pid" \
     --kill \
     --json-output "$terminate_json" \
     --log-output "$terminate_log" >/dev/null
-  interruption_performed=1
-
   if [[ -n "$app_console_pid" ]]; then
     wait "$app_console_pid" 2>/dev/null || true
     app_console_pid=""
   fi
+}
+
+relaunch_updater_for_recovery() {
   sleep "$INTERRUPT_RELAUNCH_DELAY"
-  printf '\nDUFaultInjection relaunch_after_app_termination\n' >> "$app_console_log"
+  printf '\nDUFaultInjection relaunch_for_recovery mode=%s\n' "$INTERRUPT_MODE" >> "$app_console_log"
   xcrun devicectl device \
     --json-output "$resume_launch_json" \
     --log-output "$resume_launch_log" \
@@ -454,22 +542,39 @@ interrupt_and_relaunch_app() {
   echo "Door Unlocker relaunched; waiting for journal recovery and BLE verification."
 }
 
+interrupt_and_relaunch_app() {
+  interruption_epoch="$(date +%s)"
+  interruption_performed=1
+  terminate_updater_for_fault_injection
+  relaunch_updater_for_recovery
+}
+
 interrupt_controller_power() {
   interruption_epoch="$(date +%s)"
   interruption_performed=1
+  terminate_updater_for_fault_injection
   echo
   echo "POWER-LOSS INJECTION at ${interrupted_progress}%:"
-  echo "Disconnect controller power now, wait at least two seconds, reconnect power, then press Return."
-  command -v say >/dev/null 2>&1 && say "Disconnect and reconnect the door unlocker controller now" || true
-  read -r
+  "$ROOT_DIR/script/physical_handoff.sh" \
+    --mode "$PHYSICAL_HANDOFF_MODE" \
+    --preset "power-cycle-battery" \
+    --title "Door Unlocker power-loss test" \
+    --instruction "The firmware upload is frozen at ${interrupted_progress}%. Click Start countdown when you are ready to disconnect controller power." \
+    --confirmation "Disconnect controller power, wait at least two seconds, and reconnect it. Click Power restored only after the controller is powered again." >/dev/null
   printf '\nDUFaultInjection controller_power_loss_confirmed progress=%s\n' \
     "$interrupted_progress" >> "$app_console_log"
-  echo "Power cycle confirmed; waiting for automatic journal recovery and BLE verification."
+  echo "Power cycle confirmed; relaunching for automatic journal recovery."
+  relaunch_updater_for_recovery
 }
 
 perform_progress_interruption() {
   case "$INTERRUPT_MODE" in
     app-termination) interrupt_and_relaunch_app ;;
+    bluetooth-loss)
+      interruption_epoch="$(date +%s)"
+      interruption_performed=1
+      echo "Bluetooth transport-loss injection observed at ${interrupted_progress}%; waiting for automatic recovery."
+      ;;
     controller-power-loss) interrupt_controller_power ;;
   esac
 }
@@ -509,6 +614,9 @@ if [[ -n "$DFU_SCAN_TIMEOUT" ]]; then
 fi
 if [[ -n "$DFU_CONNECTION_TIMEOUT" ]]; then
   launch_args+=("--debug-dfu-connection-timeout" "$DFU_CONNECTION_TIMEOUT")
+fi
+if [[ -n "$INTERRUPT_AT_PROGRESS" && "$INTERRUPT_MODE" == "bluetooth-loss" ]]; then
+  launch_args+=("--debug-dfu-transport-loss-progress" "$INTERRUPT_AT_PROGRESS")
 fi
 
 start_epoch="$(date +%s)"
@@ -552,9 +660,16 @@ if [[ "$WIRELESS_ONLY" == "1" ]]; then
   deadline=$((start_epoch + POLL_SECONDS))
   while (( "$(date +%s)" <= deadline )); do
     if [[ -n "$INTERRUPT_AT_PROGRESS" && "$interruption_performed" == "0" ]]; then
-      interrupted_progress="$(latest_firmware_progress)"
-      if [[ -n "$interrupted_progress" ]] && (( interrupted_progress >= INTERRUPT_AT_PROGRESS )); then
-        perform_progress_interruption
+      if [[ "$INTERRUPT_MODE" == "bluetooth-loss" ]]; then
+        interrupted_progress="$(latest_transport_loss_progress)"
+        if [[ -n "$interrupted_progress" ]]; then
+          perform_progress_interruption
+        fi
+      else
+        interrupted_progress="$(latest_firmware_progress)"
+        if [[ -n "$interrupted_progress" ]] && (( interrupted_progress >= INTERRUPT_AT_PROGRESS )); then
+          perform_progress_interruption
+        fi
       fi
     fi
 
@@ -574,7 +689,7 @@ if [[ "$WIRELESS_ONLY" == "1" ]]; then
       echo "iPhone OTA recovery wirelessly verified in ${duration}s"
       echo "firmware_version=$TARGET_FIRMWARE"
       echo "verified_over=ble"
-      write_ota_report "pass" "ble" "$duration" "Interrupted iPhone OTA verified when the relaunched app received the target firmware version over BLE."
+      write_ota_report "pass" "ble" "$duration" "Interrupted iPhone OTA recovered and received the target firmware version over BLE."
       exit 0
     fi
 

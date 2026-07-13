@@ -241,6 +241,9 @@ final class DoorAdminStore: NSObject, ObservableObject {
     var firmwareUpdateRecoveryRetryTask: Task<Void, Never>?
     lazy var firmwareDfuManager = DoorFirmwareDfuManager(
         delegate: self,
+        tuning: .fromProcessInfo(
+            defaultPacketReceiptNotificationParameter: DoorFirmwareDfuTuning.defaultMacPacketReceiptNotificationParameter
+        ),
         logSubsystem: "io.github.bt1142msstate.DoorUnlockerAdmin",
         queueLabel: "io.github.bt1142msstate.DoorUnlockerAdmin.dfu"
     )
