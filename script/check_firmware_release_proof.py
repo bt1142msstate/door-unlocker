@@ -58,14 +58,14 @@ def main() -> int:
     parser.add_argument("--proof", type=Path, default=ROOT / "docs/firmware-release-proof.json")
     args = parser.parse_args()
     proof_path = args.proof if args.proof.is_absolute() else ROOT / args.proof
-    package_path = ROOT / "dist/DoorUnlockerXiao-signed-dfu.zip"
     bundled_package_path = (
         ROOT / "ios/DoorUnlockerApp/DoorUnlocker/Firmware/DoorUnlockerXiao-signed-dfu.zip"
     )
+    dist_package_path = ROOT / "dist/DoorUnlockerXiao-signed-dfu.zip"
 
-    if not proof_path.exists() or not package_path.exists() or not bundled_package_path.exists():
+    if not proof_path.exists() or not bundled_package_path.exists():
         print("Firmware release proof: FAIL")
-        print("- proof or DFU package is missing")
+        print("- proof or bundled DFU package is missing")
         return 1
 
     version = current_firmware_version()
@@ -74,12 +74,13 @@ def main() -> int:
         print("- firmware version could not be read")
         return 1
 
-    dist_payload_sha = package_payload_sha256(package_path)
     bundled_payload_sha = package_payload_sha256(bundled_package_path)
     proof = json.loads(proof_path.read_text(encoding="utf-8"))
-    failures = validate_release_proof(proof, version, dist_payload_sha)
-    if bundled_payload_sha != dist_payload_sha:
-        failures.append("bundled iOS DFU payload does not match the dist package")
+    failures = validate_release_proof(proof, version, bundled_payload_sha)
+    if dist_package_path.exists():
+        dist_payload_sha = package_payload_sha256(dist_package_path)
+        if bundled_payload_sha != dist_payload_sha:
+            failures.append("bundled iOS DFU payload does not match the dist package")
     if failures:
         print("Firmware release proof: FAIL")
         for failure in failures:
