@@ -12,6 +12,7 @@ PORT_PATH="${PORT_PATH:-}"
 POLL_SECONDS="${POLL_SECONDS:-420}"
 ALLOW_CURRENT="${ALLOW_CURRENT:-0}"
 WIRELESS_ONLY="${WIRELESS_ONLY:-0}"
+CONTROLLER_USB_ANCHOR="${CONTROLLER_USB_ANCHOR:-0}"
 DFU_PRN="${DFU_PRN:-}"
 DFU_OBJECT_PREP_DELAY="${DFU_OBJECT_PREP_DELAY:-}"
 DFU_SCAN_TIMEOUT="${DFU_SCAN_TIMEOUT:-}"
@@ -27,7 +28,7 @@ export DEVELOPER_DIR
 
 usage() {
   cat <<USAGE
-usage: script/verify_ios_ota.sh [--device-udid UDID] [--target VERSION] [--port PATH] [--allow-current] [--wireless-only]
+usage: script/verify_ios_ota.sh [--device-udid UDID] [--target VERSION] [--port PATH] [--allow-current] [--wireless-only] [--controller-usb-anchor]
 
 Installs the iPhone app, launches it with the bundled-firmware OTA debug URL,
 and verifies that the target firmware version is reported by the controller.
@@ -43,6 +44,8 @@ Environment:
   POLL_SECONDS           Defaults to 420.
   ALLOW_CURRENT          Set to 1 only when checking an already-installed target.
   WIRELESS_ONLY          Set to 1 for --wireless-only behavior.
+  CONTROLLER_USB_ANCHOR  Set to 1 to prove BLE transfer/verification while
+                         controller USB-C remains attached only for recovery.
   DFU_PRN                Optional debug benchmark PRN override, clamped by app.
   DFU_OBJECT_PREP_DELAY  Optional debug benchmark object-prep delay override.
   DFU_SCAN_TIMEOUT       Optional debug benchmark DFU bootloader scan timeout.
@@ -81,6 +84,10 @@ while [[ $# -gt 0 ]]; do
     --wireless-only)
       WIRELESS_ONLY=1
       ;;
+    --controller-usb-anchor)
+      WIRELESS_ONLY=1
+      CONTROLLER_USB_ANCHOR=1
+      ;;
     --help|-h)
       usage
       exit 0
@@ -95,13 +102,30 @@ while [[ $# -gt 0 ]]; do
 done
 
 detect_device_udid() {
-  { xcrun xctrace list devices 2>/dev/null || true; } |
-    sed -n '/^== Devices ==/,/^== Devices Offline ==/p' |
-    sed '/^== Devices Offline ==/,$d' |
-    grep -E 'iPhone|iPad' |
-    grep -v 'Simulator' |
-    sed -E 's/.*\(([0-9A-Fa-f-]{20,})\)$/\1/' |
-    head -n 1 || true
+  local devices_json attempt
+  devices_json="$(mktemp)"
+  for attempt in 1 2 3 4 5; do
+    if xcrun devicectl list devices --json-output "$devices_json" >/dev/null 2>&1; then
+      break
+    fi
+    sleep 0.4
+  done
+  /usr/bin/python3 - "$devices_json" <<'PY'
+import json
+import sys
+
+try:
+    with open(sys.argv[1], "r", encoding="utf-8") as handle:
+        devices = json.load(handle).get("result", {}).get("devices", [])
+    for device in devices:
+        hardware = device.get("hardwareProperties", {})
+        if hardware.get("reality") == "physical" and hardware.get("platform") in ("iOS", "iPadOS"):
+            print(hardware.get("udid") or "")
+            break
+except (OSError, TypeError, json.JSONDecodeError):
+    pass
+PY
+  rm -f "$devices_json"
 }
 
 if [[ -z "$DEVICE_UDID" ]]; then
@@ -150,7 +174,7 @@ if [[ -n "$PORT_PATH" ]]; then
 fi
 
 if [[ "$WIRELESS_ONLY" == "1" ]]; then
-  if [[ -n "$("${CLI[@]}" status 2>/dev/null || true)" ]]; then
+  if [[ "$CONTROLLER_USB_ANCHOR" != "1" && -n "$("${CLI[@]}" status 2>/dev/null || true)" ]]; then
     echo "Controller USB-C serial is visible. Unplug controller USB-C before running --wireless-only." >&2
     echo "The iPhone can stay connected to the Mac; only the controller must be off USB-C." >&2
     exit 1
@@ -225,6 +249,7 @@ write_ota_report() {
   TARGET_FIRMWARE="$TARGET_FIRMWARE" \
   DEVICE_UDID="$DEVICE_UDID" \
   WIRELESS_ONLY="$WIRELESS_ONLY" \
+  CONTROLLER_USB_ANCHOR="$CONTROLLER_USB_ANCHOR" \
   DIST_HASH="$dist_hash" \
   BUNDLED_HASH="$bundled_hash" \
   PACKAGE_BYTES="$package_bytes" \
@@ -295,8 +320,12 @@ report = {
     "targetFirmware": os.environ["TARGET_FIRMWARE"],
     "entryCommandOver": "ble" if os.environ["WIRELESS_ONLY"] == "1" else None,
     "usbRecoveryCommandUsed": False if os.environ["WIRELESS_ONLY"] == "1" else None,
+    "controllerUsbRecoveryAnchorAttached": os.environ["CONTROLLER_USB_ANCHOR"] == "1",
     "deviceUdid": os.environ["DEVICE_UDID"],
-    "wirelessOnly": os.environ["WIRELESS_ONLY"] == "1",
+    "wirelessOnly": (
+        os.environ["WIRELESS_ONLY"] == "1"
+        and os.environ["CONTROLLER_USB_ANCHOR"] != "1"
+    ),
     "verifiedOver": os.environ["VERIFIED_OVER"] or None,
     "package": {
         "bytes": int(os.environ["PACKAGE_BYTES"]),
@@ -360,6 +389,11 @@ latest_firmware_progress() {
     "$app_console_log" | tail -n 1
 }
 
+app_console_has_verified_firmware() {
+  [[ -f "$app_console_log" ]] || return 1
+  grep -Eq "firmware_pending_cleared .*->${TARGET_FIRMWARE//./\\.}([[:space:]]|$)" "$app_console_log"
+}
+
 main_app_pid() {
   rm -f "$process_snapshot_json"
   xcrun devicectl device info processes \
@@ -408,7 +442,9 @@ interrupt_and_relaunch_app() {
     process launch \
     --device "$DEVICE_UDID" \
     --console \
-    "$BUNDLE_ID" >> "$app_console_log" 2>&1 &
+    "$BUNDLE_ID" \
+    "$FIRMWARE_EXPECTED_ARGUMENT" \
+    "$TARGET_FIRMWARE" >> "$app_console_log" 2>&1 &
   app_console_pid=$!
   sleep 2
   if ! kill -0 "$app_console_pid" 2>/dev/null; then
@@ -507,7 +543,11 @@ else
 fi
 
 if [[ "$WIRELESS_ONLY" == "1" ]]; then
-  echo "Wireless-only mode: iPhone OTA is running without controller USB-C."
+  if [[ "$CONTROLLER_USB_ANCHOR" == "1" ]]; then
+    echo "BLE proof mode: iPhone OTA is running over Bluetooth; controller USB-C is recovery/power only."
+  else
+    echo "Wireless-only mode: iPhone OTA is running without controller USB-C."
+  fi
   echo "Waiting for BLE verification from the iPhone app..."
   deadline=$((start_epoch + POLL_SECONDS))
   while (( "$(date +%s)" <= deadline )); do
@@ -525,6 +565,16 @@ if [[ "$WIRELESS_ONLY" == "1" ]]; then
       echo "firmware_version=$TARGET_FIRMWARE"
       echo "verified_over=ble"
       write_ota_report "pass" "ble" "$duration" "iPhone OTA verified by post-DFU BLE firmware_version notification."
+      exit 0
+    fi
+
+    if [[ "$interruption_performed" == "1" ]] && app_console_has_verified_firmware; then
+      end_epoch="$(date +%s)"
+      duration=$((end_epoch - start_epoch))
+      echo "iPhone OTA recovery wirelessly verified in ${duration}s"
+      echo "firmware_version=$TARGET_FIRMWARE"
+      echo "verified_over=ble"
+      write_ota_report "pass" "ble" "$duration" "Interrupted iPhone OTA verified when the relaunched app received the target firmware version over BLE."
       exit 0
     fi
 

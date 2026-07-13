@@ -16,6 +16,7 @@ MAX_DFU_PAYLOAD_BYTES="244"
 GAP_EVENT_LENGTH_UNITS="12"
 MIN_CONNECTION_INTERVAL_MS="15"
 MAX_CONNECTION_INTERVAL_MS="30"
+CANDIDATE_DFU_DEVICE_NAME="DoorDFU"
 KEY_DIR="${DOOR_FIRMWARE_SIGNING_DIR:-$HOME/Library/Application Support/Door Unlocker/FirmwareSigning}"
 KEY_PATH="${DOOR_FIRMWARE_SIGNING_KEY:-$KEY_DIR/firmware-signing-key.pem}"
 WORK_DIR="${DOOR_BOOTLOADER_WORK_DIR:-${TMPDIR:-/tmp}/door-unlocker-secure-bootloader}"
@@ -122,6 +123,19 @@ cmake -S "$SOURCE_DIR" -B "$BUILD_DIR" \
   -DSIGNED_FW_QX="$QX" \
   -DSIGNED_FW_QY="$QY" \
   -DPython_EXECUTABLE="$VENV_DIR/bin/python3"
+DFU_TRANSPORT_SOURCE="$SOURCE_DIR/lib/sdk11/components/libraries/bootloader_dfu/dfu_transport_ble.c"
+SOURCE_PATH="$DFU_TRANSPORT_SOURCE" DEVICE_NAME="$CANDIDATE_DFU_DEVICE_NAME" /usr/bin/python3 <<'PY'
+import os
+from pathlib import Path
+
+path = Path(os.environ["SOURCE_PATH"])
+source = path.read_text(encoding="utf-8")
+old = '#define DEVICE_NAME                          "AdaDFU"'
+new = f'#define DEVICE_NAME                          "{os.environ["DEVICE_NAME"]}"'
+if source.count(old) != 1:
+    raise SystemExit("Could not uniquely replace the upstream DFU device name")
+path.write_text(source.replace(old, new), encoding="utf-8")
+PY
 cmake --build "$BUILD_DIR" --parallel
 popd >/dev/null
 
@@ -147,6 +161,7 @@ MAX_DFU_PAYLOAD_BYTES="$MAX_DFU_PAYLOAD_BYTES" \
 GAP_EVENT_LENGTH_UNITS="$GAP_EVENT_LENGTH_UNITS" \
 MIN_CONNECTION_INTERVAL_MS="$MIN_CONNECTION_INTERVAL_MS" \
 MAX_CONNECTION_INTERVAL_MS="$MAX_CONNECTION_INTERVAL_MS" \
+CANDIDATE_DFU_DEVICE_NAME="$CANDIDATE_DFU_DEVICE_NAME" \
 PUBLIC_MANIFEST="$PUBLIC_MANIFEST" \
 /usr/bin/python3 <<'PY'
 import hashlib
@@ -199,6 +214,7 @@ manifest = {
     "gapEventLengthUnits": int(os.environ["GAP_EVENT_LENGTH_UNITS"]),
     "minimumConnectionIntervalMs": int(os.environ["MIN_CONNECTION_INTERVAL_MS"]),
     "maximumConnectionIntervalMs": int(os.environ["MAX_CONNECTION_INTERVAL_MS"]),
+    "dfuDeviceName": os.environ["CANDIDATE_DFU_DEVICE_NAME"],
     "dataLengthExtension": True,
     "automaticTwoMegabitPhy": True,
     "flashWritePacing": True,

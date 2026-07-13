@@ -1,6 +1,8 @@
 import Foundation
 
 public struct DoorFirmwareDfuTuning: Equatable, Sendable {
+    public static let optimizedBootloaderName = "DoorDFU"
+    public static let optimizedBootloaderPacketReceiptNotificationParameter: UInt16 = 1
     public static let maxAdafruitPacketReceiptNotificationParameter: UInt16 = 8
     public static let defaultPacketReceiptNotificationParameter: UInt16 = 8
     public static let defaultDataObjectPreparationDelay: TimeInterval = 0.4
@@ -27,6 +29,12 @@ public struct DoorFirmwareDfuTuning: Equatable, Sendable {
     }
 
     public static let stableDefault = DoorFirmwareDfuTuning()
+
+    public func packetReceiptNotificationParameter(forBootloaderNamed name: String?) -> UInt16 {
+        name == Self.optimizedBootloaderName
+            ? Self.optimizedBootloaderPacketReceiptNotificationParameter
+            : packetReceiptNotificationParameter
+    }
 
     public static func fromProcessInfo(_ processInfo: ProcessInfo = .processInfo) -> DoorFirmwareDfuTuning {
         from(arguments: processInfo.arguments, environment: processInfo.environment)

@@ -214,7 +214,8 @@ swift run door-unlocker bootloader
 `script/flash_xiao_uf2.sh --build-only` compiles the Arduino firmware and creates both update formats:
 
 - `dist/DoorUnlockerXiao.uf2` for USB-C UF2 recovery flashing.
-- `dist/DoorUnlockerXiao-dfu.zip` for BLE OTA DFU from the iPhone or Mac app.
+- `dist/DoorUnlockerXiao-dfu.zip` for the factory `AdaDFU` bootloader (legacy CRC16 envelope).
+- `dist/DoorUnlockerXiao-signed-dfu.zip` for the signed `DoorDFU` candidate (P-256 ECDSA envelope).
 
 The build script compiles the controller with `-Os` by default to keep OTA packages small without changing firmware behavior. Set `XIAO_OPTIMIZATION_FLAG=-Ofast` when running the script if you need to reproduce the stock Seeed board-package optimization setting.
 
@@ -226,7 +227,7 @@ For USB-C recovery or first-time flashing, use:
 
 When the installed firmware supports `app bootloader`, the script asks the running controller to reboot into UF2 bootloader mode, then copies the UF2 to `/Volumes/XIAO-SENSE`. If the installed firmware is too old to enter UF2 mode from USB-C, the script pauses for a one-time reset-button double press. The script uses `cp -X` when copying the UF2 so macOS does not add metadata files to the XIAO bootloader volume.
 
-For app-driven OTA updates, the controller must already trust the app issuing the update command. The trusted app sends the signed `ENTER_OTA_DFU` command, the controller enters BLE DFU mode, the app uploads `DoorUnlockerXiao-dfu.zip`, then the controller reboots and the app verifies the reported firmware version. Both apps persist an update journal and, after relaunch, first reconcile normal firmware before probing DFU mode. Old normal firmware causes a clean restart, the expected firmware completes verification, and a reachable bootloader restarts the Legacy DFU transfer. USB-C remains the recovery fallback.
+For app-driven OTA updates, the controller must already trust the app issuing the update command. The trusted app sends the signed `ENTER_OTA_DFU` command, then chooses the compatible package after discovering the bootloader: factory `AdaDFU` receives CRC16 and custom `DoorDFU` receives ECDSA. Both apps persist an update journal and, after relaunch, first reconcile normal firmware before probing DFU mode. Transient interruptions retry at most three upload attempts; integrity/signature/CRC failures stop instead of looping. USB-C remains the recovery fallback.
 
 Firmware may be promoted to a release only after `python3 script/quality_suite.py --firmware-release` passes. In addition to the exact-package BLE proof, that mode requires proof that the recorded signed dual-bank bootloader is physically installed, rejects an unsigned image, and preserved a valid bank through power-loss tests. The structural contract gate also rejects a non-subscribable control characteristic and prevents the pre-DFU connection phase from being blocked as though DFU transport had already taken over.
 
@@ -236,9 +237,9 @@ Normal firmware updates should preserve the controller's stored pairings, lock n
 
 The controller keeps the servo signal attached while the lock is in the unlocked state so the arm can hold pressure on the handle until auto-lock or a manual lock command. After returning to the locked/rest angle, the firmware detaches the servo signal to reduce idle power draw and heat.
 
-The current firmware `0.1.26` application payload is approximately `134 KB`. The latest clean trusted-iPhone proof on the installed legacy bootloader completed in `92s`; structured telemetry measured `82.68s` inside the DFU upload. The app logs scan, bootloader selection, progress buckets, current/average throughput, completion, and failure events under the `FirmwareUpdate` log category.
+The current firmware `0.1.26` application payload is approximately `134 KB`. The optimized trusted-iPhone BLE proof uploaded it in `7.05s` (about `19 KB/s`) and verified the rebooted controller over BLE in `19s` total. A previous controller-unplugged proof completed in `92s`; the optimized run kept USB-C attached only as a recovery/power anchor, so one final optimized unplugged proof remains required. The app logs scan, selected package profile, progress, throughput, completion, and failures.
 
-The current DFU tuning uses packet receipt notification parameter `8`. The configured object-preparation delay is ignored by Legacy DFU. The repository vendors NordicDFU `4.16.0` as an independent package with one documented Adafruit compatibility patch: Legacy DFU uses CoreBluetooth's negotiated write payload, capped at `244` bytes, instead of always forcing `20`. Existing bootloaders still report a `20`-byte limit; Adafruit `0.10+` can use the larger path. PRN `8` remains the highest value Adafruit documents as safe.
+The factory DFU path uses PRN `8`. The repository vendors NordicDFU `4.16.0` with a focused packet-sizing patch: known `AdaDFU` and `DoorDFU` bootloaders use negotiated writes up to `244` bytes, while unknown bootloaders stay at `20`. Earlier fast runs failed because AdaDFU received the wrong signed init-packet format, not because 244-byte transport was corrupt; the dual-package flow fixed that distinction. Physical app-termination tests at 30% and 80% both recovered and validated.
 
 The speed research, bottleneck analysis, and next benchmark matrix live in [`docs/ota-speed-plan.md`](docs/ota-speed-plan.md). The stable apps share one DFU tuning model so iPhone and Mac updates use the same default path. For controlled iPhone benchmark runs, the verifier accepts debug-only launch overrides:
 
@@ -281,7 +282,7 @@ RUN_ID=<run-id> INTERRUPT_AT_PROGRESS=30 \
   ./script/verify_ios_ota.sh --wireless-only --target <new-version>
 ```
 
-The verifier kills the app process after observing the requested progress, relaunches it without debug update arguments, and only passes after a fresh BLE firmware-version notification. Use `script/summarize_ota_timing.py` to turn a captured app console log into structured timing JSON.
+The verifier kills the app process after observing the requested progress, relaunches it without requesting another update, and only passes after the relaunched app receives the target firmware version over BLE. Use `script/summarize_ota_timing.py` to turn a captured app console log into structured timing JSON.
 
 For Mac OTA testing, build the package and send it through the admin app/CLI flow:
 
@@ -295,7 +296,7 @@ For Mac OTA testing, build the package and send it through the admin app/CLI flo
 
 The XIAO bootloader is separate from Door Unlocker firmware. The repository now contains a public P-256 verification key and reproducible metadata for an Adafruit nRF52 bootloader `0.11.0` candidate built specifically for `xiao_nrf52840_ble_sense` with `DUALBANK_FW=1`, `SIGNED_FW=1`, and unsigned UF2 disabled. Its build gate also pins the high-throughput transport profile: ATT MTU `247`, DFU payloads up to `244` bytes, data-length extension, automatic 2 Mbps PHY negotiation, `15-30ms` connection intervals, connection-event extension, and accelerated flash writes. `script/build_secure_bootloader.sh` reproduces that candidate from the checked-in public key; the private key is not required to build or inspect the bootloader. The private key at `~/Library/Application Support/Door Unlocker/FirmwareSigning/firmware-signing-key.pem` is used only to sign application updates. Back it up securely; losing it prevents future signed updates to migrated controllers.
 
-`script/flash_xiao_uf2.sh --build-only` signs the DFU application when the private key is present. `script/check_ota_bootloader_contract.py` cryptographically verifies the package against the checked-in public key. It also parses every block of the migration UF2 and rejects any image that touches the SoftDevice, application, or Door Unlocker data region. The candidate is **not** considered installed or production-proven until `docs/ota-bootloader-installed-proof.json` records the exact bootloader artifact hash plus physical rollback and unsigned-rejection results. Do not install the candidate without an attended USB-C/J-Link recovery path.
+`script/flash_xiao_uf2.sh --build-only` creates both package envelopes when the private key is present. `script/check_ota_bootloader_contract.py` requires byte-identical application payloads, verifies the signed package against the checked-in public key, and validates every migration-UF2 address range. The candidate is **not** considered installed or production-proven until `docs/ota-bootloader-installed-proof.json` records the exact bootloader artifact hash plus physical rollback and unsigned-rejection results. Do not install the candidate without an attended USB-C/J-Link recovery path.
 
 Prepare the candidate without modifying hardware using `script/install_secure_bootloader.sh`. The explicit `--install --confirm-jlink-recovery` mode copies the special one-time UF2 migration image only when the existing XIAO bootloader volume is mounted and the operator confirms an SWD unbrick path. Routine updates continue to use signed BLE DFU packages, not the migration image.
 

@@ -74,11 +74,18 @@ extension DoorAdminStore: DoorFirmwareDfuManagerDelegate {
         isAwaitingPostDfuFirmwareVerification = false
         didPostFirmwareVerificationNotification = false
         updateFirmwareUpdateJournal(phase: .paused, error: message)
-        firmwareUpdateStatus = "Firmware update paused"
+        let shouldAutomaticallyRetry = canAutomaticallyRetryFirmwareUpdate(after: message)
+        firmwareUpdateStatus = shouldAutomaticallyRetry
+            ? "Firmware update paused"
+            : "Firmware update failed"
         firmwareUpdateProgress = nil
         isFirmwareUpdateRunning = false
-        lastError = "Firmware update paused. It will resume after reconnecting."
-        scheduleInterruptedFirmwareUpdateRetry()
+        lastError = shouldAutomaticallyRetry
+            ? "Firmware update paused. It will resume after reconnecting."
+            : message
+        if shouldAutomaticallyRetry {
+            scheduleInterruptedFirmwareUpdateRetry()
+        }
         scanBluetooth()
     }
 }

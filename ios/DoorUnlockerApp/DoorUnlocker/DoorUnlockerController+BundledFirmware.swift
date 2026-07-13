@@ -10,6 +10,10 @@ extension DoorUnlockerController {
         Bundle.main.url(forResource: "DoorUnlockerXiao-dfu", withExtension: "zip")
     }
 
+    var bundledSignedFirmwarePackageURL: URL? {
+        Bundle.main.url(forResource: "DoorUnlockerXiao-signed-dfu", withExtension: "zip")
+    }
+
     var bundledFirmwareVersion: String? {
         Self.bundledFirmwareVersion()
     }
@@ -28,7 +32,7 @@ extension DoorUnlockerController {
         }
 
         if let targetVersion = bundledFirmwareVersion {
-            persistPendingBundledFirmwareUpdate(targetVersion: targetVersion)
+            persistPendingBundledFirmwareUpdate(targetVersion: targetVersion, resetAttempts: true)
         }
 #if DEBUG
         recordStartupTelemetry("firmware_bundle_found", details: url.lastPathComponent, once: false)
@@ -92,7 +96,10 @@ extension DoorUnlockerController {
         startAutomaticBundledFirmwareUpdate(targetVersion: targetVersion)
     }
 
-    func persistPendingBundledFirmwareUpdate(targetVersion: String) {
+    func persistPendingBundledFirmwareUpdate(
+        targetVersion: String,
+        resetAttempts: Bool = false
+    ) {
         let defaults = UserDefaults.standard
         defaults.set(targetVersion, forKey: Self.pendingBundledFirmwareUpdateVersionKey)
         defaults.set(Date().timeIntervalSince1970, forKey: Self.pendingBundledFirmwareUpdateStartedAtKey)
@@ -105,7 +112,8 @@ extension DoorUnlockerController {
             packageByteCount: packageBytes,
             packageSHA256: packageSHA256
         )
-        if journal.targetVersion != targetVersion
+        if resetAttempts
+            || journal.targetVersion != targetVersion
             || journal.packagePath != packageURL.path
             || !DoorFirmwarePackageFingerprint.matches(journal, packageURL: packageURL) {
             journal = DoorFirmwareUpdateJournal(
@@ -140,7 +148,10 @@ extension DoorUnlockerController {
     }
 
     func scheduleInterruptedFirmwareUpdateRetry(after delay: Duration = .seconds(3)) {
-        guard firmwareUpdateJournalStore.load() != nil else { return }
+        guard let journal = firmwareUpdateJournalStore.load(),
+              journal.attemptCount < DoorFirmwareRetryPolicy.maximumAutomaticUploadAttempts else {
+            return
+        }
         firmwareUpdateRecoveryRetryTask?.cancel()
         firmwareUpdateRecoveryRetryTask = Task { [weak self] in
             do { try await Task.sleep(for: delay) } catch { return }
@@ -176,6 +187,12 @@ extension DoorUnlockerController {
             return
         }
 
+        if let journal = firmwareUpdateJournalStore.load(),
+           journal.attemptCount >= DoorFirmwareRetryPolicy.maximumAutomaticUploadAttempts {
+            firmwareUpdateStatus = "Firmware update paused after repeated failures"
+            return
+        }
+
         let defaults = UserDefaults.standard
         let pendingVersion = firmwareUpdateJournalStore.load()?.targetVersion
             ?? defaults.string(forKey: Self.pendingBundledFirmwareUpdateVersionKey)
@@ -186,6 +203,13 @@ extension DoorUnlockerController {
         probeNormalFirmwareBeforeInterruptedDfuResume(
             targetVersion: targetVersion,
             packageURL: packageURL
+        )
+    }
+
+    func canAutomaticallyRetryPendingFirmwareUpdate(after message: String) -> Bool {
+        DoorFirmwareRetryPolicy.shouldAutomaticallyRetry(
+            journal: firmwareUpdateJournalStore.load(),
+            errorMessage: message
         )
     }
 

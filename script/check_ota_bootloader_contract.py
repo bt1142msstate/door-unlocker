@@ -15,7 +15,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_PACKAGE = ROOT / "ios" / "DoorUnlockerApp" / "DoorUnlocker" / "Firmware" / "DoorUnlockerXiao-dfu.zip"
+DEFAULT_PACKAGE = ROOT / "ios" / "DoorUnlockerApp" / "DoorUnlocker" / "Firmware" / "DoorUnlockerXiao-signed-dfu.zip"
+DEFAULT_LEGACY_PACKAGE = ROOT / "ios" / "DoorUnlockerApp" / "DoorUnlocker" / "Firmware" / "DoorUnlockerXiao-dfu.zip"
 DEFAULT_BOOTLOADER_MANIFEST = ROOT / "docs" / "firmware-signing-public-key.json"
 DEFAULT_PUBLIC_KEY = ROOT / "docs" / "firmware-signing-public-key.pem"
 DEFAULT_INSTALLED_PROOF = ROOT / "docs" / "ota-bootloader-installed-proof.json"
@@ -33,11 +34,14 @@ LEGACY_PACKET_SIZING = (
     / "LegacyDfuPacketSizing.swift"
 )
 LEGACY_PACKET_WRITER = LEGACY_PACKET_SIZING.with_name("DFUPacket.swift")
+DFU_TUNING = ROOT / "shared" / "DoorUnlockerShared" / "Sources" / "DoorUnlockerShared" / "DoorFirmwareDfuTuning.swift"
+DFU_MANAGER = ROOT / "shared" / "DoorUnlockerShared" / "Sources" / "DoorUnlockerDFU" / "DoorFirmwareDfuManager.swift"
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--package", type=Path, default=DEFAULT_PACKAGE)
+    parser.add_argument("--legacy-package", type=Path, default=DEFAULT_LEGACY_PACKAGE)
     parser.add_argument("--bootloader-manifest", type=Path, default=DEFAULT_BOOTLOADER_MANIFEST)
     parser.add_argument("--public-key", type=Path, default=DEFAULT_PUBLIC_KEY)
     parser.add_argument("--installed-proof", type=Path, default=DEFAULT_INSTALLED_PROOF)
@@ -49,14 +53,10 @@ def main() -> int:
         print(f"NOT PROVEN: package_exists ({args.package})")
         return 1 if args.require_production else 0
 
-    with zipfile.ZipFile(args.package) as archive:
-        names = set(archive.namelist())
-        manifest = json.loads(archive.read("manifest.json"))
-        application = manifest.get("manifest", {}).get("application", {})
-        bin_name = application.get("bin_file")
-        dat_name = application.get("dat_file")
-        bin_bytes = archive.read(bin_name) if bin_name in names else b""
-        dat_bytes = archive.read(dat_name) if dat_name in names else b""
+    manifest, application, bin_bytes, dat_bytes = read_dfu_package(args.package)
+    legacy_manifest, legacy_application, legacy_bin_bytes, legacy_dat_bytes = read_dfu_package(
+        args.legacy_package
+    )
 
     package_manifest = manifest.get("manifest", {})
     init_packet = application.get("init_packet_data", {})
@@ -75,6 +75,15 @@ def main() -> int:
         init_packet.get("init_packet_ecds", ""),
         args.public_key,
     )
+    legacy_init_packet = legacy_application.get("init_packet_data", {})
+    legacy_package_format_valid = (
+        args.legacy_package.is_file()
+        and float(legacy_manifest.get("manifest", {}).get("dfu_version", 1)) < 0.8
+        and isinstance(legacy_init_packet.get("firmware_crc16"), int)
+        and not legacy_init_packet.get("init_packet_ecds")
+        and len(legacy_dat_bytes) <= 32
+    )
+    package_payloads_match = bool(bin_bytes) and bin_bytes == legacy_bin_bytes
 
     bootloader_manifest = load_json(args.bootloader_manifest)
     build_script = BOOTLOADER_BUILD_SCRIPT.read_text(encoding="utf-8")
@@ -104,6 +113,7 @@ def main() -> int:
             'GAP_EVENT_LENGTH_UNITS="12"',
             'MIN_CONNECTION_INTERVAL_MS="15"',
             'MAX_CONNECTION_INTERVAL_MS="30"',
+            'CANDIDATE_DFU_DEVICE_NAME="DoorDFU"',
             "opt.common_opt.conn_evt_ext.enable = 1",
             ".rx_phys = BLE_GAP_PHY_AUTO",
             "BLE_GAP_EVT_DATA_LENGTH_UPDATE_REQUEST",
@@ -124,6 +134,8 @@ def main() -> int:
     client_packet_sizing = (
         LEGACY_PACKET_SIZING.read_text(encoding="utf-8")
         + LEGACY_PACKET_WRITER.read_text(encoding="utf-8")
+        + DFU_TUNING.read_text(encoding="utf-8")
+        + DFU_MANAGER.read_text(encoding="utf-8")
     )
     client_uses_dynamic_legacy_payload = all(
         marker in client_packet_sizing
@@ -131,6 +143,13 @@ def main() -> int:
             "maximumWriteValueLength",
             "adafruitMaximumPayloadBytes = 244",
             "legacyPayloadBytes = 20",
+            'factoryBootloaderName = "AdaDFU"',
+            'optimizedBootloaderName = "DoorDFU"',
+            "peripheralName: peripheral.name",
+            "optimizedBootloaderPacketReceiptNotificationParameter: UInt16 = 1",
+            ".packetReceiptNotificationParameter(forBootloaderNamed: peripheral.name)",
+            "signedPackageURL",
+            "packageURL(forBootloaderNamed: peripheral.name)",
         )
     )
     migration_checks = migration_artifact_checks(
@@ -164,6 +183,8 @@ def main() -> int:
         "package_has_application": bool(application.get("bin_file")),
         "package_hash_matches_payload": package_hash_matches,
         "package_ecdsa_signature_valid": package_signature_valid,
+        "factory_package_uses_legacy_crc_format": legacy_package_format_valid,
+        "factory_and_signed_payloads_match": package_payloads_match,
         "candidate_requires_signed_firmware": candidate_signed,
         "candidate_uses_dual_bank": candidate_dual_bank,
         "candidate_disables_unsigned_uf2": candidate_disables_unsigned_uf2,
@@ -228,6 +249,20 @@ def load_json(path: Path) -> dict:
     return value if isinstance(value, dict) else {}
 
 
+def read_dfu_package(path: Path) -> tuple[dict, dict, bytes, bytes]:
+    if not path.is_file():
+        return {}, {}, b"", b""
+    with zipfile.ZipFile(path) as archive:
+        names = set(archive.namelist())
+        manifest = json.loads(archive.read("manifest.json"))
+        application = manifest.get("manifest", {}).get("application", {})
+        bin_name = application.get("bin_file")
+        dat_name = application.get("dat_file")
+        bin_bytes = archive.read(bin_name) if bin_name in names else b""
+        dat_bytes = archive.read(dat_name) if dat_name in names else b""
+    return manifest, application, bin_bytes, dat_bytes
+
+
 def parse_numeric_id(value: object) -> int | None:
     if isinstance(value, int):
         return value
@@ -247,6 +282,7 @@ def candidate_speed_profile_valid(manifest: dict) -> bool:
         and manifest.get("gapEventLengthUnits") == 12
         and manifest.get("minimumConnectionIntervalMs") == 15
         and manifest.get("maximumConnectionIntervalMs") == 30
+        and manifest.get("dfuDeviceName") == "DoorDFU"
         and manifest.get("dataLengthExtension") is True
         and manifest.get("automaticTwoMegabitPhy") is True
         and manifest.get("flashWritePacing") is True

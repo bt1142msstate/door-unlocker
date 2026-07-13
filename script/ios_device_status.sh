@@ -48,13 +48,48 @@ done
 tmp_json="$(mktemp)"
 trap 'rm -f "$tmp_json"' EXIT
 
+list_devices() {
+  local attempt
+  for attempt in 1 2 3 4 5; do
+    if xcrun devicectl list devices --json-output "$tmp_json" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 0.4
+  done
+  return 1
+}
+
 # Asking CoreDevice for details actively establishes the local-network tunnel.
 # A passive device list can otherwise report a paired wireless phone as stale.
-if [[ -n "$DEVICE_UDID" ]]; then
-  xcrun devicectl device info details --device "$DEVICE_UDID" >/dev/null 2>&1 || true
+list_devices
+
+if [[ -z "$DEVICE_UDID" ]]; then
+  DEVICE_UDID="$(/usr/bin/python3 - "$tmp_json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as handle:
+    devices = json.load(handle).get("result", {}).get("devices", [])
+for device in devices:
+    hardware = device.get("hardwareProperties", {})
+    if hardware.get("reality") == "physical" and hardware.get("platform") in ("iOS", "iPadOS"):
+        print(hardware.get("udid") or device.get("identifier") or "")
+        break
+PY
+)"
 fi
 
-xcrun devicectl list devices --json-output "$tmp_json" >/dev/null
+# The initial list discovers the default phone. Requesting details then actively
+# establishes its local-network tunnel; refresh the list so callers see that state.
+if [[ -n "$DEVICE_UDID" ]]; then
+  for attempt in 1 2 3; do
+    if xcrun devicectl device info details --device "$DEVICE_UDID" >/dev/null 2>&1; then
+      break
+    fi
+    sleep 0.4
+  done
+  list_devices
+fi
 
 DEVICE_UDID="$DEVICE_UDID" REQUIRE_WIRELESS="$REQUIRE_WIRELESS" JSON_ONLY="$JSON_ONLY" /usr/bin/python3 - "$tmp_json" <<'PY'
 import json

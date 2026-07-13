@@ -2,16 +2,50 @@ import XCTest
 @testable import NordicDFU
 
 final class LegacyDfuPacketSizingTests: XCTestCase {
-    func testPreservesLegacyTwentyByteFallback() {
-        XCTAssertEqual(LegacyDfuPacketSizing.payloadBytes(maximumWriteValueLength: 0), 20)
-        XCTAssertEqual(LegacyDfuPacketSizing.payloadBytes(maximumWriteValueLength: 20), 20)
+    func testPreservesTwentyByteFallbackForUnknownBootloaders() {
+        XCTAssertEqual(
+            LegacyDfuPacketSizing.payloadBytes(
+                maximumWriteValueLength: 244,
+                peripheralName: "UnknownDFU"
+            ),
+            20
+        )
+        XCTAssertEqual(
+            LegacyDfuPacketSizing.payloadBytes(
+                maximumWriteValueLength: 244,
+                peripheralName: nil
+            ),
+            20
+        )
     }
 
-    func testUsesNegotiatedAdafruitPayload() {
-        XCTAssertEqual(LegacyDfuPacketSizing.payloadBytes(maximumWriteValueLength: 182), 182)
+    func testUsesMeasuredNegotiatedPayloadForFactoryBootloader() {
+        XCTAssertEqual(
+            LegacyDfuPacketSizing.payloadBytes(
+                maximumWriteValueLength: 244,
+                peripheralName: "AdaDFU"
+            ),
+            244
+        )
+    }
+
+    func testUsesNegotiatedPayloadForDoorUnlockerBootloader() {
+        XCTAssertEqual(
+            LegacyDfuPacketSizing.payloadBytes(
+                maximumWriteValueLength: 182,
+                peripheralName: "DoorDFU"
+            ),
+            182
+        )
     }
 
     func testCapsPayloadAtBootloaderMaximum() {
-        XCTAssertEqual(LegacyDfuPacketSizing.payloadBytes(maximumWriteValueLength: 512), 244)
+        XCTAssertEqual(
+            LegacyDfuPacketSizing.payloadBytes(
+                maximumWriteValueLength: 512,
+                peripheralName: "DoorDFU"
+            ),
+            244
+        )
     }
 }

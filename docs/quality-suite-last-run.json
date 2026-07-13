@@ -12,7 +12,7 @@
     "sharedContractBehaviorVerified": true,
     "warningFree": false
   },
-  "durationSeconds": 117.18,
+  "durationSeconds": 96.42,
   "environment": {
     "arduinoCLI": "arduino-cli  Version: 1.5.1 Commit: Homebrew Date: 2026-06-05T09:39:33Z",
     "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
@@ -23,7 +23,7 @@
   "executedStepCount": 22,
   "expectedStepCount": 22,
   "fullSuitePassed": true,
-  "generatedAt": "2026-07-12T22:31:47.390023+00:00",
+  "generatedAt": "2026-07-12T23:59:26.187373+00:00",
   "limitations": [
     "Architecture and maintainability scores are transparent project heuristics, not Apple-issued grades.",
     "A fast run does not execute iOS adapter tests, firmware compilation, app builds, or HTML/CAD consistency checks.",
@@ -55,7 +55,7 @@
         "-p",
         "test_*.py"
       ],
-      "durationSeconds": 0.43,
+      "durationSeconds": 0.27,
       "exitCode": 0,
       "name": "Quality tooling negative-control tests",
       "status": "pass",
@@ -70,11 +70,11 @@
         "--threshold",
         "90.0"
       ],
-      "durationSeconds": 0.38,
+      "durationSeconds": 0.36,
       "exitCode": 0,
       "name": "Maintainability size/length gate",
       "status": "pass",
-      "summary": "Maintainability: 92.1/100",
+      "summary": "Maintainability: 92.0/100",
       "warningCount": 0,
       "warnings": []
     },
@@ -87,7 +87,7 @@
         "--write-graph",
         "docs/dependency-graph.md"
       ],
-      "durationSeconds": 0.11,
+      "durationSeconds": 0.1,
       "exitCode": 0,
       "name": "Low coupling / high modularity / independence gate",
       "status": "pass",
@@ -115,11 +115,11 @@
         "./script/flash_xiao_uf2.sh",
         "--build-only"
       ],
-      "durationSeconds": 21.25,
+      "durationSeconds": 23.58,
       "exitCode": 0,
       "name": "Controller firmware compile and package verification",
       "status": "pass",
-      "summary": "Bundled iOS DFU package synchronized at ./ios/DoorUnlockerApp/DoorUnlocker/Firmware/DoorUnlockerXiao-dfu.zip",
+      "summary": "Bundled app firmware packages synchronized.",
       "warningCount": 1,
       "warnings": [
         "~/Library/Arduino15/packages/Seeeduino/hardware/nrf52/1.1.13/tools/uf2conv/uf2conv.py:177: SyntaxWarning: \"\\s\" is an invalid escape sequence. Such sequences will not work in the future. Did you mean \"\\\\s\"? A raw string is also an option."
@@ -129,7 +129,7 @@
       "command": [
         "./script/build_secure_bootloader.sh"
       ],
-      "durationSeconds": 33.76,
+      "durationSeconds": 21.37,
       "exitCode": 0,
       "name": "Signed dual-bank bootloader reproducible build",
       "status": "pass",
@@ -145,7 +145,7 @@
         "script/check_ota_bootloader_contract.py",
         "--require-candidate"
       ],
-      "durationSeconds": 0.06,
+      "durationSeconds": 0.07,
       "exitCode": 0,
       "name": "Signed OTA package and bootloader candidate contract",
       "status": "pass",
@@ -184,7 +184,7 @@
         "python3",
         "script/check_state_notification_delivery_contract.py"
       ],
-      "durationSeconds": 0.48,
+      "durationSeconds": 0.46,
       "exitCode": 0,
       "name": "Per-subscriber state delivery contract gate",
       "status": "pass",
@@ -214,7 +214,7 @@
       "exitCode": 0,
       "name": "Physical iPhone cold/warm launch performance proof",
       "status": "pass",
-      "summary": "iOS launch performance proof: PASS (cold median/p95 295.5/428ms; warm median/p95 0.0/0ms)",
+      "summary": "iOS launch performance proof: PASS (cold median/p95 291.5/467ms; warm median/p95 0.0/0ms)",
       "warningCount": 0,
       "warnings": []
     },
@@ -225,11 +225,11 @@
         "--package-path",
         "shared/DoorUnlockerShared"
       ],
-      "durationSeconds": 2.06,
+      "durationSeconds": 1.98,
       "exitCode": 0,
       "name": "Shared package independent tests",
       "status": "pass",
-      "summary": "Test Suite 'All tests' passed at 2026-07-12 17:30:48.915.",
+      "summary": "Test Suite 'All tests' passed at 2026-07-12 18:58:38.119.",
       "warningCount": 0,
       "warnings": []
     },
@@ -240,11 +240,11 @@
         "--package-path",
         "vendor/IOS-DFU-Library"
       ],
-      "durationSeconds": 0.5,
+      "durationSeconds": 0.41,
       "exitCode": 0,
       "name": "Patched NordicDFU transport independent tests",
       "status": "pass",
-      "summary": "Test Suite 'All tests' passed at 2026-07-12 17:30:49.420.",
+      "summary": "Test Suite 'All tests' passed at 2026-07-12 18:58:38.529.",
       "warningCount": 0,
       "warnings": []
     },
@@ -255,11 +255,11 @@
         "--package-path",
         "mac/DoorUnlockerAdmin"
       ],
-      "durationSeconds": 0.57,
+      "durationSeconds": 0.76,
       "exitCode": 0,
       "name": "Mac core/admin independent tests",
       "status": "pass",
-      "summary": "Test Suite 'All tests' passed at 2026-07-12 17:30:49.988.",
+      "summary": "Test Suite 'All tests' passed at 2026-07-12 18:58:39.293.",
       "warningCount": 0,
       "warnings": []
     },
@@ -268,7 +268,7 @@
         "python3",
         "script/run_ios_tests.py"
       ],
-      "durationSeconds": 42.99,
+      "durationSeconds": 34.99,
       "exitCode": 0,
       "name": "iOS adapter tests",
       "status": "pass",
@@ -291,7 +291,7 @@
         "-quiet",
         "build"
       ],
-      "durationSeconds": 3.9,
+      "durationSeconds": 3.88,
       "exitCode": 0,
       "name": "iOS app generic build",
       "status": "pass",
@@ -304,7 +304,7 @@
         "./script/build_and_run.sh",
         "--verify"
       ],
-      "durationSeconds": 1.77,
+      "durationSeconds": 1.58,
       "exitCode": 0,
       "name": "Mac app build",
       "status": "pass",
@@ -317,7 +317,7 @@
         "python3",
         "script/check_bench_wiring_paths.py"
       ],
-      "durationSeconds": 3.41,
+      "durationSeconds": 2.24,
       "exitCode": 0,
       "name": "Bench wiring path model",
       "status": "pass",
@@ -330,7 +330,7 @@
         "python3",
         "script/check_controller_breadboard_alignment.py"
       ],
-      "durationSeconds": 2.64,
+      "durationSeconds": 2.08,
       "exitCode": 0,
       "name": "Controller breadboard alignment model",
       "status": "pass",
@@ -343,7 +343,7 @@
         "python3",
         "script/check_splitter_card_alignment.py"
       ],
-      "durationSeconds": 2.61,
+      "durationSeconds": 2.06,
       "exitCode": 0,
       "name": "Inline splitter alignment model",
       "status": "pass",
@@ -356,7 +356,7 @@
         "python3",
         "script/check_phase2_html_model.py"
       ],
-      "durationSeconds": 0.03,
+      "durationSeconds": 0.04,
       "exitCode": 0,
       "name": "Phase 2 dimensional model",
       "status": "pass",

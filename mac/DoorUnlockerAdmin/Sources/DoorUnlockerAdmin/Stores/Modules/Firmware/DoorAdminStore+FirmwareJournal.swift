@@ -40,7 +40,10 @@ extension DoorAdminStore {
     }
 
     func scheduleInterruptedFirmwareUpdateRetry(after delay: Duration = .seconds(3)) {
-        guard firmwareUpdateJournalStore.load() != nil else { return }
+        guard let journal = firmwareUpdateJournalStore.load(),
+              journal.attemptCount < DoorFirmwareRetryPolicy.maximumAutomaticUploadAttempts else {
+            return
+        }
         firmwareUpdateRecoveryRetryTask?.cancel()
         firmwareUpdateRecoveryRetryTask = Task { [weak self] in
             do { try await Task.sleep(for: delay) } catch { return }
@@ -55,6 +58,10 @@ extension DoorAdminStore {
     func resumeInterruptedFirmwareUpdateIfNeeded() {
         guard !isFirmwareUpdateRunning,
               let journal = firmwareUpdateJournalStore.load() else { return }
+        guard journal.attemptCount < DoorFirmwareRetryPolicy.maximumAutomaticUploadAttempts else {
+            firmwareUpdateStatus = "Firmware update paused after repeated failures"
+            return
+        }
         let packageURL = URL(fileURLWithPath: journal.packagePath)
         guard DoorFirmwarePackageFingerprint.matches(journal, packageURL: packageURL) else {
             firmwareUpdateStatus = "Firmware package needs replacement"
@@ -88,6 +95,13 @@ extension DoorAdminStore {
                 )
             }
         }
+    }
+
+    func canAutomaticallyRetryFirmwareUpdate(after message: String) -> Bool {
+        DoorFirmwareRetryPolicy.shouldAutomaticallyRetry(
+            journal: firmwareUpdateJournalStore.load(),
+            errorMessage: message
+        )
     }
 
     func reconcileFirmwareUpdateJournal(installedVersion: String) {

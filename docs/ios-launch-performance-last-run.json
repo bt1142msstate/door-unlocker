@@ -2,30 +2,30 @@
   "appVersion": "0.2.1",
   "cold": {
     "metrics": {
-      "maximum": 428,
-      "mean": 316.5,
-      "median": 295.5,
-      "minimum": 262,
-      "p95": 428
+      "maximum": 467,
+      "mean": 315.4,
+      "median": 291.5,
+      "minimum": 254,
+      "p95": 467
     },
     "samplesMs": [
-      275,
-      286,
-      421,
-      273,
-      279,
-      317,
-      305,
-      319,
-      428,
-      262
+      330,
+      467,
+      254,
+      257,
+      284,
+      420,
+      316,
+      261,
+      299,
+      266
     ]
   },
-  "criticalPathSha256": "cafb8f07f130e0da1f4834a4b175bfb47371a646827f4a26c04b849bf619d5bd",
+  "criticalPathSha256": "f1f937a73c6188776d690607329138de666074c3889e60d413315e49c3ccc3da",
   "deviceClass": "physical iPhone",
   "failure": null,
   "firmwareVersion": "0.1.26",
-  "generatedAt": "2026-07-12T22:02:34.235407+00:00",
+  "generatedAt": "2026-07-12T23:57:39.689939+00:00",
   "limitsMs": {
     "coldMedian": 550,
     "coldP95": 800,

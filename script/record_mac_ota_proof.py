@@ -41,13 +41,20 @@ def parse_time(value: str) -> dt.datetime:
     return dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
-def main() -> int:
-    target = firmware_version()
+def parsed_events(text: str) -> list[tuple[dt.datetime, int, str]]:
     events: list[tuple[dt.datetime, int, str]] = []
-    for line in TRACE_PATH.read_text(encoding="utf-8", errors="replace").splitlines():
+    for line in text.splitlines():
         match = LINE.match(line)
         if match:
-            events.append((parse_time(match.group("time")), int(match.group("uptime")), match.group("event")))
+            events.append(
+                (parse_time(match.group("time")), int(match.group("uptime")), match.group("event"))
+            )
+    return sorted(events, key=lambda event: event[0])
+
+
+def main() -> int:
+    target = firmware_version()
+    events = parsed_events(TRACE_PATH.read_text(encoding="utf-8", errors="replace"))
 
     verification_index = next(
         (index for index in range(len(events) - 1, -1, -1)
@@ -66,18 +73,18 @@ def main() -> int:
         raise SystemExit("No signed BLE firmware-entry command precedes verification")
 
     run = events[entry_index:verification_index + 1]
-    ota_state = next((uptime for _, uptime, event in run if event == "wireless_state_received firmware_update:ota_dfu"), None)
-    upload_start = next((uptime for _, uptime, event in run if event.endswith("progress=0") and "Uploading firmware" in event), None)
-    upload_end = next((uptime for _, uptime, event in run if event == "firmware_update_uploaded"), None)
+    ota_state = next((time for time, _, event in run if event == "wireless_state_received firmware_update:ota_dfu"), None)
+    upload_start = next((time for time, _, event in run if event.endswith("progress=0") and "Uploading firmware" in event), None)
+    upload_end = next((time for time, _, event in run if event == "firmware_update_uploaded"), None)
     if ota_state is None or upload_start is None or upload_end is None:
         raise SystemExit("The OTA upload did not provide complete start/end telemetry")
 
-    started_at, started_uptime, _ = events[entry_index]
-    ended_at, ended_uptime, _ = events[verification_index]
+    started_at, _, _ = events[entry_index]
+    ended_at, _, _ = events[verification_index]
     payload = {
-        "durationSeconds": round((ended_uptime - started_uptime) / 1_000, 3),
+        "durationSeconds": round((ended_at - started_at).total_seconds(), 3),
         "endedAt": ended_at.isoformat().replace("+00:00", "Z"),
-        "entryCommandElapsedMilliseconds": ota_state - started_uptime,
+        "entryCommandElapsedMilliseconds": round((ota_state - started_at).total_seconds() * 1_000),
         "entryCommandOver": "ble",
         "message": (
             f"Trusted Mac sent a signed BLE OTA command, uploaded the package, "
@@ -91,7 +98,7 @@ def main() -> int:
         "runId": started_at.strftime("%Y%m%dT%H%M%SZ") + "-mac",
         "startedAt": started_at.isoformat().replace("+00:00", "Z"),
         "targetFirmware": target,
-        "uploadSeconds": round((upload_end - upload_start) / 1_000, 3),
+        "uploadSeconds": round((upload_end - upload_start).total_seconds(), 3),
         "usbRecoveryCommandUsed": False,
         "verifiedOver": "ble",
     }

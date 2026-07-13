@@ -35,14 +35,15 @@ internal class DFUPacket: DFUCharacteristic {
     internal var characteristic: CBCharacteristic
     internal var logger: LoggerHelper
 
-    /// Adafruit nRF52 Bootloader 0.10+ supports Legacy DFU payloads up to
-    /// ATT_MTU - 3. CoreBluetooth reports 20 for older bootloaders, keeping
-    /// this compatible with the stock legacy path.
+    /// Only the Door Unlocker bootloader opts into the negotiated high-throughput
+    /// path. Stock bootloaders stay at 20 bytes because some advertise a larger
+    /// CoreBluetooth write length but corrupt Legacy DFU application transfers.
     private lazy var packetSize: UInt32 = {
         guard let peripheral = characteristic.service?.peripheral else { return 20 }
         let negotiatedLength = peripheral.maximumWriteValueLength(for: .withoutResponse)
         let selectedLength = LegacyDfuPacketSizing.payloadBytes(
-            maximumWriteValueLength: negotiatedLength
+            maximumWriteValueLength: negotiatedLength,
+            peripheralName: peripheral.name
         )
         logger.v("Legacy DFU packet payload set to \(selectedLength) bytes")
         return selectedLength

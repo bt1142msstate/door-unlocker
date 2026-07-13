@@ -59,7 +59,7 @@ class OtaBootloaderContractTests(unittest.TestCase):
         }
 
     def test_checked_in_package_signature_matches_public_key(self):
-        package = ROOT / "ios/DoorUnlockerApp/DoorUnlocker/Firmware/DoorUnlockerXiao-dfu.zip"
+        package = ROOT / "ios/DoorUnlockerApp/DoorUnlocker/Firmware/DoorUnlockerXiao-signed-dfu.zip"
         with zipfile.ZipFile(package) as archive:
             manifest = json.loads(archive.read("manifest.json"))["manifest"]["application"]
             dat_bytes = archive.read(manifest["dat_file"])
@@ -73,7 +73,7 @@ class OtaBootloaderContractTests(unittest.TestCase):
         )
 
     def test_signature_mutation_is_rejected(self):
-        package = ROOT / "ios/DoorUnlockerApp/DoorUnlocker/Firmware/DoorUnlockerXiao-dfu.zip"
+        package = ROOT / "ios/DoorUnlockerApp/DoorUnlocker/Firmware/DoorUnlockerXiao-signed-dfu.zip"
         with zipfile.ZipFile(package) as archive:
             manifest = json.loads(archive.read("manifest.json"))["manifest"]["application"]
             dat_bytes = bytearray(archive.read(manifest["dat_file"]))
@@ -86,6 +86,20 @@ class OtaBootloaderContractTests(unittest.TestCase):
                 ROOT / "docs/firmware-signing-public-key.pem",
             )
         )
+
+    def test_factory_and_signed_packages_wrap_the_same_application(self):
+        firmware_dir = ROOT / "ios/DoorUnlockerApp/DoorUnlocker/Firmware"
+        legacy = MODULE.read_dfu_package(firmware_dir / "DoorUnlockerXiao-dfu.zip")
+        signed = MODULE.read_dfu_package(firmware_dir / "DoorUnlockerXiao-signed-dfu.zip")
+        legacy_manifest, legacy_application, legacy_bin, legacy_dat = legacy
+        signed_manifest, _, signed_bin, signed_dat = signed
+
+        self.assertEqual(legacy_bin, signed_bin)
+        self.assertLess(float(legacy_manifest["manifest"]["dfu_version"]), 0.8)
+        self.assertIsInstance(legacy_application["init_packet_data"]["firmware_crc16"], int)
+        self.assertLessEqual(len(legacy_dat), 32)
+        self.assertGreaterEqual(float(signed_manifest["manifest"]["dfu_version"]), 0.8)
+        self.assertGreater(len(signed_dat), 64)
 
     def test_der_encoding_handles_high_bit_and_leading_zero(self):
         raw = bytes.fromhex("80" + "00" * 31 + "00" * 31 + "01")
@@ -115,6 +129,7 @@ class OtaBootloaderContractTests(unittest.TestCase):
             "gapEventLengthUnits": 12,
             "minimumConnectionIntervalMs": 15,
             "maximumConnectionIntervalMs": 30,
+            "dfuDeviceName": "DoorDFU",
             "dataLengthExtension": True,
             "automaticTwoMegabitPhy": True,
             "flashWritePacing": True,

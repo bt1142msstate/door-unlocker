@@ -85,6 +85,7 @@
 		C0A24214E575BDA1276F33AF /* DoorUnlockerWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 0A1C429066F1F2E4A615BFA4 /* DoorUnlockerWidget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		C5B75B4F4B0919296F70926A /* DoorUnlockerController+BluetoothDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0999243518165354E88D8FC0 /* DoorUnlockerController+BluetoothDiscovery.swift */; };
 		C61F2365BCFF07598EB5947B /* DoorUnlockerXiao-dfu.zip in Resources */ = {isa = PBXBuildFile; fileRef = 21724F52B008BA23E57EA102 /* DoorUnlockerXiao-dfu.zip */; };
+		7C8E9A01B2C3D4E5F6071829 /* DoorUnlockerXiao-signed-dfu.zip in Resources */ = {isa = PBXBuildFile; fileRef = 7C8E9A01B2C3D4E5F6071828 /* DoorUnlockerXiao-signed-dfu.zip */; };
 		C7263688435EA45B3D122FBD /* FirmwareSettingsControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = B413268BCB572637125E2547 /* FirmwareSettingsControl.swift */; };
 		C7A1CB81F107BF62CF0AB7E2 /* DoorCommandStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C18937C3E54DF5410DC0842C /* DoorCommandStore.swift */; };
 		C85F8C8C924D92372951D1D6 /* DoorCommandAuthenticatorParityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EF5E717D7A99F418F0FA23C /* DoorCommandAuthenticatorParityTests.swift */; };
@@ -160,6 +161,7 @@
 		1DFA452D7993974F35F85AE6 /* DoorUnlockerController+FastCommandPreparation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DoorUnlockerController+FastCommandPreparation.swift"; sourceTree = "<group>"; };
 		1FDCC1CBEB3E9CF0A706B5FB /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		21724F52B008BA23E57EA102 /* DoorUnlockerXiao-dfu.zip */ = {isa = PBXFileReference; lastKnownFileType = archive.zip; path = "DoorUnlockerXiao-dfu.zip"; sourceTree = "<group>"; };
+		7C8E9A01B2C3D4E5F6071828 /* DoorUnlockerXiao-signed-dfu.zip */ = {isa = PBXFileReference; lastKnownFileType = archive.zip; path = "DoorUnlockerXiao-signed-dfu.zip"; sourceTree = "<group>"; };
 		21772B0AFB847B9615A26E3B /* DoorHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoorHeaderView.swift; sourceTree = "<group>"; };
 		2D67DE43D6D8F87D5161AC9D /* DoorUnlockerController+TransientErrors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DoorUnlockerController+TransientErrors.swift"; sourceTree = "<group>"; };
 		38241B99D375210229E6A168 /* DoorUnlockerController+ProximityAutomation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DoorUnlockerController+ProximityAutomation.swift"; sourceTree = "<group>"; };
@@ -377,6 +379,7 @@
 			isa = PBXGroup;
 			children = (
 				21724F52B008BA23E57EA102 /* DoorUnlockerXiao-dfu.zip */,
+				7C8E9A01B2C3D4E5F6071828 /* DoorUnlockerXiao-signed-dfu.zip */,
 			);
 			path = Firmware;
 			sourceTree = "<group>";
@@ -651,6 +654,7 @@
 			files = (
 				8E26F5A685A77038C6F72B43 /* Assets.xcassets in Resources */,
 				C61F2365BCFF07598EB5947B /* DoorUnlockerXiao-dfu.zip in Resources */,
+				7C8E9A01B2C3D4E5F6071829 /* DoorUnlockerXiao-signed-dfu.zip in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

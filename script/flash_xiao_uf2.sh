@@ -7,9 +7,12 @@ TMP_SKETCH="${TMPDIR:-/tmp}/DoorUnlockerXiao"
 TMP_BUILD="${TMPDIR:-/tmp}/DoorUnlockerXiaoBuild"
 UF2_PATH="$TMP_SKETCH/DoorUnlockerXiao.uf2"
 DIST_UF2_PATH="$ROOT_DIR/dist/DoorUnlockerXiao.uf2"
-DFU_ZIP_PATH="$TMP_BUILD/DoorUnlockerXiao.ino.zip"
+LEGACY_DFU_ZIP_PATH="$TMP_BUILD/DoorUnlockerXiao-legacy.zip"
+SIGNED_DFU_ZIP_PATH="$TMP_BUILD/DoorUnlockerXiao-signed.zip"
 DIST_DFU_ZIP_PATH="$ROOT_DIR/dist/DoorUnlockerXiao-dfu.zip"
 BUNDLED_DFU_ZIP_PATH="$ROOT_DIR/ios/DoorUnlockerApp/DoorUnlocker/Firmware/DoorUnlockerXiao-dfu.zip"
+DIST_SIGNED_DFU_ZIP_PATH="$ROOT_DIR/dist/DoorUnlockerXiao-signed-dfu.zip"
+BUNDLED_SIGNED_DFU_ZIP_PATH="$ROOT_DIR/ios/DoorUnlockerApp/DoorUnlocker/Firmware/DoorUnlockerXiao-signed-dfu.zip"
 FQBN="${XIAO_FQBN:-Seeeduino:nrf52:xiaonRF52840Sense}"
 XIAO_OPTIMIZATION_FLAG="${XIAO_OPTIMIZATION_FLAG:--Os}"
 UF2CONV="${UF2CONV:-$HOME/Library/Arduino15/packages/Seeeduino/hardware/nrf52/1.1.13/tools/uf2conv/uf2conv.py}"
@@ -126,29 +129,35 @@ mkdir -p "$(dirname "$DIST_UF2_PATH")"
 cp -X "$UF2_PATH" "$DIST_UF2_PATH"
 echo "UF2 ready at $DIST_UF2_PATH"
 
-echo "Creating BLE DFU package..."
+echo "Creating factory-compatible BLE DFU package..."
+"$NRFUTIL" dfu genpkg \
+  --dev-type "$DFU_DEVICE_TYPE" \
+  --sd-req "$DFU_SOFTDEVICE_REQ" \
+  --application "$TMP_BUILD/DoorUnlockerXiao.ino.hex" \
+  "$LEGACY_DFU_ZIP_PATH"
+
+cp -X "$LEGACY_DFU_ZIP_PATH" "$DIST_DFU_ZIP_PATH"
+mkdir -p "$(dirname "$BUNDLED_DFU_ZIP_PATH")"
+cp -X "$LEGACY_DFU_ZIP_PATH" "$BUNDLED_DFU_ZIP_PATH"
+echo "Factory AdaDFU package ready at $DIST_DFU_ZIP_PATH"
+
 if [[ -f "$FIRMWARE_SIGNING_KEY" ]]; then
+  echo "Creating signed DoorDFU package..."
   signing_python="$(signed_nrfutil_command)"
   "$signing_python" "$ROOT_DIR/script/adafruit_nrfutil_py3.py" dfu genpkg \
     --dev-type "$DFU_DEVICE_TYPE" \
     --sd-req "$DFU_SOFTDEVICE_REQ" \
     --application "$TMP_BUILD/DoorUnlockerXiao.ino.hex" \
     --key-file "$FIRMWARE_SIGNING_KEY" \
-    "$DFU_ZIP_PATH"
-  echo "BLE DFU package signed with the local Door Unlocker firmware key."
+    "$SIGNED_DFU_ZIP_PATH"
+  cp -X "$SIGNED_DFU_ZIP_PATH" "$DIST_SIGNED_DFU_ZIP_PATH"
+  cp -X "$SIGNED_DFU_ZIP_PATH" "$BUNDLED_SIGNED_DFU_ZIP_PATH"
+  echo "Signed DoorDFU package ready at $DIST_SIGNED_DFU_ZIP_PATH"
 else
-  "$NRFUTIL" dfu genpkg \
-    --dev-type "$DFU_DEVICE_TYPE" \
-    --sd-req "$DFU_SOFTDEVICE_REQ" \
-    --application "$TMP_BUILD/DoorUnlockerXiao.ino.hex" \
-    "$DFU_ZIP_PATH"
-  echo "Warning: generated an unsigned DFU package because no signing key was found." >&2
+  rm -f "$DIST_SIGNED_DFU_ZIP_PATH" "$BUNDLED_SIGNED_DFU_ZIP_PATH"
+  echo "Warning: no signed DoorDFU package was generated because no signing key was found." >&2
 fi
-cp -X "$DFU_ZIP_PATH" "$DIST_DFU_ZIP_PATH"
-mkdir -p "$(dirname "$BUNDLED_DFU_ZIP_PATH")"
-cp -X "$DFU_ZIP_PATH" "$BUNDLED_DFU_ZIP_PATH"
-echo "BLE DFU package ready at $DIST_DFU_ZIP_PATH"
-echo "Bundled iOS DFU package synchronized at $BUNDLED_DFU_ZIP_PATH"
+echo "Bundled app firmware packages synchronized."
 
 if [[ "$BUILD_ONLY" == "1" ]]; then
   exit 0

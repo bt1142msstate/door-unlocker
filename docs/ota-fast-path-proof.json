@@ -1,0 +1,18 @@
+{
+  "controllerUsbRecoveryAnchorAttached": true,
+  "durationSeconds": 19,
+  "endedAt": "2026-07-12T23:27:34Z",
+  "entryCommandOver": "ble",
+  "message": "Trusted iPhone sent a signed BLE OTA-entry command, uploaded the factory-compatible package in 7.05 seconds, rebooted, and verified firmware 0.1.26 over BLE.",
+  "package": {
+    "bytes": 135327,
+    "payloadSha256": "4a23218ae7879ecd6c84becb5a8ca84d94626547b334f4a3871c02267b53cf62"
+  },
+  "result": "pass",
+  "runId": "20260712-dual-package-fast-r1",
+  "targetFirmware": "0.1.26",
+  "uploadSeconds": 7.05,
+  "usbRecoveryCommandUsed": false,
+  "verifiedOver": "ble",
+  "wirelessOnly": false
+}

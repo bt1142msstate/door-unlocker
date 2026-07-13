@@ -15,6 +15,7 @@ public final class DoorFirmwareDfuManager: NSObject {
     private weak var delegate: DoorFirmwareDfuManagerDelegate?
     private var central: CBCentralManager?
     private var packageURL: URL?
+    private var signedPackageURL: URL?
     private var scanTimeoutTask: Task<Void, Never>?
     private var completionRecoveryTask: Task<Void, Never>?
     private var dfuInitiator: DFUServiceInitiator?
@@ -42,6 +43,7 @@ public final class DoorFirmwareDfuManager: NSObject {
 
     public func start(
         packageURL: URL,
+        signedPackageURL: URL? = nil,
         detectsNormalControllerFirmware: Bool = false,
         allowsBootloaderUpload: Bool = true
     ) {
@@ -50,6 +52,7 @@ public final class DoorFirmwareDfuManager: NSObject {
         self.detectsNormalControllerFirmware = detectsNormalControllerFirmware
         self.allowsBootloaderUpload = allowsBootloaderUpload
         self.packageURL = packageURL
+        self.signedPackageURL = signedPackageURL
         updateStartedAt = Date()
         uploadStartedAt = nil
         lastLoggedProgressBucket = nil
@@ -90,6 +93,7 @@ public final class DoorFirmwareDfuManager: NSObject {
         dfuController = nil
         dfuInitiator = nil
         packageURL = nil
+        signedPackageURL = nil
         updateStartedAt = nil
         uploadStartedAt = nil
         lastLoggedProgressBucket = nil
@@ -139,7 +143,7 @@ extension DoorFirmwareDfuManager {
 
     private func startDfu(target peripheral: CBPeripheral) {
         guard isActive,
-              let packageURL else {
+              let packageURL = packageURL(forBootloaderNamed: peripheral.name) else {
             fail("Firmware package is missing.")
             return
         }
@@ -149,8 +153,12 @@ extension DoorFirmwareDfuManager {
         scanTimeoutTask?.cancel()
         scanTimeoutTask = nil
         uploadStartedAt = Date()
-        log.info("DFU bootloader selected after \(self.elapsedText(since: self.updateStartedAt), privacy: .public)")
-        emitTelemetry("bootloader_selected")
+        let packageProfile = DoorFirmwarePackageProfile.select(forBootloaderNamed: peripheral.name)
+        packageBytes = (try? packageURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        log.info(
+            "DFU bootloader selected after \(self.elapsedText(since: self.updateStartedAt), privacy: .public) profile=\(packageProfile.rawValue, privacy: .public) packageBytes=\(self.packageBytes, privacy: .public)"
+        )
+        emitTelemetry("bootloader_selected", "profile=\(packageProfile.rawValue) packageBytes=\(packageBytes)")
         notify(status: "Starting firmware upload", progress: 0)
 
         do {
@@ -162,7 +170,8 @@ extension DoorFirmwareDfuManager {
             initiator.connectionTimeout = tuning.connectionTimeout
             initiator.dataObjectPreparationDelay = tuning.dataObjectPreparationDelay
             initiator.forceDfu = true
-            initiator.packetReceiptNotificationParameter = tuning.packetReceiptNotificationParameter
+            initiator.packetReceiptNotificationParameter = tuning
+                .packetReceiptNotificationParameter(forBootloaderNamed: peripheral.name)
             initiator.forceScanningForNewAddressInLegacyDfu = true
             dfuInitiator = initiator
             dfuController = initiator.with(firmware: firmware).start(target: peripheral)
@@ -204,6 +213,7 @@ extension DoorFirmwareDfuManager {
         dfuController = nil
         dfuInitiator = nil
         packageURL = nil
+        signedPackageURL = nil
         let totalElapsed = elapsedText(since: updateStartedAt)
         let uploadElapsed = elapsedText(since: uploadStartedAt)
         log.info("DFU completed total=\(totalElapsed, privacy: .public) upload=\(uploadElapsed, privacy: .public)")
@@ -230,6 +240,7 @@ extension DoorFirmwareDfuManager {
         dfuController = nil
         dfuInitiator = nil
         packageURL = nil
+        signedPackageURL = nil
         log.error("DFU failed after \(self.elapsedText(since: self.updateStartedAt), privacy: .public): \(message, privacy: .public)")
         emitTelemetry("failed", "message=\(message)")
         updateStartedAt = nil
@@ -261,6 +272,15 @@ extension DoorFirmwareDfuManager {
             averageBytesPerSecond: averageBytesPerSecond,
             elapsedUploadTime: uploadStartedAt.map { Date().timeIntervalSince($0) }
         )
+    }
+
+    private func packageURL(forBootloaderNamed name: String?) -> URL? {
+        switch DoorFirmwarePackageProfile.select(forBootloaderNamed: name) {
+        case .factoryCompatible:
+            return packageURL
+        case .signed:
+            return signedPackageURL
+        }
     }
 
     func schedulePostUploadRecoveryIfNeeded(

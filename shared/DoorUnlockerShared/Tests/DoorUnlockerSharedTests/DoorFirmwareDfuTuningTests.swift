@@ -2,6 +2,18 @@ import XCTest
 @testable import DoorUnlockerShared
 
 final class DoorFirmwareDfuTuningTests: XCTestCase {
+    func testOptimizedBootloaderUsesPerPacketAcknowledgements() {
+        let tuning = DoorFirmwareDfuTuning(packetReceiptNotificationParameter: 8)
+
+        XCTAssertEqual(
+            tuning.packetReceiptNotificationParameter(forBootloaderNamed: "DoorDFU"),
+            1
+        )
+        XCTAssertEqual(
+            tuning.packetReceiptNotificationParameter(forBootloaderNamed: "AdaDFU"),
+            8
+        )
+    }
     func testStableDefaultMatchesMeasuredSafePath() {
         XCTAssertEqual(DoorFirmwareDfuTuning.stableDefault.packetReceiptNotificationParameter, 8)
         XCTAssertEqual(DoorFirmwareDfuTuning.stableDefault.dataObjectPreparationDelay, 0.4)

@@ -174,6 +174,7 @@ extension DoorUnlockerController {
                 self.firmwareDfuStartFallbackTask = nil
                 self.firmwareDfuManager.start(
                     packageURL: packageURL,
+                    signedPackageURL: self.bundledSignedFirmwarePackageURL,
                     detectsNormalControllerFirmware: detectsNormalControllerFirmware
                 )
             }

@@ -23,6 +23,7 @@ APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
 APP_RESOURCES="$APP_CONTENTS/Resources"
 APP_BINARY="$APP_MACOS/$APP_NAME"
+FIRMWARE_RESOURCES="$ROOT_DIR/ios/DoorUnlockerApp/DoorUnlocker/Firmware"
 CLI_BINARY="$DIST_DIR/$CLI_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 ICON_SOURCE="$ROOT_DIR/mac/DoorUnlockerAdmin/Resources/AppIcon.icns"
@@ -238,6 +239,13 @@ build_bundle() {
 
   if [[ -f "$ICON_SOURCE" ]]; then
     cp -X "$ICON_SOURCE" "$APP_RESOURCES/$ICON_FILE_NAME"
+  fi
+
+  if [[ -d "$FIRMWARE_RESOURCES" ]]; then
+    ditto "$FIRMWARE_RESOURCES" "$APP_RESOURCES/Firmware"
+  else
+    echo "Missing required firmware resources: $FIRMWARE_RESOURCES" >&2
+    exit 1
   fi
 
   cat >"$INFO_PLIST" <<PLIST

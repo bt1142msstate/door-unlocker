@@ -89,7 +89,21 @@ extension DoorAdminStore {
         prepareWirelessSessionForFirmwareDfu()
         firmwareDfuManager.start(
             packageURL: packageURL,
+            signedPackageURL: signedFirmwarePackageURL(companionTo: packageURL),
             detectsNormalControllerFirmware: detectsNormalControllerFirmware
+        )
+    }
+
+    private func signedFirmwarePackageURL(companionTo packageURL: URL) -> URL? {
+        let sibling = packageURL.deletingLastPathComponent()
+            .appendingPathComponent("DoorUnlockerXiao-signed-dfu.zip")
+        if FileManager.default.fileExists(atPath: sibling.path) {
+            return sibling
+        }
+        return Bundle.main.url(
+            forResource: "DoorUnlockerXiao-signed-dfu",
+            withExtension: "zip",
+            subdirectory: "Firmware"
         )
     }
 

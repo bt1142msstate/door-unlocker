@@ -77,7 +77,7 @@ public struct DoorFirmwareUpdateJournal: Codable, Equatable, Sendable {
         error: String? = nil,
         at date: Date = Date()
     ) {
-        if self.phase != phase, phase == .requestingBootloader || phase == .uploading {
+        if self.phase != phase, phase == .uploading {
             attemptCount += 1
         }
         self.phase = phase
