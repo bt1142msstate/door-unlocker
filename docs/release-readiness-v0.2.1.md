@@ -1,5 +1,7 @@
 # Door Unlocker v0.2.1 Release Readiness
 
+> Historical release record. For the current beta, see [`release-readiness-v0.3.0-beta.1.md`](release-readiness-v0.3.0-beta.1.md).
+
 **PASS: v0.2.1 supersedes v0.2.0 as the stable software release.**
 
 The earlier `v0.2.0` release was promoted before later startup, presentation, and multi-client stability failures were found. It remains available only as superseded history and should not be treated as the recommended build.

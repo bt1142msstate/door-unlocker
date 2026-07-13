@@ -1,26 +1,35 @@
 {
+  "activationJournalAddress": "0x000E9000",
   "activationPowerLossRequiresPhysicalProof": true,
+  "activationResumesAfterReset": true,
   "applicationStartAddress": "0x27000",
   "artifact": "DoorUnlocker-XIAO-Sense-0.11.0-signed-dualbank.hex",
-  "artifactSha256": "06fe4678a8a93a7e377739e60e2353d68817371ed9d21c473e54fcda2ae43c42",
+  "artifactSha256": "1bf51f8fcc809b2f4d24d4fc3ac2aea1a1101ecd7c82b37d5eaae0b71f283f2b",
   "attMtuBytes": 247,
   "automaticTwoMegabitPhy": true,
+  "backgroundInactiveBankPreparation": true,
   "board": "xiao_nrf52840_ble_sense",
+  "bootloaderCodeArtifact": "DoorUnlocker-XIAO-Sense-0.11.0-transactional-code.bin",
+  "bootloaderCodeArtifactBytes": 34288,
+  "bootloaderCodeArtifactSha256": "401f0d1cf1617679b2ff0a4fee4bc2c6db2a04db0e079d0cf9226e9cd0cbc4e3",
   "bootloaderStartAddress": "0xF4000",
   "bootloaderVersion": "0.11.0",
+  "buildProfile": "release-candidate",
   "dataLengthExtension": true,
   "defaultToOtaDfu": true,
   "dfuDeviceName": "DoorDFU",
   "doubleResetUsbRecoveryPreserved": true,
   "dualBankApplicationMaxBytes": 397312,
   "dualBankFirmware": true,
+  "flashWriteLocalLatencyEvents": 50,
   "flashWritePacing": true,
   "forceUnsignedUF2": false,
   "gapEventLengthUnits": 12,
+  "hciRxQueueSize": 16,
   "interruptedTransferRetainsBank0": true,
   "invalidAppDefaultsToOtaDfu": true,
   "maxDfuPayloadBytes": 244,
-  "maximumConnectionIntervalMs": 30,
+  "maximumConnectionIntervalMs": 15,
   "migrationAddressRanges": [
     {
       "bytes": 2816,
@@ -28,8 +37,8 @@
       "start": "0x00000000"
     },
     {
-      "bytes": 33280,
-      "endExclusive": "0x000FC200",
+      "bytes": 34304,
+      "endExclusive": "0x000FC600",
       "start": "0x000F4000"
     },
     {
@@ -44,14 +53,21 @@
     }
   ],
   "migrationArtifact": "DoorUnlocker-XIAO-Sense-0.11.0-signed-dualbank-migration.uf2",
-  "migrationArtifactSha256": "b728acb5901133789ff39703794d9971423fa381ea39a6f3cb51445a349f288f",
-  "migrationBlockCount": 143,
+  "migrationArtifactSha256": "32c824dbfe919195bc7d8d233816f50f17b961573feaf545cd2083c7fece5661",
+  "migrationBlockCount": 147,
   "migrationFamilyId": "0xD663823C",
   "minimumConnectionIntervalMs": 15,
+  "otaBootloaderArtifact": "DoorUnlocker-XIAO-Sense-0.11.0-transactional-bootloader-dfu.zip",
+  "otaBootloaderArtifactBytes": 26460,
+  "otaBootloaderArtifactSha256": "6e00ea51eefd81d90429e45ed33c3d2543e19a30147e4f8ae3bfcdd46eb9a5f9",
+  "phyPreference": "auto",
+  "pstorageQueueSize": 18,
   "publicKeyId": "573f0793ca490344789edc67ac72c062e53d24d7dcba0c37d6d33f12b37d2d97",
   "reservedApplicationDataBytes": 40960,
   "signedFirmwareRequired": true,
   "singleBankFallbackDisabled": true,
   "softDeviceFirmwareId": "0x0123",
-  "softDeviceVersion": "7.3.0"
+  "softDeviceVersion": "7.3.0",
+  "transactionalActivationJournal": true,
+  "verifiedBlankBankEraseBypass": true
 }

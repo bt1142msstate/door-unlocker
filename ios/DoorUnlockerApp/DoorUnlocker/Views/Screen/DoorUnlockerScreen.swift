@@ -152,10 +152,7 @@ private struct DoorMainContentView: View {
 
     var body: some View {
         VStack(spacing: settingsExpanded ? 12 : 18) {
-            DoorHeaderView(
-                lockName: controller.lockName,
-                deviceName: controller.deviceName
-            )
+            DoorHeaderView(lockName: controller.lockName)
             .padding(.top, 10)
 
             ControllerStateCard(

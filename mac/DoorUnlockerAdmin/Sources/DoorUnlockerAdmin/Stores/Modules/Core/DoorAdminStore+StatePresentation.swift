@@ -2,6 +2,35 @@ import DoorUnlockerShared
 import DoorUnlockerCore
 
 extension DoorAdminStore {
+    var displayedFirmwareUpdateProgress: Int? {
+        isFirmwareUpdateObservedFromAnotherDevice
+            ? observedFirmwareUpdate.estimatedProgress
+            : firmwareUpdateProgress
+    }
+
+    var firmwareUpdateDeviceText: String? {
+        if isFirmwareUpdateObservedFromAnotherDevice {
+            return observedFirmwareUpdate.updaterName.map { "Updating from \($0)" }
+                ?? "Updating from another device"
+        }
+        if isFirmwareUpdateRunning {
+            return "Updating from \(localMacDeviceName)"
+        }
+        return nil
+    }
+
+    var firmwareUpdateETAText: String? {
+        let isEstimated = isFirmwareUpdateObservedFromAnotherDevice
+        let seconds = isEstimated
+            ? observedFirmwareUpdate.estimatedSecondsRemaining
+            : firmwareUpdateEstimatedSecondsRemaining
+        guard let seconds, seconds > 0 else { return nil }
+        let minutes = seconds / 60
+        let remainder = seconds % 60
+        let duration = minutes == 0 ? "\(seconds)s" : remainder == 0 ? "\(minutes)m" : "\(minutes)m \(remainder)s"
+        return isEstimated ? "Estimated \(duration) remaining" : "About \(duration) remaining"
+    }
+
     var stateTitle: String {
         if controllerHealthStatus == "storage_fault" { return "Controller Needs Service" }
         guard isDisplayedControllerStateAuthoritative else {
@@ -9,7 +38,8 @@ extension DoorAdminStore {
             case .bluetoothOff: return "Bluetooth Off"
             case .permissionNeeded: return "Bluetooth Access Needed"
             case .unsupported: return "Bluetooth Unsupported"
-            case .updatingFirmware: return "Updating Controller"
+            case .updatingFirmware:
+                return isFirmwareUpdateObservedFromAnotherDevice ? "Updating from Another Device" : "Updating Controller"
             case .pairingRequired: return "Pairing Required"
             case .offline: return "Controller Offline"
             default: return "Connecting"
@@ -23,7 +53,7 @@ extension DoorAdminStore {
         if status.hasPendingRequest { return "Pairing request" }
         if isConnected && !isUSBControllerValidated { return "Validating USB-C controller" }
         if sessionAssessment.phase.isKnownControllerConnectionInProgress {
-            return "Connecting to the controller"
+            return "Connecting"
         }
 
         switch sessionAssessment.phase {
@@ -32,13 +62,14 @@ extension DoorAdminStore {
         case .permissionNeeded: return "Bluetooth access is needed"
         case .unsupported: return "Bluetooth is not supported"
         case .bluetoothResetting: return "Bluetooth is resetting"
-        case .offline: return "Not connected to the controller"
-        case .scanning: return "Looking for the controller"
-        case .connecting, .discovering, .restoring: return "Connecting to the controller"
-        case .pairingRequired: return "Pairing is required"
-        case .authenticating, .synchronizing, .preparingSecureControl: return "Connecting to the controller"
-        case .ready: return "Controller ready"
-        case .updatingFirmware: return "Updating the controller"
+        case .offline: return "Controller offline"
+        case .scanning: return "Looking for controller"
+        case .connecting, .discovering, .restoring: return "Connecting"
+        case .pairingRequired: return "Pairing required"
+        case .authenticating, .synchronizing, .preparingSecureControl: return "Securing connection"
+        case .ready: return "Ready"
+        case .updatingFirmware:
+            return isFirmwareUpdateObservedFromAnotherDevice ? "Updating from another device" : "Updating controller"
         }
     }
 
@@ -55,11 +86,10 @@ extension DoorAdminStore {
 
         switch sessionAssessment.phase {
         case .ready:
-            let transport = isUSBControllerValidated ? "USB-C" : "wireless"
-            let roster = hasCurrentConnectionRoster
-                ? " Connected \(status.connectedCount)/\(max(status.maxConnections, 4))."
-                : " The connected-device list is syncing."
-            return "The current lock state is synced over \(transport).\(roster)"
+            if hasCurrentConnectionRoster {
+                return "\(status.connectedCount) of \(max(status.maxConnections, 4)) devices connected"
+            }
+            return isUSBControllerValidated ? "Connected over USB-C" : "Lock state is synced"
         case .offline:
             return "The displayed lock state is not current. The app will reconnect automatically."
         case .scanning:
@@ -69,7 +99,9 @@ extension DoorAdminStore {
         case .pairingRequired:
             return "Connect USB-C or use another trusted device to approve this Mac."
         case .updatingFirmware:
-            return firmwareUpdateStatus
+            return isFirmwareUpdateObservedFromAnotherDevice
+                ? "Reconnecting automatically when the update finishes."
+                : firmwareUpdateStatus
         default:
             return "The app will make secure control available when the controller is ready."
         }

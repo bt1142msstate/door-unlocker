@@ -57,6 +57,7 @@
 		8B5E526B72ED02EECD4F2447 /* DoorUnlockerController+LocationAcquisition.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C6E41732EE1C11A8A0B2F1 /* DoorUnlockerController+LocationAcquisition.swift */; };
 		8E26F5A685A77038C6F72B43 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1709BA0379F800D24C670A9 /* Assets.xcassets */; };
 		8E78A0ACCB59B1739C6ED865 /* DoorUnlockerController+PostReadySession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54B3F46F88A2FA9F2D0FCD0A /* DoorUnlockerController+PostReadySession.swift */; };
+		8E9391DB2E1C993D43DF32C0 /* DoorUnlockerXiao-signed-dfu.zip in Resources */ = {isa = PBXBuildFile; fileRef = FF65E6E141FAF757AB25B0C5 /* DoorUnlockerXiao-signed-dfu.zip */; };
 		8FF1C08FB70617D3D2B464E7 /* DoorHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21772B0AFB847B9615A26E3B /* DoorHeaderView.swift */; };
 		921D2F86ED2CA88DE3AD2698 /* DoorUnlockerShared in Frameworks */ = {isa = PBXBuildFile; productRef = 24FD5550007EA32502AE8519 /* DoorUnlockerShared */; };
 		94148F41D5F0EA229FE39F7A /* LockZoneExpandedMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C652DEFDFA26A6660F9BC5AD /* LockZoneExpandedMapView.swift */; };
@@ -85,7 +86,6 @@
 		C0A24214E575BDA1276F33AF /* DoorUnlockerWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 0A1C429066F1F2E4A615BFA4 /* DoorUnlockerWidget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		C5B75B4F4B0919296F70926A /* DoorUnlockerController+BluetoothDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0999243518165354E88D8FC0 /* DoorUnlockerController+BluetoothDiscovery.swift */; };
 		C61F2365BCFF07598EB5947B /* DoorUnlockerXiao-dfu.zip in Resources */ = {isa = PBXBuildFile; fileRef = 21724F52B008BA23E57EA102 /* DoorUnlockerXiao-dfu.zip */; };
-		7C8E9A01B2C3D4E5F6071829 /* DoorUnlockerXiao-signed-dfu.zip in Resources */ = {isa = PBXBuildFile; fileRef = 7C8E9A01B2C3D4E5F6071828 /* DoorUnlockerXiao-signed-dfu.zip */; };
 		C7263688435EA45B3D122FBD /* FirmwareSettingsControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = B413268BCB572637125E2547 /* FirmwareSettingsControl.swift */; };
 		C7A1CB81F107BF62CF0AB7E2 /* DoorCommandStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C18937C3E54DF5410DC0842C /* DoorCommandStore.swift */; };
 		C85F8C8C924D92372951D1D6 /* DoorCommandAuthenticatorParityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EF5E717D7A99F418F0FA23C /* DoorCommandAuthenticatorParityTests.swift */; };
@@ -161,7 +161,6 @@
 		1DFA452D7993974F35F85AE6 /* DoorUnlockerController+FastCommandPreparation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DoorUnlockerController+FastCommandPreparation.swift"; sourceTree = "<group>"; };
 		1FDCC1CBEB3E9CF0A706B5FB /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		21724F52B008BA23E57EA102 /* DoorUnlockerXiao-dfu.zip */ = {isa = PBXFileReference; lastKnownFileType = archive.zip; path = "DoorUnlockerXiao-dfu.zip"; sourceTree = "<group>"; };
-		7C8E9A01B2C3D4E5F6071828 /* DoorUnlockerXiao-signed-dfu.zip */ = {isa = PBXFileReference; lastKnownFileType = archive.zip; path = "DoorUnlockerXiao-signed-dfu.zip"; sourceTree = "<group>"; };
 		21772B0AFB847B9615A26E3B /* DoorHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoorHeaderView.swift; sourceTree = "<group>"; };
 		2D67DE43D6D8F87D5161AC9D /* DoorUnlockerController+TransientErrors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DoorUnlockerController+TransientErrors.swift"; sourceTree = "<group>"; };
 		38241B99D375210229E6A168 /* DoorUnlockerController+ProximityAutomation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DoorUnlockerController+ProximityAutomation.swift"; sourceTree = "<group>"; };
@@ -247,6 +246,7 @@
 		FB3A55A105E8A1A5E4FC668D /* LockZoneSettingsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockZoneSettingsCard.swift; sourceTree = "<group>"; };
 		FD0419D99C1A37D19543F810 /* DoorUnlockerController+PairingState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DoorUnlockerController+PairingState.swift"; sourceTree = "<group>"; };
 		FEFEB9D89F9055F6F86F8AAF /* DoorUnlockerController+WidgetState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DoorUnlockerController+WidgetState.swift"; sourceTree = "<group>"; };
+		FF65E6E141FAF757AB25B0C5 /* DoorUnlockerXiao-signed-dfu.zip */ = {isa = PBXFileReference; lastKnownFileType = archive.zip; path = "DoorUnlockerXiao-signed-dfu.zip"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -379,7 +379,7 @@
 			isa = PBXGroup;
 			children = (
 				21724F52B008BA23E57EA102 /* DoorUnlockerXiao-dfu.zip */,
-				7C8E9A01B2C3D4E5F6071828 /* DoorUnlockerXiao-signed-dfu.zip */,
+				FF65E6E141FAF757AB25B0C5 /* DoorUnlockerXiao-signed-dfu.zip */,
 			);
 			path = Firmware;
 			sourceTree = "<group>";
@@ -654,7 +654,7 @@
 			files = (
 				8E26F5A685A77038C6F72B43 /* Assets.xcassets in Resources */,
 				C61F2365BCFF07598EB5947B /* DoorUnlockerXiao-dfu.zip in Resources */,
-				7C8E9A01B2C3D4E5F6071829 /* DoorUnlockerXiao-signed-dfu.zip in Resources */,
+				8E9391DB2E1C993D43DF32C0 /* DoorUnlockerXiao-signed-dfu.zip in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -829,7 +829,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -848,7 +848,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 0.2.1;
+				MARKETING_VERSION = 0.3.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -895,7 +895,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -908,7 +908,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 0.2.1;
+				MARKETING_VERSION = 0.3.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

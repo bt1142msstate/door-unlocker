@@ -15,6 +15,7 @@ extension DoorAdminStore: DoorFirmwareDfuManagerDelegate {
         )
         firmwareUpdateStatus = update.status
         firmwareUpdateProgress = update.progress
+        firmwareUpdateEstimatedSecondsRemaining = update.estimatedSecondsRemaining
         if let progress = update.progress {
             updateFirmwareUpdateJournal(phase: .uploading, progress: progress)
         }
@@ -23,6 +24,7 @@ extension DoorAdminStore: DoorFirmwareDfuManagerDelegate {
     func firmwareDfuManagerDidDetectControllerFirmware() {
         firmwareUpdateStatus = "Controller firmware found. Reconnecting..."
         firmwareUpdateProgress = nil
+        firmwareUpdateEstimatedSecondsRemaining = nil
         isFirmwareUpdateRunning = false
         firmwareUpdateEntryCommandSent = false
         updateFirmwareUpdateJournal(phase: .verifying)
@@ -42,6 +44,7 @@ extension DoorAdminStore: DoorFirmwareDfuManagerDelegate {
         updateFirmwareUpdateJournal(phase: .verifying, progress: 100)
         firmwareUpdateStatus = "Update complete. Verifying..."
         firmwareUpdateProgress = 100
+        firmwareUpdateEstimatedSecondsRemaining = nil
         isFirmwareUpdateRunning = false
         if expectedFirmwareVerificationVersion != nil {
             isAwaitingPostDfuFirmwareVerification = true
@@ -73,12 +76,17 @@ extension DoorAdminStore: DoorFirmwareDfuManagerDelegate {
         firmwareUpdateEntryCommandSent = false
         isAwaitingPostDfuFirmwareVerification = false
         didPostFirmwareVerificationNotification = false
-        updateFirmwareUpdateJournal(phase: .paused, error: message)
         let shouldAutomaticallyRetry = canAutomaticallyRetryFirmwareUpdate(after: message)
+        if shouldAutomaticallyRetry {
+            updateFirmwareUpdateJournal(phase: .paused, error: message)
+        } else {
+            clearFirmwareUpdateJournal()
+        }
         firmwareUpdateStatus = shouldAutomaticallyRetry
             ? "Firmware update paused"
             : "Firmware update failed"
         firmwareUpdateProgress = nil
+        firmwareUpdateEstimatedSecondsRemaining = nil
         isFirmwareUpdateRunning = false
         lastError = shouldAutomaticallyRetry
             ? "Firmware update paused. It will resume after reconnecting."

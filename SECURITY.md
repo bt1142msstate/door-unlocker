@@ -8,19 +8,19 @@ The repository does not contain a command secret.
 
 The iPhone and Mac apps generate P-256 signing keys locally. They prefer Secure Enclave when available and fall back to Keychain-stored software keys when needed. Private keys are never written into source code. During pairing, the app sends only its public key and a short display name to the XIAO.
 
-The XIAO stores trusted device public keys in internal flash and accepts only `v2` commands with valid ECDSA signatures and increasing per-device counters.
+The XIAO stores trusted device public keys in internal flash and accepts only `v3` commands with valid ECDSA signatures, increasing per-device counters, and a fresh connection-private controller nonce. Captured commands cannot be replayed in a later session.
 
 The iPhone app also has an optional setting to require Face ID or the device passcode before it signs an unlock command. This setting is off by default for convenience, and locking does not require extra authentication.
 
 ## Pairing
 
-BLE pairing is locked by default. To add an iPhone, connect the XIAO over USB-C, open the serial monitor or Mac admin app, and enable pairing mode. Then connect with the iPhone app and tap **Pair This iPhone** while pairing mode is enabled. The phone shows a 4-digit approval code. Type that code with `pair approve CODE`, or type it into the Mac admin app. The Mac admin app intentionally does not display pending approval codes or pending public-key fingerprints. Pairing mode turns itself off after approval.
+BLE pairing is locked by default. An already trusted iPhone or Mac can open pairing mode wirelessly; USB-C remains the recovery path when no trusted key is available. The new device shows a 4-digit approval code, which must be entered on an already trusted device or with `pair approve CODE` over USB-C. The approving Mac intentionally does not reveal the code. Pairing mode turns itself off after approval.
 
-To trust the Mac itself, connect the XIAO over USB-C and open the Mac admin app. The app automatically sends its public signing key over the physically trusted USB-C admin channel and stores it directly, without a BLE approval code.
+The first Mac can be trusted automatically through the physically trusted USB-C admin channel. Additional Macs can use the same wireless approval flow as iPhone.
 
 The firmware can store multiple trusted public keys. Use USB-C serial command `pair status` to see the trusted device count and pending request, `pairs list` to list trusted fingerprints and names when known, `app rename N NAME` to rename a trusted device, `pairs remove N` to remove one trusted device, `pair reject` to reject a pending device, `pair off` to lock pairing mode, or `pairs clear` to remove all trusted devices. The Mac admin app and CLI wrap the same USB-C management path and can also use the Mac's paired key for wireless lock/unlock commands. When the Mac app is running, local CLI lock/unlock/toggle/timeout commands are handed to the app so only one process owns the USB-C serial stream; that means processes running as the same Mac user should be treated as trusted for this prototype.
 
-If a phone or Mac is replaced, the app is deleted, or the signing key is lost, enable USB-C pairing mode and pair the replacement device. If a device should no longer be trusted, remove it over USB-C or clear the pairing table and re-pair the devices you still trust.
+If a phone or Mac is replaced, the app is deleted, or its signing key is lost, approve the replacement from another trusted device. Use USB-C only when no trusted device remains. Remove a lost device from a trusted client or over USB-C.
 
 If a trusted phone or Mac is compromised, remove that device from the XIAO pairing table or reset the XIAO pairing table and pair freshly installed apps.
 

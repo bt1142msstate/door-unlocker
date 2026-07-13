@@ -79,6 +79,18 @@ class OtaBootloaderContractTests(unittest.TestCase):
             )
         )
 
+    def test_transactional_bootloader_ota_package_matches_exact_candidate(self):
+        manifest = json.loads(
+            (ROOT / "docs/firmware-signing-public-key.json").read_text(encoding="utf-8")
+        )
+        checks = MODULE.bootloader_ota_artifact_checks(
+            manifest,
+            ROOT / "dist/bootloader",
+            ROOT / "docs/firmware-signing-public-key.pem",
+        )
+
+        self.assertTrue(all(checks.values()), checks)
+
     def test_signature_mutation_is_rejected(self):
         package = ROOT / "ios/DoorUnlockerApp/DoorUnlocker/Firmware/DoorUnlockerXiao-signed-dfu.zip"
         with zipfile.ZipFile(package) as archive:
@@ -135,11 +147,13 @@ class OtaBootloaderContractTests(unittest.TestCase):
             "maxDfuPayloadBytes": 244,
             "gapEventLengthUnits": 12,
             "minimumConnectionIntervalMs": 15,
-            "maximumConnectionIntervalMs": 30,
+            "maximumConnectionIntervalMs": 15,
             "dfuDeviceName": "DoorDFU",
             "dataLengthExtension": True,
             "automaticTwoMegabitPhy": True,
             "flashWritePacing": True,
+            "verifiedBlankBankEraseBypass": True,
+            "backgroundInactiveBankPreparation": True,
         }
         self.assertTrue(MODULE.candidate_speed_profile_valid(profile))
 
@@ -155,6 +169,9 @@ class OtaBootloaderContractTests(unittest.TestCase):
             "singleBankFallbackDisabled": True,
             "interruptedTransferRetainsBank0": True,
             "activationPowerLossRequiresPhysicalProof": True,
+            "transactionalActivationJournal": True,
+            "activationResumesAfterReset": True,
+            "activationJournalAddress": "0x000E9000",
             "defaultToOtaDfu": True,
             "invalidAppDefaultsToOtaDfu": True,
             "doubleResetUsbRecoveryPreserved": True,
@@ -166,6 +183,21 @@ class OtaBootloaderContractTests(unittest.TestCase):
                 mutated = dict(profile)
                 mutated[key] = False
                 self.assertFalse(MODULE.candidate_fault_tolerance_profile_valid(mutated))
+
+    def test_transactional_activation_source_has_safe_commit_order(self):
+        manifest = json.loads(
+            (ROOT / "docs/firmware-signing-public-key.json").read_text(encoding="utf-8")
+        )
+        source = (
+            ROOT / "bootloader/transactional_activation/door_activation_journal.c"
+        ).read_text(encoding="utf-8")
+        self.assertTrue(MODULE.transactional_activation_contract_valid(manifest, source))
+
+        unsafe = source.replace(
+            "uint32_t const result = clear_journal();",
+            "uint32_t const result = NRF_SUCCESS;",
+        )
+        self.assertFalse(MODULE.transactional_activation_contract_valid(manifest, unsafe))
 
     def test_required_fault_cases_must_all_be_named_and_passed(self):
         required = {"erase", "upload-30"}
@@ -193,17 +225,23 @@ class OtaBootloaderContractTests(unittest.TestCase):
         manifest = {
             "dualBankApplicationMaxBytes": 397312,
             "singleBankFallbackDisabled": True,
+            "transactionalActivationJournal": True,
+            "activationResumesAfterReset": True,
         }
         report = SIMULATOR.simulate(manifest, 134452)
         self.assertTrue(report["passed"])
         self.assertEqual(len(report["powerCutCases"]), 100)
         self.assertTrue(report["allPreActivationCasesBootPreviousFirmware"])
         self.assertTrue(report["activationCopyRequiresPhysicalProof"])
+        self.assertTrue(report["allActivationCasesRecover"])
+        self.assertGreater(report["activationCutPointsModeled"], 30_000)
 
     def test_dual_bank_simulation_rejects_oversized_image(self):
         manifest = {
             "dualBankApplicationMaxBytes": 397312,
             "singleBankFallbackDisabled": True,
+            "transactionalActivationJournal": True,
+            "activationResumesAfterReset": True,
         }
         report = SIMULATOR.simulate(manifest, 397313)
         self.assertFalse(report["passed"])

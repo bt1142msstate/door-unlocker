@@ -21,4 +21,16 @@ public enum DoorFirmwarePackageProfile: String, Equatable, Sendable {
         let cached = cachedPeripheralName?.trimmingCharacters(in: .whitespacesAndNewlines)
         return cached?.isEmpty == false ? cached : nil
     }
+
+    public static func primaryPackageCanSatisfySignedProfile(fileName: String) -> Bool {
+        let normalized = fileName.lowercased()
+        return normalized.contains("signed-dfu")
+            || normalized.contains("bootloader-dfu")
+    }
+
+    public static func stagedFileName(for sourceFileName: String) -> String {
+        primaryPackageCanSatisfySignedProfile(fileName: sourceFileName)
+            ? sourceFileName
+            : "DoorUnlockerXiao-dfu.zip"
+    }
 }

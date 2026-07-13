@@ -8,13 +8,14 @@ POLL_SECONDS="${POLL_SECONDS:-420}"
 RUNS="${RUNS:-3}"
 DRY_RUN=0
 STOP_ON_FAILURE=0
+MINIMUM_THROUGHPUT_BPS="${MINIMUM_THROUGHPUT_BPS:-10000}"
 BASE_RUN_ID="${RUN_ID:-$(date -u +"%Y%m%dT%H%M%SZ")}"
 OUTPUT_DIR="${OTA_BENCHMARK_DIR:-$ROOT_DIR/docs/ota-benchmarks/$BASE_RUN_ID}"
 CASES=()
 
 usage() {
   cat <<USAGE
-usage: script/benchmark_ios_ota_matrix.sh [--target VERSION] [--device-udid UDID] [--runs N] [--case NAME=PRN:DELAY] [--dry-run] [--stop-on-failure]
+usage: script/benchmark_ios_ota_matrix.sh [--target VERSION] [--device-udid UDID] [--runs N] [--case NAME=PRN:DELAY] [--minimum-throughput-bps BPS] [--dry-run] [--stop-on-failure]
 
 Runs repeatable iPhone wireless-only OTA DFU proofs for a small tuning matrix.
 Each case delegates to script/verify_ios_ota.sh, which installs the iPhone app,
@@ -24,8 +25,8 @@ over BLE.
 
 Defaults:
   --runs 3
-  --case stable=8:0.4
-  --case faster-object-prep=8:0.3
+  --case stable=9:0.4
+  --case previous-stable=8:0.4
   --case reliability-check=4:0.3
 
 Environment:
@@ -34,6 +35,7 @@ Environment:
   POLL_SECONDS         Per-run verifier timeout. Defaults to 420.
   RUN_ID               Benchmark batch id. Defaults to UTC timestamp.
   OTA_BENCHMARK_DIR    Output directory. Defaults to docs/ota-benchmarks/<RUN_ID>.
+  MINIMUM_THROUGHPUT_BPS Per-run speed gate. Defaults to 10000 B/s.
 USAGE
 }
 
@@ -50,7 +52,7 @@ default_target_firmware() {
 add_case() {
   local spec="$1"
   if [[ "$spec" != *=* || "$spec" != *:* ]]; then
-    echo "Invalid case '$spec'. Expected NAME=PRN:DELAY, for example stable=8:0.4." >&2
+    echo "Invalid case '$spec'. Expected NAME=PRN:DELAY, for example stable=9:0.4." >&2
     exit 2
   fi
   CASES+=("$spec")
@@ -73,6 +75,10 @@ while [[ $# -gt 0 ]]; do
     --case)
       shift
       add_case "${1:-}"
+      ;;
+    --minimum-throughput-bps)
+      shift
+      MINIMUM_THROUGHPUT_BPS="${1:-}"
       ;;
     --dry-run)
       DRY_RUN=1
@@ -107,8 +113,13 @@ if ! [[ "$RUNS" =~ ^[0-9]+$ ]] || [[ "$RUNS" -lt 1 ]]; then
   exit 2
 fi
 
+if ! [[ "$MINIMUM_THROUGHPUT_BPS" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+  echo "--minimum-throughput-bps must be a non-negative number." >&2
+  exit 2
+fi
+
 if [[ "${#CASES[@]}" -eq 0 ]]; then
-  CASES=("stable=8:0.4" "faster-object-prep=8:0.3" "reliability-check=4:0.3")
+  CASES=("stable=9:0.4" "previous-stable=8:0.4" "reliability-check=4:0.3")
 fi
 
 mkdir -p "$OUTPUT_DIR"
@@ -116,6 +127,7 @@ mkdir -p "$OUTPUT_DIR"
 echo "OTA benchmark batch: $BASE_RUN_ID"
 echo "Target firmware: $TARGET_FIRMWARE"
 echo "Runs per case: $RUNS"
+echo "Minimum upload throughput: $MINIMUM_THROUGHPUT_BPS B/s"
 echo "Output: $OUTPUT_DIR"
 
 declare -a REPORTS=()
@@ -179,6 +191,7 @@ set +e
   --target "$TARGET_FIRMWARE" \
   --output-dir "$OUTPUT_DIR" \
   --latest "$ROOT_DIR/docs/ota-benchmark-last-run.json" \
+  --minimum-throughput-bps "$MINIMUM_THROUGHPUT_BPS" \
   "${REPORTS[@]}"
 summary_exit=$?
 set -e

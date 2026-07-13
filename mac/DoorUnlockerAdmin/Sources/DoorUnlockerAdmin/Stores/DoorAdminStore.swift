@@ -75,7 +75,9 @@ final class DoorAdminStore: NSObject, ObservableObject {
     @Published var remoteSettingApplyValue: String?
     @Published var firmwareUpdateStatus = "Ready"
     @Published var firmwareUpdateProgress: Int?
+    @Published var firmwareUpdateEstimatedSecondsRemaining: Int?
     @Published var isFirmwareUpdateRunning = false
+    @Published var observedFirmwareUpdate = DoorFirmwareUpdateObservation()
     @Published var lastError: String?
     @Published var runtimeTelemetryEntries: [RuntimeTelemetryEntry] = []
 
@@ -239,6 +241,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
     var firmwareUpdateWatchdogTask: Task<Void, Never>?
     var firmwareDfuStartFallbackTask: Task<Void, Never>?
     var firmwareUpdateRecoveryRetryTask: Task<Void, Never>?
+    var observedFirmwareUpdateTimeoutTask: Task<Void, Never>?
     lazy var firmwareDfuManager = DoorFirmwareDfuManager(
         delegate: self,
         tuning: .fromProcessInfo(
@@ -302,6 +305,7 @@ final class DoorAdminStore: NSObject, ObservableObject {
         secureLinkWatchdogTask?.cancel()
         firmwareUpdateWatchdogTask?.cancel()
         firmwareUpdateRecoveryRetryTask?.cancel()
+        observedFirmwareUpdateTimeoutTask?.cancel()
         DistributedNotificationCenter.default().removeObserver(self)
     }
 }

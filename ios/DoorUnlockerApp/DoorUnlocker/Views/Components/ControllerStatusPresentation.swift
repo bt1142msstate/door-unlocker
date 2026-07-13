@@ -48,42 +48,44 @@ struct ControllerStatusPresentation {
         controller: DoorUnlockerController
     ) -> String {
         if controller.controllerHealthStatus == "storage_fault" {
-            return "Controller storage needs service."
+            return "Storage needs service"
         }
         if phase.isKnownControllerConnectionInProgress {
-            return "Connecting to the controller."
+            return "Connecting"
         }
         switch phase {
         case .starting:
-            return "Bluetooth is starting."
+            return "Starting Bluetooth"
         case .bluetoothOff:
-            return "Bluetooth is off."
+            return "Bluetooth is off"
         case .permissionNeeded:
-            return "Bluetooth access is needed."
+            return "Bluetooth access needed"
         case .unsupported:
-            return "Bluetooth is not supported."
+            return "Bluetooth unsupported"
         case .bluetoothResetting:
-            return "Bluetooth is resetting."
+            return "Resetting Bluetooth"
         case .offline:
-            return "Not connected to the controller."
+            return "Controller offline"
         case .scanning:
-            return "Looking for the controller."
+            return "Looking for controller"
         case .connecting, .discovering, .restoring:
-            return "Connecting to the controller."
+            return "Connecting"
         case .pairingRequired:
             if controller.isPairingPending {
-                return "Waiting for pairing approval."
+                return "Waiting for approval"
             }
             if controller.canPair {
-                return "This iPhone can pair now."
+                return "Ready to pair"
             }
-            return "Pairing is required."
+            return "Pairing required"
         case .authenticating, .synchronizing, .preparingSecureControl:
-            return "Connecting to the controller."
+            return "Securing connection"
         case .ready:
-            return "Controller is ready."
+            return "Ready"
         case .updatingFirmware:
-            return "Updating the controller."
+            return controller.isFirmwareUpdateObservedFromAnotherDevice
+                ? "Updating from another device"
+                : "Updating controller"
         }
     }
 
@@ -124,9 +126,13 @@ struct ControllerStatusPresentation {
         case .authenticating, .synchronizing, .preparingSecureControl:
             return "Opening your saved secure controller connection."
         case .ready:
-            return "The current lock state is synced and secure control is ready."
+            return controller.hasCurrentConnectionRoster
+                ? controller.connectedDevicesTitle
+                : "Lock state is synced"
         case .updatingFirmware:
-            return controller.firmwareUpdateStatus
+            return controller.isFirmwareUpdateObservedFromAnotherDevice
+                ? "Reconnecting automatically when the update finishes."
+                : controller.firmwareUpdateStatus
         }
     }
 }

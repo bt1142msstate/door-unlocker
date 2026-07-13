@@ -23,14 +23,25 @@ struct FirmwarePanel: View {
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(store.firmwareUpdateStatus)
+                    Text(store.firmwareUpdateDeviceText ?? store.firmwareUpdateStatus)
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
 
-                    if let progress = store.firmwareUpdateProgress {
-                        ProgressView(value: Double(progress), total: 100)
-                            .tint(accent)
+                    if let progress = store.displayedFirmwareUpdateProgress {
+                        HStack(spacing: 8) {
+                            ProgressView(value: Double(progress), total: 100)
+                                .tint(accent)
+                            Text("\(progress)%")
+                                .font(.caption.monospacedDigit().weight(.semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if let etaText = store.firmwareUpdateETAText {
+                        Text(etaText)
+                            .font(.caption.monospacedDigit().weight(.semibold))
+                            .foregroundStyle(accent)
                     }
                 }
             }

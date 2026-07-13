@@ -3,9 +3,10 @@ import Foundation
 public struct DoorFirmwareDfuTuning: Equatable, Sendable {
     public static let optimizedBootloaderName = "DoorDFU"
     public static let maxAdafruitPacketReceiptNotificationParameter: UInt16 = 32
-    public static let defaultPacketReceiptNotificationParameter: UInt16 = 8
-    public static let defaultMacPacketReceiptNotificationParameter: UInt16 = 16
-    public static let defaultDataObjectPreparationDelay: TimeInterval = 0.4
+    public static let defaultPacketReceiptNotificationParameter: UInt16 = 9
+    public static let defaultMacPacketReceiptNotificationParameter: UInt16 =
+        defaultPacketReceiptNotificationParameter
+    public static let defaultDataObjectPreparationDelay: TimeInterval = 0.3
     public static let defaultScanTimeout: TimeInterval = 18
     public static let defaultConnectionTimeout: TimeInterval = 20
 

@@ -2,7 +2,7 @@
 
 `script/quality_suite.py` is the project-level gate for release changes. It combines self-tested quality tooling, architecture heuristics, executable tests, coverage evidence, firmware compilation, app builds, and wiring/CAD consistency checks.
 
-The suite also runs the dual-bank power-loss model against the exact bundled firmware size. It tests every whole transfer percentage before activation and fails if the image no longer fits the staging bank, single-bank fallback is enabled, or a simulated cut would not select the previous firmware. Final activation-copy recovery still requires an attended physical proof on the installed candidate.
+The suite also runs the dual-bank power-loss model against the exact bundled firmware size. It tests every whole transfer percentage and the transactional activation journal across erase, copy, settings, reboot, corruption, and commit boundaries. It fails if the image no longer fits, single-bank fallback is enabled, commit ordering is unsafe, or any modeled cut lacks a deterministic recovery. Exact-hardware activation recovery still requires attended physical proof.
 
 ## Default Suite
 
@@ -66,7 +66,7 @@ python3 script/quality_suite.py --install-ios
 
 `--live-mixed-client` runs repeated iPhone/Mac relaunch recovery, alternating cross-client lock/unlock commands, and durable setting changes. It requires both trusted apps and the controller to be available, and it writes private raw telemetry to ignored local report files.
 
-`--firmware-release` requires a checked-in physical proof whose firmware version and payload hash match the exact current DFU package. It also requires the exact installed signed bootloader hash, unsigned-package rejection, app-termination and Bluetooth-loss recovery, Mac wireless verification, preserved controller state, and the complete physical power-loss campaign. Upload cuts at 30% and 80% are proven; deterministic erase and post-validation cuts remain the final production-only gate.
+`--firmware-release` requires a checked-in physical proof whose firmware version and payload hash match the exact current DFU package. It also requires the exact installed signed bootloader hash, unsigned-package rejection, app-termination and Bluetooth-loss recovery, Mac wireless verification, preserved controller state, and the complete physical power-loss campaign. A newly built bootloader hash invalidates earlier physical evidence until the installed candidate and required cases are reverified.
 
 ## What The Suite Measures
 

@@ -61,6 +61,19 @@ final class ControllerStateParsingTests: XCTestCase {
         XCTAssertEqual(connections?.devices.map(\.name), ["Brandon iPhone", "MacBook"])
     }
 
+    func testParsesFirmwareUpdaterIdentity() {
+        let announcement = DoorControllerStateParsing.firmwareUpdateAnnouncement(
+            from: "firmware_update:ota_dfu:iPhone Air"
+        )
+
+        XCTAssertEqual(announcement?.state, "ota_dfu")
+        XCTAssertEqual(announcement?.updaterName, "iPhone Air")
+        XCTAssertEqual(
+            DoorControllerStateParsing.firmwareUpdateState(from: "firmware_update:ota_dfu"),
+            "ota_dfu"
+        )
+    }
+
     func testNormalizesSmartPunctuationInNames() {
         let name = DoorNameNormalizer.normalized("Brandon\u{2019}s Lock", fallback: "My Lock")
 

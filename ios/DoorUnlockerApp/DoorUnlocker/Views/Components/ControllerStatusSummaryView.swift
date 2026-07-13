@@ -32,9 +32,8 @@ struct ControllerStatusSummaryView: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(12)
         .frame(maxWidth: .infinity)
-        .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
     }
 }

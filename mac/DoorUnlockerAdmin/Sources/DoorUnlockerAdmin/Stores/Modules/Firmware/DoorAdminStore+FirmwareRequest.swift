@@ -78,8 +78,9 @@ extension DoorAdminStore {
             .appendingPathComponent(DoorLocalCommandBridge.appBundleIdentifier, isDirectory: true)
             .appendingPathComponent("Firmware", isDirectory: true)
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
-        let packageURL = destination.appendingPathComponent("DoorUnlockerXiao-dfu.zip")
-        let stagedURL = destination.appendingPathComponent("DoorUnlockerXiao-dfu.staged.zip")
+        let packageName = DoorFirmwarePackageProfile.stagedFileName(for: url.lastPathComponent)
+        let packageURL = destination.appendingPathComponent(packageName)
+        let stagedURL = destination.appendingPathComponent("\(packageName).staged")
         if FileManager.default.fileExists(atPath: stagedURL.path) {
             try FileManager.default.removeItem(at: stagedURL)
         }
@@ -93,6 +94,7 @@ extension DoorAdminStore {
     }
 
     func startFirmwareUpdate(packageURL: URL) {
+        clearObservedFirmwareUpdateBeforeLocalStart()
         pendingFirmwareUpdatePackageURL = packageURL
         firmwareUpdateEntryCommandSent = false
         firmwareDfuStartFallbackTask?.cancel()

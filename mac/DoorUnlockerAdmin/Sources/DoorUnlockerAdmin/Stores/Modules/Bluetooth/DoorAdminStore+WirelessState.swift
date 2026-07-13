@@ -60,6 +60,7 @@ extension DoorAdminStore {
             status = nextStatus
             saveCachedStatus(nextStatus)
             hasCurrentFirmwareVersionSnapshot = true
+            finishObservedFirmwareUpdate(version: controllerFirmwareVersion)
             refreshWirelessControllerMetadataSnapshotRetry()
             postFirmwareVerificationIfNeeded(controllerFirmwareVersion)
             reconcileFirmwareUpdateJournal(installedVersion: controllerFirmwareVersion)
@@ -74,10 +75,9 @@ extension DoorAdminStore {
             return
         }
 
-        if let updateState = ControllerStateParser.firmwareUpdateState(from: newState) {
-            if updateState == "ota_dfu" {
-                firmwareUpdateStatus = "Controller entering update mode"
-                beginPendingFirmwareDfuUploadIfNeeded()
+        if let announcement = ControllerStateParser.firmwareUpdateAnnouncement(from: newState) {
+            if announcement.state == "ota_dfu" {
+                observeFirmwareUpdateAnnouncement(updaterName: announcement.updaterName)
             }
             updateWirelessPairingState(from: "paired")
             return

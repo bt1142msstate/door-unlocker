@@ -1,5 +1,7 @@
 # Door Unlocker v0.2.0 Release Readiness
 
+> Historical, superseded release record. Do not use this document as current setup or validation guidance.
+
 ## Outcome
 
 **PASS: v0.2.0 is accepted as the first software-stable Door Unlocker release.**

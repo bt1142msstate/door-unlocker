@@ -28,6 +28,12 @@ public enum ControllerStateParser {
         DoorControllerStateParsing.firmwareUpdateState(from: rawState)
     }
 
+    public static func firmwareUpdateAnnouncement(
+        from rawState: String
+    ) -> (state: String, updaterName: String?)? {
+        DoorControllerStateParsing.firmwareUpdateAnnouncement(from: rawState)
+    }
+
     public static func fastCommandNonce(from rawState: String) -> Data? {
         DoorControllerStateParsing.fastCommandNonce(from: rawState)
     }

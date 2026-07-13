@@ -3,6 +3,23 @@ import DoorUnlockerShared
 
 extension DoorAdminStore {
     var sessionAssessment: DoorControllerSessionAssessment {
+        if observedFirmwareUpdate.isActive {
+            return DoorControllerSessionAssessment.assess(
+                DoorControllerSessionFacts(
+                    bluetooth: assessedBluetoothAvailability,
+                    link: .updatingFirmware,
+                    isTransportConnected: false,
+                    isGattReady: false,
+                    isTrusted: true,
+                    isControllerHealthKnown: true,
+                    isControllerHealthy: true,
+                    isLinkAuthenticated: false,
+                    hasCurrentStateSnapshot: false,
+                    hasFreshCommandMaterial: false
+                )
+            )
+        }
+
         if isUSBControllerValidated {
             return DoorControllerSessionAssessment.assess(
                 DoorControllerSessionFacts(
@@ -105,7 +122,7 @@ extension DoorAdminStore {
     }
 
     private var assessedWirelessLinkPhase: DoorControllerLinkPhase {
-        if isFirmwareUpdateRunning || wirelessConnectionState == "Updating firmware" {
+        if isFirmwareUpdateRunning || observedFirmwareUpdate.isActive || wirelessConnectionState == "Updating firmware" {
             return .updatingFirmware
         }
 

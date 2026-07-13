@@ -10,12 +10,59 @@ import UserNotifications
 import WidgetKit
 
 extension DoorUnlockerController {
+    var isFirmwareUpdateObservedFromAnotherDevice: Bool {
+        observedFirmwareUpdate.isActive && !isFirmwareDfuTransportActive
+    }
+
     var isFirmwareDfuTransportActive: Bool {
         DoorFirmwareTransportOwnership.isDfuTransportActive(
             isUpdateRunning: isFirmwareUpdateRunning,
             entryCommandSent: firmwareUpdateEntryCommandSent,
             hasPendingPackage: pendingFirmwareUpdatePackageURL != nil
         )
+    }
+
+    func observeFirmwareUpdateAnnouncement(updaterName: String?) {
+        if isFirmwareDfuTransportActive {
+            firmwareUpdateStatus = "Controller entering update mode"
+            beginPendingFirmwareDfuUploadIfNeeded()
+            return
+        }
+
+        observedFirmwareUpdate.begin(updaterName: updaterName)
+        observedFirmwareUpdateTimeoutTask?.cancel()
+        connectionState = "Updating firmware"
+        firmwareUpdateStatus = updaterName.map { "Updating from \($0)" } ?? "Updating from another device"
+        lastError = nil
+        observedFirmwareUpdateTimeoutTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                let didExpire = await MainActor.run { () -> Bool in
+                    guard let self else { return true }
+                    self.observedFirmwareUpdate.tick()
+                    if self.observedFirmwareUpdate.expire() {
+                        self.observedFirmwareUpdateTimeoutTask = nil
+                        self.firmwareUpdateStatus = "Ready"
+                        self.connectionState = "Disconnected"
+                        self.lastError = "The controller did not return after its firmware update."
+                        self.scheduleReconnectCheck(after: Self.fastKnownControllerRetryDelay)
+                        return true
+                    }
+                    return false
+                }
+                if didExpire { return }
+            }
+        }
+    }
+
+    func finishObservedFirmwareUpdate(version: String) {
+        guard observedFirmwareUpdate.isActive else { return }
+        observedFirmwareUpdate.finish()
+        observedFirmwareUpdateTimeoutTask?.cancel()
+        observedFirmwareUpdateTimeoutTask = nil
+        firmwareUpdateStatus = "Update finished. Controller is on \(version)."
+        lastError = nil
+        scheduleFirmwareUpdateSuccessReset()
     }
 
     func startFirmwareUpdate(fromExternalPackageURL url: URL) {
@@ -72,6 +119,10 @@ extension DoorUnlockerController {
             lastError = "Choose a firmware .zip package."
             return
         }
+
+        observedFirmwareUpdate.finish()
+        observedFirmwareUpdateTimeoutTask?.cancel()
+        observedFirmwareUpdateTimeoutTask = nil
 
 #if DEBUG
         recordStartupTelemetry("firmware_start_pending", details: packageURL.lastPathComponent, once: false)

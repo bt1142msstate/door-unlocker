@@ -13,7 +13,7 @@ struct ControllerStateCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 13) {
             header
             ControllerStatusSummaryView(presentation: statusPresentation, accent: accent)
 
@@ -21,17 +21,9 @@ struct ControllerStateCard: View {
                 FirmwareUpdateStatusBanner(
                     visualState: firmwareUpdateVisualState,
                     title: firmwareUpdateTitle,
-                    status: controller.firmwareUpdateStatus,
-                    progress: controller.firmwareUpdateProgress,
+                    status: controller.firmwareUpdateDeviceText ?? controller.firmwareUpdateStatus,
+                    progress: controller.displayedFirmwareUpdateProgress,
                     etaText: controller.firmwareUpdateETAText,
-                    accent: accent
-                )
-            }
-
-            if controller.shouldShowConnectedDevicesSummary {
-                ConnectedDevicesSummaryView(
-                    title: controller.connectedDevicesTitle,
-                    detail: controller.connectedDevicesDetail,
                     accent: accent
                 )
             }

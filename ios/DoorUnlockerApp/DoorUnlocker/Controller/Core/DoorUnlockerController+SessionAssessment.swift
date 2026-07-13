@@ -131,7 +131,7 @@ extension DoorUnlockerController {
     }
 
     private var assessedLinkPhase: DoorControllerLinkPhase {
-        if isFirmwareDfuTransportActive || connectionState == "Updating firmware" {
+        if isFirmwareDfuTransportActive || observedFirmwareUpdate.isActive || connectionState == "Updating firmware" {
             return .updatingFirmware
         }
 

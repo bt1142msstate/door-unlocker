@@ -25,12 +25,17 @@ struct FirmwareSettingsControl: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
 
-            if let progress = controller.firmwareUpdateProgress {
-                ProgressView(value: Double(progress), total: 100)
-                    .tint(accent)
+            if let progress = controller.displayedFirmwareUpdateProgress {
+                HStack(spacing: 8) {
+                    ProgressView(value: Double(progress), total: 100)
+                        .tint(accent)
+                    Text("\(progress)%")
+                        .font(.caption2.monospacedDigit().weight(.bold))
+                        .foregroundStyle(.secondary)
+                }
             }
 
-            Text(controller.firmwareUpdateStatus)
+            Text(controller.firmwareUpdateDeviceText ?? controller.firmwareUpdateStatus)
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)

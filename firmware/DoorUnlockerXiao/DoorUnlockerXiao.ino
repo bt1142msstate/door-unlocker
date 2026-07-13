@@ -8,6 +8,7 @@
 #include "nrf_soc.h"
 #include <Adafruit_LittleFS.h>
 #include <InternalFileSystem.h>
+#include "StagingBankMaintenance.h"
 
 using namespace Adafruit_LittleFS_Namespace;
 
@@ -41,7 +42,7 @@ static const uint16_t MIN_UNLOCK_HOLD_TIMEOUT_SECONDS = 5;
 static const uint16_t MAX_UNLOCK_HOLD_TIMEOUT_SECONDS = 120;
 static const char DEFAULT_LOCK_NAME[] = "My Lock";
 static const char CONTROLLER_MODEL_NAME[] = "DoorUnlocker-XIAO-v4";
-static const char CONTROLLER_FIRMWARE_VERSION[] = "0.1.26";
+static const char CONTROLLER_FIRMWARE_VERSION[] = "0.1.30";
 // Fresh random-static BLE identity for the app-layer-security firmware. This
 // avoids stale iOS/macOS OS-level bond records from the earlier encrypted-GATT
 // builds while preserving trusted app keys in LittleFS.
@@ -2187,6 +2188,24 @@ void processPendingStateNotifications() {
   }
 }
 
+bool hasPendingStateNotifications() {
+  for (uint8_t slot = 0; slot < MAX_BLE_CONNECTIONS; slot++) {
+    if (stateNotificationQueueCounts[slot] > 0 || stateNotificationSending[slot]) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void drainStateNotificationsBeforeRestart(uint32_t timeoutMs = 320) {
+  uint32_t startedAt = millis();
+  while (hasPendingStateNotifications()
+         && (uint32_t)(millis() - startedAt) < timeoutMs) {
+    processPendingStateNotifications();
+    delay(2);
+  }
+}
+
 void notifyStateSubscribers(const char* payload) {
   if (payload == nullptr || !Bluefruit.connected()) {
     return;
@@ -2437,13 +2456,20 @@ void processPendingStateStartupSnapshots() {
     snprintf(payload, sizeof(payload), "health:%s", internalFsReady ? "ok" : "storage_fault");
     notifyStateSubscriber(connHandle, payload);
     publishStateTo(connHandle, currentStateText());
+    if (stagingBankMaintenanceComplete()) {
+      notifyStateSubscriber(connHandle, "ota_staging_ready");
+    }
   }
 }
 
-void publishFirmwareUpdateState(const char* state) {
+void publishFirmwareUpdateState(const char* state, const char* updaterName = nullptr) {
   char payload[STATE_PAYLOAD_MAX_LEN] = {0};
-  snprintf(payload, sizeof(payload), "firmware_update:%s", state);
-  writeAndNotifyStatePayload(payload);
+  if (updaterName != nullptr && updaterName[0] != 0) {
+    snprintf(payload, sizeof(payload), "firmware_update:%s:%s", state, updaterName);
+  } else {
+    snprintf(payload, sizeof(payload), "firmware_update:%s", state);
+  }
+  writeAndNotifyAuthoritativeStatePayload(payload);
   Serial.print("State: ");
   Serial.println(payload);
 }
@@ -2944,10 +2970,10 @@ void handleV3Command(const uint8_t* packet, uint16_t packetLen, uint16_t connHan
       return;
     }
 
-    publishFirmwareUpdateState("ota_dfu");
+    publishFirmwareUpdateState("ota_dfu", pairedDeviceNames[pairingIndex]);
     finishV3Command(connHandle);
+    drainStateNotificationsBeforeRestart();
     Serial.flush();
-    delay(180);
     enterOTADfu();
   } else {
     rejectV3CommandFor(connHandle, "bad_op");
@@ -3813,9 +3839,9 @@ bool handleAppCommand(char* command) {
     enterUf2Dfu();
   } else if (serialCommandEquals(subcommand, "ota") || serialCommandEquals(subcommand, "ota-dfu")) {
     printAppOk("firmware_update=ota_dfu");
-    publishFirmwareUpdateState("ota_dfu");
+    publishFirmwareUpdateState("ota_dfu", "This Mac over USB-C");
+    drainStateNotificationsBeforeRestart();
     Serial.flush();
-    delay(180);
     enterOTADfu();
   } else if (serialCommandStartsWith(subcommand, "lock")) {
     char* epochText = trimSerialCommand(subcommand + strlen("lock"));
@@ -4171,6 +4197,7 @@ void setup() {
 
   setupDoorService();
   startAdvertising();
+  beginStagingBankMaintenance(millis());
 
   Serial.print(CONTROLLER_MODEL_NAME);
   Serial.println(" ready");
@@ -4198,5 +4225,11 @@ void loop() {
   handleUnlockTimeout();
   refreshUnlockCountdownValueIfChanged();
   updateStatusLed();
+  if (serviceStagingBankMaintenance(
+        millis(),
+        servoMoving || unlocked || bleCommandQueueCount > 0 || settingApplyStatusActive
+      )) {
+    notifyStateSubscribers("ota_staging_ready");
+  }
   delay(MAIN_LOOP_IDLE_DELAY_MS);
 }

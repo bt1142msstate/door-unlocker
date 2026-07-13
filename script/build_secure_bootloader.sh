@@ -11,24 +11,65 @@ APPLICATION_START_ADDRESS="0x27000"
 BOOTLOADER_START_ADDRESS="0xF4000"
 RESERVED_APPLICATION_DATA_BYTES="40960"
 DUAL_BANK_APPLICATION_MAX_BYTES="397312"
+ACTIVATION_JOURNAL_ADDRESS="0x000E9000"
+OTA_MEMORY_LAYOUT_HEADER="$ROOT_DIR/firmware/DoorUnlockerXiao/OtaMemoryLayout.h"
 ATT_MTU_BYTES="247"
 MAX_DFU_PAYLOAD_BYTES="244"
 GAP_EVENT_LENGTH_UNITS="12"
-MIN_CONNECTION_INTERVAL_MS="15"
-MAX_CONNECTION_INTERVAL_MS="30"
+MIN_CONNECTION_INTERVAL_MS="${DOOR_BOOTLOADER_MIN_CONNECTION_INTERVAL_MS:-15}"
+MAX_CONNECTION_INTERVAL_MS="${DOOR_BOOTLOADER_MAX_CONNECTION_INTERVAL_MS:-15}"
+FLASH_LOCAL_LATENCY_EVENTS="${DOOR_BOOTLOADER_FLASH_LOCAL_LATENCY:-50}"
+PHY_PREFERENCE="${DOOR_BOOTLOADER_PHY_PREFERENCE:-auto}"
+HCI_RX_QUEUE_SIZE="${DOOR_BOOTLOADER_HCI_RX_QUEUE_SIZE:-16}"
+PSTORAGE_QUEUE_SIZE="${DOOR_BOOTLOADER_PSTORAGE_QUEUE_SIZE:-18}"
+BUILD_PROFILE="${DOOR_BOOTLOADER_BUILD_PROFILE:-release-candidate}"
 CANDIDATE_DFU_DEVICE_NAME="DoorDFU"
 DEFAULT_TO_OTA_DFU="ON"
 KEY_DIR="${DOOR_FIRMWARE_SIGNING_DIR:-$HOME/Library/Application Support/Door Unlocker/FirmwareSigning}"
 KEY_PATH="${DOOR_FIRMWARE_SIGNING_KEY:-$KEY_DIR/firmware-signing-key.pem}"
-WORK_DIR="${DOOR_BOOTLOADER_WORK_DIR:-${TMPDIR:-/tmp}/door-unlocker-secure-bootloader}"
+PROFILE_SLUG="$(printf '%s' "$BUILD_PROFILE" | tr -c 'A-Za-z0-9._-' '-')"
+WORK_DIR="${DOOR_BOOTLOADER_WORK_DIR:-${TMPDIR:-/tmp}/door-unlocker-secure-bootloader-${PROFILE_SLUG}}"
 SOURCE_DIR="$WORK_DIR/source"
 BUILD_DIR="$WORK_DIR/build"
 VENV_DIR="$WORK_DIR/venv"
-OUTPUT_DIR="$ROOT_DIR/dist/bootloader"
-PUBLIC_MANIFEST="$ROOT_DIR/docs/firmware-signing-public-key.json"
+if [[ "$BUILD_PROFILE" == "release-candidate" ]]; then
+  OUTPUT_DIR="${DOOR_BOOTLOADER_OUTPUT_DIR:-$ROOT_DIR/dist/bootloader}"
+  RELEASE_DIR="${DOOR_BOOTLOADER_RELEASE_DIR:-$ROOT_DIR/bootloader/releases}"
+  PUBLIC_MANIFEST="${DOOR_BOOTLOADER_PUBLIC_MANIFEST:-$ROOT_DIR/docs/firmware-signing-public-key.json}"
+else
+  OUTPUT_DIR="${DOOR_BOOTLOADER_OUTPUT_DIR:-$ROOT_DIR/dist/bootloader/variants/$PROFILE_SLUG}"
+  RELEASE_DIR="${DOOR_BOOTLOADER_RELEASE_DIR:-$OUTPUT_DIR/releases}"
+  PUBLIC_MANIFEST="${DOOR_BOOTLOADER_PUBLIC_MANIFEST:-$OUTPUT_DIR/manifest.json}"
+fi
 PUBLIC_KEY_PEM="$ROOT_DIR/docs/firmware-signing-public-key.pem"
+TRANSACTIONAL_ACTIVATION_DIR="$ROOT_DIR/bootloader/transactional_activation"
+BOOTLOADER_PATCHER="$ROOT_DIR/script/patch_secure_bootloader.py"
 ARM_GCC_DIR="${ARM_GCC_DIR:-$HOME/Library/Arduino15/packages/Seeeduino/tools/arm-none-eabi-gcc/9-2019q4/bin}"
 GENERATE_KEY=0
+
+case "$PHY_PREFERENCE" in
+  auto) PHY_SOURCE_CONSTANT="BLE_GAP_PHY_AUTO" ;;
+  2m) PHY_SOURCE_CONSTANT="BLE_GAP_PHY_2MBPS" ;;
+  *) echo "DOOR_BOOTLOADER_PHY_PREFERENCE must be auto or 2m." >&2; exit 2 ;;
+esac
+if ! [[ "$FLASH_LOCAL_LATENCY_EVENTS" =~ ^[0-9]+$ ]] || (( FLASH_LOCAL_LATENCY_EVENTS > 50 )); then
+  echo "DOOR_BOOTLOADER_FLASH_LOCAL_LATENCY must be an integer from 0 through 50." >&2
+  exit 2
+fi
+if ! [[ "$HCI_RX_QUEUE_SIZE" =~ ^[0-9]+$ ]] || (( HCI_RX_QUEUE_SIZE < 8 || (HCI_RX_QUEUE_SIZE & (HCI_RX_QUEUE_SIZE - 1)) != 0 )); then
+  echo "DOOR_BOOTLOADER_HCI_RX_QUEUE_SIZE must be a power of two of at least 8." >&2
+  exit 2
+fi
+if ! [[ "$PSTORAGE_QUEUE_SIZE" =~ ^[0-9]+$ ]] || (( PSTORAGE_QUEUE_SIZE < HCI_RX_QUEUE_SIZE + 2 )); then
+  echo "DOOR_BOOTLOADER_PSTORAGE_QUEUE_SIZE must exceed the BLE queue by at least two." >&2
+  exit 2
+fi
+if [[ "$MIN_CONNECTION_INTERVAL_MS" != "15" && "$MIN_CONNECTION_INTERVAL_MS" != "30" ]] \
+  || [[ "$MAX_CONNECTION_INTERVAL_MS" != "15" && "$MAX_CONNECTION_INTERVAL_MS" != "30" ]] \
+  || (( MIN_CONNECTION_INTERVAL_MS > MAX_CONNECTION_INTERVAL_MS )); then
+  echo "Door Unlocker's BLE interval must be 15 or 30 ms with min <= max." >&2
+  exit 2
+fi
 
 if [[ "${1:-}" == "--generate-key" ]]; then
   GENERATE_KEY=1
@@ -112,6 +153,16 @@ if source.count(old) != 1:
 path.write_text(source.replace(old, new), encoding="utf-8")
 PY
 
+/usr/bin/python3 "$BOOTLOADER_PATCHER" \
+  --source "$SOURCE_DIR" \
+  --module "$TRANSACTIONAL_ACTIVATION_DIR" \
+  --flash-local-latency "$FLASH_LOCAL_LATENCY_EVENTS" \
+  --phy-mode "$PHY_PREFERENCE" \
+  --hci-rx-queue-size "$HCI_RX_QUEUE_SIZE" \
+  --pstorage-queue-size "$PSTORAGE_QUEUE_SIZE" \
+  --minimum-connection-interval-ms "$MIN_CONNECTION_INTERVAL_MS" \
+  --maximum-connection-interval-ms "$MAX_CONNECTION_INTERVAL_MS"
+
 require_source_marker() {
   local file="$1"
   local marker="$2"
@@ -124,7 +175,9 @@ require_source_marker() {
 require_source_marker "$SOURCE_DIR/src/sdk_config.h" "#define BLEGATT_ATT_MTU_MAX         $ATT_MTU_BYTES"
 require_source_marker "$SOURCE_DIR/src/main.c" "#define BLEGAP_EVENT_LENGTH             $GAP_EVENT_LENGTH_UNITS"
 require_source_marker "$SOURCE_DIR/src/main.c" "opt.common_opt.conn_evt_ext.enable = 1"
-require_source_marker "$SOURCE_DIR/src/main.c" ".rx_phys = BLE_GAP_PHY_AUTO"
+require_source_marker "$SOURCE_DIR/src/main.c" ".rx_phys = $PHY_SOURCE_CONSTANT"
+require_source_marker "$SOURCE_DIR/src/sdk_config.h" "#define HCI_RX_BUF_QUEUE_SIZE              $HCI_RX_QUEUE_SIZE"
+require_source_marker "$SOURCE_DIR/src/pstorage_platform.h" "#define PSTORAGE_CMD_QUEUE_SIZE     $PSTORAGE_QUEUE_SIZE"
 require_source_marker "$SOURCE_DIR/lib/sdk11/components/ble/ble_services/ble_dfu/ble_dfu.c" \
   "#define MAX_DFU_PKT_LEN                 (BLEGATT_ATT_MTU_MAX - 3)"
 require_source_marker "$SOURCE_DIR/lib/sdk11/components/libraries/bootloader_dfu/dfu_transport_ble.c" \
@@ -133,6 +186,8 @@ require_source_marker "$SOURCE_DIR/lib/sdk11/components/libraries/bootloader_dfu
   "#define MAX_CONN_INTERVAL                    (uint16_t)(MSEC_TO_UNITS($MAX_CONNECTION_INTERVAL_MS, UNIT_1_25_MS))"
 require_source_marker "$SOURCE_DIR/lib/sdk11/components/libraries/bootloader_dfu/dfu_transport_ble.c" \
   "#define SPEEDUP_FLASH_WRITES                 1"
+require_source_marker "$SOURCE_DIR/lib/sdk11/components/libraries/bootloader_dfu/dfu_transport_ble.c" \
+  "requested_latency = $FLASH_LOCAL_LATENCY_EVENTS;"
 require_source_marker "$SOURCE_DIR/lib/sdk11/components/libraries/bootloader_dfu/dfu_transport_ble.c" \
   "BLE_GAP_EVT_DATA_LENGTH_UPDATE_REQUEST"
 require_source_marker "$SOURCE_DIR/CMakeLists.txt" \
@@ -145,6 +200,25 @@ require_source_marker "$SOURCE_DIR/lib/sdk11/components/libraries/bootloader_dfu
   'if (m_image_size > DFU_IMAGE_MAX_SIZE_BANKED)'
 require_source_marker "$SOURCE_DIR/lib/sdk11/components/libraries/bootloader_dfu/dfu_dual_bank.c" \
   'm_functions.prepare = dfu_prepare_func_swap_erase;'
+require_source_marker "$SOURCE_DIR/src/door_activation_journal.c" \
+  'flash_nrf5x_erase(DFU_BANK_0_REGION_START, image_size);'
+require_source_marker "$SOURCE_DIR/src/door_activation_journal.c" \
+  'NRF_POWER->GPREGRET = 0;'
+require_source_marker "$SOURCE_DIR/lib/sdk11/components/libraries/bootloader_dfu/dfu_dual_bank.c" \
+  'return door_activation_stage(m_start_packet.app_image_size, m_image_crc);'
+require_source_marker "$SOURCE_DIR/lib/sdk11/components/libraries/bootloader_dfu/dfu_dual_bank.c" \
+  'if (dfu_region_is_erased(DFU_BANK_1_REGION_START, image_size))'
+
+grep -Fqx "constexpr uint32_t OTA_APPLICATION_START = $APPLICATION_START_ADDRESS;" \
+  "$OTA_MEMORY_LAYOUT_HEADER" || {
+  echo "Application staging layout drifted from the bootloader build." >&2
+  exit 1
+}
+grep -Fqx "constexpr uint32_t OTA_DUAL_BANK_APPLICATION_BYTES = $DUAL_BANK_APPLICATION_MAX_BYTES;" \
+  "$OTA_MEMORY_LAYOUT_HEADER" || {
+  echo "Application staging size drifted from the bootloader build." >&2
+  exit 1
+}
 
 export PATH="$ARM_GCC_DIR:$PATH"
 pushd "$SOURCE_DIR" >/dev/null
@@ -189,12 +263,60 @@ fi
 mkdir -p "$OUTPUT_DIR"
 BOOTLOADER_HEX="$OUTPUT_DIR/DoorUnlocker-XIAO-Sense-${BOOTLOADER_VERSION}-signed-dualbank.hex"
 BOOTLOADER_UF2="$OUTPUT_DIR/DoorUnlocker-XIAO-Sense-${BOOTLOADER_VERSION}-signed-dualbank-migration.uf2"
+BOOTLOADER_CODE_BIN="$OUTPUT_DIR/DoorUnlocker-XIAO-Sense-${BOOTLOADER_VERSION}-transactional-code.bin"
+BOOTLOADER_DFU_PACKAGE="$OUTPUT_DIR/DoorUnlocker-XIAO-Sense-${BOOTLOADER_VERSION}-transactional-bootloader-dfu.zip"
+BOOTLOADER_DFU_RELEASE="$RELEASE_DIR/$(basename "$BOOTLOADER_DFU_PACKAGE")"
 cp -X "$BUILD_DIR/bootloader_mbr.hex" "$BOOTLOADER_HEX"
 cp -X "$BUILD_DIR/bootloader_mbr.uf2" "$BOOTLOADER_UF2"
+
+BOOTLOADER_HEX="$BOOTLOADER_HEX" \
+BOOTLOADER_CODE_BIN="$BOOTLOADER_CODE_BIN" \
+BOOTLOADER_START_ADDRESS="$BOOTLOADER_START_ADDRESS" \
+BOOTLOADER_SETTINGS_ADDRESS="0xFD800" \
+"$VENV_DIR/bin/python3" <<'PY'
+import os
+from pathlib import Path
+
+from intelhex import IntelHex
+
+source = IntelHex(os.environ["BOOTLOADER_HEX"])
+bootloader_start = int(os.environ["BOOTLOADER_START_ADDRESS"], 0)
+settings_start = int(os.environ["BOOTLOADER_SETTINGS_ADDRESS"], 0)
+code_segments = [
+    (start, end)
+    for start, end in source.segments()
+    if bootloader_start <= start < settings_start and end <= settings_start
+]
+if len(code_segments) != 1 or code_segments[0][0] != bootloader_start:
+    raise SystemExit(f"Expected one contiguous bootloader code segment, got {code_segments}")
+start, end = code_segments[0]
+Path(os.environ["BOOTLOADER_CODE_BIN"]).write_bytes(
+    bytes(source[address] for address in range(start, end))
+)
+PY
+
+if [[ -f "$KEY_PATH" ]]; then
+  "$VENV_DIR/bin/python3" "$ROOT_DIR/script/build_signed_dfu_package.py" \
+    --image-type bootloader \
+    --input "$BOOTLOADER_CODE_BIN" \
+    --output "$BOOTLOADER_DFU_PACKAGE" \
+    --device-type 0x0052 \
+    --device-revision 52840 \
+    --softdevice-request "$SOFTDEVICE_FIRMWARE_ID" \
+    --key "$KEY_PATH"
+  mkdir -p "$RELEASE_DIR"
+  cp -X "$BOOTLOADER_DFU_PACKAGE" "$BOOTLOADER_DFU_RELEASE"
+elif [[ -f "$BOOTLOADER_DFU_RELEASE" ]]; then
+  cp -X "$BOOTLOADER_DFU_RELEASE" "$BOOTLOADER_DFU_PACKAGE"
+else
+  rm -f "$BOOTLOADER_DFU_PACKAGE"
+fi
 
 PUBLIC_KEY_ID="$PUBLIC_KEY_ID" \
 BOOTLOADER_HEX="$BOOTLOADER_HEX" \
 BOOTLOADER_UF2="$BOOTLOADER_UF2" \
+BOOTLOADER_CODE_BIN="$BOOTLOADER_CODE_BIN" \
+BOOTLOADER_DFU_PACKAGE="$BOOTLOADER_DFU_PACKAGE" \
 BOOTLOADER_VERSION="$BOOTLOADER_VERSION" \
 BOARD="$BOARD" \
 SOFTDEVICE_VERSION="$SOFTDEVICE_VERSION" \
@@ -203,11 +325,17 @@ APPLICATION_START_ADDRESS="$APPLICATION_START_ADDRESS" \
 BOOTLOADER_START_ADDRESS="$BOOTLOADER_START_ADDRESS" \
 RESERVED_APPLICATION_DATA_BYTES="$RESERVED_APPLICATION_DATA_BYTES" \
 DUAL_BANK_APPLICATION_MAX_BYTES="$DUAL_BANK_APPLICATION_MAX_BYTES" \
+ACTIVATION_JOURNAL_ADDRESS="$ACTIVATION_JOURNAL_ADDRESS" \
 ATT_MTU_BYTES="$ATT_MTU_BYTES" \
 MAX_DFU_PAYLOAD_BYTES="$MAX_DFU_PAYLOAD_BYTES" \
 GAP_EVENT_LENGTH_UNITS="$GAP_EVENT_LENGTH_UNITS" \
 MIN_CONNECTION_INTERVAL_MS="$MIN_CONNECTION_INTERVAL_MS" \
 MAX_CONNECTION_INTERVAL_MS="$MAX_CONNECTION_INTERVAL_MS" \
+FLASH_LOCAL_LATENCY_EVENTS="$FLASH_LOCAL_LATENCY_EVENTS" \
+PHY_PREFERENCE="$PHY_PREFERENCE" \
+HCI_RX_QUEUE_SIZE="$HCI_RX_QUEUE_SIZE" \
+PSTORAGE_QUEUE_SIZE="$PSTORAGE_QUEUE_SIZE" \
+BUILD_PROFILE="$BUILD_PROFILE" \
 CANDIDATE_DFU_DEVICE_NAME="$CANDIDATE_DFU_DEVICE_NAME" \
 DEFAULT_TO_OTA_DFU="$DEFAULT_TO_OTA_DFU" \
 PUBLIC_MANIFEST="$PUBLIC_MANIFEST" \
@@ -220,6 +348,18 @@ from pathlib import Path
 
 artifact = Path(os.environ["BOOTLOADER_HEX"])
 migration_artifact = Path(os.environ["BOOTLOADER_UF2"])
+code_artifact = Path(os.environ["BOOTLOADER_CODE_BIN"])
+ota_artifact = Path(os.environ["BOOTLOADER_DFU_PACKAGE"])
+
+application_start = int(os.environ["APPLICATION_START_ADDRESS"], 0)
+bootloader_start = int(os.environ["BOOTLOADER_START_ADDRESS"], 0)
+reserved_bytes = int(os.environ["RESERVED_APPLICATION_DATA_BYTES"])
+dual_bank_bytes = int(os.environ["DUAL_BANK_APPLICATION_MAX_BYTES"])
+journal_address = int(os.environ["ACTIVATION_JOURNAL_ADDRESS"], 0)
+if journal_address != application_start + 2 * dual_bank_bytes:
+    raise SystemExit("Activation journal is not immediately after bank 1")
+if journal_address + 4096 > bootloader_start - reserved_bytes:
+    raise SystemExit("Activation journal overlaps reserved application data")
 
 blocks = []
 raw_uf2 = migration_artifact.read_bytes()
@@ -262,6 +402,11 @@ manifest = {
     "gapEventLengthUnits": int(os.environ["GAP_EVENT_LENGTH_UNITS"]),
     "minimumConnectionIntervalMs": int(os.environ["MIN_CONNECTION_INTERVAL_MS"]),
     "maximumConnectionIntervalMs": int(os.environ["MAX_CONNECTION_INTERVAL_MS"]),
+    "flashWriteLocalLatencyEvents": int(os.environ["FLASH_LOCAL_LATENCY_EVENTS"]),
+    "phyPreference": os.environ["PHY_PREFERENCE"],
+    "hciRxQueueSize": int(os.environ["HCI_RX_QUEUE_SIZE"]),
+    "pstorageQueueSize": int(os.environ["PSTORAGE_QUEUE_SIZE"]),
+    "buildProfile": os.environ["BUILD_PROFILE"],
     "dfuDeviceName": os.environ["CANDIDATE_DFU_DEVICE_NAME"],
     "defaultToOtaDfu": os.environ["DEFAULT_TO_OTA_DFU"] == "ON",
     "invalidAppDefaultsToOtaDfu": True,
@@ -269,10 +414,15 @@ manifest = {
     "dataLengthExtension": True,
     "automaticTwoMegabitPhy": True,
     "flashWritePacing": True,
+    "verifiedBlankBankEraseBypass": True,
+    "backgroundInactiveBankPreparation": True,
     "dualBankFirmware": True,
     "singleBankFallbackDisabled": True,
     "interruptedTransferRetainsBank0": True,
     "activationPowerLossRequiresPhysicalProof": True,
+    "transactionalActivationJournal": True,
+    "activationJournalAddress": f"0x{journal_address:08X}",
+    "activationResumesAfterReset": True,
     "signedFirmwareRequired": True,
     "forceUnsignedUF2": False,
     "publicKeyId": os.environ["PUBLIC_KEY_ID"],
@@ -290,6 +440,16 @@ manifest = {
         }
         for start, end in ranges
     ],
+    "bootloaderCodeArtifact": code_artifact.name,
+    "bootloaderCodeArtifactBytes": code_artifact.stat().st_size,
+    "bootloaderCodeArtifactSha256": hashlib.sha256(code_artifact.read_bytes()).hexdigest(),
+    "otaBootloaderArtifact": ota_artifact.name if ota_artifact.is_file() else None,
+    "otaBootloaderArtifactBytes": ota_artifact.stat().st_size if ota_artifact.is_file() else None,
+    "otaBootloaderArtifactSha256": (
+        hashlib.sha256(ota_artifact.read_bytes()).hexdigest()
+        if ota_artifact.is_file()
+        else None
+    ),
 }
 Path(os.environ["PUBLIC_MANIFEST"]).write_text(
     json.dumps(manifest, indent=2, sort_keys=True) + "\n",
@@ -299,6 +459,10 @@ PY
 
 echo "Secure bootloader: $BOOTLOADER_HEX"
 echo "One-time UF2 migration artifact: $BOOTLOADER_UF2"
+echo "OTA bootloader code image: $BOOTLOADER_CODE_BIN"
+if [[ -f "$BOOTLOADER_DFU_PACKAGE" ]]; then
+  echo "Signed OTA bootloader package: $BOOTLOADER_DFU_PACKAGE"
+fi
 echo "Public build manifest: $PUBLIC_MANIFEST"
 echo "Public verification key: $PUBLIC_KEY_PEM"
 if [[ -f "$KEY_PATH" ]]; then

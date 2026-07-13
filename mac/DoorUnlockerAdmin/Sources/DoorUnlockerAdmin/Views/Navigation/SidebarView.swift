@@ -7,20 +7,13 @@ struct SidebarView: View {
     var body: some View {
         List {
             Section {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(store.lockName)
-                        .font(.headline)
-                    Text("Admin")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                Text(store.lockName)
+                    .font(.headline)
                 .padding(.vertical, 4)
             }
 
             Section("Controller") {
                 SidebarMetric(title: "Status", value: store.controllerStatusTitle, symbol: store.controllerStatusSymbol)
-                SidebarMetric(title: "Model", value: store.status.modelTitle, symbol: "rectangle.connected.to.line.below")
-                SidebarMetric(title: "Connected", value: store.connectedDevicesCountText, symbol: "point.3.connected.trianglepath.dotted")
                 SidebarMetric(title: "Trusted", value: store.trustedDevicesCountText, symbol: "iphone.gen3")
             }
 

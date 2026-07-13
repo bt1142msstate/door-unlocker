@@ -100,6 +100,11 @@ extension DoorAdminStore {
     }
 
     private func signedFirmwarePackageURL(companionTo packageURL: URL) -> URL? {
+        if DoorFirmwarePackageProfile.primaryPackageCanSatisfySignedProfile(
+            fileName: packageURL.lastPathComponent
+        ) {
+            return packageURL
+        }
         let sibling = packageURL.deletingLastPathComponent()
             .appendingPathComponent("DoorUnlockerXiao-signed-dfu.zip")
         if FileManager.default.fileExists(atPath: sibling.path) {

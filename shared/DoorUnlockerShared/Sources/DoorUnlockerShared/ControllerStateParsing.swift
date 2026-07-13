@@ -140,7 +140,22 @@ public enum DoorControllerStateParsing {
     }
 
     public static func firmwareUpdateState(from rawState: String) -> String? {
-        prefixedTrimmedValue(rawState, prefix: "firmware_update:")
+        firmwareUpdateAnnouncement(from: rawState)?.state
+    }
+
+    public static func firmwareUpdateAnnouncement(
+        from rawState: String
+    ) -> (state: String, updaterName: String?)? {
+        guard let payload = prefixedTrimmedValue(rawState, prefix: "firmware_update:") else {
+            return nil
+        }
+        let parts = payload.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+        let state = String(parts[0]).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !state.isEmpty else { return nil }
+        let updaterName = parts.count > 1
+            ? String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
+            : ""
+        return (state, updaterName.isEmpty ? nil : updaterName)
     }
 
     public static func fastCommandNonce(from rawState: String) -> Data? {

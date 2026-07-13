@@ -2,30 +2,30 @@
   "appVersion": "0.2.1",
   "cold": {
     "metrics": {
-      "maximum": 751,
-      "mean": 473.7,
-      "median": 459.0,
-      "minimum": 296,
-      "p95": 751
+      "maximum": 707,
+      "mean": 401.1,
+      "median": 391.5,
+      "minimum": 256,
+      "p95": 707
     },
     "samplesMs": [
-      296,
-      454,
-      338,
-      319,
-      396,
-      625,
-      609,
-      464,
-      751,
-      485
+      707,
+      400,
+      409,
+      443,
+      356,
+      256,
+      435,
+      328,
+      383,
+      294
     ]
   },
-  "criticalPathSha256": "eeb86f33ef1b7881c4fa0536f2c0159489ee537eb31d4006234fc427a0141bb7",
+  "criticalPathSha256": "150927e47ad323a80138011b892ea668eb57003c7a42fd0d698a7aab4a430b09",
   "deviceClass": "physical iPhone",
   "failure": null,
-  "firmwareVersion": "0.1.26",
-  "generatedAt": "2026-07-13T03:54:41.654813+00:00",
+  "firmwareVersion": "0.1.29",
+  "generatedAt": "2026-07-13T09:31:05.186347+00:00",
   "limitsMs": {
     "coldMedian": 550,
     "coldP95": 800,
@@ -36,11 +36,11 @@
   "schemaVersion": 1,
   "warm": {
     "metrics": {
-      "maximum": 2,
-      "mean": 0.2,
+      "maximum": 0,
+      "mean": 0,
       "median": 0.0,
       "minimum": 0,
-      "p95": 2
+      "p95": 0
     },
     "samplesMs": [
       0,
@@ -48,7 +48,7 @@
       0,
       0,
       0,
-      2,
+      0,
       0,
       0,
       0,

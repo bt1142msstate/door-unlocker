@@ -139,6 +139,7 @@ extension DoorUnlockerController {
                 hasCurrentFirmwareVersionSnapshot = true
                 refreshControllerMetadataSnapshotRetry()
                 clearPendingBundledFirmwareUpdateIfVerified(installedVersion: controllerFirmwareVersion)
+                finishObservedFirmwareUpdate(version: controllerFirmwareVersion)
 #if DEBUG
                 handleDebugFirmwareVersionVerification(controllerFirmwareVersion)
 #endif
@@ -156,10 +157,9 @@ extension DoorUnlockerController {
                 return
             }
 
-            if let updateState = DoorControllerStateParser.firmwareUpdateState(from: rawState) {
-                if updateState == "ota_dfu" {
-                    firmwareUpdateStatus = "Controller entering update mode"
-                    beginPendingFirmwareDfuUploadIfNeeded()
+            if let announcement = DoorControllerStateParser.firmwareUpdateAnnouncement(from: rawState) {
+                if announcement.state == "ota_dfu" {
+                    observeFirmwareUpdateAnnouncement(updaterName: announcement.updaterName)
                 }
                 updatePairingState(from: "paired")
                 return

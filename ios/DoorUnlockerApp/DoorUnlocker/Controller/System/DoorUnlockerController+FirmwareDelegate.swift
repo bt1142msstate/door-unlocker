@@ -80,9 +80,11 @@ extension DoorUnlockerController: DoorFirmwareDfuManagerDelegate {
         if shouldAutomaticallyRetry {
             autoBundledFirmwareUpdateAttemptedVersion = nil
         }
-        updatePendingFirmwareJournal(phase: .paused, error: message)
         if shouldAutomaticallyRetry {
+            updatePendingFirmwareJournal(phase: .paused, error: message)
             scheduleInterruptedFirmwareUpdateRetry()
+        } else {
+            clearPendingBundledFirmwareUpdate()
         }
 #if DEBUG
         debugFirmwareAwaitingPostDfuVerification = false

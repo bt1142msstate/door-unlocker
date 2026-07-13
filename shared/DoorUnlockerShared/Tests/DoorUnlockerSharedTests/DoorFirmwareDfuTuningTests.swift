@@ -15,31 +15,31 @@ final class DoorFirmwareDfuTuningTests: XCTestCase {
         )
     }
 
-    func testOptimizedBootloaderUsesMacReceiptWindow() {
+    func testOptimizedBootloaderUsesSharedReceiptWindowOnMac() {
         let tuning = DoorFirmwareDfuTuning(
             packetReceiptNotificationParameter: DoorFirmwareDfuTuning.defaultMacPacketReceiptNotificationParameter
         )
 
         XCTAssertEqual(
             tuning.packetReceiptNotificationParameter(forBootloaderNamed: "DoorDFU"),
-            16
+            9
         )
     }
     func testStableDefaultMatchesMeasuredSafePath() {
-        XCTAssertEqual(DoorFirmwareDfuTuning.stableDefault.packetReceiptNotificationParameter, 8)
-        XCTAssertEqual(DoorFirmwareDfuTuning.stableDefault.dataObjectPreparationDelay, 0.4)
+        XCTAssertEqual(DoorFirmwareDfuTuning.stableDefault.packetReceiptNotificationParameter, 9)
+        XCTAssertEqual(DoorFirmwareDfuTuning.stableDefault.dataObjectPreparationDelay, 0.3)
         XCTAssertEqual(DoorFirmwareDfuTuning.stableDefault.scanTimeout, 18)
         XCTAssertEqual(DoorFirmwareDfuTuning.stableDefault.connectionTimeout, 20)
     }
 
-    func testMacDefaultUsesMeasuredFactoryBootloaderReceiptWindow() {
+    func testMacDefaultUsesMeasuredOptimizedBootloaderReceiptWindow() {
         let tuning = DoorFirmwareDfuTuning.from(
             arguments: ["DoorUnlocker"],
             environment: [:],
             defaultPacketReceiptNotificationParameter: DoorFirmwareDfuTuning.defaultMacPacketReceiptNotificationParameter
         )
 
-        XCTAssertEqual(tuning.packetReceiptNotificationParameter, 16)
+        XCTAssertEqual(tuning.packetReceiptNotificationParameter, 9)
     }
 
     func testBuildsBenchmarkLaunchArguments() {

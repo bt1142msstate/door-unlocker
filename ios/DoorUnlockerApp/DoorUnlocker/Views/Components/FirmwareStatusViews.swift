@@ -51,8 +51,13 @@ struct FirmwareUpdateStatusBanner: View {
                     .minimumScaleFactor(0.75)
 
                 if shouldShowProgress, let progress {
-                    ProgressView(value: Double(progress), total: 100)
-                        .tint(accent)
+                    HStack(spacing: 8) {
+                        ProgressView(value: Double(progress), total: 100)
+                            .tint(accent)
+                        Text("\(progress)%")
+                            .font(.caption2.monospacedDigit().weight(.bold))
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 if let etaText {

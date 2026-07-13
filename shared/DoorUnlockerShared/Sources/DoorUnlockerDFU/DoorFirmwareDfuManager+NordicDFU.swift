@@ -72,7 +72,8 @@ extension DoorFirmwareDfuManager: DFUServiceDelegate, DFUProgressDelegate, Logge
     public func logWith(_ level: LogLevel, message: String) {
         log.debug("NordicDFU[\(level.name(), privacy: .public)] \(message, privacy: .public)")
 #if DEBUG
-        print("DoorFirmwareDFU[\(level.name())] \(message)")
+        let elapsed = updateStartedAt.map { Date().timeIntervalSince($0) } ?? 0
+        print(String(format: "DoorFirmwareDFU %.3fs [%@] %@", elapsed, level.name(), message))
 #endif
     }
 }

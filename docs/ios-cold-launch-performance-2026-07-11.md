@@ -1,5 +1,7 @@
 # iPhone Cold-Launch Connection Performance
 
+> Historical measurement record. The content-bound current proof is `ios-launch-performance-last-run.json`.
+
 Measured on Brandon's iPhone Air with the paired XIAO nRF52840 controller on July 11, 2026.
 
 ## Result

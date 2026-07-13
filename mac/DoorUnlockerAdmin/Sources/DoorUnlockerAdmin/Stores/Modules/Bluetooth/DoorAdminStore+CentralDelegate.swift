@@ -133,8 +133,12 @@ extension DoorAdminStore: CBCentralManagerDelegate {
         disconnectedStatus.connectedDevices = []
         status = disconnectedStatus
 
-        if isFirmwareUpdateRunning {
+        if isFirmwareUpdateRunning || observedFirmwareUpdate.isActive {
             wirelessConnectionState = "Updating firmware"
+            lastError = nil
+            if central.state == .poweredOn && canUseWirelessFallback {
+                scheduleWirelessReconnect()
+            }
             return
         }
 

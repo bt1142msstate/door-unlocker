@@ -28,9 +28,8 @@ struct ControllerStatusStrip: View {
 
             Spacer(minLength: 0)
         }
-        .padding(12)
         .frame(maxWidth: .infinity)
-        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
     }
 }

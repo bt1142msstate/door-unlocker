@@ -40,7 +40,7 @@ extension DoorUnlockerController {
     }
 
     var shouldSuppressFirmwareUpdateTransientErrors: Bool {
-        isFirmwareUpdateRunning || isFirmwareUpdateVerifying || isFirmwareUpdateSuccessVisible
+        isFirmwareUpdateRunning || observedFirmwareUpdate.isActive || isFirmwareUpdateVerifying || isFirmwareUpdateSuccessVisible
     }
 
     var shouldBlockDoorControlForFirmwareUpdate: Bool {
@@ -60,17 +60,41 @@ extension DoorUnlockerController {
             return "Updating firmware..."
         }
 
+        if observedFirmwareUpdate.isActive {
+            return "Updating from another device..."
+        }
+
         return "Firmware update"
     }
 
     var firmwareUpdateETAText: String? {
-        guard isFirmwareUpdateRunning,
-              let seconds = firmwareUpdateEstimatedSecondsRemaining,
-              seconds > 0 else {
-            return nil
+        if isFirmwareUpdateObservedFromAnotherDevice,
+           let seconds = observedFirmwareUpdate.estimatedSecondsRemaining {
+            return "Estimated \(Self.formattedFirmwareETA(seconds)) remaining"
         }
 
+        guard isFirmwareUpdateRunning,
+              let seconds = firmwareUpdateEstimatedSecondsRemaining,
+              seconds > 0 else { return nil }
+
         return "About \(Self.formattedFirmwareETA(seconds)) remaining"
+    }
+
+    var displayedFirmwareUpdateProgress: Int? {
+        isFirmwareUpdateObservedFromAnotherDevice
+            ? observedFirmwareUpdate.estimatedProgress
+            : firmwareUpdateProgress
+    }
+
+    var firmwareUpdateDeviceText: String? {
+        if isFirmwareUpdateObservedFromAnotherDevice {
+            return observedFirmwareUpdate.updaterName.map { "Updating from \($0)" }
+                ?? "Updating from another device"
+        }
+        if isFirmwareUpdateRunning {
+            return "Updating from \(Self.storedDeviceDisplayName())"
+        }
+        return nil
     }
 
     private static func formattedFirmwareETA(_ seconds: Int) -> String {
@@ -257,7 +281,7 @@ extension DoorUnlockerController {
     }
 
     var shouldShowFirmwareUpdateBanner: Bool {
-        isFirmwareUpdateRunning ||
+        (isFirmwareUpdateRunning && !isFirmwareUpdateObservedFromAnotherDevice) ||
             isFirmwareUpdateVerifying ||
             isFirmwareUpdateSuccessVisible ||
             isFirmwareUpdateFailureVisible

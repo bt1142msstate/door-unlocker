@@ -1,5 +1,7 @@
 # Command Path Stability - 2026-07-10
 
+> Historical test report. Current release decisions use `quality-suite-last-run.json` and the current release-readiness report.
+
 ## Status
 
 Mac single-client and alternating iPhone/Mac hardware verification pass. The final

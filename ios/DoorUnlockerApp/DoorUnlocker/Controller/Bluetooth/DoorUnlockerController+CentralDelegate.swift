@@ -24,6 +24,12 @@ extension DoorUnlockerController: CBCentralManagerDelegate {
                     updateProximityUnlockStatus()
                     return
                 }
+                if observedFirmwareUpdate.isActive {
+                    connectionState = "Updating firmware"
+                    scan()
+                    updateProximityUnlockStatus()
+                    return
+                }
                 if isSecureCommandWriteReady {
 #if DEBUG
                     recordStartupTelemetry("powered_on_ready_skip_scan")
@@ -65,6 +71,11 @@ extension DoorUnlockerController: CBCentralManagerDelegate {
                 let restoredPeripherals = dict[CBCentralManagerRestoredStatePeripheralsKey] as? [CBPeripheral] ?? []
                 restoredPeripherals.forEach { central.cancelPeripheralConnection($0) }
                 connectionState = "Updating firmware"
+                return
+            }
+            if observedFirmwareUpdate.isActive {
+                connectionState = "Updating firmware"
+                scan()
                 return
             }
             if proximityUnlockArmedAt != nil {
@@ -173,9 +184,11 @@ extension DoorUnlockerController: CBCentralManagerDelegate {
             if let error {
                 lastError = error.localizedDescription
             }
-            if isFirmwareDfuTransportActive {
+            if isFirmwareDfuTransportActive || observedFirmwareUpdate.isActive {
                 connectionState = "Updating firmware"
+                lastError = nil
                 updateProximityUnlockStatus()
+                scheduleReconnectCheck(after: Self.fastKnownControllerRetryDelay)
                 return
             }
             if shouldCheckProximityUnlock {

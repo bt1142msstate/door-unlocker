@@ -34,8 +34,15 @@ LEGACY_PACKET_SIZING = (
     / "LegacyDfuPacketSizing.swift"
 )
 LEGACY_PACKET_WRITER = LEGACY_PACKET_SIZING.with_name("DFUPacket.swift")
+LEGACY_DFU_SERVICE = (
+    LEGACY_PACKET_SIZING.parent.parent / "Services" / "LegacyDFUService.swift"
+)
 DFU_TUNING = ROOT / "shared" / "DoorUnlockerShared" / "Sources" / "DoorUnlockerShared" / "DoorFirmwareDfuTuning.swift"
 DFU_MANAGER = ROOT / "shared" / "DoorUnlockerShared" / "Sources" / "DoorUnlockerDFU" / "DoorFirmwareDfuManager.swift"
+ACTIVATION_JOURNAL_SOURCE = ROOT / "bootloader/transactional_activation/door_activation_journal.c"
+BOOTLOADER_PATCHER = ROOT / "script/patch_secure_bootloader.py"
+OTA_MEMORY_LAYOUT = ROOT / "firmware/DoorUnlockerXiao/OtaMemoryLayout.h"
+STAGING_MAINTENANCE = ROOT / "firmware/DoorUnlockerXiao/StagingBankMaintenance.cpp"
 
 
 def main() -> int:
@@ -46,6 +53,7 @@ def main() -> int:
     parser.add_argument("--public-key", type=Path, default=DEFAULT_PUBLIC_KEY)
     parser.add_argument("--installed-proof", type=Path, default=DEFAULT_INSTALLED_PROOF)
     parser.add_argument("--require-candidate", action="store_true")
+    parser.add_argument("--require-ota-package", action="store_true")
     parser.add_argument("--require-production", action="store_true")
     args = parser.parse_args()
 
@@ -87,11 +95,18 @@ def main() -> int:
 
     bootloader_manifest = load_json(args.bootloader_manifest)
     build_script = BOOTLOADER_BUILD_SCRIPT.read_text(encoding="utf-8")
+    bootloader_patcher = BOOTLOADER_PATCHER.read_text(encoding="utf-8")
+    ota_memory_layout = OTA_MEMORY_LAYOUT.read_text(encoding="utf-8")
+    staging_maintenance = STAGING_MAINTENANCE.read_text(encoding="utf-8")
     candidate_signed = bootloader_manifest.get("signedFirmwareRequired") is True
     candidate_dual_bank = bootloader_manifest.get("dualBankFirmware") is True
     candidate_disables_unsigned_uf2 = bootloader_manifest.get("forceUnsignedUF2") is False
     candidate_wireless_invalid_app_recovery = candidate_fault_tolerance_profile_valid(
         bootloader_manifest
+    )
+    candidate_transactional_activation = transactional_activation_contract_valid(
+        bootloader_manifest,
+        ACTIVATION_JOURNAL_SOURCE.read_text(encoding="utf-8"),
     )
     candidate_public_key_matches = (
         public_key_id(args.public_key) == bootloader_manifest.get("publicKeyId")
@@ -108,6 +123,8 @@ def main() -> int:
             "Could not uniquely preserve double-reset USB recovery",
             "if (!valid_app && !dfu_start)",
             "VerifyingKey.from_pem(public_key.read_text())",
+            'TRANSACTIONAL_ACTIVATION_DIR="$ROOT_DIR/bootloader/transactional_activation"',
+            'return door_activation_stage(m_start_packet.app_image_size, m_image_crc);',
         )
     ) and "-DFORCE_UF2=ON" not in build_script
     candidate_speed_profile = candidate_speed_profile_valid(bootloader_manifest)
@@ -117,13 +134,28 @@ def main() -> int:
             'ATT_MTU_BYTES="247"',
             'MAX_DFU_PAYLOAD_BYTES="244"',
             'GAP_EVENT_LENGTH_UNITS="12"',
-            'MIN_CONNECTION_INTERVAL_MS="15"',
-            'MAX_CONNECTION_INTERVAL_MS="30"',
+            'MIN_CONNECTION_INTERVAL_MS="${DOOR_BOOTLOADER_MIN_CONNECTION_INTERVAL_MS:-15}"',
+            'MAX_CONNECTION_INTERVAL_MS="${DOOR_BOOTLOADER_MAX_CONNECTION_INTERVAL_MS:-15}"',
             'CANDIDATE_DFU_DEVICE_NAME="DoorDFU"',
             "opt.common_opt.conn_evt_ext.enable = 1",
-            ".rx_phys = BLE_GAP_PHY_AUTO",
+            ".rx_phys = $PHY_SOURCE_CONSTANT",
             "BLE_GAP_EVT_DATA_LENGTH_UPDATE_REQUEST",
             "#define SPEEDUP_FLASH_WRITES",
+        )
+    ) and all(
+        marker in bootloader_patcher
+        for marker in (
+            "dfu_region_is_erased",
+            "DFU_BANK_1_REGION_START",
+            "pstorage_callback_handler(",
+        )
+    ) and all(
+        marker in ota_memory_layout + staging_maintenance
+        for marker in (
+            "OTA_APPLICATION_START = 0x27000",
+            "OTA_DUAL_BANK_APPLICATION_BYTES = 397312",
+            "OTA_STAGING_BANK_START",
+            "flash_nrf5x_erase",
         )
     )
     package_softdevice_ids = [int(value) for value in init_packet.get("softdevice_req", [])]
@@ -140,6 +172,7 @@ def main() -> int:
     client_packet_sizing = (
         LEGACY_PACKET_SIZING.read_text(encoding="utf-8")
         + LEGACY_PACKET_WRITER.read_text(encoding="utf-8")
+        + LEGACY_DFU_SERVICE.read_text(encoding="utf-8")
         + DFU_TUNING.read_text(encoding="utf-8")
         + DFU_MANAGER.read_text(encoding="utf-8")
     )
@@ -157,11 +190,19 @@ def main() -> int:
             ".packetReceiptNotificationParameter(forBootloaderNamed: bootloaderName)",
             "signedPackageURL",
             "packageURL(forBootloaderNamed: bootloaderName)",
+            "packetsToSendNow = min(UInt32(prnValue), packetsLeft)",
+            "guard canSendPacket || prnValue > 0 else",
+            "If PRNs are enabled we will ignore the new API",
         )
     )
     migration_checks = migration_artifact_checks(
         bootloader_manifest,
         DEFAULT_BOOTLOADER_ARTIFACT_DIR,
+    )
+    bootloader_ota_checks = bootloader_ota_artifact_checks(
+        bootloader_manifest,
+        DEFAULT_BOOTLOADER_ARTIFACT_DIR,
+        args.public_key,
     )
 
     installed_proof = load_json(args.installed_proof)
@@ -196,11 +237,13 @@ def main() -> int:
         "candidate_uses_dual_bank": candidate_dual_bank,
         "candidate_disables_unsigned_uf2": candidate_disables_unsigned_uf2,
         "candidate_defaults_invalid_app_recovery_to_ble": candidate_wireless_invalid_app_recovery,
+        "candidate_transactional_activation_is_restartable": candidate_transactional_activation,
         "candidate_public_key_matches_manifest": candidate_public_key_matches,
         "candidate_build_flags_match_manifest": candidate_build_flags_match,
         "candidate_has_high_throughput_transport": candidate_speed_profile,
         "candidate_build_pins_high_throughput_transport": candidate_build_pins_speed_profile,
         **migration_checks,
+        **bootloader_ota_checks,
         "candidate_matches_package_softdevice": candidate_matches_package_softdevice,
         "package_fits_candidate_dual_bank": candidate_package_fits_dual_bank,
         "client_supports_negotiated_legacy_payload": client_uses_dynamic_legacy_payload,
@@ -247,6 +290,8 @@ def main() -> int:
         return 1
     if args.require_candidate and not candidate_ready:
         return 1
+    if args.require_ota_package and not all(bootloader_ota_checks.values()):
+        return 1
     return 0
 
 
@@ -261,17 +306,96 @@ def load_json(path: Path) -> dict:
 
 
 def read_dfu_package(path: Path) -> tuple[dict, dict, bytes, bytes]:
+    return read_dfu_image(path, "application")
+
+
+def read_dfu_image(path: Path, image_type: str) -> tuple[dict, dict, bytes, bytes]:
     if not path.is_file():
         return {}, {}, b"", b""
     with zipfile.ZipFile(path) as archive:
         names = set(archive.namelist())
         manifest = json.loads(archive.read("manifest.json"))
-        application = manifest.get("manifest", {}).get("application", {})
-        bin_name = application.get("bin_file")
-        dat_name = application.get("dat_file")
+        image = manifest.get("manifest", {}).get(image_type, {})
+        bin_name = image.get("bin_file")
+        dat_name = image.get("dat_file")
         bin_bytes = archive.read(bin_name) if bin_name in names else b""
         dat_bytes = archive.read(dat_name) if dat_name in names else b""
-    return manifest, application, bin_bytes, dat_bytes
+    return manifest, image, bin_bytes, dat_bytes
+
+
+def bootloader_ota_artifact_checks(
+    manifest: dict,
+    artifact_dir: Path,
+    public_key: Path,
+) -> dict[str, bool]:
+    artifact_name = manifest.get("otaBootloaderArtifact")
+    code_name = manifest.get("bootloaderCodeArtifact")
+    artifact = artifact_dir / artifact_name if isinstance(artifact_name, str) else None
+    release_artifact = (
+        ROOT / "bootloader" / "releases" / artifact_name
+        if isinstance(artifact_name, str)
+        else None
+    )
+    if (artifact is None or not artifact.is_file()) and release_artifact is not None:
+        artifact = release_artifact
+    code_artifact = artifact_dir / code_name if isinstance(code_name, str) else None
+    artifact_exists = artifact is not None and artifact.is_file()
+    code_exists = code_artifact is not None and code_artifact.is_file()
+    empty = {
+        "ota_bootloader_artifact_exists": artifact_exists,
+        "ota_bootloader_artifact_hash_matches_manifest": False,
+        "ota_bootloader_package_has_only_bootloader": False,
+        "ota_bootloader_payload_matches_candidate": False,
+        "ota_bootloader_package_signature_valid": False,
+        "ota_bootloader_package_softdevice_matches": False,
+        "ota_bootloader_package_hardware_revision_matches": False,
+    }
+    if not artifact_exists or not code_exists:
+        return empty
+
+    package, image, bin_bytes, dat_bytes = read_dfu_image(artifact, "bootloader")
+    package_manifest = package.get("manifest", {})
+    init_packet = image.get("init_packet_data", {})
+    declared_hash = manifest.get("otaBootloaderArtifactSha256")
+    declared_bytes = manifest.get("otaBootloaderArtifactBytes")
+    package_hash_matches = (
+        hashlib.sha256(artifact.read_bytes()).hexdigest() == declared_hash
+        and artifact.stat().st_size == declared_bytes
+    )
+    image_types = set(package_manifest) - {"dfu_version"}
+    bootloader_only = image_types == {"bootloader"} and float(
+        package_manifest.get("dfu_version", 0)
+    ) >= 0.8
+    payload_matches = (
+        bool(bin_bytes)
+        and bin_bytes == code_artifact.read_bytes()
+        and len(bin_bytes) == manifest.get("bootloaderCodeArtifactBytes")
+        and hashlib.sha256(bin_bytes).hexdigest()
+        == manifest.get("bootloaderCodeArtifactSha256")
+        and init_packet.get("firmware_length") == len(bin_bytes)
+        and init_packet.get("firmware_hash") == hashlib.sha256(bin_bytes).hexdigest()
+    )
+    signature_valid = bootloader_only and verify_signature(
+        dat_bytes,
+        init_packet.get("init_packet_ecds", ""),
+        public_key,
+    )
+    softdevice_id = parse_numeric_id(manifest.get("softDeviceFirmwareId"))
+    softdevice_matches = (
+        softdevice_id is not None
+        and softdevice_id in init_packet.get("softdevice_req", [])
+        and init_packet.get("device_type") == 0x52
+    )
+    hardware_revision_matches = init_packet.get("device_revision") == 52840
+    return {
+        "ota_bootloader_artifact_exists": True,
+        "ota_bootloader_artifact_hash_matches_manifest": package_hash_matches,
+        "ota_bootloader_package_has_only_bootloader": bootloader_only,
+        "ota_bootloader_payload_matches_candidate": payload_matches,
+        "ota_bootloader_package_signature_valid": signature_valid,
+        "ota_bootloader_package_softdevice_matches": softdevice_matches,
+        "ota_bootloader_package_hardware_revision_matches": hardware_revision_matches,
+    }
 
 
 def parse_numeric_id(value: object) -> int | None:
@@ -292,24 +416,87 @@ def candidate_speed_profile_valid(manifest: dict) -> bool:
         and manifest.get("maxDfuPayloadBytes") == 244
         and manifest.get("gapEventLengthUnits") == 12
         and manifest.get("minimumConnectionIntervalMs") == 15
-        and manifest.get("maximumConnectionIntervalMs") == 30
+        and manifest.get("maximumConnectionIntervalMs") == 15
         and manifest.get("dfuDeviceName") == "DoorDFU"
         and manifest.get("dataLengthExtension") is True
         and manifest.get("automaticTwoMegabitPhy") is True
         and manifest.get("flashWritePacing") is True
+        and manifest.get("verifiedBlankBankEraseBypass") is True
+        and manifest.get("backgroundInactiveBankPreparation") is True
     )
 
 
 def candidate_fault_tolerance_profile_valid(manifest: dict) -> bool:
-    """Require staged transfer, no single-bank fallback, and recovery paths."""
+    """Require staged transfer and journaled, restartable activation."""
     return (
         manifest.get("dualBankFirmware") is True
         and manifest.get("singleBankFallbackDisabled") is True
         and manifest.get("interruptedTransferRetainsBank0") is True
         and manifest.get("activationPowerLossRequiresPhysicalProof") is True
+        and manifest.get("transactionalActivationJournal") is True
+        and manifest.get("activationResumesAfterReset") is True
+        and parse_numeric_id(manifest.get("activationJournalAddress")) == 0xE9000
         and manifest.get("defaultToOtaDfu") is True
         and manifest.get("invalidAppDefaultsToOtaDfu") is True
         and manifest.get("doubleResetUsbRecoveryPreserved") is True
+    )
+
+
+def transactional_activation_contract_valid(manifest: dict, source: str) -> bool:
+    """Check the journal memory boundary and commit ordering in source."""
+    application_start = parse_numeric_id(manifest.get("applicationStartAddress"))
+    bootloader_start = parse_numeric_id(manifest.get("bootloaderStartAddress"))
+    journal_address = parse_numeric_id(manifest.get("activationJournalAddress"))
+    bank_bytes = manifest.get("dualBankApplicationMaxBytes")
+    reserved_bytes = manifest.get("reservedApplicationDataBytes")
+    if not all(
+        isinstance(value, int)
+        for value in (
+            application_start,
+            bootloader_start,
+            journal_address,
+            bank_bytes,
+            reserved_bytes,
+        )
+    ):
+        return False
+    if journal_address != application_start + 2 * bank_bytes:
+        return False
+    if journal_address + 4096 > bootloader_start - reserved_bytes:
+        return False
+
+    required = (
+        "uint32_t door_activation_stage",
+        "uint32_t door_activation_continue",
+        "staged_crc != image_crc",
+        "result = store_journal(&journal)",
+        "dfu_reset();",
+        "flash_nrf5x_erase(DFU_BANK_0_REGION_START, image_size)",
+        "flash_nrf5x_write(",
+        "installed_crc != image_crc",
+        "bootloader_dfu_update_process(update_status)",
+        "bootloader_app_is_valid()",
+        "uint32_t const result = clear_journal()",
+    )
+    if not all(marker in source for marker in required):
+        return False
+
+    stage_start = source.index("uint32_t door_activation_stage")
+    continue_start = source.index("uint32_t door_activation_continue")
+    stage = source[stage_start:continue_start]
+    continuation = source[continue_start:]
+    return (
+        stage.index("staged_crc != image_crc")
+        < stage.index("clear_journal()")
+        < stage.index("store_journal(&journal)")
+        < stage.index("dfu_reset();")
+        and continuation.index("staged_crc != image_crc")
+        < continuation.index("flash_nrf5x_erase")
+        < continuation.index("flash_nrf5x_write")
+        < continuation.index("installed_crc != image_crc")
+        < continuation.index("bootloader_dfu_update_process")
+        < continuation.index("bootloader_app_is_valid")
+        < continuation.rindex("clear_journal()")
     )
 
 
